@@ -92,6 +92,7 @@ TournamentRunStage _runStageFromJson(Map<String, dynamic> json) {
         json['placementMatches'],
         GroupMatch.fromJson,
       ),
+      eliminationLossLimit: json['eliminationLossLimit'] as int? ?? 1,
     );
   }
 
@@ -376,10 +377,12 @@ class KnockoutTournamentRunStage extends TournamentRunStage {
     required super.name,
     required this.rounds,
     this.placementMatches = const [],
+    this.eliminationLossLimit = 1,
   });
 
   final List<List<GroupMatch>> rounds;
   final List<GroupMatch> placementMatches;
+  final int eliminationLossLimit;
 
   List<GroupMatch> get matches => [
     for (final round in rounds) ...round,
@@ -396,6 +399,7 @@ class KnockoutTournamentRunStage extends TournamentRunStage {
       'placementMatches': placementMatches
           .map((match) => match.toJson())
           .toList(),
+      'eliminationLossLimit': eliminationLossLimit,
     };
   }
 }
@@ -408,6 +412,7 @@ class TournamentGroup {
     required this.matches,
     this.knockoutRounds = const [],
     this.placementMatches = const [],
+    this.eliminationLossLimit = 1,
   });
 
   final String name;
@@ -416,6 +421,7 @@ class TournamentGroup {
   final List<GroupMatch> matches;
   final List<List<GroupMatch>> knockoutRounds;
   final List<GroupMatch> placementMatches;
+  final int eliminationLossLimit;
 
   factory TournamentGroup.fromJson(Map<String, dynamic> json) {
     return TournamentGroup(
@@ -428,6 +434,7 @@ class TournamentGroup {
         json['placementMatches'],
         GroupMatch.fromJson,
       ),
+      eliminationLossLimit: json['eliminationLossLimit'] as int? ?? 1,
     );
   }
 
@@ -443,6 +450,7 @@ class TournamentGroup {
       'placementMatches': placementMatches
           .map((match) => match.toJson())
           .toList(),
+      'eliminationLossLimit': eliminationLossLimit,
     };
   }
 }
@@ -487,7 +495,7 @@ class GroupMatch {
   bool get hasPlayers => homePlayer != null && awayPlayer != null;
   bool get hasScore => hasPlayers && homeLegs != null && awayLegs != null;
   bool get hasResult => hasScore && !isAnnulled;
-  bool get isResolved => isAnnulled || hasResult;
+  bool get isResolved => isAnnulled || hasResult || winner != null;
 
   TournamentPlayer? get winner {
     if (allowsBye && homePlayer != null && awayPlayer == null) {

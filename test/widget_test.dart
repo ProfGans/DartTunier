@@ -101,6 +101,116 @@ void main() {
     );
   });
 
+  testWidgets('offers double and triple knockout formats', (tester) async {
+    await tester.pumpWidget(const DartTournamentApp());
+
+    await tester.tap(find.text('Turnier erstellen'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.widgetWithText(TextField, 'Anzahl'), '6');
+    await tester.tap(find.text('Spieler erzeugen'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('stage-type-field')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Gruppenphase'));
+    await tester.pumpAndSettle();
+    expect(find.text('Doppel-KO'), findsWidgets);
+    expect(find.text('Triple-KO'), findsWidgets);
+    await tester.tap(find.text('Doppel-KO').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Winners Runde 1'), findsOneWidget);
+    expect(find.textContaining('Losers Runde 1'), findsWidgets);
+    expect(find.text('Grand Final'), findsWidgets);
+
+    await tester.tap(find.byKey(const ValueKey('stage-type-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Triple-KO').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('0 Niederlagen Runde 1'), findsOneWidget);
+    expect(find.text('1 Niederlage Runde 1'), findsOneWidget);
+    expect(find.text('2 Niederlagen Runde 1'), findsOneWidget);
+    expect(find.text('Triple-KO Finalrunde'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('stage-type-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gruppenphase').last);
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('group-play-type-field')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Jeder gegen jeden').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Doppel-KO in der Gruppe'), findsWidgets);
+    expect(find.text('Triple-KO in der Gruppe'), findsWidgets);
+    await tester.tap(find.text('Triple-KO in der Gruppe').last);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('double knockout run starts with round one title', (tester) async {
+    final players = List.generate(
+      8,
+      (index) => TournamentPlayer.generated(index + 1),
+    );
+    final tournament = CreatedTournament(
+      name: 'Doppel-KO Test',
+      players: players,
+      stages: const [
+        TournamentStage(
+          name: 'Doppel-K.-o.',
+          type: 'double_knockout',
+          knockoutParticipantCount: 8,
+          knockoutBracketSize: 8,
+        ),
+      ],
+      runStages: [
+        KnockoutTournamentRunStage(
+          name: 'Doppel-K.-o.',
+          eliminationLossLimit: 2,
+          rounds: [
+            [
+              GroupMatch(
+                homePlayer: players[0],
+                awayPlayer: players[7],
+                round: 1,
+                label: 'Winners Runde 1',
+              ),
+              GroupMatch(
+                homePlayer: players[1],
+                awayPlayer: players[6],
+                round: 1,
+                label: 'Winners Runde 1',
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: TournamentRunPage(tournament: tournament)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Eliminationsplan - Aus nach 2 Niederlagen'), findsOneWidget);
+    expect(find.text('Winners Runde 1'), findsOneWidget);
+    expect(find.text('Winners Bracket'), findsOneWidget);
+    expect(find.text('Losers Bracket'), findsOneWidget);
+    expect(find.text('Finale'), findsOneWidget);
+  });
+
   testWidgets('sets round robin repeats per group', (tester) async {
     await tester.pumpWidget(const DartTournamentApp());
 
