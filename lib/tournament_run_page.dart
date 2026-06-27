@@ -249,6 +249,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       return;
     }
 
+    _ensureZeroLossBracketRounds(rounds);
+    _advanceZeroLossBracketWinners(rounds);
+
     while (rounds.isNotEmpty &&
         rounds.last.isNotEmpty &&
         rounds.last.every((match) => match.isResolved)) {
@@ -331,6 +334,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   }
 
   void _advanceDoubleEliminationRounds(List<List<GroupMatch>> rounds) {
+    _repairDoubleEliminationRoundsIfNeeded(rounds);
+
     final winnersRoundCount = _doubleWinnersRoundCount(rounds);
     final losersRoundCount = _doubleLosersRoundCount(rounds);
     if (winnersRoundCount == 0 || losersRoundCount == 0) {
@@ -338,18 +343,19 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
 
     for (var roundNumber = 1; roundNumber <= winnersRoundCount; roundNumber++) {
-      final currentWinnersRound = _matchesWithLabel(
+      final currentWinnersRound = _doubleWinnersRoundMatches(
         rounds,
-        _doubleWinnersLabel(roundNumber),
+        roundNumber,
+        includeAutoAdvances: roundNumber == 1,
       );
       if (currentWinnersRound.isEmpty) {
         continue;
       }
 
       if (roundNumber < winnersRoundCount) {
-        final nextWinnersRound = _matchesWithLabel(
+        final nextWinnersRound = _doubleWinnersRoundMatches(
           rounds,
-          _doubleWinnersLabel(roundNumber + 1),
+          roundNumber + 1,
         );
         _advancePairedWinners(currentWinnersRound, nextWinnersRound);
       }
@@ -434,6 +440,65 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
   }
 
+  void _repairDoubleEliminationRoundsIfNeeded(List<List<GroupMatch>> rounds) {
+    if (!_doubleEliminationRoundsNeedRepair(rounds)) {
+      return;
+    }
+
+    final repairedRounds = _buildDoubleEliminationRoundsFromFirstRound(
+      rounds.first,
+    );
+    rounds
+      ..clear()
+      ..addAll(repairedRounds);
+  }
+
+  void _ensureZeroLossBracketRounds(List<List<GroupMatch>> rounds) {
+    if (rounds.isEmpty || rounds.first.isEmpty) {
+      return;
+    }
+
+    final bracketSize = rounds.first.length * 2;
+    final roundCount = _log2PowerOfTwo(bracketSize);
+    for (var roundNumber = 2; roundNumber <= roundCount; roundNumber++) {
+      if (_matchesWithLabel(rounds, _lossLevelMatchLabel(0, roundNumber)).isNotEmpty) {
+        continue;
+      }
+
+      final matchCount = bracketSize >> roundNumber;
+      rounds.add([
+        for (var index = 0; index < matchCount; index++)
+          GroupMatch(
+            round: rounds.length + 1,
+            label: _lossLevelMatchLabel(0, roundNumber),
+          ),
+      ]);
+    }
+  }
+
+  void _advanceZeroLossBracketWinners(List<List<GroupMatch>> rounds) {
+    if (rounds.isEmpty) {
+      return;
+    }
+
+    final bracketSize = rounds.first.length * 2;
+    final roundCount = _log2PowerOfTwo(bracketSize);
+    for (var roundNumber = 2; roundNumber <= roundCount; roundNumber++) {
+      final previous = roundNumber == 2
+          ? rounds.first
+          : _matchesWithLabel(rounds, _lossLevelMatchLabel(0, roundNumber - 1));
+      final current = _matchesWithLabel(
+        rounds,
+        _lossLevelMatchLabel(0, roundNumber),
+      );
+      if (previous.isEmpty || current.isEmpty) {
+        continue;
+      }
+
+      _advancePairedWinners(previous, current);
+    }
+  }
+
   void _advancePairedWinners(
     List<GroupMatch> currentRound,
     List<GroupMatch> nextRound,
@@ -444,7 +509,12 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         continue;
       }
 
-      final targetMatch = nextRound[matchIndex ~/ 2];
+      final targetIndex = matchIndex ~/ 2;
+      if (targetIndex >= nextRound.length) {
+        continue;
+      }
+
+      final targetMatch = nextRound[targetIndex];
       if (matchIndex.isEven) {
         _setMatchHomePlayer(targetMatch, winner);
       } else {
@@ -457,18 +527,21 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     List<GroupMatch> winnersRound,
     List<GroupMatch> losersRound,
   ) {
-    for (var matchIndex = 0; matchIndex < winnersRound.length; matchIndex++) {
-      final loser = winnersRound[matchIndex].loser;
-      if (loser == null || losersRound.isEmpty) {
+    final losers = <TournamentPlayer>[];
+    for (final match in winnersRound) {
+      final loser = match.loser;
+      if (loser == null || losers.any((entry) => entry.name == loser.name)) {
         continue;
       }
+      losers.add(loser);
+    }
 
-      final targetMatch = losersRound[matchIndex ~/ 2];
-      if (matchIndex.isEven) {
-        _setMatchHomePlayer(targetMatch, loser);
-      } else {
-        _setMatchAwayPlayer(targetMatch, loser);
-      }
+    for (var matchIndex = 0; matchIndex < losersRound.length; matchIndex++) {
+      _setMatchPlayers(
+        losersRound[matchIndex],
+        matchIndex < losers.length ? losers[matchIndex] : null,
+        null,
+      );
     }
   }
 
@@ -1327,6 +1400,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 participants,
                 slotOrder: stage.knockoutSlotOrder,
                 initialLabel: _lossLevelMatchLabel(0, 1),
+                autoAdvanceLabelForByes: true,
               ),
         placementMatches: lossLimit == 1
             ? _buildPlacementMatchesForPlayers(participants.length, 1)
@@ -1477,6 +1551,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 : _buildInitialEliminationRoundsForPlayers(
                     groupPlayers,
                     initialLabel: _lossLevelMatchLabel(0, 1),
+                    autoAdvanceLabelForByes: true,
                   );
         final placementMatches = lossLimit == 1
             ? _buildPlacementMatchesForPlayers(
@@ -1568,6 +1643,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     List<TournamentPlayer> players, {
     List<int?> slotOrder = const [],
     String? initialLabel,
+    bool autoAdvanceLabelForByes = false,
   }) {
     if (players.length < 2) {
       return const [];
@@ -1587,13 +1663,16 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     for (var index = 0; index < bracketSize; index += 2) {
       final homeSeed = slots[index];
       final awaySeed = slots[index + 1];
+      final hasBye = homeSeed == null || awaySeed == null;
       firstRound.add(
         GroupMatch(
           homePlayer: homeSeed == null ? null : players[homeSeed - 1],
           awayPlayer: awaySeed == null ? null : players[awaySeed - 1],
           round: 1,
           allowsBye: true,
-          label: initialLabel,
+          label: autoAdvanceLabelForByes && hasBye
+              ? _autoAdvanceLabel
+              : initialLabel,
         ),
       );
     }

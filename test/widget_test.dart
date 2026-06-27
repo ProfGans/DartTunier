@@ -29,6 +29,8 @@ void main() {
     expect(find.text('4 Weiter'), findsOneWidget);
     expect(find.text('4er Feld'), findsOneWidget);
     expect(find.text('Bracket-Vorschau'), findsOneWidget);
+    expect(find.text('Zufall'), findsOneWidget);
+    expect(find.text('Cross seeded'), findsNothing);
 
     await tester.scrollUntilVisible(
       find.byTooltip('Etappe hinzufuegen'),
@@ -125,6 +127,8 @@ void main() {
     await tester.tap(find.text('Doppel-KO').last);
     await tester.pumpAndSettle();
 
+    expect(find.text('Zufall'), findsOneWidget);
+    expect(find.text('Cross seeded'), findsNothing);
     expect(find.text('Winners Runde 1'), findsOneWidget);
     expect(find.textContaining('Losers Runde 1'), findsWidgets);
     expect(find.text('Grand Final'), findsWidgets);
@@ -134,6 +138,9 @@ void main() {
     await tester.tap(find.text('Triple-KO').last);
     await tester.pumpAndSettle();
 
+    expect(find.text('Zufall'), findsOneWidget);
+    expect(find.text('Cross seeded'), findsNothing);
+    expect(find.textContaining('automatisch gesetzt'), findsWidgets);
     expect(find.text('0 Niederlagen Runde 1'), findsOneWidget);
     expect(find.text('1 Niederlage Runde 1'), findsOneWidget);
     expect(find.text('2 Niederlagen Runde 1'), findsOneWidget);
@@ -194,6 +201,10 @@ void main() {
                 label: 'Winners Runde 1',
               ),
             ],
+            [
+              GroupMatch(round: 2, label: 'Winners Runde 2'),
+              GroupMatch(round: 2, label: 'Losers Runde 1'),
+            ],
           ],
         ),
       ],
@@ -209,6 +220,361 @@ void main() {
     expect(find.text('Winners Bracket'), findsOneWidget);
     expect(find.text('Losers Bracket'), findsOneWidget);
     expect(find.text('Finale'), findsOneWidget);
+    expect(find.textContaining('Gewinner Spiel'), findsWidgets);
+    expect(find.text('Freilos'), findsWidgets);
+    expect(find.textContaining('Gewinner Losers'), findsNothing);
+  });
+
+  testWidgets('double knockout with many byes accepts first results', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final players = List.generate(
+      10,
+      (index) => TournamentPlayer.generated(index + 1),
+    );
+    final tournament = CreatedTournament(
+      name: 'Doppel-KO Freilose',
+      players: players,
+      stages: const [
+        TournamentStage(
+          name: 'Doppel-K.-o.',
+          type: 'double_knockout',
+          knockoutParticipantCount: 10,
+          knockoutBracketSize: 16,
+        ),
+      ],
+      runStages: [
+        KnockoutTournamentRunStage(
+          name: 'Doppel-K.-o.',
+          eliminationLossLimit: 2,
+          rounds: [
+            [
+              for (var index = 0; index < 6; index++)
+                GroupMatch(
+                  homePlayer: players[index],
+                  round: 1,
+                  allowsBye: true,
+                  label: 'Automatisch gesetzt',
+                ),
+              GroupMatch(
+                homePlayer: players[6],
+                awayPlayer: players[9],
+                round: 1,
+                allowsBye: true,
+                label: 'Winners Runde 1',
+              ),
+              GroupMatch(
+                homePlayer: players[7],
+                awayPlayer: players[8],
+                round: 1,
+                allowsBye: true,
+                label: 'Winners Runde 1',
+              ),
+            ],
+            [
+              for (var index = 0; index < 4; index++)
+                GroupMatch(round: 2, label: 'Winners Runde 2'),
+              for (var index = 0; index < 4; index++)
+                GroupMatch(
+                  round: 2,
+                  label: 'Losers Runde 1',
+                  homePlayer: index == 0 ? players[6] : null,
+                  awayPlayer: index == 0 ? players[6] : null,
+                  homeLegs: index == 0 ? 2 : null,
+                  awayLegs: index == 0 ? 1 : null,
+                ),
+            ],
+            [
+              for (var index = 0; index < 4; index++)
+                GroupMatch(round: 3, label: 'Losers Runde 2'),
+            ],
+            [
+              for (var index = 0; index < 2; index++)
+                GroupMatch(round: 4, label: 'Winners Runde 3'),
+            ],
+            [
+              for (var index = 0; index < 2; index++)
+                GroupMatch(round: 5, label: 'Losers Runde 3'),
+            ],
+            [GroupMatch(round: 6, label: 'Losers Runde 4')],
+            [GroupMatch(round: 7, label: 'Winners Runde 4')],
+            [GroupMatch(round: 8, label: 'Losers Runde 5')],
+            [GroupMatch(round: 9, label: 'Grand Final')],
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: TournamentRunPage(tournament: tournament)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byTooltip('Ergebnis').first);
+    await tester.tap(find.byTooltip('Ergebnis').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('home-legs-field')), '2');
+    await tester.enterText(find.byKey(const ValueKey('away-legs-field')), '0');
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byTooltip('Ergebnis').at(1));
+    await tester.tap(find.byTooltip('Ergebnis').at(1));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('home-legs-field')), '2');
+    await tester.enterText(find.byKey(const ValueKey('away-legs-field')), '0');
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2'), findsWidgets);
+    expect(find.text('Spiel 7'), findsWidgets);
+    expect(find.text('Spieler 8'), findsWidgets);
+    expect(find.text('Spieler 9'), findsWidgets);
+    expect(find.text('Spieler 10'), findsWidgets);
+    expect(find.text('Gewinner Spiel 1'), findsNothing);
+
+    final runStage = tournament.runStages.first as KnockoutTournamentRunStage;
+    final firstLosersMatch = runStage.rounds
+        .expand((round) => round)
+        .firstWhere((match) => match.label == 'Losers Runde 1');
+    expect(firstLosersMatch.homePlayer, players[9]);
+    expect(firstLosersMatch.awayPlayer, isNull);
+    expect(firstLosersMatch.homeLegs, isNull);
+    expect(firstLosersMatch.awayLegs, isNull);
+    final secondLosersMatch = runStage.rounds
+        .expand((round) => round)
+        .where((match) => match.label == 'Losers Runde 1')
+        .elementAt(1);
+    expect(secondLosersMatch.homePlayer, players[8]);
+    expect(secondLosersMatch.awayPlayer, isNull);
+  });
+
+  testWidgets('repairs old malformed double knockout losers bracket', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final players = List.generate(
+      10,
+      (index) => TournamentPlayer.generated(index + 1),
+    );
+    final tournament = CreatedTournament(
+      name: 'Altes Doppel-KO',
+      players: players,
+      stages: const [
+        TournamentStage(
+          name: 'Doppel-K.-o.',
+          type: 'double_knockout',
+          knockoutParticipantCount: 10,
+          knockoutBracketSize: 16,
+        ),
+      ],
+      runStages: [
+        KnockoutTournamentRunStage(
+          name: 'Doppel-K.-o.',
+          eliminationLossLimit: 2,
+          rounds: [
+            [
+              for (var index = 0; index < 6; index++)
+                GroupMatch(
+                  homePlayer: players[index],
+                  round: 1,
+                  allowsBye: true,
+                  label: 'Automatisch gesetzt',
+                ),
+              GroupMatch(
+                homePlayer: players[6],
+                awayPlayer: players[9],
+                round: 1,
+                allowsBye: true,
+                label: 'Winners Runde 1',
+              ),
+              GroupMatch(
+                homePlayer: players[7],
+                awayPlayer: players[8],
+                round: 1,
+                allowsBye: true,
+                label: 'Winners Runde 1',
+              ),
+            ],
+            [
+              for (var index = 0; index < 4; index++)
+                GroupMatch(round: 2, label: 'Winners Runde 2'),
+              GroupMatch(round: 2, label: 'Losers Runde 1'),
+              GroupMatch(round: 2, label: 'Losers Runde 2'),
+              GroupMatch(round: 2, label: 'Losers Runde 3'),
+              GroupMatch(round: 2, label: 'Losers Runde 4'),
+            ],
+            [GroupMatch(round: 3, label: 'Losers Runde 5')],
+            [GroupMatch(round: 4, label: 'Losers Runde 6')],
+            [GroupMatch(round: 5, label: 'Losers Runde 7')],
+            [GroupMatch(round: 6, label: 'Losers Runde 8')],
+            [GroupMatch(round: 7, label: 'Losers Runde 9')],
+            [GroupMatch(round: 8, label: 'Grand Final')],
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: TournamentRunPage(tournament: tournament)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Losers Runde 9'), findsNothing);
+    expect(find.text('Losers Runde 6'), findsOneWidget);
+
+    await tester.ensureVisible(find.byTooltip('Ergebnis').first);
+    await tester.tap(find.byTooltip('Ergebnis').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('home-legs-field')), '2');
+    await tester.enterText(find.byKey(const ValueKey('away-legs-field')), '0');
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2'), findsWidgets);
+  });
+
+  testWidgets('triple knockout run shows separate loss brackets', (tester) async {
+    final players = List.generate(
+      4,
+      (index) => TournamentPlayer.generated(index + 1),
+    );
+    final tournament = CreatedTournament(
+      name: 'Triple-KO Test',
+      players: players,
+      stages: const [
+        TournamentStage(
+          name: 'Triple-K.-o.',
+          type: 'triple_knockout',
+          knockoutParticipantCount: 4,
+          knockoutBracketSize: 4,
+        ),
+      ],
+      runStages: [
+        KnockoutTournamentRunStage(
+          name: 'Triple-K.-o.',
+          eliminationLossLimit: 3,
+          rounds: [
+            [
+              GroupMatch(
+                homePlayer: players[0],
+                awayPlayer: players[3],
+                round: 1,
+                label: '0 Niederlagen Runde 1',
+              ),
+              GroupMatch(
+                homePlayer: players[1],
+                awayPlayer: players[2],
+                round: 1,
+                label: '0 Niederlagen Runde 1',
+              ),
+            ],
+            [
+              GroupMatch(round: 2, label: '1 Niederlage Runde 1'),
+            ],
+            [
+              GroupMatch(round: 3, label: '2 Niederlagen Runde 1'),
+            ],
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: TournamentRunPage(tournament: tournament)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Winners Bracket'), findsOneWidget);
+    expect(find.text('1 Niederlage Bracket'), findsOneWidget);
+    expect(find.text('2 Niederlagen Bracket'), findsOneWidget);
+    expect(find.text('0 Niederlagen Runde 1'), findsOneWidget);
+  });
+
+  testWidgets('triple knockout with many byes accepts first results', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final players = List.generate(
+      10,
+      (index) => TournamentPlayer.generated(index + 1),
+    );
+    final tournament = CreatedTournament(
+      name: 'Triple-KO Freilose',
+      players: players,
+      stages: const [
+        TournamentStage(
+          name: 'Triple-K.-o.',
+          type: 'triple_knockout',
+          knockoutParticipantCount: 10,
+          knockoutBracketSize: 16,
+        ),
+      ],
+      runStages: [
+        KnockoutTournamentRunStage(
+          name: 'Triple-K.-o.',
+          eliminationLossLimit: 3,
+          rounds: [
+            [
+              for (var index = 0; index < 6; index++)
+                GroupMatch(
+                  homePlayer: players[index],
+                  round: 1,
+                  allowsBye: true,
+                  label: 'Automatisch gesetzt',
+                ),
+              GroupMatch(
+                homePlayer: players[6],
+                awayPlayer: players[9],
+                round: 1,
+                allowsBye: true,
+                label: '0 Niederlagen Runde 1',
+              ),
+              GroupMatch(
+                homePlayer: players[7],
+                awayPlayer: players[8],
+                round: 1,
+                allowsBye: true,
+                label: '0 Niederlagen Runde 1',
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: TournamentRunPage(tournament: tournament)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byTooltip('Ergebnis').first);
+    await tester.tap(find.byTooltip('Ergebnis').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('home-legs-field')), '2');
+    await tester.enterText(find.byKey(const ValueKey('away-legs-field')), '0');
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byTooltip('Ergebnis').at(1));
+    await tester.tap(find.byTooltip('Ergebnis').at(1));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('home-legs-field')), '2');
+    await tester.enterText(find.byKey(const ValueKey('away-legs-field')), '1');
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2'), findsWidgets);
+    expect(find.text('Winners Bracket'), findsOneWidget);
+    expect(find.text('Spieler 8'), findsWidgets);
+    expect(find.text('Spieler 7'), findsWidgets);
   });
 
   testWidgets('sets round robin repeats per group', (tester) async {

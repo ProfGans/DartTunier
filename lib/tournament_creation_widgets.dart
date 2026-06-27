@@ -299,6 +299,7 @@ class _KnockoutPreview extends StatelessWidget {
     required this.seedingMode,
     required this.slotOrder,
     required this.participantLabels,
+    required this.allowCrossSeed,
     required this.onSeedingModeChanged,
     required this.onSwapSlot,
     required this.onResetSlots,
@@ -311,6 +312,7 @@ class _KnockoutPreview extends StatelessWidget {
   final String seedingMode;
   final List<int?> slotOrder;
   final List<String> participantLabels;
+  final bool allowCrossSeed;
   final ValueChanged<String> onSeedingModeChanged;
   final void Function(int fromIndex, int toIndex) onSwapSlot;
   final VoidCallback onResetSlots;
@@ -326,6 +328,7 @@ class _KnockoutPreview extends StatelessWidget {
 
     final resolvedParticipantCount = participantCount!;
     final resolvedBracketSize = bracketSize!;
+    final effectiveSeedingMode = allowCrossSeed ? seedingMode : 'random';
     final slots = slotOrder.length == resolvedBracketSize
         ? slotOrder
         : List<int?>.generate(
@@ -342,32 +345,46 @@ class _KnockoutPreview extends StatelessWidget {
           children: [
             Chip(label: Text('$resolvedParticipantCount Weiter')),
             Chip(label: Text('${resolvedBracketSize}er Feld')),
-            Chip(label: Text('$byeCount Freilose')),
+            Chip(
+              label: Text(
+                eliminationLossLimit == 3
+                    ? '$byeCount automatisch gesetzt'
+                    : '$byeCount Freilose',
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(
-              value: 'cross',
-              icon: Icon(Icons.swap_horiz),
-              label: Text('Cross seeded'),
-            ),
-            ButtonSegment(
-              value: 'random',
-              icon: Icon(Icons.shuffle),
-              label: Text('Zufall'),
-            ),
-          ],
-          selected: {seedingMode},
-          onSelectionChanged: (selection) {
-            onSeedingModeChanged(selection.first);
-          },
-        ),
-        if (seedingMode == 'cross' && byeCount > 0) ...[
+        if (allowCrossSeed)
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'cross',
+                icon: Icon(Icons.swap_horiz),
+                label: Text('Cross seeded'),
+              ),
+              ButtonSegment(
+                value: 'random',
+                icon: Icon(Icons.shuffle),
+                label: Text('Zufall'),
+              ),
+            ],
+            selected: {effectiveSeedingMode},
+            onSelectionChanged: (selection) {
+              onSeedingModeChanged(selection.first);
+            },
+          )
+        else
+          const Chip(
+            avatar: Icon(Icons.shuffle, size: 18),
+            label: Text('Zufall'),
+          ),
+        if (effectiveSeedingMode == 'cross' && byeCount > 0) ...[
           const SizedBox(height: 8),
           Text(
-            'Cross Seed vergibt Freilose automatisch an die bestplatzierten Teilnehmer.',
+            eliminationLossLimit == 3
+                ? 'Cross Seed setzt bestplatzierte Teilnehmer automatisch in die erste volle Runde.'
+                : 'Cross Seed vergibt Freilose automatisch an die bestplatzierten Teilnehmer.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -431,62 +448,168 @@ class _TripleEliminationPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final roundCount = _log2PowerOfTwo(bracketSize);
-    final roundTitles = <String>[_lossLevelMatchLabel(0, 1)];
-    final roundCards = <List<Widget>>[
-      [
-        for (var matchIndex = 0; matchIndex < bracketSize ~/ 2; matchIndex++)
-          _BracketPreviewMatch(
-            matchNumber: matchIndex + 1,
-            topSlotIndex: matchIndex * 2,
-            bottomSlotIndex: matchIndex * 2 + 1,
-            slotOrder: slotOrder,
-            participantLabels: participantLabels,
-            onSwapSlot: onSwapSlot,
+    final numberCursor = _PreviewNumberCursor();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var lossCount = 0; lossCount < 3; lossCount++) ...[
+          _BracketBandTitle(
+            title: _lossLevelBracketLabel(lossCount),
           ),
+          const SizedBox(height: 8),
+          _BracketTreeLayout(
+            totalRounds: lossCount == 0 ? roundCount : roundCount + lossCount,
+            roundTitles: [
+              for (var roundNumber = 1;
+                  roundNumber <=
+                      (lossCount == 0 ? roundCount : roundCount + lossCount);
+                  roundNumber++)
+                _lossLevelMatchLabel(lossCount, roundNumber),
+            ],
+            roundCards: [
+              ..._lossLevelPreviewColumns(
+                lossCount: lossCount,
+                roundCount: lossCount == 0 ? roundCount : roundCount + lossCount,
+                numberCursor: numberCursor,
+              ),
+            ],
+            columnWidth: 170,
+            cardHeight: 108,
+            firstRoundGap: 10,
+            useBalancedColumnLayout: true,
+          ),
+          const SizedBox(height: 16),
+        ],
+        const _BracketBandTitle(title: 'Finale'),
+        const SizedBox(height: 8),
+        _BracketTreeLayout(
+          totalRounds: 1,
+          roundTitles: const [_tripleFinalLabel],
+          roundCards: [
+            [
+              _BracketPreviewPlaceholderMatch(
+                matchNumber: numberCursor.take(),
+                topLabel: 'Sieger 0 Niederlagen',
+                bottomLabel: 'Sieger 1/2 Niederlagen',
+              ),
+            ],
+          ],
+          columnWidth: 170,
+          cardHeight: 108,
+          firstRoundGap: 10,
+          useBalancedColumnLayout: true,
+        ),
       ],
-    ];
-
-    for (var roundNumber = 2; roundNumber <= roundCount; roundNumber++) {
-      roundTitles.add(_lossLevelMatchLabel(0, roundNumber));
-      roundCards.add([
-        for (var index = 0;
-            index < (bracketSize >> roundNumber).clamp(1, bracketSize).toInt();
-            index++)
-          _BracketPreviewPlaceholderMatch(matchNumber: index + 1),
-      ]);
-    }
-
-    for (var lossCount = 1; lossCount < 3; lossCount++) {
-      for (var roundNumber = 1;
-          roundNumber <= roundCount + lossCount;
-          roundNumber++) {
-        roundTitles.add(_lossLevelMatchLabel(lossCount, roundNumber));
-        roundCards.add([
-          for (var index = 0;
-              index <
-                  _triplePreviewMatchCount(
-                    bracketSize,
-                    lossCount,
-                    roundNumber,
-                  );
-              index++)
-            _BracketPreviewPlaceholderMatch(matchNumber: index + 1),
-        ]);
-      }
-    }
-
-    roundTitles.add(_tripleFinalLabel);
-    roundCards.add([const _BracketPreviewPlaceholderMatch(matchNumber: 1)]);
-
-    return _BracketTreeLayout(
-      totalRounds: roundTitles.length,
-      roundTitles: roundTitles,
-      roundCards: roundCards,
-      columnWidth: 170,
-      cardHeight: 108,
-      firstRoundGap: 10,
-      useBalancedColumnLayout: true,
     );
+  }
+
+  List<List<Widget>> _lossLevelPreviewColumns({
+    required int lossCount,
+    required int roundCount,
+    required _PreviewNumberCursor numberCursor,
+  }) {
+    var previousNumbers = <int>[];
+    return [
+      for (var roundNumber = 1; roundNumber <= roundCount; roundNumber++)
+        if (lossCount == 0 && roundNumber == 1)
+          _firstRoundPreviewCards(numberCursor, previousNumbers)
+        else
+          _placeholderPreviewCards(
+            matchCount: _triplePreviewMatchCount(
+              bracketSize,
+              lossCount,
+              roundNumber,
+            ),
+            numberCursor: numberCursor,
+            previousNumbers: previousNumbers,
+            updatePreviousNumbers: (numbers) {
+              previousNumbers = numbers;
+            },
+          ),
+    ];
+  }
+
+  List<Widget> _firstRoundPreviewCards(
+    _PreviewNumberCursor numberCursor,
+    List<int> previousNumbers,
+  ) {
+    final cards = <Widget>[];
+    for (var matchIndex = 0; matchIndex < bracketSize ~/ 2; matchIndex++) {
+      final topSlotIndex = matchIndex * 2;
+      final bottomSlotIndex = matchIndex * 2 + 1;
+      final hasBye =
+          slotOrder[topSlotIndex] == null || slotOrder[bottomSlotIndex] == null;
+      if (hasBye) {
+        continue;
+      }
+      final matchNumber = numberCursor.take();
+      previousNumbers.add(matchNumber);
+      cards.add(
+        _BracketPreviewMatch(
+          matchNumber: matchNumber,
+          topSlotIndex: topSlotIndex,
+          bottomSlotIndex: bottomSlotIndex,
+          slotOrder: slotOrder,
+          participantLabels: participantLabels,
+          onSwapSlot: onSwapSlot,
+        ),
+      );
+    }
+
+    if (cards.isEmpty) {
+      return [
+        for (var matchIndex = 0; matchIndex < bracketSize ~/ 2; matchIndex++)
+          _fallbackFirstRoundCard(matchIndex, numberCursor, previousNumbers),
+      ];
+    }
+
+    return cards;
+  }
+
+  Widget _fallbackFirstRoundCard(
+    int matchIndex,
+    _PreviewNumberCursor numberCursor,
+    List<int> previousNumbers,
+  ) {
+    final matchNumber = numberCursor.take();
+    previousNumbers.add(matchNumber);
+    return _BracketPreviewMatch(
+      matchNumber: matchNumber,
+      topSlotIndex: matchIndex * 2,
+      bottomSlotIndex: matchIndex * 2 + 1,
+      slotOrder: slotOrder,
+      participantLabels: participantLabels,
+      onSwapSlot: onSwapSlot,
+    );
+  }
+
+  List<Widget> _placeholderPreviewCards({
+    required int matchCount,
+    required _PreviewNumberCursor numberCursor,
+    required List<int> previousNumbers,
+    required void Function(List<int> numbers) updatePreviousNumbers,
+  }) {
+    final currentNumbers = <int>[];
+    final cards = <Widget>[];
+    for (var index = 0; index < matchCount; index++) {
+      final matchNumber = numberCursor.take();
+      currentNumbers.add(matchNumber);
+      final topSourceIndex = index * 2;
+      final bottomSourceIndex = index * 2 + 1;
+      cards.add(
+        _BracketPreviewPlaceholderMatch(
+          matchNumber: matchNumber,
+          topLabel: topSourceIndex < previousNumbers.length
+              ? 'Gewinner Spiel ${previousNumbers[topSourceIndex]}'
+              : 'offen',
+          bottomLabel: bottomSourceIndex < previousNumbers.length
+              ? 'Gewinner Spiel ${previousNumbers[bottomSourceIndex]}'
+              : 'offen',
+        ),
+      );
+    }
+    updatePreviousNumbers(currentNumbers);
+    return cards;
   }
 
   int _triplePreviewMatchCount(
@@ -496,6 +619,14 @@ class _TripleEliminationPreview extends StatelessWidget {
   ) {
     final divisor = 1 << (roundNumber + lossCount);
     return (bracketSize ~/ divisor).clamp(1, bracketSize ~/ 2).toInt();
+  }
+}
+
+class _PreviewNumberCursor {
+  int _next = 1;
+
+  int take() {
+    return _next++;
   }
 }
 
@@ -514,51 +645,33 @@ class _DoubleEliminationPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final winnersRoundCount = _log2PowerOfTwo(bracketSize);
-    final winnersTitles = <String>['Winners Runde 1'];
-    final winnersCards = <List<Widget>>[
-      _firstRoundPreviewCards(),
+    final previewPlayers = [
+      for (var index = 0; index < participantLabels.length; index++)
+        TournamentPlayer(name: participantLabels[index], isGenerated: true),
     ];
-    final losersTitles = <String>[];
-    final losersCards = <List<Widget>>[];
-
-    var losersRoundNumber = 1;
-    for (var winnersRoundNumber = 2;
-        winnersRoundNumber <= winnersRoundCount;
-        winnersRoundNumber++) {
-      final winnersMatchCount = bracketSize >> winnersRoundNumber;
-      winnersTitles.add('Winners Runde $winnersRoundNumber');
-      winnersCards.add([
-        for (var index = 0; index < winnersMatchCount; index++)
-          _BracketPreviewPlaceholderMatch(matchNumber: index + 1),
-      ]);
-
-      if (winnersRoundNumber == 2) {
-        final initialLosersMatchCount = bracketSize >> 2;
-        losersTitles.add('Losers Runde $losersRoundNumber');
-        losersCards.add([
-          for (var index = 0; index < initialLosersMatchCount; index++)
-            _BracketPreviewPlaceholderMatch(matchNumber: index + 1),
-        ]);
-        losersRoundNumber++;
-      }
-
-      losersTitles.add('Losers Runde $losersRoundNumber');
-      losersCards.add([
-        for (var index = 0; index < winnersMatchCount; index++)
-          _BracketPreviewPlaceholderMatch(matchNumber: index + 1),
-      ]);
-      losersRoundNumber++;
-
-      if (winnersRoundNumber < winnersRoundCount) {
-        losersTitles.add('Losers Runde $losersRoundNumber');
-        losersCards.add([
-          for (var index = 0; index < winnersMatchCount ~/ 2; index++)
-            _BracketPreviewPlaceholderMatch(matchNumber: index + 1),
-        ]);
-        losersRoundNumber++;
-      }
-    }
+    final rounds = _buildDoubleEliminationRoundsFromSlots(
+      previewPlayers,
+      slotOrder,
+    );
+    final matchNumbers = _stageMatchNumbers(rounds);
+    final sourceLabels = _doubleSourceLabels(rounds, matchNumbers);
+    final winnersRounds = [
+      for (
+        var roundNumber = 1;
+        roundNumber <= _doubleWinnersRoundCount(rounds);
+        roundNumber++
+      )
+        _doubleWinnersRoundMatches(rounds, roundNumber),
+    ];
+    final losersRounds = [
+      for (
+        var roundNumber = 1;
+        roundNumber <= _doubleLosersRoundCount(rounds);
+        roundNumber++
+      )
+        _matchesWithLabel(rounds, _doubleLosersLabel(roundNumber)),
+    ];
+    final finalMatches = _matchesWithLabel(rounds, _doubleGrandFinalLabel);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -566,9 +679,15 @@ class _DoubleEliminationPreview extends StatelessWidget {
         const _BracketBandTitle(title: 'Winners Bracket'),
         const SizedBox(height: 8),
         _BracketTreeLayout(
-          totalRounds: winnersTitles.length,
-          roundTitles: winnersTitles,
-          roundCards: winnersCards,
+          totalRounds: winnersRounds.length,
+          roundTitles: [
+            for (var index = 0; index < winnersRounds.length; index++)
+              _doubleWinnersLabel(index + 1),
+          ],
+          roundCards: [
+            for (final round in winnersRounds)
+              _previewCardsFor(round, rounds, matchNumbers, sourceLabels),
+          ],
           columnWidth: 170,
           cardHeight: 108,
           firstRoundGap: 10,
@@ -578,9 +697,15 @@ class _DoubleEliminationPreview extends StatelessWidget {
         const _BracketBandTitle(title: 'Losers Bracket'),
         const SizedBox(height: 8),
         _BracketTreeLayout(
-          totalRounds: losersTitles.length,
-          roundTitles: losersTitles,
-          roundCards: losersCards,
+          totalRounds: losersRounds.length,
+          roundTitles: [
+            for (var index = 0; index < losersRounds.length; index++)
+              _doubleLosersLabel(index + 1),
+          ],
+          roundCards: [
+            for (final round in losersRounds)
+              _previewCardsFor(round, rounds, matchNumbers, sourceLabels),
+          ],
           columnWidth: 170,
           cardHeight: 108,
           firstRoundGap: 10,
@@ -590,10 +715,10 @@ class _DoubleEliminationPreview extends StatelessWidget {
         const _BracketBandTitle(title: 'Finale'),
         const SizedBox(height: 8),
         _BracketTreeLayout(
-          totalRounds: 1,
+          totalRounds: finalMatches.isEmpty ? 0 : 1,
           roundTitles: const ['Grand Final'],
-          roundCards: const [
-            [_BracketPreviewPlaceholderMatch(matchNumber: 1)],
+          roundCards: [
+            _previewCardsFor(finalMatches, rounds, matchNumbers, sourceLabels),
           ],
           columnWidth: 170,
           cardHeight: 108,
@@ -604,17 +729,29 @@ class _DoubleEliminationPreview extends StatelessWidget {
     );
   }
 
-  List<Widget> _firstRoundPreviewCards() {
+  List<Widget> _previewCardsFor(
+    List<GroupMatch> matches,
+    List<List<GroupMatch>> rounds,
+    Map<GroupMatch, int> matchNumbers,
+    Map<GroupMatch, ({String? first, String? second})> sourceLabels,
+  ) {
     return [
-      for (var matchIndex = 0; matchIndex < bracketSize ~/ 2; matchIndex++)
-        _BracketPreviewMatch(
-          matchNumber: matchIndex + 1,
-          topSlotIndex: matchIndex * 2,
-          bottomSlotIndex: matchIndex * 2 + 1,
-          slotOrder: slotOrder,
-          participantLabels: participantLabels,
-          onSwapSlot: onSwapSlot,
-        ),
+      for (final match in matches)
+        if (rounds.isNotEmpty && rounds.first.contains(match))
+          _BracketPreviewMatch(
+            matchNumber: matchNumbers[match] ?? 0,
+            topSlotIndex: rounds.first.indexOf(match) * 2,
+            bottomSlotIndex: rounds.first.indexOf(match) * 2 + 1,
+            slotOrder: slotOrder,
+            participantLabels: participantLabels,
+            onSwapSlot: onSwapSlot,
+          )
+        else
+          _BracketPreviewPlaceholderMatch(
+            matchNumber: matchNumbers[match] ?? 0,
+            topLabel: sourceLabels[match]?.first ?? 'offen',
+            bottomLabel: sourceLabels[match]?.second ?? 'offen',
+          ),
     ];
   }
 }
@@ -682,9 +819,15 @@ class _CompactKnockoutPreviewTree extends StatelessWidget {
   }
 }
 class _BracketPreviewPlaceholderMatch extends StatelessWidget {
-  const _BracketPreviewPlaceholderMatch({required this.matchNumber});
+  const _BracketPreviewPlaceholderMatch({
+    required this.matchNumber,
+    this.topLabel = 'offen',
+    this.bottomLabel = 'offen',
+  });
 
   final int matchNumber;
+  final String topLabel;
+  final String bottomLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -704,9 +847,9 @@ class _BracketPreviewPlaceholderMatch extends StatelessWidget {
             style: Theme.of(context).textTheme.labelSmall,
           ),
           const SizedBox(height: 6),
-          _BracketPreviewOpenSlot(),
+          _BracketPreviewOpenSlot(label: topLabel),
           const SizedBox(height: 5),
-          _BracketPreviewOpenSlot(),
+          _BracketPreviewOpenSlot(label: bottomLabel),
         ],
       ),
     );
@@ -714,6 +857,10 @@ class _BracketPreviewPlaceholderMatch extends StatelessWidget {
 }
 
 class _BracketPreviewOpenSlot extends StatelessWidget {
+  const _BracketPreviewOpenSlot({this.label = 'offen'});
+
+  final String label;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -724,7 +871,7 @@ class _BracketPreviewOpenSlot extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: const Text('offen'),
+      child: Text(label),
     );
   }
 }
@@ -1337,6 +1484,7 @@ class _InheritedKnockoutSetup extends StatelessWidget {
     required this.seedingMode,
     required this.slotOrder,
     required this.participantLabels,
+    required this.allowCrossSeed,
     required this.onSeedingModeChanged,
     required this.onSwapSlot,
     required this.onResetSlots,
@@ -1351,6 +1499,7 @@ class _InheritedKnockoutSetup extends StatelessWidget {
   final String seedingMode;
   final List<int?> slotOrder;
   final List<String> participantLabels;
+  final bool allowCrossSeed;
   final ValueChanged<String> onSeedingModeChanged;
   final void Function(int fromIndex, int toIndex) onSwapSlot;
   final VoidCallback onResetSlots;
@@ -1384,6 +1533,7 @@ class _InheritedKnockoutSetup extends StatelessWidget {
           seedingMode: seedingMode,
           slotOrder: slotOrder,
           participantLabels: participantLabels,
+          allowCrossSeed: allowCrossSeed,
           onSeedingModeChanged: onSeedingModeChanged,
           onSwapSlot: onSwapSlot,
           onResetSlots: onResetSlots,
@@ -1521,7 +1671,7 @@ class _StageList extends StatelessWidget {
         return '${_typeLabel(stage.type)} - '
             '${stage.knockoutParticipantCount} Teilnehmer, '
             '${stage.knockoutBracketSize}er Feld, '
-            '${stage.knockoutByeCount} Freilose'
+            '${_lossLimitForStageType(stage.type) == 3 ? '${stage.knockoutByeCount} automatisch gesetzt' : '${stage.knockoutByeCount} Freilose'}'
             '${_lossLimitForStageType(stage.type) > 1 ? ' - Aus nach ${_lossLimitForStageType(stage.type)} Niederlage(n)' : ''}'
             '$seedingText'
             '${_matchCountDetails(stage)}'

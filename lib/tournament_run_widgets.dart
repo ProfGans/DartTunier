@@ -819,9 +819,25 @@ class _KnockoutBracketView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final matchNumbers = _stageMatchNumbers(stage.rounds);
+    final sourceLabels = _stageSourceLabels(stage, matchNumbers);
     if (stage.eliminationLossLimit == 2) {
       return _DoubleEliminationBracketView(
         stage: stage,
+        matchNumbers: matchNumbers,
+        sourceLabels: sourceLabels,
+        qualifyingRank: qualifyingRank,
+        onEditResult: onEditResult,
+        canEditResults: canEditResults,
+        isEditMode: isEditMode,
+        onSwapSlot: onSwapSlot,
+      );
+    }
+    if (stage.eliminationLossLimit == 3) {
+      return _TripleEliminationBracketView(
+        stage: stage,
+        matchNumbers: matchNumbers,
+        sourceLabels: sourceLabels,
         qualifyingRank: qualifyingRank,
         onEditResult: onEditResult,
         canEditResults: canEditResults,
@@ -854,7 +870,13 @@ class _KnockoutBracketView extends StatelessWidget {
             )
               _KnockoutBracketMatchCard(
                 match: stage.rounds[roundIndex][matchIndex],
-                matchNumber: matchIndex + 1,
+                matchNumber:
+                    matchNumbers[stage.rounds[roundIndex][matchIndex]] ??
+                    matchIndex + 1,
+                homeSourceLabel:
+                    sourceLabels[stage.rounds[roundIndex][matchIndex]]?.first,
+                awaySourceLabel:
+                    sourceLabels[stage.rounds[roundIndex][matchIndex]]?.second,
                 roundIndex: roundIndex,
                 matchIndex: matchIndex,
                 totalRounds: stage.rounds.length,
@@ -870,9 +892,224 @@ class _KnockoutBracketView extends StatelessWidget {
   }
 }
 
+Map<GroupMatch, int> _stageMatchNumbers(List<List<GroupMatch>> rounds) {
+  final numbers = <GroupMatch, int>{};
+  var nextNumber = 1;
+  for (final round in rounds) {
+    for (final match in round) {
+      if (match.label == _autoAdvanceLabel) {
+        continue;
+      }
+      numbers[match] = nextNumber;
+      nextNumber++;
+    }
+  }
+  return numbers;
+}
+
+Map<GroupMatch, ({String? first, String? second})> _stageSourceLabels(
+  KnockoutTournamentRunStage stage,
+  Map<GroupMatch, int> matchNumbers,
+) {
+  if (stage.eliminationLossLimit == 2) {
+    return _doubleSourceLabels(stage.rounds, matchNumbers);
+  }
+  if (stage.eliminationLossLimit == 3) {
+    return _lossLevelSourceLabels(stage.rounds, matchNumbers);
+  }
+  return _singleKnockoutSourceLabels(stage.rounds, matchNumbers);
+}
+
+Map<GroupMatch, ({String? first, String? second})> _singleKnockoutSourceLabels(
+  List<List<GroupMatch>> rounds,
+  Map<GroupMatch, int> matchNumbers,
+) {
+  final labels = <GroupMatch, ({String? first, String? second})>{};
+  for (var roundIndex = 1; roundIndex < rounds.length; roundIndex++) {
+    for (var matchIndex = 0; matchIndex < rounds[roundIndex].length; matchIndex++) {
+      final firstSource = rounds[roundIndex - 1][matchIndex * 2];
+      final secondSource = rounds[roundIndex - 1][matchIndex * 2 + 1];
+      labels[rounds[roundIndex][matchIndex]] = (
+        first: 'Gewinner Spiel ${matchNumbers[firstSource]}',
+        second: 'Gewinner Spiel ${matchNumbers[secondSource]}',
+      );
+    }
+  }
+  return labels;
+}
+
+Map<GroupMatch, ({String? first, String? second})> _doubleSourceLabels(
+  List<List<GroupMatch>> rounds,
+  Map<GroupMatch, int> matchNumbers,
+) {
+  final labels = <GroupMatch, ({String? first, String? second})>{};
+  final winnersRoundCount = _doubleWinnersRoundCount(rounds);
+  final losersRoundCount = _doubleLosersRoundCount(rounds);
+
+  for (var roundNumber = 2; roundNumber <= winnersRoundCount; roundNumber++) {
+    final previous = _doubleWinnersRoundMatches(
+      rounds,
+      roundNumber - 1,
+      includeAutoAdvances: roundNumber == 2,
+    );
+    final current = _doubleWinnersRoundMatches(rounds, roundNumber);
+    for (var index = 0; index < current.length; index++) {
+      final firstSource = index * 2 < previous.length
+          ? previous[index * 2]
+          : null;
+      final secondSource = index * 2 + 1 < previous.length
+          ? previous[index * 2 + 1]
+          : null;
+      labels[current[index]] = (
+        first: _winnerSourceLabel(firstSource, matchNumbers),
+        second: _winnerSourceLabel(secondSource, matchNumbers),
+      );
+    }
+  }
+
+  final firstWinners = _doubleWinnersRoundMatches(
+    rounds,
+    1,
+    includeAutoAdvances: true,
+  );
+  final firstLosers = _matchesWithLabel(rounds, _doubleLosersLabel(1));
+  for (var index = 0; index < firstLosers.length; index++) {
+    labels[firstLosers[index]] = (
+      first: _loserSourceLabel(firstWinners[index * 2], matchNumbers),
+      second: _loserSourceLabel(firstWinners[index * 2 + 1], matchNumbers),
+    );
+  }
+
+  for (var roundNumber = 2; roundNumber <= losersRoundCount; roundNumber++) {
+    final current = _matchesWithLabel(rounds, _doubleLosersLabel(roundNumber));
+    final previousLosers = _matchesWithLabel(rounds, _doubleLosersLabel(roundNumber - 1));
+    final incomingWinnersRound = roundNumber == losersRoundCount
+        ? winnersRoundCount
+        : ((roundNumber + 2) ~/ 2);
+    final incomingWinners = _matchesWithLabel(
+      rounds,
+      _doubleWinnersLabel(incomingWinnersRound),
+    );
+    for (var index = 0; index < current.length; index++) {
+      final previousIndex = previousLosers.length == current.length
+          ? index
+          : index * 2;
+      final firstSource = previousIndex < previousLosers.length
+          ? previousLosers[previousIndex]
+          : null;
+      final secondSource = previousLosers.length == current.length
+          ? (index < incomingWinners.length ? incomingWinners[index] : null)
+          : (previousIndex + 1 < previousLosers.length
+                ? previousLosers[previousIndex + 1]
+                : null);
+      labels[current[index]] = (
+        first: _winnerSourceLabel(firstSource, matchNumbers),
+        second: previousLosers.length == current.length
+            ? _loserSourceLabel(secondSource, matchNumbers)
+            : _winnerSourceLabel(secondSource, matchNumbers),
+      );
+    }
+  }
+
+  final grandFinal = _matchesWithLabel(rounds, _doubleGrandFinalLabel);
+  if (grandFinal.isNotEmpty) {
+    final winnersFinal = _doubleWinnersRoundMatches(rounds, winnersRoundCount);
+    final losersFinal = _matchesWithLabel(rounds, _doubleLosersLabel(losersRoundCount));
+    labels[grandFinal.first] = (
+      first: winnersFinal.isEmpty
+          ? null
+          : _winnerSourceLabel(winnersFinal.first, matchNumbers),
+      second: losersFinal.isEmpty
+          ? null
+          : _winnerSourceLabel(losersFinal.first, matchNumbers),
+    );
+  }
+
+  return labels;
+}
+
+String? _winnerSourceLabel(
+  GroupMatch? match,
+  Map<GroupMatch, int> matchNumbers,
+) {
+  if (match == null) {
+    return null;
+  }
+  if (match.label == _autoAdvanceLabel) {
+    return match.winner?.name ?? _autoAdvanceLabel;
+  }
+  final winner = match.winner;
+  if (winner != null) {
+    return winner.name;
+  }
+  final number = matchNumbers[match];
+  return number == null ? null : 'Gewinner Spiel $number';
+}
+
+String? _loserSourceLabel(
+  GroupMatch? match,
+  Map<GroupMatch, int> matchNumbers,
+) {
+  if (match == null || match.label == _autoAdvanceLabel) {
+    return null;
+  }
+  final loser = match.loser;
+  if (loser != null) {
+    return loser.name;
+  }
+  final number = matchNumbers[match];
+  return number == null ? null : 'Verlierer Spiel $number';
+}
+
+Map<GroupMatch, ({String? first, String? second})> _lossLevelSourceLabels(
+  List<List<GroupMatch>> rounds,
+  Map<GroupMatch, int> matchNumbers,
+) {
+  final labels = <GroupMatch, ({String? first, String? second})>{};
+  for (final round in rounds) {
+    for (final match in round) {
+      if (match.label == _tripleFinalLabel) {
+        labels[match] = (first: 'Bestes aktives Spiel', second: 'Zweites aktives Spiel');
+      }
+    }
+  }
+  for (var lossCount = 0; lossCount < 3; lossCount++) {
+    var roundNumber = 2;
+    while (true) {
+      final previous = lossCount == 0 && roundNumber == 2 && rounds.isNotEmpty
+          ? rounds.first
+          : _matchesWithLabel(
+              rounds,
+              _lossLevelMatchLabel(lossCount, roundNumber - 1),
+            );
+      final current = _matchesWithLabel(
+        rounds,
+        _lossLevelMatchLabel(lossCount, roundNumber),
+      );
+      if (current.isEmpty) {
+        break;
+      }
+      for (var index = 0; index < current.length; index++) {
+        final first = index * 2 < previous.length ? previous[index * 2] : null;
+        final second = index * 2 + 1 < previous.length
+            ? previous[index * 2 + 1]
+            : null;
+        labels[current[index]] = (
+          first: _winnerSourceLabel(first, matchNumbers),
+          second: _winnerSourceLabel(second, matchNumbers),
+        );
+      }
+      roundNumber++;
+    }
+  }
+  return labels;
+}
+
 class _DoubleEliminationBracketView extends StatelessWidget {
   const _DoubleEliminationBracketView({
     required this.stage,
+    required this.matchNumbers,
+    required this.sourceLabels,
     required this.qualifyingRank,
     required this.onEditResult,
     required this.canEditResults,
@@ -881,6 +1118,8 @@ class _DoubleEliminationBracketView extends StatelessWidget {
   });
 
   final KnockoutTournamentRunStage stage;
+  final Map<GroupMatch, int> matchNumbers;
+  final Map<GroupMatch, ({String? first, String? second})> sourceLabels;
   final int qualifyingRank;
   final void Function(GroupMatch match) onEditResult;
   final bool canEditResults;
@@ -958,12 +1197,9 @@ class _DoubleEliminationBracketView extends StatelessWidget {
         : _doubleLosersRoundCount(stage.rounds);
     return [
       for (var roundNumber = 1; roundNumber <= highestRound; roundNumber++)
-        _matchesWithLabel(
-          stage.rounds,
-          prefix == _doubleWinnersPrefix
-              ? _doubleWinnersLabel(roundNumber)
-              : _doubleLosersLabel(roundNumber),
-        ),
+        prefix == _doubleWinnersPrefix
+            ? _doubleWinnersRoundMatches(stage.rounds, roundNumber)
+            : _matchesWithLabel(stage.rounds, _doubleLosersLabel(roundNumber)),
     ];
   }
 
@@ -972,7 +1208,118 @@ class _DoubleEliminationBracketView extends StatelessWidget {
       for (var matchIndex = 0; matchIndex < matches.length; matchIndex++)
         _KnockoutBracketMatchCard(
           match: matches[matchIndex],
-          matchNumber: matchIndex + 1,
+          matchNumber: matchNumbers[matches[matchIndex]] ?? matchIndex + 1,
+          homeSourceLabel: sourceLabels[matches[matchIndex]]?.first,
+          awaySourceLabel: sourceLabels[matches[matchIndex]]?.second,
+          roundIndex: roundIndex,
+          matchIndex: matchIndex,
+          totalRounds: matches.length,
+          qualifyingRank: qualifyingRank,
+          onEditResult: onEditResult,
+          canEditResult: canEditResults,
+          isEditMode: isEditMode,
+          onSwapSlot: onSwapSlot,
+        ),
+    ];
+  }
+}
+
+class _TripleEliminationBracketView extends StatelessWidget {
+  const _TripleEliminationBracketView({
+    required this.stage,
+    required this.matchNumbers,
+    required this.sourceLabels,
+    required this.qualifyingRank,
+    required this.onEditResult,
+    required this.canEditResults,
+    required this.isEditMode,
+    this.onSwapSlot,
+  });
+
+  final KnockoutTournamentRunStage stage;
+  final Map<GroupMatch, int> matchNumbers;
+  final Map<GroupMatch, ({String? first, String? second})> sourceLabels;
+  final int qualifyingRank;
+  final void Function(GroupMatch match) onEditResult;
+  final bool canEditResults;
+  final bool isEditMode;
+  final void Function(int fromSlotIndex, int toSlotIndex)? onSwapSlot;
+
+  @override
+  Widget build(BuildContext context) {
+    final finalMatches = _matchesWithLabel(stage.rounds, _tripleFinalLabel);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var lossCount = 0; lossCount < 3; lossCount++) ...[
+          _BracketBandTitle(
+            title: _lossLevelBracketLabel(lossCount),
+          ),
+          const SizedBox(height: 8),
+          _BracketTreeLayout(
+            totalRounds: _lossLevelRounds(lossCount).length,
+            columnWidth: 260,
+            cardHeight: 204,
+            firstRoundGap: 12,
+            useBalancedColumnLayout: true,
+            roundTitles: [
+              for (var roundIndex = 0;
+                  roundIndex < _lossLevelRounds(lossCount).length;
+                  roundIndex++)
+                _lossLevelMatchLabel(lossCount, roundIndex + 1),
+            ],
+            roundCards: [
+              for (var roundIndex = 0;
+                  roundIndex < _lossLevelRounds(lossCount).length;
+                  roundIndex++)
+                _matchCards(_lossLevelRounds(lossCount)[roundIndex], roundIndex),
+            ],
+          ),
+          const SizedBox(height: 18),
+        ],
+        _BracketBandTitle(title: 'Finale'),
+        const SizedBox(height: 8),
+        _BracketTreeLayout(
+          totalRounds: finalMatches.isEmpty ? 0 : 1,
+          columnWidth: 260,
+          cardHeight: 204,
+          firstRoundGap: 12,
+          useBalancedColumnLayout: true,
+          roundTitles: const [_tripleFinalLabel],
+          roundCards: [
+            _matchCards(finalMatches, 0),
+          ],
+        ),
+      ],
+    );
+  }
+
+  List<List<GroupMatch>> _lossLevelRounds(int lossCount) {
+    final rounds = <List<GroupMatch>>[];
+    var roundNumber = 1;
+    while (true) {
+      final matches = _matchesWithLabel(
+        stage.rounds,
+        _lossLevelMatchLabel(lossCount, roundNumber),
+      );
+      if (matches.isEmpty) {
+        break;
+      }
+      rounds.add(matches);
+      roundNumber++;
+    }
+    return rounds;
+  }
+
+  List<Widget> _matchCards(List<GroupMatch> matches, int roundIndex) {
+    return [
+      for (var matchIndex = 0; matchIndex < matches.length; matchIndex++)
+        _KnockoutBracketMatchCard(
+          match: matches[matchIndex],
+          matchNumber: matchNumbers[matches[matchIndex]] ?? matchIndex + 1,
+          homeSourceLabel: sourceLabels[matches[matchIndex]]?.first,
+          awaySourceLabel: sourceLabels[matches[matchIndex]]?.second,
           roundIndex: roundIndex,
           matchIndex: matchIndex,
           totalRounds: matches.length,
@@ -1332,6 +1679,8 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
     required this.onEditResult,
     required this.canEditResult,
     required this.isEditMode,
+    this.homeSourceLabel,
+    this.awaySourceLabel,
     this.onSwapSlot,
   });
 
@@ -1344,6 +1693,8 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
   final void Function(GroupMatch match) onEditResult;
   final bool canEditResult;
   final bool isEditMode;
+  final String? homeSourceLabel;
+  final String? awaySourceLabel;
   final void Function(int fromSlotIndex, int toSlotIndex)? onSwapSlot;
 
   @override
@@ -1393,11 +1744,11 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
           const SizedBox(height: 8),
           _BracketPlayerSlot(
             player: match.homePlayer,
-            score: match.homeLegs,
+            score: match.homePlayer == null ? null : match.homeLegs,
             isWinner: winner != null && winner == match.homePlayer,
             label: match.homePlayer == null && match.allowsBye
                 ? 'Freilos'
-                : null,
+                : homeSourceLabel,
             slotIndex: matchIndex * 2,
             isEditable: isEditMode && roundIndex == 0,
             onSwapSlot: onSwapSlot,
@@ -1405,11 +1756,11 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
           const SizedBox(height: 6),
           _BracketPlayerSlot(
             player: match.awayPlayer,
-            score: match.awayLegs,
+            score: match.awayPlayer == null ? null : match.awayLegs,
             isWinner: winner != null && winner == match.awayPlayer,
             label: match.awayPlayer == null && match.allowsBye
                 ? 'Freilos'
-                : null,
+                : awaySourceLabel,
             slotIndex: matchIndex * 2 + 1,
             isEditable: isEditMode && roundIndex == 0,
             onSwapSlot: onSwapSlot,

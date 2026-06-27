@@ -154,9 +154,12 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   List<String> _currentStageMatchDetails() {
     if (_isKnockoutStageType(_selectedStageType)) {
       final participants = _knockoutParticipantCount() ?? 0;
+      final byeCount = _knockoutByeCount();
       return [
         '$participants Teilnehmer',
-        '${_knockoutByeCount()} Freilose',
+        _lossLimitForStageType(_selectedStageType) == 3
+            ? '$byeCount automatisch gesetzt'
+            : '$byeCount Freilose',
         if (_lossLimitForStageType(_selectedStageType) > 1)
           '${_lossLimitForStageType(_selectedStageType)} Niederlage(n) bis Aus',
       ];
@@ -230,7 +233,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     int participantCount,
     int bracketSize,
   ) {
-    if (_knockoutSeedingMode == 'random') {
+    if (_effectiveKnockoutSeedingMode() == 'random') {
       return _randomKnockoutSlotOrder(participantCount, bracketSize);
     }
 
@@ -256,38 +259,35 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     final seedSources = _knockoutSeedSources(participantCount);
     final strengthOrderedSources = List<_KnockoutSeedSource>.from(seedSources)
       ..sort(_compareKnockoutSeedStrength);
-
     final byeCount = bracketSize - participantCount;
-    final pairs = <List<_KnockoutSeedSource?>>[];
-    final remaining = List<_KnockoutSeedSource>.from(strengthOrderedSources);
 
-    for (var index = 0; index < byeCount && remaining.isNotEmpty; index++) {
-      pairs.add([remaining.removeAt(0), null]);
-    }
+    if (byeCount == 0) {
+      final pairs = <List<_KnockoutSeedSource>>[];
+      final remaining = List<_KnockoutSeedSource>.from(strengthOrderedSources);
 
-    while (remaining.isNotEmpty) {
-      final stronger = remaining.removeAt(0);
-      var opponentIndex = remaining.lastIndexWhere((candidate) {
-        return !_sameKnownGroup(stronger, candidate);
-      });
-      if (opponentIndex == -1) {
-        opponentIndex = remaining.length - 1;
+      while (remaining.isNotEmpty) {
+        final stronger = remaining.removeAt(0);
+        var opponentIndex = remaining.lastIndexWhere((candidate) {
+          return !_sameKnownGroup(stronger, candidate);
+        });
+        if (opponentIndex == -1) {
+          opponentIndex = remaining.length - 1;
+        }
+        final weaker = remaining.removeAt(opponentIndex);
+        pairs.add([stronger, weaker]);
       }
-      final weaker = remaining.removeAt(opponentIndex);
-      pairs.add([stronger, weaker]);
+
+      return [
+        for (final pair in pairs) ...[pair[0].seed, pair[1].seed],
+      ];
     }
 
-    final slots = <int?>[
-      for (final pair in pairs) ...[
-        pair[0]?.seed,
-        pair.length > 1 ? pair[1]?.seed : null,
-      ],
+    return [
+      for (final bracketSeed in _seedOrderForSize(bracketSize))
+        bracketSeed <= participantCount
+            ? strengthOrderedSources[bracketSeed - 1].seed
+            : null,
     ];
-
-    while (slots.length < bracketSize) {
-      slots.add(null);
-    }
-    return slots;
   }
 
   List<int> _defaultFixedQualifiersForPlan(
@@ -495,10 +495,11 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     }
 
     final manualOrder = _manualKnockoutSlotOrder;
+    final seedingMode = _effectiveKnockoutSeedingMode();
     if (manualOrder != null &&
         _isValidKnockoutSlotOrder(manualOrder, participantCount, bracketSize) &&
         _slotOrderAvoidsByePair(manualOrder) &&
-        (_knockoutSeedingMode != 'cross' ||
+        (seedingMode != 'cross' ||
             _slotOrderGivesBestSeedsByes(
               manualOrder,
               participantCount,
@@ -597,7 +598,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
 
   void _resetKnockoutSlots() {
     setState(() {
-      if (_knockoutSeedingMode == 'random') {
+      if (_effectiveKnockoutSeedingMode() == 'random') {
         final participantCount = _knockoutParticipantCount();
         final bracketSize = _knockoutBracketSize();
         _manualKnockoutSlotOrder =
@@ -612,8 +613,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
 
   void _setKnockoutSeedingMode(String mode) {
     setState(() {
-      _knockoutSeedingMode = mode;
-      if (mode == 'random') {
+      _knockoutSeedingMode = _hasGroupSeedSources() ? mode : 'random';
+      if (_knockoutSeedingMode == 'random') {
         final participantCount = _knockoutParticipantCount();
         final bracketSize = _knockoutBracketSize();
         _manualKnockoutSlotOrder =
@@ -624,6 +625,17 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         _manualKnockoutSlotOrder = null;
       }
     });
+  }
+
+  bool _hasGroupSeedSources() {
+    final previousStage = _previousStageForCurrentForm();
+    return previousStage != null &&
+        previousStage.type == 'groups' &&
+        previousStage.groupSizes.isNotEmpty;
+  }
+
+  String _effectiveKnockoutSeedingMode() {
+    return _hasGroupSeedSources() ? _knockoutSeedingMode : 'random';
   }
 
   TournamentStage? _latestGroupStage() {
@@ -915,7 +927,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
             ? _knockoutSlotOrder()
             : const [],
         knockoutSeedingMode: _isKnockoutStageType(_selectedStageType)
-            ? _knockoutSeedingMode
+            ? _effectiveKnockoutSeedingMode()
             : 'cross',
         qualifiersByGroup: _selectedStageType == 'groups'
             ? groupQualificationPlan?.extraGroups ?? const []
@@ -1110,6 +1122,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 participants,
                 slotOrder: stage.knockoutSlotOrder,
                 initialLabel: _lossLevelMatchLabel(0, 1),
+                autoAdvanceLabelForByes: true,
               );
         runStages.add(
           KnockoutTournamentRunStage(
@@ -1214,6 +1227,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 : _buildInitialEliminationRounds(
                     groupPlayers,
                     initialLabel: _lossLevelMatchLabel(0, 1),
+                    autoAdvanceLabelForByes: true,
                   );
         final placementMatches = lossLimit == 1
             ? _buildPlacementMatches(
@@ -1305,6 +1319,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     List<TournamentPlayer> players, {
     List<int?> slotOrder = const [],
     String? initialLabel,
+    bool autoAdvanceLabelForByes = false,
   }) {
     if (players.length < 2) {
       return const [];
@@ -1324,13 +1339,16 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     for (var index = 0; index < bracketSize; index += 2) {
       final homeSeed = slots[index];
       final awaySeed = slots[index + 1];
+      final hasBye = homeSeed == null || awaySeed == null;
       firstRound.add(
         GroupMatch(
           homePlayer: homeSeed == null ? null : players[homeSeed - 1],
           awayPlayer: awaySeed == null ? null : players[awaySeed - 1],
           round: 1,
           allowsBye: true,
-          label: initialLabel,
+          label: autoAdvanceLabelForByes && hasBye
+              ? _autoAdvanceLabel
+              : initialLabel,
         ),
       );
     }
@@ -1790,9 +1808,10 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 eliminationLossLimit: _lossLimitForStageType(
                   _selectedStageType,
                 ),
-                seedingMode: _knockoutSeedingMode,
+                seedingMode: _effectiveKnockoutSeedingMode(),
                 slotOrder: _knockoutSlotOrder(),
                 participantLabels: _knockoutParticipantLabels(),
+                allowCrossSeed: _hasGroupSeedSources(),
                 onSeedingModeChanged: _setKnockoutSeedingMode,
                 onSwapSlot: _swapKnockoutSlots,
                 onResetSlots: _resetKnockoutSlots,
