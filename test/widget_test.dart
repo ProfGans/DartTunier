@@ -129,7 +129,7 @@ void main() {
 
     expect(find.text('Zufall'), findsOneWidget);
     expect(find.text('Cross seeded'), findsNothing);
-    expect(find.text('Winners Runde 1'), findsOneWidget);
+    expect(find.text('Halbfinale'), findsOneWidget);
     expect(find.textContaining('Losers Runde 1'), findsWidgets);
     expect(find.text('Grand Final'), findsWidgets);
 
@@ -141,7 +141,7 @@ void main() {
     expect(find.text('Zufall'), findsOneWidget);
     expect(find.text('Cross seeded'), findsNothing);
     expect(find.textContaining('automatisch gesetzt'), findsWidgets);
-    expect(find.text('0 Niederlagen Runde 1'), findsOneWidget);
+    expect(find.text('Halbfinale'), findsOneWidget);
     expect(find.text('1 Niederlage Runde 1'), findsOneWidget);
     expect(find.text('2 Niederlagen Runde 1'), findsOneWidget);
     expect(find.text('Triple-KO Finalrunde'), findsOneWidget);
@@ -216,12 +216,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Eliminationsplan - Aus nach 2 Niederlagen'), findsOneWidget);
-    expect(find.text('Winners Runde 1'), findsOneWidget);
+    expect(find.text('Halbfinale'), findsOneWidget);
     expect(find.text('Winners Bracket'), findsOneWidget);
     expect(find.text('Losers Bracket'), findsOneWidget);
-    expect(find.text('Finale'), findsOneWidget);
+    expect(find.text('Finale'), findsWidgets);
     expect(find.textContaining('Gewinner Spiel'), findsWidgets);
-    expect(find.text('Freilos'), findsWidgets);
+    expect(find.text('Freilos'), findsNothing);
     expect(find.textContaining('Gewinner Losers'), findsNothing);
   });
 
@@ -337,19 +337,25 @@ void main() {
     expect(find.text('Gewinner Spiel 1'), findsNothing);
 
     final runStage = tournament.runStages.first as KnockoutTournamentRunStage;
-    final firstLosersMatch = runStage.rounds
+    final firstLosersMatches = runStage.rounds
         .expand((round) => round)
-        .firstWhere((match) => match.label == 'Losers Runde 1');
+        .where((match) => match.label == 'Losers Runde 1')
+        .toList();
+    expect(firstLosersMatches, hasLength(4));
+    final firstLosersMatch = firstLosersMatches[0];
     expect(firstLosersMatch.homePlayer, players[9]);
     expect(firstLosersMatch.awayPlayer, isNull);
     expect(firstLosersMatch.homeLegs, isNull);
     expect(firstLosersMatch.awayLegs, isNull);
-    final secondLosersMatch = runStage.rounds
-        .expand((round) => round)
-        .where((match) => match.label == 'Losers Runde 1')
-        .elementAt(1);
-    expect(secondLosersMatch.homePlayer, players[8]);
+    final secondLosersMatch = firstLosersMatches[1];
+    expect(secondLosersMatch.homePlayer, isNull);
     expect(secondLosersMatch.awayPlayer, isNull);
+    final thirdLosersMatch = firstLosersMatches[2];
+    expect(thirdLosersMatch.homePlayer, players[8]);
+    expect(thirdLosersMatch.awayPlayer, isNull);
+    final fourthLosersMatch = firstLosersMatches[3];
+    expect(fourthLosersMatch.homePlayer, isNull);
+    expect(fourthLosersMatch.awayPlayer, isNull);
   });
 
   testWidgets('repairs old malformed double knockout losers bracket', (
@@ -493,7 +499,7 @@ void main() {
     expect(find.text('Winners Bracket'), findsOneWidget);
     expect(find.text('1 Niederlage Bracket'), findsOneWidget);
     expect(find.text('2 Niederlagen Bracket'), findsOneWidget);
-    expect(find.text('0 Niederlagen Runde 1'), findsOneWidget);
+    expect(find.text('Halbfinale'), findsOneWidget);
   });
 
   testWidgets('triple knockout with many byes accepts first results', (
@@ -575,6 +581,37 @@ void main() {
     expect(find.text('Winners Bracket'), findsOneWidget);
     expect(find.text('Spieler 8'), findsWidgets);
     expect(find.text('Spieler 7'), findsWidgets);
+
+    final runStage = tournament.runStages.first as KnockoutTournamentRunStage;
+    expect(
+      runStage.rounds
+          .expand((round) => round)
+          .where((match) => match.label == '1 Niederlage Runde 1'),
+      hasLength(4),
+    );
+    expect(
+      runStage.rounds
+          .expand((round) => round)
+          .where((match) => match.label == '2 Niederlagen Runde 1'),
+      hasLength(4),
+    );
+    expect(
+      runStage.rounds
+          .expand((round) => round)
+          .where((match) => match.label == 'Triple-KO Finalrunde'),
+      hasLength(1),
+    );
+
+    final firstLossRound = runStage.rounds
+        .expand((round) => round)
+        .where((match) => match.label == '1 Niederlage Runde 1')
+        .toList();
+    expect(firstLossRound[0].homePlayer, players[9]);
+    expect(firstLossRound[0].awayPlayer, isNull);
+    expect(firstLossRound[1].homePlayer, isNull);
+    expect(firstLossRound[1].awayPlayer, isNull);
+    expect(firstLossRound[2].homePlayer, players[8]);
+    expect(firstLossRound[2].awayPlayer, isNull);
   });
 
   testWidgets('sets round robin repeats per group', (tester) async {
@@ -844,7 +881,7 @@ void main() {
         final topLeft = box.localToGlobal(Offset.zero);
         return (topLeft.dy - labelTopLeft.dy).abs() < 42;
       });
-      expect(byeFinder.length, 1);
+      expect(byeFinder.length, greaterThanOrEqualTo(1));
     }
   });
 

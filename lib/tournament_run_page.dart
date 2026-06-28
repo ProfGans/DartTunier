@@ -151,11 +151,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       if (stage is KnockoutTournamentRunStage) {
         if (stage.eliminationLossLimit == 2) {
           _advanceDoubleEliminationRounds(stage.rounds);
-        } else if (stage.eliminationLossLimit > 1) {
-          _advanceMultiEliminationRounds(
-            stage.rounds,
-            stage.eliminationLossLimit,
-          );
+        } else if (stage.eliminationLossLimit == 3) {
+          _advanceTripleEliminationRounds(stage.rounds);
         } else {
           _advanceWinnersInRounds(stage.rounds);
           _advancePlacementMatches(stage.rounds, stage.placementMatches);
@@ -175,11 +172,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 ]);
               continue;
             }
-            if (group.eliminationLossLimit > 1) {
-              _advanceMultiEliminationRounds(
-                group.knockoutRounds,
-                group.eliminationLossLimit,
-              );
+            if (group.eliminationLossLimit == 3) {
+              _advanceTripleEliminationRounds(group.knockoutRounds);
               group.matches
                 ..clear()
                 ..addAll([
@@ -239,98 +233,6 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         _ensureDecidersForGroup(stage, group, groupIndex);
       }
     }
-  }
-
-  void _advanceMultiEliminationRounds(
-    List<List<GroupMatch>> rounds,
-    int lossLimit,
-  ) {
-    if (rounds.isEmpty || lossLimit < 2) {
-      return;
-    }
-
-    _ensureZeroLossBracketRounds(rounds);
-    _advanceZeroLossBracketWinners(rounds);
-
-    while (rounds.isNotEmpty &&
-        rounds.last.isNotEmpty &&
-        rounds.last.every((match) => match.isResolved)) {
-      final activePlayers = _activeEliminationPlayers(rounds, lossLimit);
-      if (activePlayers.length <= 1) {
-        return;
-      }
-
-      final nextRoundNumber = rounds.length + 1;
-      final nextRound = _pairEliminationRound(
-        activePlayers,
-        _lossCountsForElimination(rounds),
-        nextRoundNumber,
-        lossLimit,
-      );
-      if (nextRound.isEmpty) {
-        return;
-      }
-
-      rounds.add(nextRound);
-    }
-  }
-
-  List<GroupMatch> _pairEliminationRound(
-    List<TournamentPlayer> activePlayers,
-    Map<String, int> losses,
-    int roundNumber,
-    int lossLimit,
-  ) {
-    final matches = <GroupMatch>[];
-    final unpaired = <TournamentPlayer>[];
-
-    for (var lossCount = 0; lossCount < lossLimit; lossCount++) {
-      final bucket = [
-        for (final player in activePlayers)
-          if ((losses[player.name] ?? 0) == lossCount) player,
-      ]..sort((a, b) => a.name.compareTo(b.name));
-
-      while (bucket.length >= 2) {
-        final homePlayer = bucket.removeAt(0);
-        final awayPlayer = bucket.removeLast();
-        matches.add(
-          GroupMatch(
-            homePlayer: homePlayer,
-            awayPlayer: awayPlayer,
-            round: roundNumber,
-            label: _lossLevelMatchLabel(lossCount, roundNumber),
-          ),
-        );
-      }
-
-      if (bucket.isNotEmpty) {
-        unpaired.add(bucket.single);
-      }
-    }
-
-    if (matches.isEmpty && unpaired.length >= 2) {
-      unpaired.sort((a, b) {
-        final lossCompare = (losses[a.name] ?? 0).compareTo(
-          losses[b.name] ?? 0,
-        );
-        if (lossCompare != 0) {
-          return lossCompare;
-        }
-        return a.name.compareTo(b.name);
-      });
-      final homePlayer = unpaired.first;
-      final awayPlayer = unpaired.last;
-      matches.add(
-        GroupMatch(
-          homePlayer: homePlayer,
-          awayPlayer: awayPlayer,
-          round: roundNumber,
-          label: _tripleFinalLabel,
-        ),
-      );
-    }
-
-    return matches;
   }
 
   void _advanceDoubleEliminationRounds(List<List<GroupMatch>> rounds) {
@@ -440,6 +342,154 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
   }
 
+  void _advanceTripleEliminationRounds(List<List<GroupMatch>> rounds) {
+    _repairTripleEliminationRoundsIfNeeded(rounds);
+
+    _advanceLossLevelWinners(rounds, 0);
+    _dropLossLevelLosersToNextLossLevel(rounds, 0);
+    _advanceLossLevelWinners(rounds, 1);
+    _dropLossLevelLosersToNextLossLevel(rounds, 1);
+    _advanceLossLevelWinners(rounds, 2);
+
+    final finalMatches = _matchesWithLabel(rounds, _tripleFinalLabel);
+    if (finalMatches.isEmpty) {
+      return;
+    }
+
+    final winnersFinal = _matchesWithLabel(
+      rounds,
+      _lossLevelMatchLabel(0, _lossLevelRoundCount(rounds, 0)),
+    );
+    final oneLossFinal = _matchesWithLabel(
+      rounds,
+      _lossLevelMatchLabel(1, _lossLevelRoundCount(rounds, 1)),
+    );
+    final twoLossFinal = _matchesWithLabel(
+      rounds,
+      _lossLevelMatchLabel(2, _lossLevelRoundCount(rounds, 2)),
+    );
+
+    _setMatchHomePlayer(
+      finalMatches.first,
+      winnersFinal.isEmpty ? null : winnersFinal.first.winner,
+    );
+    _setMatchAwayPlayer(
+      finalMatches.first,
+      twoLossFinal.isNotEmpty && twoLossFinal.first.winner != null
+          ? twoLossFinal.first.winner
+          : oneLossFinal.isEmpty
+              ? null
+              : oneLossFinal.first.winner,
+    );
+  }
+
+  void _repairTripleEliminationRoundsIfNeeded(List<List<GroupMatch>> rounds) {
+    if (rounds.isEmpty || rounds.first.isEmpty) {
+      return;
+    }
+
+    if (_matchesWithLabel(rounds, _lossLevelMatchLabel(1, 1)).isNotEmpty &&
+        _matchesWithLabel(rounds, _lossLevelMatchLabel(2, 1)).isNotEmpty &&
+        _matchesWithLabel(rounds, _tripleFinalLabel).isNotEmpty) {
+      return;
+    }
+
+    final repairedRounds = _buildTripleEliminationRoundsFromFirstRound(
+      rounds.first,
+    );
+    rounds
+      ..clear()
+      ..addAll(repairedRounds);
+  }
+
+  void _advanceLossLevelWinners(
+    List<List<GroupMatch>> rounds,
+    int lossCount,
+  ) {
+    final roundCount = _lossLevelRoundCount(rounds, lossCount);
+    for (var roundNumber = 2; roundNumber <= roundCount; roundNumber++) {
+      final previous = lossCount == 0 && roundNumber == 2
+          ? _lossLevelMatches(
+              rounds,
+              lossCount,
+              roundNumber - 1,
+              includeAutoAdvances: true,
+            )
+          : _lossLevelMatches(rounds, lossCount, roundNumber - 1);
+      final current = _lossLevelMatches(rounds, lossCount, roundNumber);
+      if (previous.isEmpty || current.isEmpty) {
+        continue;
+      }
+
+      if (current.length == previous.length) {
+        for (var index = 0; index < current.length; index++) {
+          _setMatchHomePlayer(current[index], previous[index].winner);
+        }
+      } else {
+        _advancePairedWinners(previous, current);
+      }
+    }
+  }
+
+  void _dropLossLevelLosersToNextLossLevel(
+    List<List<GroupMatch>> rounds,
+    int sourceLossCount,
+  ) {
+    final targetLossCount = sourceLossCount + 1;
+    final sourceRoundCount = _lossLevelRoundCount(rounds, sourceLossCount);
+    final targetRoundCount = _lossLevelRoundCount(rounds, targetLossCount);
+    if (sourceRoundCount == 0 || targetRoundCount == 0) {
+      return;
+    }
+
+    for (var roundNumber = 1; roundNumber <= sourceRoundCount; roundNumber++) {
+      final sourceRound = _lossLevelMatches(
+        rounds,
+        sourceLossCount,
+        roundNumber,
+        includeAutoAdvances: sourceLossCount == 0 && roundNumber == 1,
+      );
+      if (sourceRound.isEmpty) {
+        continue;
+      }
+
+      final targetRoundNumber = roundNumber == 1
+          ? 1
+          : roundNumber == sourceRoundCount
+              ? targetRoundCount
+              : roundNumber * 2 - 2;
+      final targetRound = _lossLevelMatches(
+        rounds,
+        targetLossCount,
+        targetRoundNumber,
+      );
+      if (targetRound.isEmpty) {
+        continue;
+      }
+
+      if (roundNumber == 1) {
+        _dropFirstWinnersLosersToInitialLosersRound(sourceRound, targetRound);
+      } else {
+        _dropWinnersLosersToLosersRound(sourceRound, targetRound);
+      }
+    }
+  }
+
+  List<GroupMatch> _lossLevelMatches(
+    List<List<GroupMatch>> rounds,
+    int lossCount,
+    int roundNumber, {
+    bool includeAutoAdvances = false,
+  }) {
+    if (lossCount == 0 &&
+        roundNumber == 1 &&
+        includeAutoAdvances &&
+        rounds.isNotEmpty) {
+      return rounds.first;
+    }
+    return _matchesWithLabel(rounds, _lossLevelMatchLabel(lossCount, roundNumber));
+  }
+
   void _repairDoubleEliminationRoundsIfNeeded(List<List<GroupMatch>> rounds) {
     if (!_doubleEliminationRoundsNeedRepair(rounds)) {
       return;
@@ -451,52 +501,6 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     rounds
       ..clear()
       ..addAll(repairedRounds);
-  }
-
-  void _ensureZeroLossBracketRounds(List<List<GroupMatch>> rounds) {
-    if (rounds.isEmpty || rounds.first.isEmpty) {
-      return;
-    }
-
-    final bracketSize = rounds.first.length * 2;
-    final roundCount = _log2PowerOfTwo(bracketSize);
-    for (var roundNumber = 2; roundNumber <= roundCount; roundNumber++) {
-      if (_matchesWithLabel(rounds, _lossLevelMatchLabel(0, roundNumber)).isNotEmpty) {
-        continue;
-      }
-
-      final matchCount = bracketSize >> roundNumber;
-      rounds.add([
-        for (var index = 0; index < matchCount; index++)
-          GroupMatch(
-            round: rounds.length + 1,
-            label: _lossLevelMatchLabel(0, roundNumber),
-          ),
-      ]);
-    }
-  }
-
-  void _advanceZeroLossBracketWinners(List<List<GroupMatch>> rounds) {
-    if (rounds.isEmpty) {
-      return;
-    }
-
-    final bracketSize = rounds.first.length * 2;
-    final roundCount = _log2PowerOfTwo(bracketSize);
-    for (var roundNumber = 2; roundNumber <= roundCount; roundNumber++) {
-      final previous = roundNumber == 2
-          ? rounds.first
-          : _matchesWithLabel(rounds, _lossLevelMatchLabel(0, roundNumber - 1));
-      final current = _matchesWithLabel(
-        rounds,
-        _lossLevelMatchLabel(0, roundNumber),
-      );
-      if (previous.isEmpty || current.isEmpty) {
-        continue;
-      }
-
-      _advancePairedWinners(previous, current);
-    }
   }
 
   void _advancePairedWinners(
@@ -537,11 +541,28 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
 
     for (var matchIndex = 0; matchIndex < losersRound.length; matchIndex++) {
-      _setMatchPlayers(
-        losersRound[matchIndex],
-        matchIndex < losers.length ? losers[matchIndex] : null,
-        null,
-      );
+      _setMatchPlayers(losersRound[matchIndex], null, null);
+    }
+
+    if (losers.length <= losersRound.length) {
+      for (var index = 0; index < losers.length; index++) {
+        final targetIndex = (index * losersRound.length) ~/ losers.length;
+        _setMatchPlayers(losersRound[targetIndex], losers[index], null);
+      }
+      return;
+    }
+
+    for (var index = 0; index < losers.length; index++) {
+      final targetIndex = index ~/ 2;
+      if (targetIndex >= losersRound.length) {
+        break;
+      }
+      final targetMatch = losersRound[targetIndex];
+      if (index.isEven) {
+        _setMatchHomePlayer(targetMatch, losers[index]);
+      } else {
+        _setMatchAwayPlayer(targetMatch, losers[index]);
+      }
     }
   }
 
@@ -1396,11 +1417,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                     participants,
                     slotOrder: stage.knockoutSlotOrder,
                   )
-            : _buildInitialEliminationRoundsForPlayers(
+            : _buildTripleEliminationRoundsForPlayers(
                 participants,
                 slotOrder: stage.knockoutSlotOrder,
-                initialLabel: _lossLevelMatchLabel(0, 1),
-                autoAdvanceLabelForByes: true,
               ),
         placementMatches: lossLimit == 1
             ? _buildPlacementMatchesForPlayers(participants.length, 1)
@@ -1412,7 +1431,11 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     return GroupTournamentRunStage(
       name: stage.name,
       groupPlayType: stage.groupPlayType,
-      groups: _buildTournamentGroupsForPlayers(stage, players),
+      groups: _buildTournamentGroupsForPlayers(
+        stage,
+        players,
+        requiredRankForGroup: _requiredRankForStageGroup,
+      ),
       qualificationPlan: _qualificationPlanForStage(stage),
       tieBreakers: stage.groupTieBreakers,
     );
@@ -1493,294 +1516,6 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         : 0;
     final requiredRank = fixedForGroup > extraRank ? fixedForGroup : extraRank;
     return requiredRank < 1 ? 1 : requiredRank;
-  }
-
-  List<GroupMatch> _buildPlacementMatchesForPlayers(
-    int participantCount,
-    int requiredRank,
-  ) {
-    if (participantCount < 4 || requiredRank < 3) {
-      return const [];
-    }
-
-    final matches = <GroupMatch>[
-      GroupMatch(round: 100, label: 'Spiel um Platz 3'),
-    ];
-
-    if (participantCount >= 8 && requiredRank >= 5) {
-      matches.addAll([
-        GroupMatch(round: 101, label: 'Platz 5 Halbfinale 1'),
-        GroupMatch(round: 101, label: 'Platz 5 Halbfinale 2'),
-        GroupMatch(round: 102, label: 'Spiel um Platz 5'),
-        if (requiredRank >= 7)
-          GroupMatch(round: 102, label: 'Spiel um Platz 7'),
-      ]);
-    }
-
-    return matches;
-  }
-
-  List<TournamentGroup> _buildTournamentGroupsForPlayers(
-    TournamentStage stage,
-    List<TournamentPlayer> players,
-  ) {
-    final groups = <TournamentGroup>[];
-    var playerIndex = 0;
-
-    for (
-      var groupIndex = 0;
-      groupIndex < stage.groupSizes.length;
-      groupIndex++
-    ) {
-      final groupPlayType = _groupPlayTypeForStage(stage, groupIndex);
-      final groupPlayers = <TournamentPlayer>[];
-      for (var slot = 0; slot < stage.groupSizes[groupIndex]; slot++) {
-        if (playerIndex >= players.length) {
-          break;
-        }
-        groupPlayers.add(players[playerIndex]);
-        playerIndex++;
-      }
-
-      if (_isEliminationGroupPlayType(groupPlayType)) {
-        final lossLimit = _lossLimitForGroupPlayType(groupPlayType);
-        final rounds = lossLimit == 1
-            ? _buildKnockoutRoundsForPlayers(groupPlayers)
-            : lossLimit == 2
-                ? _buildDoubleEliminationRoundsForPlayers(groupPlayers)
-                : _buildInitialEliminationRoundsForPlayers(
-                    groupPlayers,
-                    initialLabel: _lossLevelMatchLabel(0, 1),
-                    autoAdvanceLabelForByes: true,
-                  );
-        final placementMatches = lossLimit == 1
-            ? _buildPlacementMatchesForPlayers(
-                groupPlayers.length,
-                _requiredRankForStageGroup(stage, groupIndex),
-              )
-            : const <GroupMatch>[];
-        groups.add(
-          TournamentGroup(
-            name: groupLabel(groupIndex + 1),
-            playType: groupPlayType,
-            players: groupPlayers,
-            matches: [
-              for (final round in rounds) ...round,
-              ...placementMatches,
-            ],
-            knockoutRounds: rounds,
-            placementMatches: placementMatches,
-            eliminationLossLimit: lossLimit,
-          ),
-        );
-      } else {
-        groups.add(
-          TournamentGroup(
-            name: groupLabel(groupIndex + 1),
-            playType: groupPlayType,
-            players: groupPlayers,
-            matches: _buildRoundRobinMatchesForPlayers(
-              groupPlayers,
-              repeatCount: _roundRobinRepeatForStage(stage, groupIndex),
-            ),
-          ),
-        );
-      }
-    }
-
-    return groups;
-  }
-
-  List<List<GroupMatch>> _buildKnockoutRoundsForPlayers(
-    List<TournamentPlayer> players, {
-    List<int?> slotOrder = const [],
-  }) {
-    if (players.length < 2) {
-      return const [];
-    }
-
-    var bracketSize = 2;
-    while (bracketSize < players.length) {
-      bracketSize *= 2;
-    }
-
-    final slots =
-        _isValidSlotOrder(slotOrder, players.length, bracketSize) &&
-            _slotOrderAvoidsByePair(slotOrder)
-        ? List<int?>.from(slotOrder)
-        : _automaticSlotOrder(players.length, bracketSize);
-    final rounds = <List<GroupMatch>>[];
-    final firstRound = <GroupMatch>[];
-    for (var index = 0; index < bracketSize; index += 2) {
-      final homeSeed = slots[index];
-      final awaySeed = slots[index + 1];
-      firstRound.add(
-        GroupMatch(
-          homePlayer: homeSeed == null ? null : players[homeSeed - 1],
-          awayPlayer: awaySeed == null ? null : players[awaySeed - 1],
-          round: 1,
-          allowsBye: true,
-        ),
-      );
-    }
-    rounds.add(firstRound);
-
-    var matchesInRound = firstRound.length ~/ 2;
-    var roundNumber = 2;
-    while (matchesInRound >= 1) {
-      rounds.add(
-        List.generate(matchesInRound, (_) => GroupMatch(round: roundNumber)),
-      );
-      matchesInRound ~/= 2;
-      roundNumber++;
-    }
-
-    _advanceKnockoutWinnersInBuiltRounds(rounds);
-    return rounds;
-  }
-
-  List<List<GroupMatch>> _buildInitialEliminationRoundsForPlayers(
-    List<TournamentPlayer> players, {
-    List<int?> slotOrder = const [],
-    String? initialLabel,
-    bool autoAdvanceLabelForByes = false,
-  }) {
-    if (players.length < 2) {
-      return const [];
-    }
-
-    var bracketSize = 2;
-    while (bracketSize < players.length) {
-      bracketSize *= 2;
-    }
-
-    final slots =
-        _isValidSlotOrder(slotOrder, players.length, bracketSize) &&
-            _slotOrderAvoidsByePair(slotOrder)
-        ? List<int?>.from(slotOrder)
-        : _automaticSlotOrder(players.length, bracketSize);
-    final firstRound = <GroupMatch>[];
-    for (var index = 0; index < bracketSize; index += 2) {
-      final homeSeed = slots[index];
-      final awaySeed = slots[index + 1];
-      final hasBye = homeSeed == null || awaySeed == null;
-      firstRound.add(
-        GroupMatch(
-          homePlayer: homeSeed == null ? null : players[homeSeed - 1],
-          awayPlayer: awaySeed == null ? null : players[awaySeed - 1],
-          round: 1,
-          allowsBye: true,
-          label: autoAdvanceLabelForByes && hasBye
-              ? _autoAdvanceLabel
-              : initialLabel,
-        ),
-      );
-    }
-
-    return [firstRound];
-  }
-
-  List<List<GroupMatch>> _buildDoubleEliminationRoundsForPlayers(
-    List<TournamentPlayer> players, {
-    List<int?> slotOrder = const [],
-  }) {
-    if (players.length < 2) {
-      return const [];
-    }
-
-    var bracketSize = 2;
-    while (bracketSize < players.length) {
-      bracketSize *= 2;
-    }
-
-    final slots =
-        _isValidSlotOrder(slotOrder, players.length, bracketSize) &&
-            _slotOrderAvoidsByePair(slotOrder)
-        ? List<int?>.from(slotOrder)
-        : _automaticSlotOrder(players.length, bracketSize);
-    return _buildDoubleEliminationRoundsFromSlots(players, slots);
-  }
-
-  void _advanceKnockoutWinnersInBuiltRounds(List<List<GroupMatch>> rounds) {
-    for (var roundIndex = 0; roundIndex < rounds.length - 1; roundIndex++) {
-      final currentRound = rounds[roundIndex];
-      final nextRound = rounds[roundIndex + 1];
-      for (var matchIndex = 0; matchIndex < currentRound.length; matchIndex++) {
-        final winner = currentRound[matchIndex].winner;
-        if (winner == null) {
-          continue;
-        }
-
-        final targetMatch = nextRound[matchIndex ~/ 2];
-        if (matchIndex.isEven) {
-          targetMatch.homePlayer = winner;
-        } else {
-          targetMatch.awayPlayer = winner;
-        }
-      }
-    }
-  }
-
-  List<GroupMatch> _buildRoundRobinMatchesForPlayers(
-    List<TournamentPlayer> players, {
-    int repeatCount = 1,
-  }) {
-    return _buildRoundRobinMatches(players, repeatCount: repeatCount);
-  }
-
-  List<int?> _automaticSlotOrder(int participantCount, int bracketSize) {
-    return [
-      for (final seed in _seedOrder(bracketSize))
-        seed <= participantCount ? seed : null,
-    ];
-  }
-
-  List<int> _seedOrder(int bracketSize) {
-    var order = <int>[1, 2];
-    var size = 2;
-    while (size < bracketSize) {
-      final nextSize = size * 2;
-      order = [
-        for (final seed in order) ...[seed, nextSize + 1 - seed],
-      ];
-      size = nextSize;
-    }
-
-    return order;
-  }
-
-  bool _isValidSlotOrder(
-    List<int?> slotOrder,
-    int participantCount,
-    int bracketSize,
-  ) {
-    if (slotOrder.length != bracketSize) {
-      return false;
-    }
-
-    final values = slotOrder.whereType<int>().toList()..sort();
-    if (values.length != participantCount) {
-      return false;
-    }
-
-    for (var index = 0; index < values.length; index++) {
-      if (values[index] != index + 1) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  bool _slotOrderAvoidsByePair(List<int?> slotOrder) {
-    for (var index = 0; index < slotOrder.length; index += 2) {
-      final first = slotOrder[index];
-      final second = index + 1 < slotOrder.length ? slotOrder[index + 1] : null;
-      if (first == null && second == null) {
-        return false;
-      }
-    }
-    return true;
   }
 
   void _completeCurrentStage() {

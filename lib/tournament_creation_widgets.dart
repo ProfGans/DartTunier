@@ -464,7 +464,9 @@ class _TripleEliminationPreview extends StatelessWidget {
                   roundNumber <=
                       (lossCount == 0 ? roundCount : roundCount + lossCount);
                   roundNumber++)
-                _lossLevelMatchLabel(lossCount, roundNumber),
+                lossCount == 0
+                    ? _bracketRoundTitle(roundNumber - 1, roundCount)
+                    : _lossLevelMatchLabel(lossCount, roundNumber),
             ],
             roundCards: [
               ..._lossLevelPreviewColumns(
@@ -601,10 +603,10 @@ class _TripleEliminationPreview extends StatelessWidget {
           matchNumber: matchNumber,
           topLabel: topSourceIndex < previousNumbers.length
               ? 'Gewinner Spiel ${previousNumbers[topSourceIndex]}'
-              : 'offen',
+              : 'Freilos',
           bottomLabel: bottomSourceIndex < previousNumbers.length
               ? 'Gewinner Spiel ${previousNumbers[bottomSourceIndex]}'
-              : 'offen',
+              : 'Freilos',
         ),
       );
     }
@@ -655,6 +657,7 @@ class _DoubleEliminationPreview extends StatelessWidget {
     );
     final matchNumbers = _stageMatchNumbers(rounds);
     final sourceLabels = _doubleSourceLabels(rounds, matchNumbers);
+    final sourceMatches = _doubleSourceMatches(rounds);
     final winnersRounds = [
       for (
         var roundNumber = 1;
@@ -682,12 +685,14 @@ class _DoubleEliminationPreview extends StatelessWidget {
           totalRounds: winnersRounds.length,
           roundTitles: [
             for (var index = 0; index < winnersRounds.length; index++)
-              _doubleWinnersLabel(index + 1),
+              _bracketRoundTitle(index, winnersRounds.length),
           ],
           roundCards: [
             for (final round in winnersRounds)
               _previewCardsFor(round, rounds, matchNumbers, sourceLabels),
           ],
+          roundMatches: winnersRounds,
+          sourceMatches: sourceMatches,
           columnWidth: 170,
           cardHeight: 108,
           firstRoundGap: 10,
@@ -706,6 +711,8 @@ class _DoubleEliminationPreview extends StatelessWidget {
             for (final round in losersRounds)
               _previewCardsFor(round, rounds, matchNumbers, sourceLabels),
           ],
+          roundMatches: losersRounds,
+          sourceMatches: sourceMatches,
           columnWidth: 170,
           cardHeight: 108,
           firstRoundGap: 10,
@@ -720,6 +727,8 @@ class _DoubleEliminationPreview extends StatelessWidget {
           roundCards: [
             _previewCardsFor(finalMatches, rounds, matchNumbers, sourceLabels),
           ],
+          roundMatches: [finalMatches],
+          sourceMatches: sourceMatches,
           columnWidth: 170,
           cardHeight: 108,
           firstRoundGap: 10,
@@ -749,8 +758,8 @@ class _DoubleEliminationPreview extends StatelessWidget {
         else
           _BracketPreviewPlaceholderMatch(
             matchNumber: matchNumbers[match] ?? 0,
-            topLabel: sourceLabels[match]?.first ?? 'offen',
-            bottomLabel: sourceLabels[match]?.second ?? 'offen',
+            topLabel: sourceLabels[match]?.first ?? 'Freilos',
+            bottomLabel: sourceLabels[match]?.second ?? 'Freilos',
           ),
     ];
   }
@@ -821,8 +830,8 @@ class _CompactKnockoutPreviewTree extends StatelessWidget {
 class _BracketPreviewPlaceholderMatch extends StatelessWidget {
   const _BracketPreviewPlaceholderMatch({
     required this.matchNumber,
-    this.topLabel = 'offen',
-    this.bottomLabel = 'offen',
+    this.topLabel = 'Freilos',
+    this.bottomLabel = 'Freilos',
   });
 
   final int matchNumber;
@@ -857,7 +866,7 @@ class _BracketPreviewPlaceholderMatch extends StatelessWidget {
 }
 
 class _BracketPreviewOpenSlot extends StatelessWidget {
-  const _BracketPreviewOpenSlot({this.label = 'offen'});
+  const _BracketPreviewOpenSlot({this.label = 'Freilos'});
 
   final String label;
 

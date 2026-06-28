@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 part 'tournament_models.dart';
 part 'tournament_storage.dart';
 part 'tournament_rules.dart';
 part 'tournament_mode_common.dart';
+part 'tournament_mode_groups.dart';
 part 'tournament_mode_double_ko.dart';
 part 'tournament_mode_triple_ko.dart';
 part 'home_page.dart';

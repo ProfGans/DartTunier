@@ -1090,7 +1090,11 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         incomingPlayers.length,
       );
       if (stage.type == 'groups') {
-        final groups = _buildTournamentGroups(stage, incomingPlayers);
+        final groups = _buildTournamentGroupsForPlayers(
+          stage,
+          incomingPlayers,
+          requiredRankForGroup: _requiredRankForGroup,
+        );
         runStages.add(
           GroupTournamentRunStage(
             name: stage.name,
@@ -1118,11 +1122,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                     participants,
                     slotOrder: stage.knockoutSlotOrder,
                   )
-            : _buildInitialEliminationRounds(
+            : _buildTripleEliminationRounds(
                 participants,
                 slotOrder: stage.knockoutSlotOrder,
-                initialLabel: _lossLevelMatchLabel(0, 1),
-                autoAdvanceLabelForByes: true,
               );
         runStages.add(
           KnockoutTournamentRunStage(
@@ -1196,77 +1198,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     return matches;
   }
 
-  List<TournamentGroup> _buildTournamentGroups(
-    TournamentStage groupStage,
-    List<TournamentPlayer> players,
-  ) {
-    final groups = <TournamentGroup>[];
-    var playerIndex = 0;
-
-    for (
-      var groupIndex = 0;
-      groupIndex < groupStage.groupSizes.length;
-      groupIndex++
-    ) {
-      final groupPlayType = _groupPlayTypeForStage(groupStage, groupIndex);
-      final groupPlayers = <TournamentPlayer>[];
-      for (var slot = 0; slot < groupStage.groupSizes[groupIndex]; slot++) {
-        if (playerIndex >= players.length) {
-          break;
-        }
-        groupPlayers.add(players[playerIndex]);
-        playerIndex++;
-      }
-
-      if (_isEliminationGroupPlayType(groupPlayType)) {
-        final lossLimit = _lossLimitForGroupPlayType(groupPlayType);
-        final rounds = lossLimit == 1
-            ? _buildKnockoutRounds(groupPlayers)
-            : lossLimit == 2
-                ? _buildDoubleEliminationRounds(groupPlayers)
-                : _buildInitialEliminationRounds(
-                    groupPlayers,
-                    initialLabel: _lossLevelMatchLabel(0, 1),
-                    autoAdvanceLabelForByes: true,
-                  );
-        final placementMatches = lossLimit == 1
-            ? _buildPlacementMatches(
-                groupPlayers.length,
-                _requiredRankForGroup(groupStage, groupIndex),
-              )
-            : const <GroupMatch>[];
-        groups.add(
-          TournamentGroup(
-            name: groupLabel(groupIndex + 1),
-            playType: groupPlayType,
-            players: groupPlayers,
-            matches: [
-              for (final round in rounds) ...round,
-              ...placementMatches,
-            ],
-            knockoutRounds: rounds,
-            placementMatches: placementMatches,
-            eliminationLossLimit: lossLimit,
-          ),
-        );
-      } else {
-        groups.add(
-          TournamentGroup(
-            name: groupLabel(groupIndex + 1),
-            playType: groupPlayType,
-            players: groupPlayers,
-            matches: _buildRoundRobinMatches(
-              groupPlayers,
-              repeatCount: _roundRobinRepeatForStage(groupStage, groupIndex),
-            ),
-          ),
-        );
-      }
-    }
-
-    return groups;
-  }
-
   List<List<GroupMatch>> _buildKnockoutRounds(
     List<TournamentPlayer> players, {
     List<int?> slotOrder = const [],
@@ -1315,47 +1246,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     return rounds;
   }
 
-  List<List<GroupMatch>> _buildInitialEliminationRounds(
-    List<TournamentPlayer> players, {
-    List<int?> slotOrder = const [],
-    String? initialLabel,
-    bool autoAdvanceLabelForByes = false,
-  }) {
-    if (players.length < 2) {
-      return const [];
-    }
-
-    var bracketSize = 2;
-    while (bracketSize < players.length) {
-      bracketSize *= 2;
-    }
-
-    final slots =
-        _isValidKnockoutSlotOrder(slotOrder, players.length, bracketSize) &&
-            _slotOrderAvoidsByePair(slotOrder)
-        ? List<int?>.from(slotOrder)
-        : _automaticKnockoutSlotOrder(players.length, bracketSize);
-    final firstRound = <GroupMatch>[];
-    for (var index = 0; index < bracketSize; index += 2) {
-      final homeSeed = slots[index];
-      final awaySeed = slots[index + 1];
-      final hasBye = homeSeed == null || awaySeed == null;
-      firstRound.add(
-        GroupMatch(
-          homePlayer: homeSeed == null ? null : players[homeSeed - 1],
-          awayPlayer: awaySeed == null ? null : players[awaySeed - 1],
-          round: 1,
-          allowsBye: true,
-          label: autoAdvanceLabelForByes && hasBye
-              ? _autoAdvanceLabel
-              : initialLabel,
-        ),
-      );
-    }
-
-    return [firstRound];
-  }
-
   List<List<GroupMatch>> _buildDoubleEliminationRounds(
     List<TournamentPlayer> players, {
     List<int?> slotOrder = const [],
@@ -1375,6 +1265,27 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         ? List<int?>.from(slotOrder)
         : _automaticKnockoutSlotOrder(players.length, bracketSize);
     return _buildDoubleEliminationRoundsFromSlots(players, slots);
+  }
+
+  List<List<GroupMatch>> _buildTripleEliminationRounds(
+    List<TournamentPlayer> players, {
+    List<int?> slotOrder = const [],
+  }) {
+    if (players.length < 2) {
+      return const [];
+    }
+
+    var bracketSize = 2;
+    while (bracketSize < players.length) {
+      bracketSize *= 2;
+    }
+
+    final slots =
+        _isValidKnockoutSlotOrder(slotOrder, players.length, bracketSize) &&
+            _slotOrderAvoidsByePair(slotOrder)
+        ? List<int?>.from(slotOrder)
+        : _automaticKnockoutSlotOrder(players.length, bracketSize);
+    return _buildTripleEliminationRoundsFromSlots(players, slots);
   }
 
   void _advanceKnockoutWinnersInRounds(List<List<GroupMatch>> rounds) {
