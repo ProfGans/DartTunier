@@ -1,17 +1,17 @@
-# dart_tournament_manager
+# Dart Turnierverwaltung
 
-A new Flutter project.
+Flutter-App zur Verwaltung von Dart-Turnieren.
 
-## Getting Started
+## Projektstruktur
 
-This project is a starting point for a Flutter application.
+Die App wird schrittweise modularisiert, damit spaetere Features sauber erweitert werden koennen. Die verbindlichen Hinweise fuer kuenftige Codex-Sitzungen stehen in [AGENTS.md](AGENTS.md).
 
-A few resources to get you started if this is your first Flutter project:
+Die aktuelle Architektur-Notiz und der empfohlene Refactor-Plan stehen in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Entwicklung
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```powershell
+flutter analyze
+flutter test
+```
+

@@ -1,4 +1,4 @@
-part of 'main.dart';
+part of '../../../../tournament_workspace.dart';
 
 const List<String> defaultGroupTieBreakers = [
   'points',
@@ -127,15 +127,16 @@ TournamentGroup _buildEliminationTournamentGroup({
       requiredRankForGroup,
 }) {
   final lossLimit = _lossLimitForGroupPlayType(playType);
+  final requiredRank = requiredRankForGroup(stage, groupIndex);
   final rounds = lossLimit == 1
-      ? _buildKnockoutRoundsForPlayers(players)
+      ? _buildKnockoutRoundsForPlayers(players, qualifyingRank: requiredRank)
       : lossLimit == 2
           ? _buildDoubleEliminationRoundsForPlayers(players)
           : _buildTripleEliminationRoundsForPlayers(players);
   final placementMatches = lossLimit == 1
       ? _buildPlacementMatchesForPlayers(
           players.length,
-          requiredRankForGroup(stage, groupIndex),
+          requiredRank,
         )
       : const <GroupMatch>[];
 
@@ -157,65 +158,58 @@ List<GroupMatch> _buildRoundRobinMatches(
   List<TournamentPlayer> players, {
   int repeatCount = 1,
 }) {
-  final matches = <GroupMatch>[];
-  if (players.length < 2) {
-    return matches;
-  }
-
-  final playerCount = players.length.isOdd
-      ? players.length + 1
-      : players.length;
-  final rounds = playerCount - 1;
-  final matchesPerRound = playerCount ~/ 2;
-  final safeRepeatCount = repeatCount < 1 ? 1 : repeatCount;
-
-  for (var repeat = 0; repeat < safeRepeatCount; repeat++) {
-    final rotation = List<TournamentPlayer?>.from(players);
-    if (rotation.length.isOdd) {
-      rotation.add(null);
-    }
-
-    for (var round = 0; round < rounds; round++) {
-      for (var pairIndex = 0; pairIndex < matchesPerRound; pairIndex++) {
-        final firstPlayer = rotation[pairIndex];
-        final secondPlayer = rotation[playerCount - 1 - pairIndex];
-        if (firstPlayer == null || secondPlayer == null) {
-          continue;
-        }
-
-        final swapHome = repeat.isOdd;
-        final homePlayer = swapHome ? secondPlayer : firstPlayer;
-        final awayPlayer = swapHome ? firstPlayer : secondPlayer;
-
-        matches.add(
-          GroupMatch(
-            homePlayer: homePlayer,
-            awayPlayer: awayPlayer,
-            round: repeat * rounds + round + 1,
-          ),
-        );
-      }
-
-      final fixedPlayer = rotation.first;
-      final rotatingPlayers = rotation.sublist(1);
-      rotatingPlayers.insert(0, rotatingPlayers.removeLast());
-      rotation
-        ..clear()
-        ..add(fixedPlayer)
-        ..addAll(rotatingPlayers);
-    }
-  }
-
-  return matches;
+  return tournamentEngine.buildRoundRobinMatches(
+    players,
+    repeatCount: repeatCount,
+  );
 }
 
 int _roundRobinMatchCount(int groupSize, int repeatCount) {
-  if (groupSize < 2) {
+  return tournamentEngine.roundRobinMatchCount(groupSize, repeatCount);
+}
+
+int _groupEliminationMatchEstimate(
+  int participantCount,
+  int lossLimit,
+  int qualifyingRank,
+) {
+  if (participantCount < 2 || qualifyingRank >= participantCount) {
     return 0;
   }
 
-  final safeRepeatCount = repeatCount < 1 ? 1 : repeatCount;
-  return (groupSize * (groupSize - 1) ~/ 2) * safeRepeatCount;
+  if (lossLimit > 1) {
+    return (participantCount - qualifyingRank) * lossLimit;
+  }
+
+  final players = [
+    for (var index = 0; index < participantCount; index++)
+      TournamentPlayer.generated(index + 1),
+  ];
+  final rounds = _buildKnockoutRoundsForPlayers(
+    players,
+    qualifyingRank: qualifyingRank,
+  );
+  final placementMatches = _buildPlacementMatchesForPlayers(
+    participantCount,
+    qualifyingRank,
+  );
+  return _playableKnockoutMatchCount(rounds) + placementMatches.length;
+}
+
+int _playableKnockoutMatchCount(List<List<GroupMatch>> rounds) {
+  var count = 0;
+  for (var roundIndex = 0; roundIndex < rounds.length; roundIndex++) {
+    for (final match in rounds[roundIndex]) {
+      if (roundIndex == 0) {
+        if (match.homePlayer != null && match.awayPlayer != null) {
+          count++;
+        }
+      } else {
+        count++;
+      }
+    }
+  }
+  return count;
 }
 
 List<GroupMatch> _buildPlacementMatchesForPlayers(
@@ -226,17 +220,25 @@ List<GroupMatch> _buildPlacementMatchesForPlayers(
     return const [];
   }
 
-  final matches = <GroupMatch>[
-    GroupMatch(round: 100, label: 'Spiel um Platz 3'),
-  ];
+  final matches = <GroupMatch>[];
+
+  if (requiredRank == 3) {
+    matches.add(GroupMatch(round: 100, label: 'Spiel um Platz 3'));
+  }
 
   if (participantCount >= 8 && requiredRank >= 5) {
-    matches.addAll([
-      GroupMatch(round: 101, label: 'Platz 5 Halbfinale 1'),
-      GroupMatch(round: 101, label: 'Platz 5 Halbfinale 2'),
-      GroupMatch(round: 102, label: 'Spiel um Platz 5'),
-      if (requiredRank >= 7) GroupMatch(round: 102, label: 'Spiel um Platz 7'),
-    ]);
+    if (requiredRank <= 7) {
+      matches.addAll([
+        GroupMatch(round: 101, label: 'Platz 5 Halbfinale 1'),
+        GroupMatch(round: 101, label: 'Platz 5 Halbfinale 2'),
+      ]);
+    }
+    if (requiredRank == 5) {
+      matches.add(GroupMatch(round: 102, label: 'Spiel um Platz 5'));
+    }
+    if (requiredRank == 7) {
+      matches.add(GroupMatch(round: 102, label: 'Spiel um Platz 7'));
+    }
   }
 
   return matches;
@@ -245,8 +247,9 @@ List<GroupMatch> _buildPlacementMatchesForPlayers(
 List<List<GroupMatch>> _buildKnockoutRoundsForPlayers(
   List<TournamentPlayer> players, {
   List<int?> slotOrder = const [],
+  int qualifyingRank = 1,
 }) {
-  if (players.length < 2) {
+  if (players.length < 2 || qualifyingRank >= players.length) {
     return const [];
   }
 
@@ -276,13 +279,18 @@ List<List<GroupMatch>> _buildKnockoutRoundsForPlayers(
   }
   rounds.add(firstRound);
 
-  var matchesInRound = firstRound.length ~/ 2;
+  final safeQualifyingRank = qualifyingRank < 1 ? 1 : qualifyingRank;
+  var remainingSlots = firstRound.length;
   var roundNumber = 2;
-  while (matchesInRound >= 1) {
+  while (remainingSlots > safeQualifyingRank) {
+    final matchesInRound = remainingSlots ~/ 2;
+    if (matchesInRound < 1) {
+      break;
+    }
     rounds.add(
       List.generate(matchesInRound, (_) => GroupMatch(round: roundNumber)),
     );
-    matchesInRound ~/= 2;
+    remainingSlots = matchesInRound;
     roundNumber++;
   }
 

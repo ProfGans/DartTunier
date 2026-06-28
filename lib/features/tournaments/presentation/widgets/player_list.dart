@@ -1,4 +1,4 @@
-part of 'main.dart';
+part of '../../../../tournament_workspace.dart';
 
 class _PlayerList extends StatelessWidget {
   const _PlayerList({

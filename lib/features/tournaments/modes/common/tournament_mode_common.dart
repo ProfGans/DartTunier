@@ -1,4 +1,4 @@
-part of 'main.dart';
+part of '../../../../tournament_workspace.dart';
 
 const String _autoAdvanceLabel = 'Automatisch gesetzt';
 

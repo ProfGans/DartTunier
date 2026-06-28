@@ -3,11 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  Future<void> openTournamentCreation(WidgetTester tester) async {
+    await tester.tap(find.text('Turniere'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Turnier erstellen'));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('creates a knockout-only tournament', (tester) async {
     await tester.pumpWidget(const DartTournamentApp());
 
-    await tester.tap(find.text('Turnier erstellen'));
-    await tester.pumpAndSettle();
+    await openTournamentCreation(tester);
 
     await tester.enterText(find.widgetWithText(TextField, 'Anzahl'), '4');
     await tester.tap(find.text('Spieler erzeugen'));
@@ -106,8 +112,7 @@ void main() {
   testWidgets('offers double and triple knockout formats', (tester) async {
     await tester.pumpWidget(const DartTournamentApp());
 
-    await tester.tap(find.text('Turnier erstellen'));
-    await tester.pumpAndSettle();
+    await openTournamentCreation(tester);
 
     await tester.enterText(find.widgetWithText(TextField, 'Anzahl'), '6');
     await tester.tap(find.text('Spieler erzeugen'));
@@ -617,8 +622,7 @@ void main() {
   testWidgets('sets round robin repeats per group', (tester) async {
     await tester.pumpWidget(const DartTournamentApp());
 
-    await tester.tap(find.text('Turnier erstellen'));
-    await tester.pumpAndSettle();
+    await openTournamentCreation(tester);
 
     await tester.enterText(find.widgetWithText(TextField, 'Anzahl'), '4');
     await tester.tap(find.text('Spieler erzeugen'));
@@ -677,8 +681,7 @@ void main() {
   testWidgets('creates mini knockout groups', (tester) async {
     await tester.pumpWidget(const DartTournamentApp());
 
-    await tester.tap(find.text('Turnier erstellen'));
-    await tester.pumpAndSettle();
+    await openTournamentCreation(tester);
 
     await tester.enterText(find.widgetWithText(TextField, 'Anzahl'), '4');
     await tester.tap(find.text('Spieler erzeugen'));
@@ -704,7 +707,7 @@ void main() {
 
     expect(find.text('Begegnungen pro Paar'), findsNothing);
     expect(
-      find.text('2 Spiele in dieser Etappe', skipOffstage: false),
+      find.text('0 Spiele in dieser Etappe', skipOffstage: false),
       findsOneWidget,
     );
 
@@ -738,14 +741,13 @@ void main() {
     expect(find.text('Mini-KO-Runde'), findsWidgets);
     expect(find.text('Gruppe A'), findsWidgets);
     expect(find.text('Gruppe B'), findsWidgets);
-    expect(find.text('Finale'), findsWidgets);
+    expect(find.text('Finale'), findsNothing);
   });
 
   testWidgets('sets play type for a single group', (tester) async {
     await tester.pumpWidget(const DartTournamentApp());
 
-    await tester.tap(find.text('Turnier erstellen'));
-    await tester.pumpAndSettle();
+    await openTournamentCreation(tester);
 
     await tester.enterText(find.widgetWithText(TextField, 'Anzahl'), '6');
     await tester.tap(find.text('Spieler erzeugen'));
@@ -776,7 +778,7 @@ void main() {
     await tester.tap(find.text('Mini-KO').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('5 Spiele in dieser Etappe'), findsOneWidget);
+    expect(find.text('3 Spiele in dieser Etappe'), findsOneWidget);
     expect(
       find.byKey(
         const ValueKey('round-robin-repeat-plus-2'),
@@ -813,8 +815,7 @@ void main() {
   testWidgets('cross seed gives byes to top group winners', (tester) async {
     await tester.pumpWidget(const DartTournamentApp());
 
-    await tester.tap(find.text('Turnier erstellen'));
-    await tester.pumpAndSettle();
+    await openTournamentCreation(tester);
 
     await tester.enterText(find.widgetWithText(TextField, 'Anzahl'), '24');
     await tester.tap(find.text('Spieler erzeugen'));
@@ -890,8 +891,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const DartTournamentApp());
 
-    await tester.tap(find.text('Turnier erstellen'));
-    await tester.pumpAndSettle();
+    await openTournamentCreation(tester);
 
     await tester.enterText(find.widgetWithText(TextField, 'Anzahl'), '23');
     await tester.tap(find.text('Spieler erzeugen'));
@@ -958,10 +958,10 @@ void main() {
     await tester.pumpWidget(const DartTournamentApp());
 
     expect(find.text('Dart Turnierverwaltung'), findsWidgets);
-    expect(find.text('Turnier erstellen'), findsOneWidget);
+    expect(find.text('Hauptmenue'), findsOneWidget);
+    expect(find.text('Turniere'), findsOneWidget);
 
-    await tester.tap(find.text('Turnier erstellen'));
-    await tester.pumpAndSettle();
+    await openTournamentCreation(tester);
 
     expect(find.text('Neues Turnier'), findsOneWidget);
     expect(find.text('Turniername'), findsOneWidget);

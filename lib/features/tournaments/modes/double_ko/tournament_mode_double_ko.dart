@@ -1,4 +1,4 @@
-part of 'main.dart';
+part of '../../../../tournament_workspace.dart';
 
 const String _doubleWinnersPrefix = 'Winners Runde ';
 const String _doubleLosersPrefix = 'Losers Runde ';

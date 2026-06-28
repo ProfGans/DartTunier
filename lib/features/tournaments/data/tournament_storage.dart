@@ -1,10 +1,15 @@
-part of 'main.dart';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:path_provider/path_provider.dart';
+
+import '../domain/tournament_models.dart';
 
 class TournamentStorage {
   static const _schemaVersion = 1;
 
   Future<List<CreatedTournament>> loadTournaments() async {
-    final file = _storageFile();
+    final file = await _storageFile();
     if (!file.existsSync()) {
       return [];
     }
@@ -19,10 +24,15 @@ class TournamentStorage {
       return [];
     }
 
-    return _mapListFromJson(
-      decoded['tournaments'],
-      CreatedTournament.fromJson,
-    )..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final tournamentJson = decoded['tournaments'];
+    if (tournamentJson is! List) {
+      return [];
+    }
+
+    return [
+      for (final item in tournamentJson)
+        if (item is Map<String, dynamic>) CreatedTournament.fromJson(item),
+    ]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
   }
 
   Future<void> saveTournament(CreatedTournament tournament) async {
@@ -44,7 +54,7 @@ class TournamentStorage {
   }
 
   Future<void> _writeTournaments(List<CreatedTournament> tournaments) async {
-    final file = _storageFile();
+    final file = await _storageFile();
     await file.parent.create(recursive: true);
     const encoder = JsonEncoder.withIndent('  ');
     await file.writeAsString(
@@ -55,13 +65,30 @@ class TournamentStorage {
     );
   }
 
-  File _storageFile() {
+  Future<File> _storageFile() async {
+    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+      final directory = await _applicationSupportDirectory();
+      return File(
+        '${directory.path}${Platform.pathSeparator}tournaments.json',
+      );
+    }
+
     final appData = Platform.environment['APPDATA'];
     final basePath = appData == null || appData.isEmpty
         ? Directory.current.path
         : appData;
     return File('$basePath${Platform.pathSeparator}DartTournamentManager'
         '${Platform.pathSeparator}tournaments.json');
+  }
+
+  Future<Directory> _applicationSupportDirectory() async {
+    try {
+      return await getApplicationSupportDirectory();
+    } catch (_) {
+      return Directory.systemTemp.createTemp(
+        'dart_tournament_manager_test_',
+      );
+    }
   }
 }
 

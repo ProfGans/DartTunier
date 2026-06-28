@@ -1,4 +1,4 @@
-part of 'main.dart';
+part of '../../../tournament_workspace.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -8,6 +8,67 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  Future<void> _openTournamentArea() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const TournamentHomePage()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Dart Turnierverwaltung'),
+        backgroundColor: colorScheme.primaryContainer,
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Icon(Icons.dashboard_outlined, size: 64, color: colorScheme.primary),
+            const SizedBox(height: 16),
+            Text(
+              'Hauptmenue',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Waehle einen Bereich der Turnierverwaltung.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 24),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.emoji_events_outlined),
+                title: const Text('Turniere'),
+                subtitle: const Text(
+                  'Turniere erstellen, fortsetzen und verwalten.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openTournamentArea,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TournamentHomePage extends StatefulWidget {
+  const TournamentHomePage({super.key});
+
+  @override
+  State<TournamentHomePage> createState() => _TournamentHomePageState();
+}
+
+class _TournamentHomePageState extends State<TournamentHomePage> {
   final _storage = TournamentStorage();
   late Future<List<CreatedTournament>> _tournamentsFuture;
 
@@ -56,7 +117,7 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dart Turnierverwaltung'),
+        title: const Text('Turniere'),
         backgroundColor: colorScheme.primaryContainer,
       ),
       body: SafeArea(

@@ -1,4 +1,4 @@
-part of 'main.dart';
+part of '../../../../tournament_workspace.dart';
 
 class _RenamePlayerDialog extends StatefulWidget {
   const _RenamePlayerDialog({required this.player});
@@ -772,6 +772,7 @@ class _CompactKnockoutPreviewTree extends StatelessWidget {
     required this.participantLabels,
     required this.onSwapSlot,
     this.showOnlyFirstRound = false,
+    this.qualifyingRank = 1,
   });
 
   final int bracketSize;
@@ -779,14 +780,21 @@ class _CompactKnockoutPreviewTree extends StatelessWidget {
   final List<String> participantLabels;
   final void Function(int fromIndex, int toIndex) onSwapSlot;
   final bool showOnlyFirstRound;
+  final int qualifyingRank;
 
   @override
   Widget build(BuildContext context) {
     final roundSizes = <int>[];
     var matchesInRound = bracketSize ~/ 2;
+    var remainingSlots = bracketSize;
+    final safeQualifyingRank = qualifyingRank < 1 ? 1 : qualifyingRank;
     while (matchesInRound >= 1) {
       roundSizes.add(matchesInRound);
       if (showOnlyFirstRound) {
+        break;
+      }
+      remainingSlots = matchesInRound;
+      if (remainingSlots <= safeQualifyingRank) {
         break;
       }
       matchesInRound ~/= 2;
@@ -1215,9 +1223,13 @@ class _GroupQualificationSetup extends StatelessWidget {
         const SizedBox(height: 12),
         _QualificationGroupPreview(
           groupSizes: groupSizes,
-          groupPlayTypes: groupPlayTypes,
           qualificationPlan: qualificationPlan,
           onCyclePlace: onCyclePlace,
+        ),
+        _GroupEliminationPreviewSection(
+          groupSizes: groupSizes,
+          groupPlayTypes: groupPlayTypes,
+          qualificationPlan: qualificationPlan,
         ),
         if (qualificationPlan != null && qualificationPlan!.extraCount > 0) ...[
           const SizedBox(height: 12),
@@ -1285,13 +1297,11 @@ class _QualificationErrorBanner extends StatelessWidget {
 class _QualificationGroupPreview extends StatelessWidget {
   const _QualificationGroupPreview({
     required this.groupSizes,
-    required this.groupPlayTypes,
     required this.qualificationPlan,
     required this.onCyclePlace,
   });
 
   final List<int> groupSizes;
-  final List<String> groupPlayTypes;
   final QualificationPlan? qualificationPlan;
   final void Function(int groupNumber, int place) onCyclePlace;
 
@@ -1310,9 +1320,6 @@ class _QualificationGroupPreview extends StatelessWidget {
           _QualificationGroupCard(
             groupNumber: groupIndex + 1,
             playerCount: groupSizes[groupIndex],
-            playType: groupIndex < groupPlayTypes.length
-                ? groupPlayTypes[groupIndex]
-                : 'round_robin',
             qualificationPlan: plan,
             onCyclePlace: onCyclePlace,
           ),
@@ -1325,14 +1332,12 @@ class _QualificationGroupCard extends StatelessWidget {
   const _QualificationGroupCard({
     required this.groupNumber,
     required this.playerCount,
-    required this.playType,
     required this.qualificationPlan,
     required this.onCyclePlace,
   });
 
   final int groupNumber;
   final int playerCount;
-  final String playType;
   final QualificationPlan qualificationPlan;
   final void Function(int groupNumber, int place) onCyclePlace;
 
@@ -1381,51 +1386,203 @@ class _QualificationGroupCard extends StatelessWidget {
                 ),
             ],
           ),
-          if (_isEliminationGroupPlayType(playType) && playerCount >= 2) ...[
-            const SizedBox(height: 10),
-            _MiniKnockoutQualificationPreview(
-              groupNumber: groupNumber,
-              playerCount: playerCount,
-            ),
-          ],
         ],
       ),
     );
   }
 }
 
-class _MiniKnockoutQualificationPreview extends StatelessWidget {
-  const _MiniKnockoutQualificationPreview({
+class _GroupEliminationPreviewSection extends StatelessWidget {
+  const _GroupEliminationPreviewSection({
+    required this.groupSizes,
+    required this.groupPlayTypes,
+    required this.qualificationPlan,
+  });
+
+  final List<int> groupSizes;
+  final List<String> groupPlayTypes;
+  final QualificationPlan? qualificationPlan;
+
+  @override
+  Widget build(BuildContext context) {
+    final previewGroups = [
+      for (var index = 0; index < groupSizes.length; index++)
+        if (_isEliminationGroupPlayType(_playTypeFor(index)) &&
+            groupSizes[index] >= 2)
+          index,
+    ];
+
+    if (previewGroups.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Spieltyp-Vorschau der Gruppen',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final groupIndex in previewGroups) ...[
+                  _GroupEliminationPreviewCard(
+                    groupNumber: groupIndex + 1,
+                    playerCount: groupSizes[groupIndex],
+                    playType: _playTypeFor(groupIndex),
+                    qualifyingRank: _qualifyingRankFor(groupIndex),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _playTypeFor(int groupIndex) {
+    if (groupIndex >= 0 && groupIndex < groupPlayTypes.length) {
+      return groupPlayTypes[groupIndex];
+    }
+    return 'round_robin';
+  }
+
+  int _qualifyingRankFor(int groupIndex) {
+    final plan = qualificationPlan;
+    if (plan == null) {
+      return 1;
+    }
+
+    final fixedForGroup = groupIndex < plan.fixedByGroup.length
+        ? plan.fixedByGroup[groupIndex]
+        : plan.fixedPerGroup;
+    final groupNumber = groupIndex + 1;
+    final extraRank = plan.extraGroups.contains(groupNumber)
+        ? plan.extraRank
+        : 0;
+    final requiredRank = fixedForGroup > extraRank ? fixedForGroup : extraRank;
+    return requiredRank < 1 ? 1 : requiredRank;
+  }
+}
+
+class _GroupEliminationPreviewCard extends StatelessWidget {
+  const _GroupEliminationPreviewCard({
     required this.groupNumber,
     required this.playerCount,
+    required this.playType,
+    required this.qualifyingRank,
   });
 
   final int groupNumber;
   final int playerCount;
+  final String playType;
+  final int qualifyingRank;
 
   @override
   Widget build(BuildContext context) {
-    final labels = [
-      for (var index = 0; index < playerCount; index++)
-        '${groupLabel(groupNumber)} Platz ${index + 1}',
-    ];
+    final colorScheme = Theme.of(context).colorScheme;
     final bracketSize = _nextPowerOfTwo(playerCount);
+    final labels = [
+      for (var index = 0; index < playerCount; index++) 'Platz ${index + 1}',
+    ];
     final slots = [
       for (final seed in _seedOrderForSize(bracketSize))
         seed <= playerCount ? seed : null,
     ];
+    final lossLimit = _lossLimitForGroupPlayType(playType);
+    final width = switch (lossLimit) {
+      3 => 720.0,
+      2 => 660.0,
+      _ => 520.0,
+    };
 
-    return SizedBox(
-      height: 190,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: _CompactKnockoutPreviewTree(
-          bracketSize: bracketSize,
-          slotOrder: slots,
-          participantLabels: labels,
-          onSwapSlot: (_, _) {},
-        ),
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                groupLabel(groupNumber),
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              Chip(label: Text(_groupPlayTypeLabel(playType))),
+              Chip(label: Text('$playerCount Spieler')),
+              Chip(label: Text('${bracketSize}er Feld')),
+              if (bracketSize > playerCount)
+                Chip(label: Text('${bracketSize - playerCount} Freilose')),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _GroupEliminationBracketPreview(
+            lossLimit: lossLimit,
+            bracketSize: bracketSize,
+            slotOrder: slots,
+            participantLabels: labels,
+            qualifyingRank: qualifyingRank,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupEliminationBracketPreview extends StatelessWidget {
+  const _GroupEliminationBracketPreview({
+    required this.lossLimit,
+    required this.bracketSize,
+    required this.slotOrder,
+    required this.participantLabels,
+    required this.qualifyingRank,
+  });
+
+  final int lossLimit;
+  final int bracketSize;
+  final List<int?> slotOrder;
+  final List<String> participantLabels;
+  final int qualifyingRank;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: switch (lossLimit) {
+        3 => _TripleEliminationPreview(
+            bracketSize: bracketSize,
+            slotOrder: slotOrder,
+            participantLabels: participantLabels,
+            onSwapSlot: (_, _) {},
+          ),
+        2 => _DoubleEliminationPreview(
+            bracketSize: bracketSize,
+            slotOrder: slotOrder,
+            participantLabels: participantLabels,
+            onSwapSlot: (_, _) {},
+          ),
+        _ => _CompactKnockoutPreviewTree(
+            bracketSize: bracketSize,
+            slotOrder: slotOrder,
+            participantLabels: participantLabels,
+            onSwapSlot: (_, _) {},
+            qualifyingRank: qualifyingRank,
+          ),
+      },
     );
   }
 }
@@ -1652,13 +1809,29 @@ class _StageList extends StatelessWidget {
       final playType = _groupPlayTypeForStage(stage, index);
       totalMatches += playType == 'round_robin'
           ? _roundRobinMatchCount(stage.groupSizes[index], repeatCount)
-          : _eliminationMatchEstimate(
+          : _groupEliminationMatchEstimate(
               stage.groupSizes[index],
               _lossLimitForGroupPlayType(playType),
+              _requiredRankForStoredStageGroup(stage, index),
             );
     }
 
     return totalMatches;
+  }
+
+  int _requiredRankForStoredStageGroup(TournamentStage stage, int groupIndex) {
+    final groupCount = stage.groupCount ?? stage.groupSizes.length;
+    final fixedForGroup = groupIndex < stage.fixedQualifiersByGroup.length
+        ? stage.fixedQualifiersByGroup[groupIndex]
+        : groupCount == 0
+        ? 1
+        : (stage.qualifiedParticipantCount ?? 1) ~/ groupCount;
+    final groupNumber = groupIndex + 1;
+    final extraRank = stage.qualifiersByGroup.contains(groupNumber)
+        ? stage.extraQualifierRank ?? fixedForGroup + 1
+        : 0;
+    final requiredRank = fixedForGroup > extraRank ? fixedForGroup : extraRank;
+    return requiredRank < 1 ? 1 : requiredRank;
   }
 
   String _matchCountDetails(TournamentStage stage) {

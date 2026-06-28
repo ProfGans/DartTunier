@@ -1,4 +1,4 @@
-part of 'main.dart';
+part of '../../../../tournament_workspace.dart';
 
 class TournamentRunPage extends StatefulWidget {
   const TournamentRunPage({super.key, required this.tournament});
@@ -15,7 +15,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   StageViewMode _stageViewMode = StageViewMode.overview;
   bool _isBracketEditMode = false;
   final Set<int> _completedStageIndexes = {};
-  final _storage = TournamentStorage();
+  final _runController = const TournamentRunController();
 
   @override
   void initState() {
@@ -33,11 +33,11 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   }
 
   Future<void> _saveTournamentProgress() async {
-    widget.tournament.activeStageIndex = _activeStageIndex;
-    widget.tournament.completedStageIndexes
-      ..clear()
-      ..addAll(_completedStageIndexes);
-    await _storage.saveTournament(widget.tournament);
+    await _runController.saveProgress(
+      tournament: widget.tournament,
+      activeStageIndex: _activeStageIndex,
+      completedStageIndexes: _completedStageIndexes,
+    );
   }
 
   Future<void> _editResult(GroupMatch match) async {
@@ -796,7 +796,10 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     List<GroupMatch> placementMatches,
   ) {
     if (rounds.length >= 2 && placementMatches.isNotEmpty) {
-      final semifinalLosers = rounds[rounds.length - 2]
+      final semifinalRound = rounds.last.length >= 2
+          ? rounds.last
+          : rounds[rounds.length - 2];
+      final semifinalLosers = semifinalRound
           .map((match) => match.loser)
           .whereType<TournamentPlayer>()
           .toList();
@@ -815,15 +818,20 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       }
     }
 
-    if (rounds.length >= 3 && placementMatches.length >= 4) {
-      final quarterfinalLosers = rounds[rounds.length - 3]
+    final fifthSemis = placementMatches
+        .where(
+          (match) => match.label?.startsWith('Platz 5 Halbfinale') ?? false,
+        )
+        .toList();
+    if (fifthSemis.isNotEmpty) {
+      final quarterfinalRound = rounds.last.length >= 4
+          ? rounds.last
+          : rounds.length >= 3
+          ? rounds[rounds.length - 3]
+          : const <GroupMatch>[];
+      final quarterfinalLosers = quarterfinalRound
           .map((match) => match.loser)
           .whereType<TournamentPlayer>()
-          .toList();
-      final fifthSemis = placementMatches
-          .where(
-            (match) => match.label?.startsWith('Platz 5 Halbfinale') ?? false,
-          )
           .toList();
       if (quarterfinalLosers.length >= 4 && fifthSemis.length >= 2) {
         _setMatchPlayers(
@@ -1028,8 +1036,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     if (stage is GroupTournamentRunStage) {
       return stage.groups.any((group) {
         if (_isEliminationGroupPlayType(group.playType)) {
-          return !_miniKnockoutGroupHasWinner(group) ||
-              _hasOpenPlacementMatches(group.placementMatches);
+          final groupIndex = stage.groups.indexOf(group);
+          return !_eliminationGroupQualifiersKnown(stage, group, groupIndex);
         }
 
         return group.matches.any((match) => !match.isResolved);
@@ -1059,20 +1067,46 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         stage.rounds.last.first.winner != null;
   }
 
-  bool _miniKnockoutGroupHasWinner(TournamentGroup group) {
-    if (group.eliminationLossLimit > 1) {
-      return group.knockoutRounds.isNotEmpty &&
-          group.knockoutRounds.last.every((match) => match.isResolved) &&
-          _activeEliminationPlayers(
-                group.knockoutRounds,
-                group.eliminationLossLimit,
-              ).length <=
-              1;
+  bool _eliminationGroupQualifiersKnown(
+    GroupTournamentRunStage stage,
+    TournamentGroup group,
+    int groupIndex,
+  ) {
+    final requiredRank = _requiredRankForGroupStage(stage, groupIndex);
+    if (requiredRank >= group.players.length) {
+      return true;
+    }
+    if (group.knockoutRounds.isEmpty) {
+      return false;
     }
 
-    return group.knockoutRounds.isNotEmpty &&
-        group.knockoutRounds.last.length == 1 &&
-        group.knockoutRounds.last.first.winner != null;
+    if (group.eliminationLossLimit > 1) {
+      return _activeEliminationPlayers(
+            group.knockoutRounds,
+            group.eliminationLossLimit,
+          ).length <=
+          requiredRank;
+    }
+
+    return group.knockoutRounds.last.every((match) => match.isResolved) &&
+        !_hasOpenPlacementMatches(group.placementMatches);
+  }
+
+  int _requiredRankForGroupStage(GroupTournamentRunStage stage, int groupIndex) {
+    final plan = stage.qualificationPlan;
+    if (plan == null) {
+      return 1;
+    }
+
+    final fixedForGroup = groupIndex >= 0 && groupIndex < plan.fixedByGroup.length
+        ? plan.fixedByGroup[groupIndex]
+        : plan.fixedPerGroup;
+    final groupNumber = groupIndex + 1;
+    final extraRank = plan.extraGroups.contains(groupNumber)
+        ? plan.extraRank
+        : 0;
+    final requiredRank = fixedForGroup > extraRank ? fixedForGroup : extraRank;
+    return requiredRank < 1 ? 1 : requiredRank;
   }
 
   List<GroupMatch> _matchesForStage(TournamentRunStage stage) {
@@ -1350,8 +1384,15 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
 
     if (rounds.isNotEmpty) {
-      addPlayer(rounds.last.first.winner);
-      addPlayer(rounds.last.first.loser);
+      final isTruncatedQualificationRound = rounds.last.length > 1;
+      if (isTruncatedQualificationRound) {
+        for (final match in rounds.last) {
+          addPlayer(match.winner);
+        }
+      } else {
+        addPlayer(rounds.last.first.winner);
+        addPlayer(rounds.last.first.loser);
+      }
 
       final thirdPlaceMatches = placementMatches
           .where((match) => match.label == 'Spiel um Platz 3')

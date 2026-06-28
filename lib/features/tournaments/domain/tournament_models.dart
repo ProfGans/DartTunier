@@ -1,4 +1,23 @@
-part of 'main.dart';
+import 'dart:math';
+
+const List<String> defaultGroupTieBreakers = [
+  'points',
+  'legDifference',
+  'legsFor',
+  'headToHead',
+];
+
+String groupLabel(int groupNumber) {
+  var number = groupNumber;
+  var label = '';
+  while (number > 0) {
+    number--;
+    label = String.fromCharCode(65 + (number % 26)) + label;
+    number ~/= 26;
+  }
+
+  return 'Gruppe $label';
+}
 
 String _newTournamentId() {
   final timestamp = DateTime.now().microsecondsSinceEpoch;
@@ -120,22 +139,6 @@ Map<String, dynamic> _runStageToJson(TournamentRunStage stage) {
     return stage.toJson();
   }
   return {'kind': 'unknown', 'name': stage.name};
-}
-
-class DartTournamentApp extends StatelessWidget {
-  const DartTournamentApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Dart Turnierverwaltung',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0D7A5F)),
-        useMaterial3: true,
-      ),
-      home: const HomePage(),
-    );
-  }
 }
 
 class TournamentPlayer {

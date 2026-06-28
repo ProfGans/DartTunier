@@ -1,4 +1,4 @@
-package com.example.dart_tournament_manager
+package de.dartturnierverwaltung.app
 
 import io.flutter.embedding.android.FlutterActivity
 
