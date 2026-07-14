@@ -14,6 +14,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _openPlayersArea() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const PlayersPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -52,6 +58,17 @@ class _HomePageState extends State<HomePage> {
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _openTournamentArea,
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.groups_outlined),
+                title: const Text('Spieler'),
+                subtitle: const Text(
+                  'Spielerprofile anlegen, bearbeiten und verwalten.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openPlayersArea,
               ),
             ),
           ],

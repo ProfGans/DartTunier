@@ -43,7 +43,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   Future<void> _editResult(GroupMatch match) async {
     final result = await showDialog<MatchResult>(
       context: context,
-      builder: (context) => _ResultDialog(match: match),
+      builder: (context) => ResultDialog(match: match),
     );
 
     if (result == null) {
@@ -553,12 +553,17 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
 
     for (var index = 0; index < losers.length; index++) {
-      final targetIndex = index ~/ 2;
+      var targetIndex = (index * losersRound.length) ~/ losers.length;
+      while (targetIndex < losersRound.length &&
+          losersRound[targetIndex].homePlayer != null &&
+          losersRound[targetIndex].awayPlayer != null) {
+        targetIndex++;
+      }
       if (targetIndex >= losersRound.length) {
         break;
       }
       final targetMatch = losersRound[targetIndex];
-      if (index.isEven) {
+      if (targetMatch.homePlayer == null) {
         _setMatchHomePlayer(targetMatch, losers[index]);
       } else {
         _setMatchAwayPlayer(targetMatch, losers[index]);
@@ -1612,7 +1617,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       body: SafeArea(
         child: Column(
           children: [
-            _StageProgressBar(
+            StageProgressBar(
               stages: widget.tournament.runStages,
               activeStageIndex: _viewStageIndex,
               completedStageIndexes: _completedStageIndexes,
@@ -1623,7 +1628,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 });
               },
             ),
-            _StageViewModeSwitch(
+            StageViewModeSwitch(
               selectedMode: _stageViewMode,
               onModeChanged: (mode) {
                 setState(() {
@@ -1637,14 +1642,29 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 children: [
                   if (_stageViewMode == StageViewMode.overview) ...[
                     if (activeStage is GroupTournamentRunStage)
-                      _GroupStageRunSection(
+                      GroupStageRunSection(
                         stage: activeStage,
                         standingsFor: _standingsFor,
                         onEditResult: _editResult,
                         canEditResults: canEditResults,
+                        miniKnockoutBracketBuilder:
+                            (group, qualifyingRank, onEditResult, canEditResults) {
+                              return _KnockoutBracketView(
+                                stage: KnockoutTournamentRunStage(
+                                  name: group.name,
+                                  rounds: group.knockoutRounds,
+                                  eliminationLossLimit:
+                                      group.eliminationLossLimit,
+                                ),
+                                placementMatches: group.placementMatches,
+                                qualifyingRank: qualifyingRank,
+                                onEditResult: onEditResult,
+                                canEditResults: canEditResults,
+                              );
+                            },
                       )
                     else if (activeStage is KnockoutTournamentRunStage)
-                      _KnockoutRunSection(
+                      KnockoutRunSection(
                         stage: activeStage,
                         qualifyingRank: _requiredRankForRunStage(
                           _viewStageIndex,
@@ -1666,9 +1686,28 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                             toSlotIndex,
                           );
                         },
+                        bracketBuilder:
+                            (
+                              stage,
+                              qualifyingRank,
+                              onEditResult,
+                              canEditResults,
+                              isEditMode,
+                              onSwapSlot,
+                            ) {
+                              return _KnockoutBracketView(
+                                stage: stage,
+                                placementMatches: stage.placementMatches,
+                                qualifyingRank: qualifyingRank,
+                                onEditResult: onEditResult,
+                                canEditResults: canEditResults,
+                                isEditMode: isEditMode,
+                                onSwapSlot: onSwapSlot,
+                              );
+                            },
                       ),
                   ] else
-                    _StagePlayOrderSection(
+                    StagePlayOrderSection(
                       stage: activeStage,
                       matches: _matchesForStage(activeStage),
                       onEditResult: _editResult,
@@ -1677,7 +1716,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 ],
               ),
             ),
-            _StageFooter(
+            StageFooter(
               canCompleteStage: canCompleteStage,
               isLastStage: isLastStage,
               isViewingActiveStage: isViewingActiveStage,

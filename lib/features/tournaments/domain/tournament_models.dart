@@ -19,6 +19,16 @@ String groupLabel(int groupNumber) {
   return 'Gruppe $label';
 }
 
+String tieBreakerLabel(String tieBreaker) {
+  return switch (tieBreaker) {
+    'points' => 'Punkte',
+    'legDifference' => 'Leg-Differenz',
+    'legsFor' => 'Gewonnene Legs',
+    'headToHead' => 'Direkter Vergleich',
+    _ => tieBreaker,
+  };
+}
+
 String _newTournamentId() {
   final timestamp = DateTime.now().microsecondsSinceEpoch;
   final randomPart = Random().nextInt(1 << 32);
@@ -142,10 +152,15 @@ Map<String, dynamic> _runStageToJson(TournamentRunStage stage) {
 }
 
 class TournamentPlayer {
-  const TournamentPlayer({required this.name, required this.isGenerated});
+  const TournamentPlayer({
+    this.profileId,
+    required this.name,
+    required this.isGenerated,
+  });
 
   factory TournamentPlayer.fromJson(Map<String, dynamic> json) {
     return TournamentPlayer(
+      profileId: json['profileId'] as String?,
       name: json['name'] as String? ?? '',
       isGenerated: json['isGenerated'] as bool? ?? false,
     );
@@ -155,29 +170,40 @@ class TournamentPlayer {
     return TournamentPlayer(name: 'Spieler $number', isGenerated: true);
   }
 
+  final String? profileId;
   final String name;
   final bool isGenerated;
 
-  TournamentPlayer copyWith({String? name, bool? isGenerated}) {
+  TournamentPlayer copyWith({
+    String? profileId,
+    String? name,
+    bool? isGenerated,
+  }) {
     return TournamentPlayer(
+      profileId: profileId ?? this.profileId,
       name: name ?? this.name,
       isGenerated: isGenerated ?? this.isGenerated,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'name': name, 'isGenerated': isGenerated};
+    return {
+      if (profileId != null) 'profileId': profileId,
+      'name': name,
+      'isGenerated': isGenerated,
+    };
   }
 
   @override
   bool operator ==(Object other) {
     return other is TournamentPlayer &&
+        other.profileId == profileId &&
         other.name == name &&
         other.isGenerated == isGenerated;
   }
 
   @override
-  int get hashCode => Object.hash(name, isGenerated);
+  int get hashCode => Object.hash(profileId, name, isGenerated);
 }
 
 class TournamentStage {

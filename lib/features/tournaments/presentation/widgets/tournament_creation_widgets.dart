@@ -1,295 +1,5 @@
 part of '../../../../tournament_workspace.dart';
 
-class _RenamePlayerDialog extends StatefulWidget {
-  const _RenamePlayerDialog({required this.player});
-
-  final TournamentPlayer player;
-
-  @override
-  State<_RenamePlayerDialog> createState() => _RenamePlayerDialogState();
-}
-
-class _RenamePlayerDialogState extends State<_RenamePlayerDialog> {
-  late final TextEditingController _nameController;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.player.name);
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    Navigator.of(context).pop(_nameController.text);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Spieler bearbeiten'),
-      content: TextField(
-        controller: _nameController,
-        autofocus: true,
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
-          labelText: 'Spielername',
-        ),
-        onSubmitted: (_) => _submit(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Abbrechen'),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('Speichern')),
-      ],
-    );
-  }
-}
-
-class _GroupSizePreview extends StatelessWidget {
-  const _GroupSizePreview({required this.groupSizes});
-
-  final List<int> groupSizes;
-
-  @override
-  Widget build(BuildContext context) {
-    if (groupSizes.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 14),
-        child: Text('Erst Spieler anlegen.'),
-      );
-    }
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (var index = 0; index < groupSizes.length; index++)
-          Chip(
-            avatar: CircleAvatar(child: Text('${index + 1}')),
-            label: Text('${groupSizes[index]} Spieler'),
-          ),
-      ],
-    );
-  }
-}
-
-class _RoundRobinRepeatsSetup extends StatelessWidget {
-  const _RoundRobinRepeatsSetup({
-    required this.groupSizes,
-    required this.playTypes,
-    required this.repeats,
-    required this.onChangeRepeats,
-  });
-
-  final List<int> groupSizes;
-  final List<String> playTypes;
-  final List<int> repeats;
-  final void Function(int groupIndex, int delta) onChangeRepeats;
-
-  @override
-  Widget build(BuildContext context) {
-    if (groupSizes.isEmpty || !playTypes.contains('round_robin')) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Begegnungen pro Paar',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (var index = 0; index < groupSizes.length; index++)
-              if (index < playTypes.length && playTypes[index] == 'round_robin')
-                Container(
-                  padding: const EdgeInsets.only(left: 10),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.outlineVariant,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(groupLabel(index + 1)),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        key: ValueKey('round-robin-repeat-minus-${index + 1}'),
-                        constraints: const BoxConstraints.tightFor(
-                          width: 32,
-                          height: 36,
-                        ),
-                        padding: EdgeInsets.zero,
-                        onPressed: repeats[index] <= 1
-                            ? null
-                            : () => onChangeRepeats(index, -1),
-                        icon: const Icon(Icons.remove),
-                        tooltip: 'Weniger Spiele',
-                      ),
-                      Text('${repeats[index]}x'),
-                      IconButton(
-                        key: ValueKey('round-robin-repeat-plus-${index + 1}'),
-                        constraints: const BoxConstraints.tightFor(
-                          width: 32,
-                          height: 36,
-                        ),
-                        padding: EdgeInsets.zero,
-                        onPressed: () => onChangeRepeats(index, 1),
-                        icon: const Icon(Icons.add),
-                        tooltip: 'Mehr Spiele',
-                      ),
-                    ],
-                  ),
-                ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _GroupPlayTypeSetup extends StatelessWidget {
-  const _GroupPlayTypeSetup({
-    required this.groupSizes,
-    required this.playTypes,
-    required this.onChanged,
-  });
-
-  final List<int> groupSizes;
-  final List<String> playTypes;
-  final void Function(int groupIndex, String playType) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    if (groupSizes.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Spieltyp je Gruppe', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (var index = 0; index < groupSizes.length; index++)
-              SizedBox(
-                width: 220,
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey(
-                    'group-play-type-${index + 1}-${playTypes[index]}',
-                  ),
-                  isExpanded: true,
-                  initialValue: playTypes[index],
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    labelText: groupLabel(index + 1),
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'round_robin',
-                      child: Text('Liga'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'mini_knockout',
-                      child: Text('Mini-KO'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'double_knockout',
-                      child: Text('Doppel-KO'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'triple_knockout',
-                      child: Text('Triple-KO'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      onChanged(index, value);
-                    }
-                  },
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _StageMatchCountPreview extends StatelessWidget {
-  const _StageMatchCountPreview({
-    required this.matchCount,
-    required this.details,
-  });
-
-  final int matchCount;
-  final List<String> details;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.sports_score_outlined, color: colorScheme.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$matchCount Spiele in dieser Etappe',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (details.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      for (final detail in details)
-                        Chip(
-                          visualDensity: VisualDensity.compact,
-                          label: Text(detail),
-                        ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _KnockoutPreview extends StatelessWidget {
   const _KnockoutPreview({
     required this.participantCount,
@@ -410,6 +120,7 @@ class _KnockoutPreview extends StatelessWidget {
             bracketSize: resolvedBracketSize,
             slotOrder: slots,
             participantLabels: participantLabels,
+            qualifyingRank: 0,
             onSwapSlot: onSwapSlot,
           )
         else if (eliminationLossLimit == 3)
@@ -417,6 +128,7 @@ class _KnockoutPreview extends StatelessWidget {
             bracketSize: resolvedBracketSize,
             slotOrder: slots,
             participantLabels: participantLabels,
+            qualifyingRank: 0,
             onSwapSlot: onSwapSlot,
           )
         else
@@ -426,6 +138,7 @@ class _KnockoutPreview extends StatelessWidget {
             participantLabels: participantLabels,
             onSwapSlot: onSwapSlot,
             showOnlyFirstRound: eliminationLossLimit > 1,
+            qualifyingRank: 0,
           ),
       ],
     );
@@ -437,18 +150,47 @@ class _TripleEliminationPreview extends StatelessWidget {
     required this.bracketSize,
     required this.slotOrder,
     required this.participantLabels,
+    required this.qualifyingRank,
     required this.onSwapSlot,
   });
 
   final int bracketSize;
   final List<int?> slotOrder;
   final List<String> participantLabels;
+  final int qualifyingRank;
   final void Function(int fromIndex, int toIndex) onSwapSlot;
 
   @override
   Widget build(BuildContext context) {
-    final roundCount = _log2PowerOfTwo(bracketSize);
-    final numberCursor = _PreviewNumberCursor();
+    final previewPlayers = [
+      for (var index = 0; index < participantLabels.length; index++)
+        TournamentPlayer(name: participantLabels[index], isGenerated: true),
+    ];
+    final rounds = _buildTripleEliminationRoundsFromSlots(
+      previewPlayers,
+      slotOrder,
+    );
+    final matchNumbers = _stageMatchNumbers(rounds);
+    final sourceLabels = _lossLevelSourceLabels(rounds, matchNumbers);
+    final sourceMatches = _lossLevelSourceMatches(rounds);
+    final lossRounds = [
+      for (var lossCount = 0; lossCount < 3; lossCount++)
+        [
+          for (
+            var roundNumber = 1;
+            roundNumber <= _lossLevelRoundCount(rounds, lossCount);
+            roundNumber++
+          )
+            lossCount == 0 && roundNumber == 1
+                ? rounds.first
+                : _matchesWithLabel(
+                    rounds,
+                    _lossLevelMatchLabel(lossCount, roundNumber),
+                  ),
+        ],
+    ];
+    final finalMatches = _matchesWithLabel(rounds, _tripleFinalLabel);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -458,25 +200,37 @@ class _TripleEliminationPreview extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _BracketTreeLayout(
-            totalRounds: lossCount == 0 ? roundCount : roundCount + lossCount,
+            totalRounds: lossRounds[lossCount].length,
             roundTitles: [
-              for (var roundNumber = 1;
-                  roundNumber <=
-                      (lossCount == 0 ? roundCount : roundCount + lossCount);
-                  roundNumber++)
+              for (
+                var roundNumber = 1;
+                roundNumber <= lossRounds[lossCount].length;
+                roundNumber++
+              )
                 lossCount == 0
-                    ? _bracketRoundTitle(roundNumber - 1, roundCount)
+                    ? _bracketRoundTitle(
+                        roundNumber - 1,
+                        lossRounds[lossCount].length,
+                      )
                     : _lossLevelMatchLabel(lossCount, roundNumber),
             ],
             roundCards: [
-              ..._lossLevelPreviewColumns(
-                lossCount: lossCount,
-                roundCount: lossCount == 0 ? roundCount : roundCount + lossCount,
-                numberCursor: numberCursor,
-              ),
+              for (var roundIndex = 0;
+                  roundIndex < lossRounds[lossCount].length;
+                  roundIndex++)
+                _previewCardsFor(
+                  lossRounds[lossCount][roundIndex],
+                  rounds,
+                  matchNumbers,
+                  sourceLabels,
+                  roundIndex: roundIndex,
+                  totalRounds: lossRounds[lossCount].length,
+                ),
             ],
+            roundMatches: lossRounds[lossCount],
+            sourceMatches: sourceMatches,
             columnWidth: 170,
-            cardHeight: 108,
+            cardHeight: 180,
             firstRoundGap: 10,
             useBalancedColumnLayout: true,
           ),
@@ -488,16 +242,19 @@ class _TripleEliminationPreview extends StatelessWidget {
           totalRounds: 1,
           roundTitles: const [_tripleFinalLabel],
           roundCards: [
-            [
-              _BracketPreviewPlaceholderMatch(
-                matchNumber: numberCursor.take(),
-                topLabel: 'Sieger 0 Niederlagen',
-                bottomLabel: 'Sieger 1/2 Niederlagen',
-              ),
-            ],
+            _previewCardsFor(
+              finalMatches,
+              rounds,
+              matchNumbers,
+              sourceLabels,
+              roundIndex: 0,
+              totalRounds: 1,
+            ),
           ],
+          roundMatches: [finalMatches],
+          sourceMatches: sourceMatches,
           columnWidth: 170,
-          cardHeight: 108,
+          cardHeight: 180,
           firstRoundGap: 10,
           useBalancedColumnLayout: true,
         ),
@@ -505,130 +262,39 @@ class _TripleEliminationPreview extends StatelessWidget {
     );
   }
 
-  List<List<Widget>> _lossLevelPreviewColumns({
-    required int lossCount,
-    required int roundCount,
-    required _PreviewNumberCursor numberCursor,
+  List<Widget> _previewCardsFor(
+    List<GroupMatch> matches,
+    List<List<GroupMatch>> rounds,
+    Map<GroupMatch, int> matchNumbers,
+    Map<GroupMatch, ({String? first, String? second})> sourceLabels, {
+    required int roundIndex,
+    required int totalRounds,
   }) {
-    var previousNumbers = <int>[];
+    final qualificationLabel = _bracketQualificationLabelFor(
+      roundIndex: roundIndex,
+      totalRounds: totalRounds,
+      qualifyingRank: qualifyingRank,
+    );
     return [
-      for (var roundNumber = 1; roundNumber <= roundCount; roundNumber++)
-        if (lossCount == 0 && roundNumber == 1)
-          _firstRoundPreviewCards(numberCursor, previousNumbers)
+      for (final match in matches)
+        if (rounds.isNotEmpty && rounds.first.contains(match))
+          _BracketPreviewMatch(
+            matchNumber: matchNumbers[match] ?? 0,
+            topSlotIndex: rounds.first.indexOf(match) * 2,
+            bottomSlotIndex: rounds.first.indexOf(match) * 2 + 1,
+            slotOrder: slotOrder,
+            participantLabels: participantLabels,
+            qualificationLabel: qualificationLabel,
+            onSwapSlot: onSwapSlot,
+          )
         else
-          _placeholderPreviewCards(
-            matchCount: _triplePreviewMatchCount(
-              bracketSize,
-              lossCount,
-              roundNumber,
-            ),
-            numberCursor: numberCursor,
-            previousNumbers: previousNumbers,
-            updatePreviousNumbers: (numbers) {
-              previousNumbers = numbers;
-            },
+          _BracketPreviewPlaceholderMatch(
+            matchNumber: matchNumbers[match] ?? 0,
+            topLabel: sourceLabels[match]?.first ?? 'Freilos',
+            bottomLabel: sourceLabels[match]?.second ?? 'Freilos',
+            qualificationLabel: qualificationLabel,
           ),
     ];
-  }
-
-  List<Widget> _firstRoundPreviewCards(
-    _PreviewNumberCursor numberCursor,
-    List<int> previousNumbers,
-  ) {
-    final cards = <Widget>[];
-    for (var matchIndex = 0; matchIndex < bracketSize ~/ 2; matchIndex++) {
-      final topSlotIndex = matchIndex * 2;
-      final bottomSlotIndex = matchIndex * 2 + 1;
-      final hasBye =
-          slotOrder[topSlotIndex] == null || slotOrder[bottomSlotIndex] == null;
-      if (hasBye) {
-        continue;
-      }
-      final matchNumber = numberCursor.take();
-      previousNumbers.add(matchNumber);
-      cards.add(
-        _BracketPreviewMatch(
-          matchNumber: matchNumber,
-          topSlotIndex: topSlotIndex,
-          bottomSlotIndex: bottomSlotIndex,
-          slotOrder: slotOrder,
-          participantLabels: participantLabels,
-          onSwapSlot: onSwapSlot,
-        ),
-      );
-    }
-
-    if (cards.isEmpty) {
-      return [
-        for (var matchIndex = 0; matchIndex < bracketSize ~/ 2; matchIndex++)
-          _fallbackFirstRoundCard(matchIndex, numberCursor, previousNumbers),
-      ];
-    }
-
-    return cards;
-  }
-
-  Widget _fallbackFirstRoundCard(
-    int matchIndex,
-    _PreviewNumberCursor numberCursor,
-    List<int> previousNumbers,
-  ) {
-    final matchNumber = numberCursor.take();
-    previousNumbers.add(matchNumber);
-    return _BracketPreviewMatch(
-      matchNumber: matchNumber,
-      topSlotIndex: matchIndex * 2,
-      bottomSlotIndex: matchIndex * 2 + 1,
-      slotOrder: slotOrder,
-      participantLabels: participantLabels,
-      onSwapSlot: onSwapSlot,
-    );
-  }
-
-  List<Widget> _placeholderPreviewCards({
-    required int matchCount,
-    required _PreviewNumberCursor numberCursor,
-    required List<int> previousNumbers,
-    required void Function(List<int> numbers) updatePreviousNumbers,
-  }) {
-    final currentNumbers = <int>[];
-    final cards = <Widget>[];
-    for (var index = 0; index < matchCount; index++) {
-      final matchNumber = numberCursor.take();
-      currentNumbers.add(matchNumber);
-      final topSourceIndex = index * 2;
-      final bottomSourceIndex = index * 2 + 1;
-      cards.add(
-        _BracketPreviewPlaceholderMatch(
-          matchNumber: matchNumber,
-          topLabel: topSourceIndex < previousNumbers.length
-              ? 'Gewinner Spiel ${previousNumbers[topSourceIndex]}'
-              : 'Freilos',
-          bottomLabel: bottomSourceIndex < previousNumbers.length
-              ? 'Gewinner Spiel ${previousNumbers[bottomSourceIndex]}'
-              : 'Freilos',
-        ),
-      );
-    }
-    updatePreviousNumbers(currentNumbers);
-    return cards;
-  }
-
-  int _triplePreviewMatchCount(
-    int bracketSize,
-    int lossCount,
-    int roundNumber,
-  ) {
-    final divisor = 1 << (roundNumber + lossCount);
-    return (bracketSize ~/ divisor).clamp(1, bracketSize ~/ 2).toInt();
-  }
-}
-
-class _PreviewNumberCursor {
-  int _next = 1;
-
-  int take() {
-    return _next++;
   }
 }
 
@@ -637,12 +303,14 @@ class _DoubleEliminationPreview extends StatelessWidget {
     required this.bracketSize,
     required this.slotOrder,
     required this.participantLabels,
+    required this.qualifyingRank,
     required this.onSwapSlot,
   });
 
   final int bracketSize;
   final List<int?> slotOrder;
   final List<String> participantLabels;
+  final int qualifyingRank;
   final void Function(int fromIndex, int toIndex) onSwapSlot;
 
   @override
@@ -688,13 +356,22 @@ class _DoubleEliminationPreview extends StatelessWidget {
               _bracketRoundTitle(index, winnersRounds.length),
           ],
           roundCards: [
-            for (final round in winnersRounds)
-              _previewCardsFor(round, rounds, matchNumbers, sourceLabels),
+            for (var roundIndex = 0;
+                roundIndex < winnersRounds.length;
+                roundIndex++)
+              _previewCardsFor(
+                winnersRounds[roundIndex],
+                rounds,
+                matchNumbers,
+                sourceLabels,
+                roundIndex: roundIndex,
+                totalRounds: winnersRounds.length,
+              ),
           ],
           roundMatches: winnersRounds,
           sourceMatches: sourceMatches,
           columnWidth: 170,
-          cardHeight: 108,
+          cardHeight: 180,
           firstRoundGap: 10,
           useBalancedColumnLayout: true,
         ),
@@ -708,13 +385,22 @@ class _DoubleEliminationPreview extends StatelessWidget {
               _doubleLosersLabel(index + 1),
           ],
           roundCards: [
-            for (final round in losersRounds)
-              _previewCardsFor(round, rounds, matchNumbers, sourceLabels),
+            for (var roundIndex = 0;
+                roundIndex < losersRounds.length;
+                roundIndex++)
+              _previewCardsFor(
+                losersRounds[roundIndex],
+                rounds,
+                matchNumbers,
+                sourceLabels,
+                roundIndex: roundIndex,
+                totalRounds: losersRounds.length,
+              ),
           ],
           roundMatches: losersRounds,
           sourceMatches: sourceMatches,
           columnWidth: 170,
-          cardHeight: 108,
+          cardHeight: 180,
           firstRoundGap: 10,
           useBalancedColumnLayout: true,
         ),
@@ -725,12 +411,19 @@ class _DoubleEliminationPreview extends StatelessWidget {
           totalRounds: finalMatches.isEmpty ? 0 : 1,
           roundTitles: const ['Grand Final'],
           roundCards: [
-            _previewCardsFor(finalMatches, rounds, matchNumbers, sourceLabels),
+            _previewCardsFor(
+              finalMatches,
+              rounds,
+              matchNumbers,
+              sourceLabels,
+              roundIndex: 0,
+              totalRounds: 1,
+            ),
           ],
           roundMatches: [finalMatches],
           sourceMatches: sourceMatches,
           columnWidth: 170,
-          cardHeight: 108,
+          cardHeight: 180,
           firstRoundGap: 10,
           useBalancedColumnLayout: true,
         ),
@@ -742,8 +435,15 @@ class _DoubleEliminationPreview extends StatelessWidget {
     List<GroupMatch> matches,
     List<List<GroupMatch>> rounds,
     Map<GroupMatch, int> matchNumbers,
-    Map<GroupMatch, ({String? first, String? second})> sourceLabels,
-  ) {
+    Map<GroupMatch, ({String? first, String? second})> sourceLabels, {
+    required int roundIndex,
+    required int totalRounds,
+  }) {
+    final qualificationLabel = _bracketQualificationLabelFor(
+      roundIndex: roundIndex,
+      totalRounds: totalRounds,
+      qualifyingRank: qualifyingRank,
+    );
     return [
       for (final match in matches)
         if (rounds.isNotEmpty && rounds.first.contains(match))
@@ -753,6 +453,7 @@ class _DoubleEliminationPreview extends StatelessWidget {
             bottomSlotIndex: rounds.first.indexOf(match) * 2 + 1,
             slotOrder: slotOrder,
             participantLabels: participantLabels,
+            qualificationLabel: qualificationLabel,
             onSwapSlot: onSwapSlot,
           )
         else
@@ -760,6 +461,7 @@ class _DoubleEliminationPreview extends StatelessWidget {
             matchNumber: matchNumbers[match] ?? 0,
             topLabel: sourceLabels[match]?.first ?? 'Freilos',
             bottomLabel: sourceLabels[match]?.second ?? 'Freilos',
+            qualificationLabel: qualificationLabel,
           ),
     ];
   }
@@ -803,7 +505,7 @@ class _CompactKnockoutPreviewTree extends StatelessWidget {
     return _BracketTreeLayout(
       totalRounds: roundSizes.length,
       columnWidth: 160,
-      cardHeight: 108,
+      cardHeight: 180,
       firstRoundGap: 10,
       roundTitles: [
         for (var roundIndex = 0; roundIndex < roundSizes.length; roundIndex++)
@@ -826,10 +528,22 @@ class _CompactKnockoutPreviewTree extends StatelessWidget {
                   bottomSlotIndex: matchIndex * 2 + 1,
                   slotOrder: slotOrder,
                   participantLabels: participantLabels,
+                  qualificationLabel: _bracketQualificationLabelFor(
+                    roundIndex: roundIndex,
+                    totalRounds: roundSizes.length,
+                    qualifyingRank: qualifyingRank,
+                  ),
                   onSwapSlot: onSwapSlot,
                 )
               else
-                _BracketPreviewPlaceholderMatch(matchNumber: matchIndex + 1),
+                _BracketPreviewPlaceholderMatch(
+                  matchNumber: matchIndex + 1,
+                  qualificationLabel: _bracketQualificationLabelFor(
+                    roundIndex: roundIndex,
+                    totalRounds: roundSizes.length,
+                    qualifyingRank: qualifyingRank,
+                  ),
+                ),
           ],
       ],
     );
@@ -840,11 +554,13 @@ class _BracketPreviewPlaceholderMatch extends StatelessWidget {
     required this.matchNumber,
     this.topLabel = 'Freilos',
     this.bottomLabel = 'Freilos',
+    this.qualificationLabel,
   });
 
   final int matchNumber;
   final String topLabel;
   final String bottomLabel;
+  final String? qualificationLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -867,6 +583,10 @@ class _BracketPreviewPlaceholderMatch extends StatelessWidget {
           _BracketPreviewOpenSlot(label: topLabel),
           const SizedBox(height: 5),
           _BracketPreviewOpenSlot(label: bottomLabel),
+          if (qualificationLabel != null) ...[
+            const SizedBox(height: 6),
+            _QualificationMarker(label: qualificationLabel!),
+          ],
         ],
       ),
     );
@@ -901,6 +621,7 @@ class _BracketPreviewMatch extends StatelessWidget {
     required this.slotOrder,
     required this.participantLabels,
     required this.onSwapSlot,
+    this.qualificationLabel,
   });
 
   final int matchNumber;
@@ -909,6 +630,7 @@ class _BracketPreviewMatch extends StatelessWidget {
   final List<int?> slotOrder;
   final List<String> participantLabels;
   final void Function(int fromIndex, int toIndex) onSwapSlot;
+  final String? qualificationLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -929,21 +651,32 @@ class _BracketPreviewMatch extends StatelessWidget {
           _BracketPreviewSlot(
             slotIndex: topSlotIndex,
             slotCount: slotOrder.length,
-            seed: slotOrder[topSlotIndex],
-            label: _slotLabel(slotOrder[topSlotIndex]),
+            seed: _seedAt(topSlotIndex),
+            label: _slotLabel(_seedAt(topSlotIndex)),
             onSwapSlot: onSwapSlot,
           ),
           const SizedBox(height: 5),
           _BracketPreviewSlot(
             slotIndex: bottomSlotIndex,
             slotCount: slotOrder.length,
-            seed: slotOrder[bottomSlotIndex],
-            label: _slotLabel(slotOrder[bottomSlotIndex]),
+            seed: _seedAt(bottomSlotIndex),
+            label: _slotLabel(_seedAt(bottomSlotIndex)),
             onSwapSlot: onSwapSlot,
           ),
+          if (qualificationLabel != null) ...[
+            const SizedBox(height: 6),
+            _QualificationMarker(label: qualificationLabel!),
+          ],
         ],
       ),
     );
+  }
+
+  int? _seedAt(int slotIndex) {
+    if (slotIndex < 0 || slotIndex >= slotOrder.length) {
+      return null;
+    }
+    return slotOrder[slotIndex];
   }
 
   String _slotLabel(int? seed) {
@@ -978,6 +711,7 @@ class _BracketPreviewSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isBye = seed == null;
+    final isRealSlot = slotIndex >= 0 && slotIndex < slotCount;
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
@@ -1000,7 +734,7 @@ class _BracketPreviewSlot extends StatelessWidget {
           IconButton(
             constraints: const BoxConstraints.tightFor(width: 24, height: 28),
             padding: EdgeInsets.zero,
-            onPressed: slotIndex == 0
+            onPressed: !isRealSlot || slotIndex == 0
                 ? null
                 : () => onSwapSlot(slotIndex, slotIndex - 1),
             icon: const Icon(Icons.keyboard_arrow_up, size: 18),
@@ -1009,7 +743,7 @@ class _BracketPreviewSlot extends StatelessWidget {
           IconButton(
             constraints: const BoxConstraints.tightFor(width: 24, height: 28),
             padding: EdgeInsets.zero,
-            onPressed: slotIndex >= slotCount - 1
+            onPressed: !isRealSlot || slotIndex >= slotCount - 1
                 ? null
                 : () => onSwapSlot(slotIndex, slotIndex + 1),
             icon: const Icon(Icons.keyboard_arrow_down, size: 18),
@@ -1017,75 +751,6 @@ class _BracketPreviewSlot extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _GroupTieBreakerSetup extends StatelessWidget {
-  const _GroupTieBreakerSetup({
-    required this.tieBreakers,
-    required this.onMoveTieBreaker,
-  });
-
-  final List<String> tieBreakers;
-  final void Function(int index, int direction) onMoveTieBreaker;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Tie-Breaker', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (var index = 0; index < tieBreakers.length; index++)
-              Container(
-                padding: const EdgeInsets.only(left: 10),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircleAvatar(radius: 12, child: Text('${index + 1}')),
-                    const SizedBox(width: 8),
-                    Text(tieBreakerLabel(tieBreakers[index])),
-                    IconButton(
-                      constraints: const BoxConstraints.tightFor(
-                        width: 32,
-                        height: 36,
-                      ),
-                      padding: EdgeInsets.zero,
-                      onPressed: index == 0
-                          ? null
-                          : () => onMoveTieBreaker(index, -1),
-                      icon: const Icon(Icons.keyboard_arrow_up),
-                      tooltip: 'Tie-Breaker nach oben',
-                    ),
-                    IconButton(
-                      constraints: const BoxConstraints.tightFor(
-                        width: 32,
-                        height: 36,
-                      ),
-                      padding: EdgeInsets.zero,
-                      onPressed: index == tieBreakers.length - 1
-                          ? null
-                          : () => onMoveTieBreaker(index, 1),
-                      icon: const Icon(Icons.keyboard_arrow_down),
-                      tooltip: 'Tie-Breaker nach unten',
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ],
     );
   }
 }
@@ -1198,7 +863,7 @@ class _GroupQualificationSetup extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        _QualificationRuleSummary(qualificationPlan: qualificationPlan),
+        QualificationRuleSummary(qualificationPlan: qualificationPlan),
         if (qualificationPlan != null) ...[
           const SizedBox(height: 8),
           SizedBox(
@@ -1218,10 +883,10 @@ class _GroupQualificationSetup extends StatelessWidget {
         ],
         for (final message in _validationMessages(qualificationPlan)) ...[
           const SizedBox(height: 8),
-          _QualificationErrorBanner(message: message),
+          QualificationErrorBanner(message: message),
         ],
         const SizedBox(height: 12),
-        _QualificationGroupPreview(
+        QualificationGroupPreview(
           groupSizes: groupSizes,
           qualificationPlan: qualificationPlan,
           onCyclePlace: onCyclePlace,
@@ -1259,135 +924,6 @@ class _GroupQualificationSetup extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _QualificationErrorBanner extends StatelessWidget {
-  const _QualificationErrorBanner({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, color: colorScheme.onErrorContainer),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(color: colorScheme.onErrorContainer),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QualificationGroupPreview extends StatelessWidget {
-  const _QualificationGroupPreview({
-    required this.groupSizes,
-    required this.qualificationPlan,
-    required this.onCyclePlace,
-  });
-
-  final List<int> groupSizes;
-  final QualificationPlan? qualificationPlan;
-  final void Function(int groupNumber, int place) onCyclePlace;
-
-  @override
-  Widget build(BuildContext context) {
-    final plan = qualificationPlan;
-    if (plan == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        for (var groupIndex = 0; groupIndex < groupSizes.length; groupIndex++)
-          _QualificationGroupCard(
-            groupNumber: groupIndex + 1,
-            playerCount: groupSizes[groupIndex],
-            qualificationPlan: plan,
-            onCyclePlace: onCyclePlace,
-          ),
-      ],
-    );
-  }
-}
-
-class _QualificationGroupCard extends StatelessWidget {
-  const _QualificationGroupCard({
-    required this.groupNumber,
-    required this.playerCount,
-    required this.qualificationPlan,
-    required this.onCyclePlace,
-  });
-
-  final int groupNumber;
-  final int playerCount;
-  final QualificationPlan qualificationPlan;
-  final void Function(int groupNumber, int place) onCyclePlace;
-
-  int get _fixedForGroup {
-    if (groupNumber - 1 < qualificationPlan.fixedByGroup.length) {
-      return qualificationPlan.fixedByGroup[groupNumber - 1];
-    }
-    return qualificationPlan.fixedPerGroup;
-  }
-
-  bool _isExtraCandidate(int place) {
-    return qualificationPlan.extraCount > 0 &&
-        place == qualificationPlan.extraRank &&
-        qualificationPlan.extraGroups.contains(groupNumber);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      width: 178,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            groupLabel(groupNumber),
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (var place = 1; place <= playerCount; place++)
-                _QualificationPlaceBadge(
-                  place: place,
-                  isQualified: place <= _fixedForGroup,
-                  isExtraCandidate: _isExtraCandidate(place),
-                  onTap: () => onCyclePlace(groupNumber, place),
-                ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1567,12 +1103,14 @@ class _GroupEliminationBracketPreview extends StatelessWidget {
             bracketSize: bracketSize,
             slotOrder: slotOrder,
             participantLabels: participantLabels,
+            qualifyingRank: qualifyingRank,
             onSwapSlot: (_, _) {},
           ),
         2 => _DoubleEliminationPreview(
             bracketSize: bracketSize,
             slotOrder: slotOrder,
             participantLabels: participantLabels,
+            qualifyingRank: qualifyingRank,
             onSwapSlot: (_, _) {},
           ),
         _ => _CompactKnockoutPreviewTree(
@@ -1583,58 +1121,6 @@ class _GroupEliminationBracketPreview extends StatelessWidget {
             qualifyingRank: qualifyingRank,
           ),
       },
-    );
-  }
-}
-
-class _QualificationPlaceBadge extends StatelessWidget {
-  const _QualificationPlaceBadge({
-    required this.place,
-    required this.isQualified,
-    required this.isExtraCandidate,
-    required this.onTap,
-  });
-
-  final int place;
-  final bool isQualified;
-  final bool isExtraCandidate;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final backgroundColor = isQualified
-        ? const Color(0xFFC8F7DC)
-        : isExtraCandidate
-        ? const Color(0xFFFFE8A3)
-        : colorScheme.surfaceContainerHighest;
-    final borderColor = isQualified
-        ? const Color(0xFF14965F)
-        : isExtraCandidate
-        ? const Color(0xFFC58A00)
-        : colorScheme.outlineVariant;
-
-    return Tooltip(
-      message: isQualified
-          ? 'Sicher weiter'
-          : isExtraCandidate
-          ? 'Vergleich um Zusatzplatz'
-          : 'Scheidet aus',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(6),
-        onTap: onTap,
-        child: Container(
-          width: 34,
-          height: 30,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            border: Border.all(color: borderColor),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text('$place.'),
-        ),
-      ),
     );
   }
 }
@@ -1685,7 +1171,7 @@ class _InheritedKnockoutSetup extends StatelessWidget {
         if (previousStage == null)
           const Text('Alle angelegten Spieler nehmen teil.')
         else if (qualificationPlan != null)
-          _QualificationRuleSummary(qualificationPlan: qualificationPlan)
+          QualificationRuleSummary(qualificationPlan: qualificationPlan)
         else
           Text(
             previousStage!.qualificationSummary ?? 'Alle Teilnehmer weiter.',
@@ -1706,56 +1192,6 @@ class _InheritedKnockoutSetup extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _QualificationRuleSummary extends StatelessWidget {
-  const _QualificationRuleSummary({required this.qualificationPlan});
-
-  final QualificationPlan? qualificationPlan;
-
-  @override
-  Widget build(BuildContext context) {
-    final plan = qualificationPlan;
-    if (plan == null) {
-      return const Text('Keine gueltige Anzahl Weiterkommende.');
-    }
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        Chip(label: Text('${plan.totalQualifiers} Weiterkommende')),
-        if (plan.fixedByGroup.isNotEmpty &&
-            plan.fixedByGroup.toSet().length > 1)
-          Chip(label: Text(_fixedByGroupSummary(plan.fixedByGroup)))
-        else if (plan.fixedPerGroup > 0)
-          Chip(label: Text('Top ${plan.fixedPerGroup} je Gruppe')),
-        if (plan.extraCount > 0)
-          Chip(
-            label: Text(
-              'Beste ${plan.extraCount} der ${plan.extraRank}. Plaetze',
-            ),
-          ),
-        if (plan.extraCount > 0 && plan.extraGroups.isNotEmpty)
-          Chip(label: Text('Zusatz aus ${_formatGroups(plan.extraGroups)}')),
-      ],
-    );
-  }
-
-  String _formatGroups(List<int> groups) {
-    if (groups.length == 1) {
-      return groupLabel(groups.first);
-    }
-
-    return groups.map(groupLabel).join(', ');
-  }
-
-  String _fixedByGroupSummary(List<int> fixedByGroup) {
-    return [
-      for (var index = 0; index < fixedByGroup.length; index++)
-        '${groupLabel(index + 1)} ${fixedByGroup[index]}',
-    ].join(', ');
   }
 }
 

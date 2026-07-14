@@ -7,16 +7,6 @@ const List<String> defaultGroupTieBreakers = [
   'headToHead',
 ];
 
-String tieBreakerLabel(String tieBreaker) {
-  return switch (tieBreaker) {
-    'points' => 'Punkte',
-    'legDifference' => 'Leg-Differenz',
-    'legsFor' => 'Gewonnene Legs',
-    'headToHead' => 'Direkter Vergleich',
-    _ => tieBreaker,
-  };
-}
-
 String groupLabel(int groupNumber) {
   var number = groupNumber;
   var label = '';

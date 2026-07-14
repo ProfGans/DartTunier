@@ -45,9 +45,11 @@ class _PlayerList extends StatelessWidget {
                   ),
                 ),
                 label: Text(players[index].name),
-                tooltip: players[index].isGenerated
-                    ? 'Erzeugten Spieler umbenennen'
-                    : 'Spieler bearbeiten',
+                tooltip: players[index].profileId != null
+                    ? 'Spielerprofil aus Datenbank'
+                    : players[index].isGenerated
+                        ? 'Erzeugten Spieler umbenennen'
+                        : 'Gastspieler bearbeiten',
                 onPressed: () => onRenamePlayer(index),
                 onDeleted: () => onRemovePlayer(index),
                 deleteIcon: const Icon(Icons.close, size: 18),

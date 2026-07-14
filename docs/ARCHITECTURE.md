@@ -23,6 +23,19 @@ Das Ziel ist eine modulare Flutter-App, in der neue Features als eigene Bereiche
 - `lib/features/tournaments/modes/**`: Regeln/Builder fuer einzelne Turniermodi, noch als Parts.
 - `lib/features/tournaments/presentation/pages/**`: Creation- und Run-Seiten, noch als Parts.
 - `lib/features/tournaments/presentation/widgets/**`: viele Widgets, Tabellen, Brackets und Dialoge, noch als Parts.
+- `lib/features/tournaments/presentation/widgets/run/stage_controls.dart`: erste echte Run-Widget-Library fuer Stage-Navigation, Ansichtsschalter und Footer.
+- `lib/features/tournaments/presentation/widgets/run/stage_play_order_section.dart`: echte Widget-Library fuer die Spielreihenfolge-Ansicht.
+- `lib/features/tournaments/presentation/widgets/run/result_entry.dart`: echte Run-Widget-Library fuer MatchResultTile und ResultDialog.
+- `lib/features/tournaments/presentation/widgets/run/stage_surface.dart`: echtes gemeinsames Layout-Widget fuer Run-Sektionen.
+- `lib/features/tournaments/presentation/widgets/run/standings_table.dart`: echte Widget-Library fuer Gruppentabellen.
+- `lib/features/tournaments/presentation/widgets/run/group_run_section.dart`: echte Widget-Library fuer Round-Robin-Gruppen im Turnierlauf.
+- `lib/features/tournaments/presentation/widgets/run/group_stage_run_section.dart`: echte Widget-Library fuer Gruppenphasen im Turnierlauf.
+- `lib/features/tournaments/presentation/widgets/run/mini_knockout_group_run_section.dart`: echte Widget-Library fuer Mini-/Elimination-Gruppen im Turnierlauf.
+- `lib/features/tournaments/presentation/widgets/run/best_of_comparison_table.dart`: echte Widget-Library fuer Best-of-Gruppenvergleich.
+- `lib/features/tournaments/presentation/widgets/run/knockout_run_section.dart`: echte Widget-Library fuer K.-o.-Etappen im Turnierlauf.
+- `lib/features/tournaments/presentation/widgets/run/brackets/knockout_bracket_view.dart`: zusammenhaengendes Bracket-Modul fuer Single-/Double-/Triple-KO-Ansichten.
+- `lib/features/tournaments/presentation/widgets/creation/stage_setup_widgets.dart`: echte Widget-Library fuer kleine Creation-Setup-Bausteine wie Spieler-Dialog, Gruppengroessen, Gruppenspieltyp, Round-Robin-Wiederholungen, Matchzaehlung, Tie-Breaker und Qualifikations-Auswahl.
+- `lib/features/tournaments/presentation/models/match_result.dart`: erstes echtes Presentation-Model.
 
 ## Probleme, die wir beim Weiterbau vermeiden wollen
 
@@ -87,11 +100,20 @@ lib/
    - `TournamentEngine` kapselt Round-Robin, Matchzaehlung und Basis-Seeding.
    - Weitere Mode-Logik soll folgen.
 
-4. Turnierlogik aus Seiten extrahieren.
+5. Run-Presentation schrittweise entkoppeln. Begonnen am 2026-06-30.
+   - Stage-Controls, StagePlayOrderSection, MatchResult, MatchResultTile, ResultDialog, StageSurface, StandingsTable, GroupRunSection, GroupStageRunSection, MiniKnockoutGroupRunSection, BestOfComparisonTable und KnockoutRunSection sind echte Libraries.
+   - Bracket-Widgets liegen bewusst gemeinsam in einem Bracket-Modul. Erst weiter splitten, wenn die Datei fachlich auseinanderwaechst oder konkrete Wartungsprobleme entstehen.
+
+6. Creation-Presentation schrittweise entkoppeln. Begonnen am 2026-06-30.
+   - StageSetupWidgets sind eine echte Library fuer kleine, wiederverwendbare Creation-Bausteine inklusive QualificationRuleSummary, QualificationErrorBanner und QualificationGroupPreview.
+   - `tieBreakerLabel` liegt in der Domain, damit neue Widgets nicht mehr an alte Mode-Parts gekoppelt werden.
+   - Die Eliminations-/KO-Vorschauen bleiben vorerst im alten Creation-Part, weil sie noch an private KO-Helfer gekoppelt sind.
+
+7. Turnierlogik aus Seiten extrahieren.
    - Ziel: Engines fuer Gruppen, Knockout, Double-KO, Triple-KO.
    - Unit-Tests fuer Builder, Weiterkommen, Tie-Breaker, Platzierungsspiele.
 
-5. UI in kleinere Feature-Widgets zerlegen.
+8. UI in kleinere Feature-Widgets zerlegen.
    - Creation-UI: Spieler, Etappenformular, Gruppenoptionen, KO-Setup, Vorschauen.
    - Run-UI: Stage-Navigation, Gruppenansicht, Bracketansicht, Ergebnisdialog, Tabellen.
 

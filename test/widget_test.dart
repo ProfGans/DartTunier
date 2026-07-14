@@ -149,6 +149,7 @@ void main() {
     expect(find.text('Halbfinale'), findsOneWidget);
     expect(find.text('1 Niederlage Runde 1'), findsOneWidget);
     expect(find.text('2 Niederlagen Runde 1'), findsOneWidget);
+    expect(find.textContaining('Verlierer Spiel'), findsWidgets);
     expect(find.text('Triple-KO Finalrunde'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('stage-type-field')));
@@ -742,6 +743,77 @@ void main() {
     expect(find.text('Gruppe A'), findsWidgets);
     expect(find.text('Gruppe B'), findsWidgets);
     expect(find.text('Finale'), findsNothing);
+  });
+
+  testWidgets('mini knockout preview handles top three from five players', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const DartTournamentApp());
+
+    await openTournamentCreation(tester);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Anzahl'), '5');
+    await tester.tap(find.text('Spieler erzeugen'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('group-play-type-field')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('group-count-field')),
+      '1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('group-qualifier-count-field')),
+      '3',
+    );
+    await tester.tap(find.byKey(const ValueKey('group-play-type-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mini-KO in der Gruppe').last);
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+
+    await tester.scrollUntilVisible(
+      find.byTooltip('Etappe hinzufuegen'),
+      -400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Etappe hinzufuegen'));
+    await tester.pumpAndSettle();
+
+    await tester.dragUntilVisible(
+      find.text('Turnier anlegen'),
+      find.byType(Scrollable).first,
+      const Offset(0, -120),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Turnier anlegen'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mini-KO-Runde'), findsWidgets);
+    expect(find.text('Platzierung', skipOffstage: false), findsOneWidget);
+    expect(find.text('Spiel um Platz 3', skipOffstage: false), findsOneWidget);
+    expect(
+      find.text(
+        'Sieger weiter / Verlierer Platz 3',
+        skipOffstage: false,
+      ),
+      findsNWidgets(2),
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Spielansicht'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Runde 100', skipOffstage: false), findsNothing);
+    expect(find.text('Platzierung', skipOffstage: false), findsOneWidget);
+    expect(find.text('Spiel um Platz 3', skipOffstage: false), findsOneWidget);
   });
 
   testWidgets('sets play type for a single group', (tester) async {

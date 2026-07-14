@@ -15,6 +15,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   final _groupCountController = TextEditingController(text: '2');
   final _groupQualifierCountController = TextEditingController(text: '8');
   final _bestOfQualifierCountController = TextEditingController(text: '0');
+  final _database = LocalAppDatabase();
   final Set<int> _selectedExtraGroups = {};
   final List<TournamentPlayer> _players = [];
   final List<TournamentStage> _stages = [];
@@ -33,6 +34,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   String _selectedStageType = 'groups';
   String _knockoutSeedingMode = 'cross';
   bool _stageNameWasEdited = false;
+  bool _isOpeningPlayerPicker = false;
 
   @override
   void initState() {
@@ -911,6 +913,68 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     });
   }
 
+  Future<void> _selectPlayersFromDatabase() async {
+    if (_isOpeningPlayerPicker) {
+      return;
+    }
+
+    setState(() {
+      _isOpeningPlayerPicker = true;
+    });
+
+    try {
+      final profiles = await _database.loadPlayerProfiles();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isOpeningPlayerPicker = false;
+      });
+      final selectedProfiles = await showDialog<List<PlayerProfile>>(
+        context: context,
+        builder: (context) => _PlayerProfilePickerDialog(
+          profiles: profiles,
+          selectedProfileIds: {
+            for (final player in _players)
+              if (player.profileId != null) player.profileId!,
+          },
+        ),
+      );
+      if (selectedProfiles == null) {
+        return;
+      }
+      setState(() {
+        final guestPlayers = _players
+            .where((player) => player.profileId == null)
+            .toList(growable: false);
+        _players
+          ..clear()
+          ..addAll(guestPlayers)
+          ..addAll(
+            selectedProfiles.map(
+              (profile) => TournamentPlayer(
+                profileId: profile.id,
+                name: profile.displayName,
+                isGenerated: false,
+              ),
+            ),
+          );
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isOpeningPlayerPicker = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Spieler konnten nicht aus der Datenbank geladen werden.'),
+        ),
+      );
+    }
+  }
+
   void _removePlayer(int index) {
     setState(() {
       _players.removeAt(index);
@@ -920,7 +984,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   Future<void> _renamePlayer(int index) async {
     final newName = await showDialog<String>(
       context: context,
-      builder: (context) => _RenamePlayerDialog(player: _players[index]),
+      builder: (context) => RenamePlayerDialog(player: _players[index]),
     );
 
     if (newName == null || newName.trim().isEmpty) {
@@ -1511,10 +1575,28 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 ),
                 onSubmitted: (_) => _addPlayer(),
               ),
-              trailing: IconButton.filled(
-                onPressed: _addPlayer,
-                icon: const Icon(Icons.add),
-                tooltip: 'Spieler hinzufuegen',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton.filled(
+                    onPressed: _addPlayer,
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Spieler hinzufuegen',
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: _isOpeningPlayerPicker
+                        ? null
+                        : _selectPlayersFromDatabase,
+                    icon: _isOpeningPlayerPicker
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.playlist_add_check_outlined),
+                    label: const Text('Auswaehlen'),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -1658,12 +1740,12 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 ),
                 trailing: Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: _GroupSizePreview(groupSizes: groupSizes),
+                  child: GroupSizePreview(groupSizes: groupSizes),
                 ),
                 breakpoint: 520,
               ),
               const SizedBox(height: 12),
-              _GroupPlayTypeSetup(
+              GroupPlayTypeSetup(
                 groupSizes: groupSizes,
                 playTypes: _playTypesForGroupSizes(groupSizes),
                 onChanged: _setGroupPlayType,
@@ -1672,7 +1754,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 'round_robin',
               )) ...[
                 const SizedBox(height: 12),
-                _RoundRobinRepeatsSetup(
+                RoundRobinRepeatsSetup(
                   groupSizes: groupSizes,
                   playTypes: _playTypesForGroupSizes(groupSizes),
                   repeats: _roundRobinRepeatsForGroupSizes(groupSizes),
@@ -1680,7 +1762,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 ),
               ],
               const SizedBox(height: 12),
-              _StageMatchCountPreview(
+              StageMatchCountPreview(
                 matchCount: _currentStageMatchCount(),
                 details: _currentStageMatchDetails(),
               ),
@@ -1711,7 +1793,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 breakpoint: 620,
               ),
               const SizedBox(height: 12),
-              _GroupTieBreakerSetup(
+              GroupTieBreakerSetup(
                 tieBreakers: _groupTieBreakers,
                 onMoveTieBreaker: _moveGroupTieBreaker,
               ),
@@ -1738,7 +1820,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
             ],
             if (_isKnockoutStageType(_selectedStageType)) ...[
               const SizedBox(height: 12),
-              _StageMatchCountPreview(
+              StageMatchCountPreview(
                 matchCount: _currentStageMatchCount(),
                 details: _currentStageMatchDetails(),
               ),
@@ -1762,6 +1844,106 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         ),
       ),
     );
+  }
+}
+
+class _PlayerProfilePickerDialog extends StatefulWidget {
+  const _PlayerProfilePickerDialog({
+    required this.profiles,
+    required this.selectedProfileIds,
+  });
+
+  final List<PlayerProfile> profiles;
+  final Set<String> selectedProfileIds;
+
+  @override
+  State<_PlayerProfilePickerDialog> createState() =>
+      _PlayerProfilePickerDialogState();
+}
+
+class _PlayerProfilePickerDialogState
+    extends State<_PlayerProfilePickerDialog> {
+  late final Set<String> _selectedProfileIds = {
+    ...widget.selectedProfileIds,
+  };
+
+  void _toggleProfile(String profileId, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedProfileIds.add(profileId);
+      } else {
+        _selectedProfileIds.remove(profileId);
+      }
+    });
+  }
+
+  void _submit() {
+    Navigator.of(context).pop([
+      for (final profile in widget.profiles)
+        if (_selectedProfileIds.contains(profile.id)) profile,
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Spieler auswaehlen'),
+      content: SizedBox(
+        width: 460,
+        child: widget.profiles.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text('Noch keine Spielerprofile angelegt.'),
+              )
+            : ListView.separated(
+                shrinkWrap: true,
+                itemCount: widget.profiles.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final profile = widget.profiles[index];
+                  final selected = _selectedProfileIds.contains(profile.id);
+                  final subtitle = [
+                    if (profile.city.isNotEmpty) profile.city,
+                    if (profile.country.isNotEmpty) profile.country,
+                  ].join(', ');
+                  return CheckboxListTile(
+                    value: selected,
+                    onChanged: (value) =>
+                        _toggleProfile(profile.id, value ?? false),
+                    title: Text(profile.displayName),
+                    subtitle: subtitle.isEmpty ? null : Text(subtitle),
+                    secondary: CircleAvatar(
+                      child: Text(_initialsForProfile(profile.displayName)),
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton.icon(
+          onPressed: _submit,
+          icon: const Icon(Icons.check),
+          label: Text('${_selectedProfileIds.length} uebernehmen'),
+        ),
+      ],
+    );
+  }
+
+  String _initialsForProfile(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) {
+      return '?';
+    }
+    return parts.take(2).map((part) => part[0].toUpperCase()).join();
   }
 }
 
