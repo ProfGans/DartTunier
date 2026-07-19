@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'features/players/presentation/players_page.dart';
 import 'features/accounts/presentation/widgets/account_menu_card.dart';
+import 'features/communities/presentation/community_page.dart';
 import 'features/tournaments/application/tournament_creation_controller.dart';
 import 'features/tournaments/application/tournament_run_controller.dart';
 import 'features/tournaments/data/app_database.dart';

@@ -330,6 +330,7 @@ class CreatedTournament {
     required this.players,
     required this.stages,
     required this.runStages,
+    this.communityId,
     this.activeStageIndex = 0,
     Set<int>? completedStageIndexes,
   }) : id = id ?? _newTournamentId(),
@@ -349,6 +350,7 @@ class CreatedTournament {
       ),
       stages: _mapListFromJson(json['stages'], TournamentStage.fromJson),
       runStages: _runStageListFromJson(json['runStages']),
+      communityId: json['communityId'] as String?,
       activeStageIndex: json['activeStageIndex'] as int? ?? 0,
       completedStageIndexes: _intListFromJson(
         json['completedStageIndexes'],
@@ -363,6 +365,7 @@ class CreatedTournament {
   final List<TournamentPlayer> players;
   final List<TournamentStage> stages;
   final List<TournamentRunStage> runStages;
+  final String? communityId;
   int activeStageIndex;
   final Set<int> completedStageIndexes;
 
@@ -375,6 +378,7 @@ class CreatedTournament {
       'players': players.map((player) => player.toJson()).toList(),
       'stages': stages.map((stage) => stage.toJson()).toList(),
       'runStages': runStages.map(_runStageToJson).toList(),
+      'communityId': communityId,
       'activeStageIndex': activeStageIndex,
       'completedStageIndexes': completedStageIndexes.toList()..sort(),
     };

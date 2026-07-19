@@ -21,7 +21,11 @@ class SupabaseAccountConfig {
 }
 
 class SupabaseAccountBootstrap {
-  const SupabaseAccountBootstrap._();
+  SupabaseAccountBootstrap._();
+
+  static bool _isInitialized = false;
+
+  static bool get isInitialized => _isInitialized;
 
   static Future<void> initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -33,5 +37,6 @@ class SupabaseAccountBootstrap {
       url: SupabaseAccountConfig.url,
       publishableKey: SupabaseAccountConfig.anonKey,
     );
+    _isInitialized = true;
   }
 }

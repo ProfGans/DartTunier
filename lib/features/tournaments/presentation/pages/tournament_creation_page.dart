@@ -1,7 +1,14 @@
 part of '../../../../tournament_workspace.dart';
 
 class TournamentCreationPage extends StatefulWidget {
-  const TournamentCreationPage({super.key});
+  const TournamentCreationPage({
+    super.key,
+    this.communityId,
+    this.communityName,
+  });
+
+  final String? communityId;
+  final String? communityName;
 
   @override
   State<TournamentCreationPage> createState() => _TournamentCreationPageState();
@@ -1215,15 +1222,40 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       return;
     }
 
-    final tournament = const TournamentCreationController().createTournament(
-      name: _tournamentNameController.text.trim().isEmpty
+    late final CreatedTournament tournament;
+    try {
+      final controller = const TournamentCreationController();
+      final name = _tournamentNameController.text.trim().isEmpty
           ? 'Neues Turnier'
-          : _tournamentNameController.text.trim(),
-      players: _players,
-      stages: _stages,
-      runStages: _buildRunStages(),
-    );
+          : _tournamentNameController.text.trim();
+      final runStages = _buildRunStages();
+      if (widget.communityId case final String communityId) {
+        tournament = await controller.createCommunityTournament(
+          name: name,
+          players: _players,
+          stages: _stages,
+          runStages: runStages,
+          communityId: communityId,
+        );
+      } else {
+        tournament = controller.createTournament(
+          name: name,
+          players: _players,
+          stages: _stages,
+          runStages: runStages,
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Turnier konnte nicht gespeichert werden: $error')),
+      );
+      return;
+    }
 
+    if (!mounted) {
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TournamentRunPage(tournament: tournament),

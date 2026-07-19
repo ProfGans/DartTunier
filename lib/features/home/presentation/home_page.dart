@@ -20,6 +20,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _openCommunityArea() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CommunityPage(
+          createTournamentBuilder: (communityId, communityName) =>
+              TournamentCreationPage(
+                communityId: communityId,
+                communityName: communityName,
+              ),
+          runTournamentBuilder: (tournament) =>
+              TournamentRunPage(tournament: tournament),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -71,6 +87,17 @@ class _HomePageState extends State<HomePage> {
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _openPlayersArea,
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.hub_outlined),
+                title: const Text('Community'),
+                subtitle: const Text(
+                  'Communities, Mitglieder und gemeinsame Turniere.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openCommunityArea,
               ),
             ),
           ],
