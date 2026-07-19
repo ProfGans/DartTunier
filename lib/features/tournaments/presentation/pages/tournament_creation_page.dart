@@ -33,6 +33,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   List<int?>? _manualKnockoutSlotOrder;
   String _selectedStageType = 'groups';
   String _knockoutSeedingMode = 'cross';
+  bool _groupDrawOnStart = false;
+  bool _knockoutDrawOnStart = false;
   bool _stageNameWasEdited = false;
   bool _isOpeningPlayerPicker = false;
 
@@ -648,7 +650,21 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
             : _randomKnockoutSlotOrder(participantCount, bracketSize);
       } else {
         _manualKnockoutSlotOrder = null;
+        _knockoutDrawOnStart = false;
       }
+    });
+  }
+
+  void _setGroupDrawOnStart(bool enabled) {
+    setState(() {
+      _groupDrawOnStart = enabled;
+    });
+  }
+
+  void _setKnockoutDrawOnStart(bool enabled) {
+    setState(() {
+      _knockoutDrawOnStart =
+          _effectiveKnockoutSeedingMode() == 'random' && enabled;
     });
   }
 
@@ -1034,6 +1050,10 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         groupTieBreakers: _selectedStageType == 'groups'
             ? List.unmodifiable(_groupTieBreakers)
             : defaultGroupTieBreakers,
+        groupDrawOnStart: _selectedStageType == 'groups'
+            ? _groupDrawOnStart
+            : false,
+        groupSlotOrder: const [],
         knockoutParticipantCount: _isKnockoutStageType(_selectedStageType)
             ? _knockoutParticipantCount()
             : null,
@@ -1044,11 +1064,18 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
             ? _knockoutByeCount()
             : 0,
         knockoutSlotOrder: _isKnockoutStageType(_selectedStageType)
-            ? _knockoutSlotOrder()
+            ? (_knockoutDrawOnStart &&
+                      _effectiveKnockoutSeedingMode() == 'random'
+                  ? const []
+                  : _knockoutSlotOrder())
             : const [],
         knockoutSeedingMode: _isKnockoutStageType(_selectedStageType)
             ? _effectiveKnockoutSeedingMode()
             : 'cross',
+        knockoutDrawOnStart: _isKnockoutStageType(_selectedStageType)
+            ? _knockoutDrawOnStart &&
+                _effectiveKnockoutSeedingMode() == 'random'
+            : false,
         qualifiersByGroup: _selectedStageType == 'groups'
             ? groupQualificationPlan?.extraGroups ?? const []
             : const [],
@@ -1101,6 +1128,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       ..addAll(defaultGroupTieBreakers);
     _manualKnockoutSlotOrder = null;
     _knockoutSeedingMode = 'cross';
+    _groupDrawOnStart = false;
+    _knockoutDrawOnStart = false;
     _setDefaultStageNameIfNeeded();
   }
 
@@ -1140,6 +1169,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         _bestOfQualifierCountController.text =
             '${stage.extraQualifierCount ?? 0}';
         _autoAdjustQualification = stage.qualificationAutoAdjust;
+        _groupDrawOnStart = stage.groupDrawOnStart;
       } else {
         _selectedExtraGroups.clear();
         _groupPlayTypes.clear();
@@ -1152,6 +1182,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         _groupTieBreakers
           ..clear()
           ..addAll(defaultGroupTieBreakers);
+        _groupDrawOnStart = false;
       }
 
       if (_isKnockoutStageType(stage.type)) {
@@ -1159,9 +1190,11 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         _manualKnockoutSlotOrder = stage.knockoutSlotOrder.isEmpty
             ? null
             : List<int?>.from(stage.knockoutSlotOrder);
+        _knockoutDrawOnStart = stage.knockoutDrawOnStart;
       } else {
         _knockoutSeedingMode = 'cross';
         _manualKnockoutSlotOrder = null;
+        _knockoutDrawOnStart = false;
       }
     });
   }
@@ -1177,7 +1210,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     });
   }
 
-  void _createTournament() {
+  Future<void> _createTournament() async {
     if (_stages.isEmpty || _players.isEmpty) {
       return;
     }
@@ -1198,20 +1231,27 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     );
   }
 
-  List<TournamentRunStage> _buildRunStages() {
+  List<TournamentRunStage> _buildRunStages([List<TournamentStage>? stages]) {
+    final sourceStages = stages ?? _stages;
     final runStages = <TournamentRunStage>[];
     var incomingPlayers = List<TournamentPlayer>.from(_players);
 
-    for (var stageIndex = 0; stageIndex < _stages.length; stageIndex++) {
-      final stage = _stages[stageIndex];
+    for (var stageIndex = 0; stageIndex < sourceStages.length; stageIndex++) {
+      final stage = sourceStages[stageIndex];
       final requiredRank = _requiredRankAfterStage(
         stageIndex,
         incomingPlayers.length,
+        stages: sourceStages,
       );
       if (stage.type == 'groups') {
+        final groupPlayers = _playersInStageOrder(
+          incomingPlayers,
+          stage.groupSlotOrder,
+          stage.groupSizes.fold<int>(0, (sum, size) => sum + size),
+        );
         final groups = _buildTournamentGroupsForPlayers(
           stage,
-          incomingPlayers,
+          groupPlayers,
           requiredRankForGroup: _requiredRankForGroup,
         );
         runStages.add(
@@ -1263,12 +1303,49 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     return runStages;
   }
 
-  int _requiredRankAfterStage(int stageIndex, int availablePlayers) {
-    if (stageIndex >= _stages.length - 1) {
+  List<TournamentPlayer> _playersInStageOrder(
+    List<TournamentPlayer> players,
+    List<int?> slotOrder,
+    int participantCount,
+  ) {
+    if (!_isValidPlayerSlotOrder(slotOrder, participantCount)) {
+      return players;
+    }
+
+    return [
+      for (final seed in slotOrder)
+        if (seed != null && seed <= players.length) players[seed - 1],
+    ];
+  }
+
+  bool _isValidPlayerSlotOrder(List<int?> slotOrder, int participantCount) {
+    if (participantCount < 1 || slotOrder.length != participantCount) {
+      return false;
+    }
+
+    final seen = <int>{};
+    for (final seed in slotOrder) {
+      if (seed == null || seed < 1 || seed > participantCount) {
+        return false;
+      }
+      if (!seen.add(seed)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  int _requiredRankAfterStage(
+    int stageIndex,
+    int availablePlayers, {
+    List<TournamentStage>? stages,
+  }) {
+    final sourceStages = stages ?? _stages;
+    if (stageIndex >= sourceStages.length - 1) {
       return 1;
     }
 
-    final nextStage = _stages[stageIndex + 1];
+    final nextStage = sourceStages[stageIndex + 1];
     final requiredPlayers = nextStage.type == 'groups'
         ? nextStage.groupSizes.fold<int>(0, (sum, size) => sum + size)
         : nextStage.knockoutParticipantCount ?? availablePlayers;
@@ -1750,6 +1827,11 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 playTypes: _playTypesForGroupSizes(groupSizes),
                 onChanged: _setGroupPlayType,
               ),
+              const SizedBox(height: 12),
+              _GroupDrawSetup(
+                enabled: _groupDrawOnStart,
+                onChanged: _setGroupDrawOnStart,
+              ),
               if (_playTypesForGroupSizes(groupSizes).contains(
                 'round_robin',
               )) ...[
@@ -1813,7 +1895,10 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 slotOrder: _knockoutSlotOrder(),
                 participantLabels: _knockoutParticipantLabels(),
                 allowCrossSeed: _hasGroupSeedSources(),
+                drawOnStart: _knockoutDrawOnStart &&
+                    _effectiveKnockoutSeedingMode() == 'random',
                 onSeedingModeChanged: _setKnockoutSeedingMode,
+                onDrawOnStartChanged: _setKnockoutDrawOnStart,
                 onSwapSlot: _swapKnockoutSlots,
                 onResetSlots: _resetKnockoutSlots,
               ),

@@ -679,6 +679,79 @@ void main() {
     );
   });
 
+  testWidgets('creates deciders for tied best-of group candidates', (
+    tester,
+  ) async {
+    final players = List.generate(
+      10,
+      (index) => TournamentPlayer.generated(index + 1),
+    );
+    final groups = [
+      for (var groupIndex = 0; groupIndex < 5; groupIndex++)
+        TournamentGroup(
+          name: groupLabel(groupIndex + 1),
+          playType: 'round_robin',
+          players: [
+            players[groupIndex * 2],
+            players[groupIndex * 2 + 1],
+          ],
+          matches: [
+            GroupMatch(
+              homePlayer: players[groupIndex * 2],
+              awayPlayer: players[groupIndex * 2 + 1],
+              homeLegs: 2,
+              awayLegs: 1,
+              round: 1,
+            ),
+          ],
+        ),
+    ];
+    final tournament = CreatedTournament(
+      name: 'Beste-N Decider Test',
+      players: players,
+      stages: const [
+        TournamentStage(
+          name: 'Gruppenphase',
+          type: 'groups',
+          groupSizes: [2, 2, 2, 2, 2],
+          qualifiedParticipantCount: 8,
+        ),
+      ],
+      runStages: [
+        GroupTournamentRunStage(
+          name: 'Gruppenphase',
+          groupPlayType: 'round_robin',
+          groups: groups,
+          qualificationPlan: const QualificationPlan(
+            totalQualifiers: 8,
+            fixedPerGroup: 1,
+            extraCount: 3,
+            extraRank: 2,
+            eligibleGroupSize: 2,
+            extraGroups: [1, 2, 3, 4, 5],
+            fixedByGroup: [1, 1, 1, 1, 1],
+          ),
+          tieBreakers: defaultGroupTieBreakers,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: TournamentRunPage(tournament: tournament)),
+    );
+    await tester.pumpAndSettle();
+
+    final bestOfDeciders = groups
+        .expand((group) => group.matches)
+        .where((match) => match.label == 'Beste-N Decider')
+        .toList();
+    expect(bestOfDeciders, hasLength(10));
+    expect(
+      bestOfDeciders.every((match) => match.isDecider && match.hasPlayers),
+      isTrue,
+    );
+  });
+
   testWidgets('creates mini knockout groups', (tester) async {
     await tester.pumpWidget(const DartTournamentApp());
 
@@ -763,18 +836,28 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('group-count-field')),
-      '1',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('group-qualifier-count-field')),
-      '3',
-    );
     await tester.tap(find.byKey(const ValueKey('group-play-type-field')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mini-KO in der Gruppe').last);
     await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const ValueKey('group-count-field')), '1');
+    await tester.scrollUntilVisible(
+      find.byKey(
+        const ValueKey('group-qualifier-count-field'),
+        skipOffstage: false,
+      ),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(
+        const ValueKey('group-qualifier-count-field'),
+        skipOffstage: false,
+      ),
+      '3',
+    );
 
     expect(tester.takeException(), isNull);
 
@@ -1031,6 +1114,8 @@ void main() {
 
     expect(find.text('Dart Turnierverwaltung'), findsWidgets);
     expect(find.text('Hauptmenue'), findsOneWidget);
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Anmelden'), findsOneWidget);
     expect(find.text('Turniere'), findsOneWidget);
 
     await openTournamentCreation(tester);
@@ -1094,8 +1179,20 @@ void main() {
     );
     expect(find.text('Jeder gegen jeden', skipOffstage: false), findsWidgets);
 
+    await tester.scrollUntilVisible(
+      find.byKey(
+        const ValueKey('group-qualifier-count-field'),
+        skipOffstage: false,
+      ),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const ValueKey('group-qualifier-count-field')),
+      find.byKey(
+        const ValueKey('group-qualifier-count-field'),
+        skipOffstage: false,
+      ),
       '4',
     );
     await tester.pumpAndSettle();
@@ -1273,4 +1370,93 @@ void main() {
     expect(find.text('Turnierbaum'), findsOneWidget);
     expect(find.text('Finale'), findsOneWidget);
   });
+
+  testWidgets('account menu card registers and signs out', (tester) async {
+    final store = _FakeAccountSessionStore();
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: AccountMenuCard(store: store))),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Account erstellen'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Theo');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'E-Mail'),
+      'theo.widget@example.local',
+    );
+    await tester.enterText(find.widgetWithText(TextField, 'Passwort'), 'secret1');
+    await tester.enterText(find.widgetWithText(TextField, 'Land'), 'Deutschland');
+    await tester.enterText(find.widgetWithText(TextField, 'Stadt'), 'Berlin');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Dart-Setup'),
+      '23g Steeldart',
+    );
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Account erstellen'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Theo'), findsOneWidget);
+    expect(find.text('theo.widget@example.local'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Abmelden'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nicht angemeldet'), findsOneWidget);
+  });
+}
+
+class _FakeAccountSessionStore implements AccountSessionStore {
+  AccountUser? _currentAccount;
+
+  @override
+  Future<AccountUser?> loadCurrentAccount() async => _currentAccount;
+
+  @override
+  String get signInLabel => 'Fake Store';
+
+  @override
+  Future<AccountUser> registerAccount({
+    required String displayName,
+    required String email,
+    required String password,
+    required String country,
+    required String city,
+    required String dartsSetup,
+  }) async {
+    final now = DateTime(2026);
+    final account = AccountUser(
+      id: 'account-1',
+      username: 'theo',
+      displayName: displayName,
+      email: email,
+      avatarUrl: null,
+      createdAt: now,
+      updatedAt: now,
+      lastLogin: now,
+      isActive: true,
+    );
+    _currentAccount = account;
+    return account;
+  }
+
+  @override
+  Future<AccountUser?> signInAccount({
+    required String email,
+    required String password,
+  }) async {
+    return _currentAccount?.email == email ? _currentAccount : null;
+  }
+
+  @override
+  Future<void> signOutCurrentAccount() async {
+    _currentAccount = null;
+  }
 }

@@ -1364,6 +1364,25 @@ class _BracketTreeLayout extends StatelessWidget {
   }
 
   double _contentHeight() {
+    final sourceAwareCenters = _sourceAwareCenterYs();
+    if (sourceAwareCenters != null) {
+      var height = 0.0;
+      for (final roundCenters in sourceAwareCenters) {
+        for (final center in roundCenters) {
+          final bottom = center - _headerHeight - _headerGap + cardHeight / 2;
+          if (bottom > height) {
+            height = bottom;
+          }
+        }
+      }
+      final baseHeight = _baseContentHeight();
+      return height > baseHeight ? height : baseHeight;
+    }
+
+    return _baseContentHeight();
+  }
+
+  double _baseContentHeight() {
     if (!useBalancedColumnLayout) {
       final firstRoundCount = roundCards.first.length;
       return firstRoundCount * cardHeight +
@@ -1381,8 +1400,22 @@ class _BracketTreeLayout extends StatelessWidget {
   }
 
   double _centerY(int roundIndex, int matchIndex) {
+    final sourceAwareCenters = _sourceAwareCenterYs();
+    if (sourceAwareCenters != null &&
+        roundIndex < sourceAwareCenters.length &&
+        matchIndex < sourceAwareCenters[roundIndex].length) {
+      return sourceAwareCenters[roundIndex][matchIndex];
+    }
+
+    return _defaultCenterY(roundIndex, matchIndex, _baseContentHeight());
+  }
+
+  double _defaultCenterY(
+    int roundIndex,
+    int matchIndex,
+    double contentHeight,
+  ) {
     if (useBalancedColumnLayout) {
-      final contentHeight = _contentHeight();
       final columnHeight = _columnContentHeight(roundIndex);
       final columnTop =
           _headerHeight + _headerGap + (contentHeight - columnHeight) / 2;
@@ -1400,12 +1433,79 @@ class _BracketTreeLayout extends StatelessWidget {
     return (firstCenter + lastCenter) / 2;
   }
 
+  List<List<double>>? _sourceAwareCenterYs() {
+    if (roundMatches == null || sourceMatches == null) {
+      return null;
+    }
+
+    final matches = roundMatches!;
+    final positions = <GroupMatch, ({int roundIndex, int matchIndex})>{};
+    for (var roundIndex = 0; roundIndex < matches.length; roundIndex++) {
+      for (var matchIndex = 0;
+          matchIndex < matches[roundIndex].length;
+          matchIndex++) {
+        positions[matches[roundIndex][matchIndex]] = (
+          roundIndex: roundIndex,
+          matchIndex: matchIndex,
+        );
+      }
+    }
+
+    final baseContentHeight = _baseContentHeight();
+    final centers = [
+      for (var roundIndex = 0; roundIndex < roundCards.length; roundIndex++)
+        [
+          for (var matchIndex = 0;
+              matchIndex < roundCards[roundIndex].length;
+              matchIndex++)
+            _defaultCenterY(roundIndex, matchIndex, baseContentHeight),
+        ],
+    ];
+
+    for (var roundIndex = 0; roundIndex < matches.length; roundIndex++) {
+      for (var matchIndex = 0;
+          matchIndex < matches[roundIndex].length;
+          matchIndex++) {
+        final target = matches[roundIndex][matchIndex];
+        final sources = sourceMatches![target];
+        if (sources == null) {
+          continue;
+        }
+
+        final sourceCenters = <double>[];
+        for (final source in [sources.first, sources.second]) {
+          final sourcePosition = source == null ? null : positions[source];
+          if (sourcePosition == null ||
+              sourcePosition.roundIndex >= roundIndex ||
+              sourcePosition.roundIndex >= centers.length ||
+              sourcePosition.matchIndex >=
+                  centers[sourcePosition.roundIndex].length) {
+            continue;
+          }
+          sourceCenters.add(
+            centers[sourcePosition.roundIndex][sourcePosition.matchIndex],
+          );
+        }
+
+        if (sourceCenters.isEmpty) {
+          continue;
+        }
+        centers[roundIndex][matchIndex] =
+            sourceCenters.reduce((sum, value) => sum + value) /
+                sourceCenters.length;
+      }
+    }
+
+    return centers;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (totalRounds == 0 || roundCards.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final centerYs = _sourceAwareCenterYs();
     final height = _headerHeight + _headerGap + _contentHeight();
     final width =
         totalRounds * columnWidth + (totalRounds - 1) * _connectorWidth;
@@ -1431,6 +1531,7 @@ class _BracketTreeLayout extends StatelessWidget {
                   headerHeight: _headerHeight,
                   headerGap: _headerGap,
                   useBalancedColumnLayout: useBalancedColumnLayout,
+                  centerYs: centerYs,
                   color: Theme.of(context).colorScheme.outlineVariant,
                 ),
               ),
@@ -1451,7 +1552,10 @@ class _BracketTreeLayout extends StatelessWidget {
               )
                 Positioned(
                   left: roundIndex * (columnWidth + _connectorWidth),
-                  top: _centerY(roundIndex, matchIndex) - cardHeight / 2,
+                  top:
+                      (centerYs?[roundIndex][matchIndex] ??
+                          _centerY(roundIndex, matchIndex)) -
+                      cardHeight / 2,
                   width: columnWidth,
                   height: cardHeight,
                   child: roundCards[roundIndex][matchIndex],
@@ -1682,6 +1786,7 @@ class _BracketConnectorPainter extends CustomPainter {
     required this.headerHeight,
     required this.headerGap,
     required this.useBalancedColumnLayout,
+    required this.centerYs,
     required this.color,
   });
 
@@ -1695,6 +1800,7 @@ class _BracketConnectorPainter extends CustomPainter {
   final double headerHeight;
   final double headerGap;
   final bool useBalancedColumnLayout;
+  final List<List<double>>? centerYs;
   final Color color;
 
   double _columnContentHeight(int roundIndex) {
@@ -1723,6 +1829,13 @@ class _BracketConnectorPainter extends CustomPainter {
   }
 
   double _centerY(int roundIndex, int matchIndex) {
+    final sourceAwareCenters = centerYs;
+    if (sourceAwareCenters != null &&
+        roundIndex < sourceAwareCenters.length &&
+        matchIndex < sourceAwareCenters[roundIndex].length) {
+      return sourceAwareCenters[roundIndex][matchIndex];
+    }
+
     if (useBalancedColumnLayout) {
       final contentHeight = _contentHeight();
       final columnHeight = _columnContentHeight(roundIndex);
@@ -1784,6 +1897,7 @@ class _BracketConnectorPainter extends CustomPainter {
         oldDelegate.cardHeight != cardHeight ||
         oldDelegate.firstRoundGap != firstRoundGap ||
         oldDelegate.useBalancedColumnLayout != useBalancedColumnLayout ||
+        oldDelegate.centerYs != centerYs ||
         oldDelegate.color != color;
   }
 }

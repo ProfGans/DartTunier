@@ -49,6 +49,8 @@ class _HomePageState extends State<HomePage> {
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 24),
+            const AccountMenuCard(),
+            const SizedBox(height: 8),
             Card(
               child: ListTile(
                 leading: const Icon(Icons.emoji_events_outlined),

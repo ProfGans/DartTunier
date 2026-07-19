@@ -87,6 +87,69 @@ void main() {
     expect(profiles.any((profile) => profile.id == created.id), isFalse);
   });
 
+  test('registers a local account and links a player profile', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'dart_tournament_manager_database_test_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+
+    final database = LocalAppDatabase(baseDirectory: directory);
+
+    expect(await database.loadCurrentAccount(), isNull);
+
+    final account = await database.registerLocalAccount(
+      displayName: 'Theo Checkout',
+      email: 'theo@example.local',
+      country: 'Deutschland',
+      city: 'Koeln',
+      dartsSetupJson: '23g Steeldart',
+    );
+
+    final currentAccount = await database.loadCurrentAccount();
+    final profiles = await database.loadPlayerProfiles();
+
+    expect(currentAccount?.id, account.id);
+    expect(currentAccount?.displayName, 'Theo Checkout');
+    expect(currentAccount?.email, 'theo@example.local');
+    expect(
+      profiles.where(
+        (profile) =>
+            profile.userId == account.id &&
+            profile.displayName == 'Theo Checkout' &&
+            profile.country == 'Deutschland' &&
+            profile.city == 'Koeln' &&
+            profile.dartsSetupJson == '23g Steeldart',
+      ),
+      hasLength(1),
+    );
+  });
+
+  test('signs in and signs out an existing local account', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'dart_tournament_manager_database_test_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+
+    final database = LocalAppDatabase(baseDirectory: directory);
+    final account = await database.registerLocalAccount(
+      displayName: 'Anna Average',
+      email: 'anna@example.local',
+    );
+
+    await database.signOutCurrentAccount();
+    expect(await database.loadCurrentAccount(), isNull);
+
+    final signedIn = await database.signInLocalAccount(
+      email: 'ANNA@example.local',
+    );
+
+    expect(signedIn?.id, account.id);
+    expect((await database.loadCurrentAccount())?.id, account.id);
+
+    await database.signOutCurrentAccount();
+    expect(await database.loadCurrentAccount(), isNull);
+  });
+
   test('keeps player profile id in tournament player json', () {
     const player = TournamentPlayer(
       profileId: 'profile-1',

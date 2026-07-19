@@ -216,11 +216,14 @@ class TournamentStage {
     this.groupPlayTypes = const [],
     this.groupRoundRobinRepeats = const [],
     this.groupTieBreakers = defaultGroupTieBreakers,
+    this.groupDrawOnStart = false,
+    this.groupSlotOrder = const [],
     this.knockoutParticipantCount,
     this.knockoutBracketSize,
     this.knockoutByeCount = 0,
     this.knockoutSlotOrder = const [],
     this.knockoutSeedingMode = 'cross',
+    this.knockoutDrawOnStart = false,
     this.qualifiersByGroup = const [],
     this.fixedQualifiersByGroup = const [],
     this.extraQualifierRank,
@@ -245,11 +248,14 @@ class TournamentStage {
         json['groupTieBreakers'],
         fallback: defaultGroupTieBreakers,
       ),
+      groupDrawOnStart: json['groupDrawOnStart'] as bool? ?? false,
+      groupSlotOrder: _nullableIntListFromJson(json['groupSlotOrder']),
       knockoutParticipantCount: json['knockoutParticipantCount'] as int?,
       knockoutBracketSize: json['knockoutBracketSize'] as int?,
       knockoutByeCount: json['knockoutByeCount'] as int? ?? 0,
       knockoutSlotOrder: _nullableIntListFromJson(json['knockoutSlotOrder']),
       knockoutSeedingMode: json['knockoutSeedingMode'] as String? ?? 'cross',
+      knockoutDrawOnStart: json['knockoutDrawOnStart'] as bool? ?? false,
       qualifiersByGroup: _intListFromJson(json['qualifiersByGroup']),
       fixedQualifiersByGroup: _intListFromJson(
         json['fixedQualifiersByGroup'],
@@ -270,11 +276,14 @@ class TournamentStage {
   final List<String> groupPlayTypes;
   final List<int> groupRoundRobinRepeats;
   final List<String> groupTieBreakers;
+  final bool groupDrawOnStart;
+  final List<int?> groupSlotOrder;
   final int? knockoutParticipantCount;
   final int? knockoutBracketSize;
   final int knockoutByeCount;
   final List<int?> knockoutSlotOrder;
   final String knockoutSeedingMode;
+  final bool knockoutDrawOnStart;
   final List<int> qualifiersByGroup;
   final List<int> fixedQualifiersByGroup;
   final int? extraQualifierRank;
@@ -293,11 +302,14 @@ class TournamentStage {
       'groupPlayTypes': groupPlayTypes,
       'groupRoundRobinRepeats': groupRoundRobinRepeats,
       'groupTieBreakers': groupTieBreakers,
+      'groupDrawOnStart': groupDrawOnStart,
+      'groupSlotOrder': groupSlotOrder,
       'knockoutParticipantCount': knockoutParticipantCount,
       'knockoutBracketSize': knockoutBracketSize,
       'knockoutByeCount': knockoutByeCount,
       'knockoutSlotOrder': knockoutSlotOrder,
       'knockoutSeedingMode': knockoutSeedingMode,
+      'knockoutDrawOnStart': knockoutDrawOnStart,
       'qualifiersByGroup': qualifiersByGroup,
       'fixedQualifiersByGroup': fixedQualifiersByGroup,
       'extraQualifierRank': extraQualifierRank,

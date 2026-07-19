@@ -38,6 +38,7 @@ dependencies:
   sqlite3: ^3.3.4
   sqlite3_flutter_libs: ^0.6.0+eol
   path: ^1.9.1
+  supabase_flutter: ^2.9.1
 
 dev_dependencies:
   flutter_test:

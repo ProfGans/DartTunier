@@ -28,11 +28,44 @@ class BestOfComparisonTable extends StatelessWidget {
       }
     }
 
+    final deciderComparison = _compareBestOfDeciders(a, b);
+    if (deciderComparison != 0) {
+      return deciderComparison;
+    }
+
     final groupCompare = a.groupNumber.compareTo(b.groupNumber);
     if (groupCompare != 0) {
       return groupCompare;
     }
     return a.standing.player.name.compareTo(b.standing.player.name);
+  }
+
+  int _compareBestOfDeciders(BestOfCandidate a, BestOfCandidate b) {
+    for (final group in stage.groups) {
+      for (final match in group.matches.where(
+        (match) =>
+            match.isDecider &&
+            match.label == 'Beste-N Decider' &&
+            match.hasResult,
+      )) {
+        final home = match.homePlayer;
+        final away = match.awayPlayer;
+        if (home == null || away == null || match.winner == null) {
+          continue;
+        }
+        final isDirectMatch =
+            (home.name == a.standing.player.name &&
+                away.name == b.standing.player.name) ||
+            (home.name == b.standing.player.name &&
+                away.name == a.standing.player.name);
+        if (!isDirectMatch) {
+          continue;
+        }
+        return match.winner!.name == a.standing.player.name ? -1 : 1;
+      }
+    }
+
+    return 0;
   }
 
   bool _allCandidateGroupsComplete(List<BestOfCandidate> candidates) {

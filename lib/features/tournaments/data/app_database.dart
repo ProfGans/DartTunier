@@ -5,15 +5,142 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+import '../../accounts/domain/account_user.dart';
 import '../domain/tournament_models.dart';
 
 class LocalAppDatabase {
   LocalAppDatabase({Directory? baseDirectory}) : _baseDirectory = baseDirectory;
 
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
   static const _testUserId = '00000000-0000-4000-8000-000000000001';
+  static const _currentUserSessionKey = 'current_user_id';
 
   final Directory? _baseDirectory;
+
+  Future<AccountUser?> loadCurrentAccount() async {
+    final database = await _openDatabase();
+    try {
+      final rows = database.select(
+        '''
+        SELECT users.id, username, display_name, email, avatar_url,
+               created_at, updated_at, last_login, is_active
+        FROM app_session
+        INNER JOIN users ON users.id = app_session.value
+        WHERE app_session.key = ? AND users.is_active = 1
+        LIMIT 1
+        ''',
+        [_currentUserSessionKey],
+      );
+      if (rows.isEmpty) {
+        return null;
+      }
+      return _accountFromRow(rows.first);
+    } finally {
+      database.close();
+    }
+  }
+
+  Future<AccountUser> registerLocalAccount({
+    required String displayName,
+    required String email,
+    String country = '',
+    String city = '',
+    String dartsSetupJson = '',
+  }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final trimmedDisplayName = displayName.trim();
+    final database = await _openDatabase();
+    try {
+      final existing = _findUserByEmail(database, normalizedEmail);
+      if (existing != null) {
+        _ensurePlayerProfileForUser(
+          database,
+          existing,
+          country: country,
+          city: city,
+          dartsSetupJson: dartsSetupJson,
+        );
+        _setCurrentUser(database, existing.id);
+        return existing;
+      }
+
+      final now = DateTime.now();
+      final userId = _newId();
+      final user = AccountUser(
+        id: userId,
+        username: _usernameFromEmail(normalizedEmail, userId),
+        displayName: trimmedDisplayName,
+        email: normalizedEmail,
+        avatarUrl: null,
+        createdAt: now,
+        updatedAt: now,
+        lastLogin: now,
+        isActive: true,
+      );
+      database.execute(
+        '''
+        INSERT INTO users (
+          id, username, display_name, email, avatar_url,
+          created_at, updated_at, last_login, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        [
+          user.id,
+          user.username,
+          user.displayName,
+          user.email,
+          user.avatarUrl,
+          user.createdAt.toIso8601String(),
+          user.updatedAt.toIso8601String(),
+          user.lastLogin?.toIso8601String(),
+          1,
+        ],
+      );
+      _ensurePlayerProfileForUser(
+        database,
+        user,
+        country: country,
+        city: city,
+        dartsSetupJson: dartsSetupJson,
+      );
+      _setCurrentUser(database, user.id);
+      return user;
+    } finally {
+      database.close();
+    }
+  }
+
+  Future<AccountUser?> signInLocalAccount({required String email}) async {
+    final database = await _openDatabase();
+    try {
+      final user = _findUserByEmail(database, email.trim().toLowerCase());
+      if (user == null) {
+        return null;
+      }
+
+      final now = DateTime.now().toIso8601String();
+      database.execute(
+        'UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?',
+        [now, now, user.id],
+      );
+      _setCurrentUser(database, user.id);
+      return _findUserById(database, user.id) ?? user;
+    } finally {
+      database.close();
+    }
+  }
+
+  Future<void> signOutCurrentAccount() async {
+    final database = await _openDatabase();
+    try {
+      database.execute(
+        'DELETE FROM app_session WHERE key = ?',
+        [_currentUserSessionKey],
+      );
+    } finally {
+      database.close();
+    }
+  }
 
   Future<List<PlayerProfile>> loadPlayerProfiles() async {
     final database = await _openDatabase();
@@ -145,6 +272,9 @@ class LocalAppDatabase {
       }
       if (currentVersion < 2) {
         _addPlayerActiveFlag(database);
+      }
+      if (currentVersion < 3) {
+        _createSessionSchema(database);
       }
       database.execute('PRAGMA user_version = $schemaVersion');
       database.execute('COMMIT');
@@ -388,6 +518,120 @@ class LocalAppDatabase {
         'ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
       );
     }
+  }
+
+  void _createSessionSchema(Database database) {
+    database.execute('''
+      CREATE TABLE IF NOT EXISTS app_session (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    ''');
+  }
+
+  AccountUser? _findUserByEmail(Database database, String email) {
+    if (email.isEmpty) {
+      return null;
+    }
+    final rows = database.select(
+      '''
+      SELECT id, username, display_name, email, avatar_url,
+             created_at, updated_at, last_login, is_active
+      FROM users
+      WHERE lower(email) = ? AND is_active = 1
+      LIMIT 1
+      ''',
+      [email],
+    );
+    return rows.isEmpty ? null : _accountFromRow(rows.first);
+  }
+
+  AccountUser? _findUserById(Database database, String id) {
+    final rows = database.select(
+      '''
+      SELECT id, username, display_name, email, avatar_url,
+             created_at, updated_at, last_login, is_active
+      FROM users
+      WHERE id = ? AND is_active = 1
+      LIMIT 1
+      ''',
+      [id],
+    );
+    return rows.isEmpty ? null : _accountFromRow(rows.first);
+  }
+
+  AccountUser _accountFromRow(Row row) {
+    return AccountUser(
+      id: row['id'] as String? ?? '',
+      username: row['username'] as String? ?? '',
+      displayName: row['display_name'] as String? ?? '',
+      email: row['email'] as String? ?? '',
+      avatarUrl: row['avatar_url'] as String?,
+      createdAt: DateTime.tryParse(row['created_at'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt: DateTime.tryParse(row['updated_at'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      lastLogin: DateTime.tryParse(row['last_login'] as String? ?? ''),
+      isActive: (row['is_active'] as int? ?? 1) == 1,
+    );
+  }
+
+  void _setCurrentUser(Database database, String userId) {
+    database.execute(
+      '''
+      INSERT INTO app_session (key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      ''',
+      [_currentUserSessionKey, userId],
+    );
+  }
+
+  void _ensurePlayerProfileForUser(
+    Database database,
+    AccountUser user, {
+    String country = '',
+    String city = '',
+    String dartsSetupJson = '',
+  }) {
+    final existingProfiles = database.select(
+      '''
+      SELECT COUNT(*) AS count
+      FROM player_profiles
+      WHERE user_id = ? AND is_active = 1
+      ''',
+      [user.id],
+    );
+    final count = existingProfiles.first['count'] as int? ?? 0;
+    if (count > 0) {
+      return;
+    }
+
+    database.execute(
+      '''
+      INSERT INTO player_profiles (
+        id, user_id, display_name, country, city, darts_setup_json,
+        created_at, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ''',
+      [
+        _newId(),
+        user.id,
+        user.displayName,
+        country.trim(),
+        city.trim(),
+        dartsSetupJson.trim(),
+        DateTime.now().toIso8601String(),
+        1,
+      ],
+    );
+  }
+
+  String _usernameFromEmail(String email, String userId) {
+    final baseName = email.split('@').first.trim().toLowerCase();
+    final sanitized = baseName.replaceAll(RegExp(r'[^a-z0-9_]+'), '_');
+    final suffix = userId.hashCode.abs().toRadixString(16);
+    return '${sanitized.isEmpty ? 'spieler' : sanitized}_$suffix';
   }
 
   void _seedTestData(Database database) {

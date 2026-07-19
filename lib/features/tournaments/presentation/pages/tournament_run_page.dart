@@ -14,6 +14,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   int _viewStageIndex = 0;
   StageViewMode _stageViewMode = StageViewMode.overview;
   bool _isBracketEditMode = false;
+  bool _isApplyingStartDraw = false;
   final Set<int> _completedStageIndexes = {};
   final _runController = const TournamentRunController();
 
@@ -30,6 +31,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     _completedStageIndexes.addAll(widget.tournament.completedStageIndexes);
     _advanceKnockoutWinners();
     _ensureGroupDeciders();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyPendingStartDrawForActiveStage();
+    });
   }
 
   Future<void> _saveTournamentProgress() async {
@@ -232,7 +236,229 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         }
         _ensureDecidersForGroup(stage, group, groupIndex);
       }
+      _ensureBestOfDecidersForStage(stage);
     }
+  }
+
+  void _ensureBestOfDecidersForStage(GroupTournamentRunStage stage) {
+    final plan = stage.qualificationPlan;
+    if (plan == null || plan.extraCount < 1 || plan.extraGroups.isEmpty) {
+      return;
+    }
+
+    final candidates = _bestOfCandidatesForStage(stage);
+    if (candidates.length <= plan.extraCount) {
+      return;
+    }
+
+    for (final groupNumber in plan.extraGroups) {
+      final groupIndex = groupNumber - 1;
+      if (groupIndex < 0 || groupIndex >= stage.groups.length) {
+        return;
+      }
+      final group = stage.groups[groupIndex];
+      final baseMatches = group.matches.where(
+        (match) => match.label != 'Beste-N Decider',
+      );
+      if (baseMatches.any((match) => match.hasPlayers && !match.isResolved)) {
+        return;
+      }
+    }
+
+    final sortedByTieBreakers = List<BestOfCandidate>.from(candidates)
+      ..sort(
+        (a, b) => _compareBestOfTieBreakersOnly(stage, a, b),
+      );
+    final boundaryIndex = plan.extraCount - 1;
+    if (boundaryIndex < 0 || boundaryIndex >= sortedByTieBreakers.length) {
+      return;
+    }
+
+    final boundaryCandidate = sortedByTieBreakers[boundaryIndex];
+    final tiedAtBoundary = sortedByTieBreakers
+        .where(
+          (candidate) =>
+              _compareBestOfTieBreakersOnly(stage, candidate, boundaryCandidate) ==
+              0,
+        )
+        .toList();
+    final firstTiedIndex = sortedByTieBreakers.indexWhere(
+      (candidate) =>
+          _compareBestOfTieBreakersOnly(stage, candidate, boundaryCandidate) == 0,
+    );
+    final lastTiedIndex = sortedByTieBreakers.lastIndexWhere(
+      (candidate) =>
+          _compareBestOfTieBreakersOnly(stage, candidate, boundaryCandidate) == 0,
+    );
+
+    if (tiedAtBoundary.length < 2 ||
+        firstTiedIndex >= plan.extraCount ||
+        lastTiedIndex < plan.extraCount) {
+      return;
+    }
+
+    for (var first = 0; first < tiedAtBoundary.length; first++) {
+      for (var second = first + 1; second < tiedAtBoundary.length; second++) {
+        _addBestOfDeciderIfMissing(
+          stage,
+          tiedAtBoundary[first],
+          tiedAtBoundary[second],
+        );
+      }
+    }
+  }
+
+  List<BestOfCandidate> _bestOfCandidatesForStage(
+    GroupTournamentRunStage stage,
+  ) {
+    final plan = stage.qualificationPlan;
+    if (plan == null || plan.extraCount < 1) {
+      return const [];
+    }
+
+    final candidates = <BestOfCandidate>[];
+    for (var groupIndex = 0; groupIndex < stage.groups.length; groupIndex++) {
+      final groupNumber = groupIndex + 1;
+      if (!plan.extraGroups.contains(groupNumber)) {
+        continue;
+      }
+
+      final group = stage.groups[groupIndex];
+      if (group.playType != 'round_robin') {
+        continue;
+      }
+
+      final candidateIndex = plan.extraRank - 1;
+      final standings = _standingsFor(group, stage.tieBreakers);
+      if (candidateIndex < 0 || candidateIndex >= standings.length) {
+        continue;
+      }
+
+      candidates.add(
+        BestOfCandidate(
+          groupName: group.name,
+          groupNumber: groupNumber,
+          place: plan.extraRank,
+          standing: standings[candidateIndex],
+        ),
+      );
+    }
+
+    return candidates;
+  }
+
+  int _compareBestOfTieBreakersOnly(
+    GroupTournamentRunStage stage,
+    BestOfCandidate a,
+    BestOfCandidate b,
+  ) {
+    for (final tieBreaker in stage.tieBreakers) {
+      final comparison = switch (tieBreaker) {
+        'points' => b.standing.points.compareTo(a.standing.points),
+        'legDifference' => b.standing.legDifference.compareTo(
+          a.standing.legDifference,
+        ),
+        'legsFor' => b.standing.legsFor.compareTo(a.standing.legsFor),
+        _ => 0,
+      };
+
+      if (comparison != 0) {
+        return comparison;
+      }
+    }
+
+    return 0;
+  }
+
+  int _compareBestOfCandidates(
+    GroupTournamentRunStage stage,
+    BestOfCandidate a,
+    BestOfCandidate b,
+  ) {
+    final tieBreakerComparison = _compareBestOfTieBreakersOnly(stage, a, b);
+    if (tieBreakerComparison != 0) {
+      return tieBreakerComparison;
+    }
+
+    final deciderComparison = _compareBestOfDeciders(stage, a, b);
+    if (deciderComparison != 0) {
+      return deciderComparison;
+    }
+
+    final groupCompare = a.groupNumber.compareTo(b.groupNumber);
+    if (groupCompare != 0) {
+      return groupCompare;
+    }
+    return a.standing.player.name.compareTo(b.standing.player.name);
+  }
+
+  int _compareBestOfDeciders(
+    GroupTournamentRunStage stage,
+    BestOfCandidate a,
+    BestOfCandidate b,
+  ) {
+    for (final group in stage.groups) {
+      for (final match in group.matches.where(
+        (match) =>
+            match.isDecider &&
+            match.label == 'Beste-N Decider' &&
+            match.hasResult,
+      )) {
+        final home = match.homePlayer;
+        final away = match.awayPlayer;
+        if (home == null || away == null || match.winner == null) {
+          continue;
+        }
+        final isDirectMatch =
+            (home.name == a.standing.player.name &&
+                away.name == b.standing.player.name) ||
+            (home.name == b.standing.player.name &&
+                away.name == a.standing.player.name);
+        if (!isDirectMatch) {
+          continue;
+        }
+        return match.winner!.name == a.standing.player.name ? -1 : 1;
+      }
+    }
+
+    return 0;
+  }
+
+  void _addBestOfDeciderIfMissing(
+    GroupTournamentRunStage stage,
+    BestOfCandidate first,
+    BestOfCandidate second,
+  ) {
+    final alreadyExists = stage.groups.any((group) {
+      return group.matches.any((match) {
+        if (!match.isDecider || match.label != 'Beste-N Decider') {
+          return false;
+        }
+        final home = match.homePlayer;
+        final away = match.awayPlayer;
+        return (home == first.standing.player && away == second.standing.player) ||
+            (home == second.standing.player && away == first.standing.player);
+      });
+    });
+    if (alreadyExists) {
+      return;
+    }
+
+    final homeGroupIndex = first.groupNumber - 1;
+    if (homeGroupIndex < 0 || homeGroupIndex >= stage.groups.length) {
+      return;
+    }
+
+    final homeGroup = stage.groups[homeGroupIndex];
+    homeGroup.matches.add(
+      GroupMatch(
+        homePlayer: first.standing.player,
+        awayPlayer: second.standing.player,
+        round: _nextDeciderRound(homeGroup),
+        label: 'Beste-N Decider',
+        isDecider: true,
+      ),
+    );
   }
 
   void _advanceDoubleEliminationRounds(List<List<GroupMatch>> rounds) {
@@ -1228,7 +1454,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
 
     final advancingPlayers = <TournamentPlayer>[];
-    final extraCandidates = <PlayerStanding>[];
+    final extraCandidates = <BestOfCandidate>[];
 
     for (var groupIndex = 0; groupIndex < stage.groups.length; groupIndex++) {
       final groupNumber = groupIndex + 1;
@@ -1248,13 +1474,22 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       if (plan.extraGroups.contains(groupNumber) &&
           extraIndex >= 0 &&
           extraIndex < standings.length) {
-        extraCandidates.add(standings[extraIndex]);
+        extraCandidates.add(
+          BestOfCandidate(
+            groupName: stage.groups[groupIndex].name,
+            groupNumber: groupNumber,
+            place: plan.extraRank,
+            standing: standings[extraIndex],
+          ),
+        );
       }
     }
 
-    extraCandidates.sort((a, b) => _compareStandings(a, b, stage.tieBreakers));
+    extraCandidates.sort((a, b) => _compareBestOfCandidates(stage, a, b));
     advancingPlayers.addAll(
-      extraCandidates.take(plan.extraCount).map((standing) => standing.player),
+      extraCandidates
+          .take(plan.extraCount)
+          .map((candidate) => candidate.standing.player),
     );
 
     return advancingPlayers;
@@ -1474,17 +1709,59 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       );
     }
 
+    final groupParticipantCount = stage.groupSizes.fold<int>(
+      0,
+      (sum, size) => sum + size,
+    );
+    final groupPlayers = _playersInStageOrder(
+      players,
+      stage.groupSlotOrder,
+      groupParticipantCount,
+    );
+
     return GroupTournamentRunStage(
       name: stage.name,
       groupPlayType: stage.groupPlayType,
       groups: _buildTournamentGroupsForPlayers(
         stage,
-        players,
+        groupPlayers,
         requiredRankForGroup: _requiredRankForStageGroup,
       ),
       qualificationPlan: _qualificationPlanForStage(stage),
       tieBreakers: stage.groupTieBreakers,
     );
+  }
+
+  List<TournamentPlayer> _playersInStageOrder(
+    List<TournamentPlayer> players,
+    List<int?> slotOrder,
+    int participantCount,
+  ) {
+    if (!_isValidPlayerSlotOrder(slotOrder, participantCount)) {
+      return players;
+    }
+
+    return [
+      for (final seed in slotOrder)
+        if (seed != null && seed <= players.length) players[seed - 1],
+    ];
+  }
+
+  bool _isValidPlayerSlotOrder(List<int?> slotOrder, int participantCount) {
+    if (participantCount < 1 || slotOrder.length != participantCount) {
+      return false;
+    }
+
+    final seen = <int>{};
+    for (final seed in slotOrder) {
+      if (seed == null || seed < 1 || seed > participantCount) {
+        return false;
+      }
+      if (!seen.add(seed)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   QualificationPlan? _qualificationPlanForStage(TournamentStage stage) {
@@ -1564,25 +1841,169 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     return requiredRank < 1 ? 1 : requiredRank;
   }
 
-  void _completeCurrentStage() {
+  Future<void> _applyPendingStartDrawForActiveStage() async {
+    if (!mounted ||
+        _isApplyingStartDraw ||
+        _activeStageIndex >= widget.tournament.stages.length ||
+        _activeStageIndex >= widget.tournament.runStages.length) {
+      return;
+    }
+
+    final stageConfig = widget.tournament.stages[_activeStageIndex];
+    if (!_stageNeedsStartDraw(stageConfig)) {
+      return;
+    }
+
+    final runStage = widget.tournament.runStages[_activeStageIndex];
+    if (_matchesForStage(runStage).any((match) => match.hasResult)) {
+      return;
+    }
+
+    final incomingPlayers = _incomingPlayersForStage(_activeStageIndex);
+    final participantCount = _drawParticipantCount(stageConfig, incomingPlayers);
+    if (participantCount < 2) {
+      return;
+    }
+
+    _isApplyingStartDraw = true;
+    final labels = incomingPlayers
+        .take(participantCount)
+        .map((player) => player.name)
+        .toList();
+    final slotOrder = await showDialog<List<int?>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _RandomDrawDialog(
+        stageName: stageConfig.name,
+        participantLabels: labels,
+        bracketSize: stageConfig.type == 'groups'
+            ? participantCount
+            : _drawBracketSize(stageConfig, participantCount),
+        useBracketSlots: stageConfig.type != 'groups',
+        groupSizes:
+            stageConfig.type == 'groups' ? stageConfig.groupSizes : const [],
+      ),
+    );
+    _isApplyingStartDraw = false;
+
+    if (!mounted || slotOrder == null) {
+      return;
+    }
+
     setState(() {
-      if (_activeStageIndex < widget.tournament.runStages.length - 1) {
-        final advancingPlayers = _advancingPlayersFromStage(
-          widget.tournament.runStages[_activeStageIndex],
-        );
-        final nextStageConfig = widget.tournament.stages[_activeStageIndex + 1];
-        widget.tournament.runStages[_activeStageIndex + 1] =
+      final updatedStage = _copyStageWithStartDraw(stageConfig, slotOrder);
+      widget.tournament.stages[_activeStageIndex] = updatedStage;
+      widget.tournament.runStages[_activeStageIndex] =
+          _buildRunStageFromPlayers(updatedStage, incomingPlayers);
+      _advanceKnockoutWinners();
+      _ensureGroupDeciders();
+    });
+    await _saveTournamentProgress();
+  }
+
+  bool _stageNeedsStartDraw(TournamentStage stage) {
+    if (stage.type == 'groups') {
+      return stage.groupDrawOnStart && stage.groupSlotOrder.isEmpty;
+    }
+
+    return _isKnockoutStageType(stage.type) &&
+        stage.knockoutSeedingMode == 'random' &&
+        stage.knockoutDrawOnStart &&
+        stage.knockoutSlotOrder.isEmpty;
+  }
+
+  List<TournamentPlayer> _incomingPlayersForStage(int stageIndex) {
+    if (stageIndex <= 0) {
+      return List<TournamentPlayer>.from(widget.tournament.players);
+    }
+
+    return _advancingPlayersFromStage(widget.tournament.runStages[stageIndex - 1]);
+  }
+
+  int _drawParticipantCount(
+    TournamentStage stage,
+    List<TournamentPlayer> incomingPlayers,
+  ) {
+    if (stage.type == 'groups') {
+      final groupParticipantCount = stage.groupSizes.fold<int>(
+        0,
+        (sum, size) => sum + size,
+      );
+      return groupParticipantCount.clamp(0, incomingPlayers.length).toInt();
+    }
+
+    final participantCount =
+        stage.knockoutParticipantCount ?? incomingPlayers.length;
+    return participantCount.clamp(0, incomingPlayers.length).toInt();
+  }
+
+  int _drawBracketSize(TournamentStage stage, int participantCount) {
+    final storedBracketSize = stage.knockoutBracketSize;
+    if (storedBracketSize != null && storedBracketSize >= participantCount) {
+      return storedBracketSize;
+    }
+
+    return _nextPowerOfTwo(participantCount);
+  }
+
+  TournamentStage _copyStageWithStartDraw(
+    TournamentStage stage,
+    List<int?> slotOrder,
+  ) {
+    return TournamentStage(
+      name: stage.name,
+      type: stage.type,
+      groupCount: stage.groupCount,
+      groupSizes: stage.groupSizes,
+      groupPlayType: stage.groupPlayType,
+      groupPlayTypes: stage.groupPlayTypes,
+      groupRoundRobinRepeats: stage.groupRoundRobinRepeats,
+      groupTieBreakers: stage.groupTieBreakers,
+      groupDrawOnStart: stage.groupDrawOnStart,
+      groupSlotOrder: stage.type == 'groups'
+          ? List.unmodifiable(slotOrder)
+          : stage.groupSlotOrder,
+      knockoutParticipantCount: stage.knockoutParticipantCount,
+      knockoutBracketSize: stage.knockoutBracketSize,
+      knockoutByeCount: stage.knockoutByeCount,
+      knockoutSlotOrder: stage.type == 'groups'
+          ? stage.knockoutSlotOrder
+          : List.unmodifiable(slotOrder),
+      knockoutSeedingMode: stage.knockoutSeedingMode,
+      knockoutDrawOnStart: stage.knockoutDrawOnStart,
+      qualifiersByGroup: stage.qualifiersByGroup,
+      fixedQualifiersByGroup: stage.fixedQualifiersByGroup,
+      extraQualifierRank: stage.extraQualifierRank,
+      extraQualifierCount: stage.extraQualifierCount,
+      qualificationAutoAdjust: stage.qualificationAutoAdjust,
+      qualifiedParticipantCount: stage.qualifiedParticipantCount,
+      qualificationSummary: stage.qualificationSummary,
+    );
+  }
+
+  Future<void> _completeCurrentStage() async {
+    final nextStageIndex = _activeStageIndex + 1;
+    final hasNextStage = nextStageIndex < widget.tournament.runStages.length;
+    final advancingPlayers = hasNextStage
+        ? _advancingPlayersFromStage(widget.tournament.runStages[_activeStageIndex])
+        : const <TournamentPlayer>[];
+
+    setState(() {
+      if (hasNextStage) {
+        final nextStageConfig = widget.tournament.stages[nextStageIndex];
+        widget.tournament.runStages[nextStageIndex] =
             _buildRunStageFromPlayers(nextStageConfig, advancingPlayers);
       }
 
       _completedStageIndexes.add(_activeStageIndex);
-      if (_activeStageIndex < widget.tournament.runStages.length - 1) {
+      if (hasNextStage) {
         _activeStageIndex++;
       }
       _viewStageIndex = _activeStageIndex;
     });
     _advanceKnockoutWinners();
-    _saveTournamentProgress();
+    await _saveTournamentProgress();
+    await _applyPendingStartDrawForActiveStage();
   }
 
   void _finishCurrentStageEarly() {
@@ -1613,7 +2034,18 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     final canEditResults = isViewingActiveStage;
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.tournament.name)),
+      appBar: AppBar(
+        title: Text(widget.tournament.name),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+            icon: const Icon(Icons.home_outlined),
+            label: const Text('Hauptmenue'),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [

@@ -1,5 +1,7 @@
 part of '../../../../tournament_workspace.dart';
 
+const double _previewBracketCardHeight = 160;
+
 class _KnockoutPreview extends StatelessWidget {
   const _KnockoutPreview({
     required this.participantCount,
@@ -10,7 +12,9 @@ class _KnockoutPreview extends StatelessWidget {
     required this.slotOrder,
     required this.participantLabels,
     required this.allowCrossSeed,
+    required this.drawOnStart,
     required this.onSeedingModeChanged,
+    required this.onDrawOnStartChanged,
     required this.onSwapSlot,
     required this.onResetSlots,
   });
@@ -23,7 +27,9 @@ class _KnockoutPreview extends StatelessWidget {
   final List<int?> slotOrder;
   final List<String> participantLabels;
   final bool allowCrossSeed;
+  final bool drawOnStart;
   final ValueChanged<String> onSeedingModeChanged;
+  final ValueChanged<bool> onDrawOnStartChanged;
   final void Function(int fromIndex, int toIndex) onSwapSlot;
   final VoidCallback onResetSlots;
 
@@ -89,6 +95,19 @@ class _KnockoutPreview extends StatelessWidget {
             avatar: Icon(Icons.shuffle, size: 18),
             label: Text('Zufall'),
           ),
+        if (effectiveSeedingMode == 'random') ...[
+          const SizedBox(height: 8),
+          SwitchListTile(
+            key: const ValueKey('knockout-draw-on-start-switch'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Auslosungsrad beim Turnierstart'),
+            subtitle: const Text(
+              'Die Positionen werden erst ausgelost, wenn du das Turnier anlegst.',
+            ),
+            value: drawOnStart,
+            onChanged: onDrawOnStartChanged,
+          ),
+        ],
         if (effectiveSeedingMode == 'cross' && byeCount > 0) ...[
           const SizedBox(height: 8),
           Text(
@@ -230,7 +249,7 @@ class _TripleEliminationPreview extends StatelessWidget {
             roundMatches: lossRounds[lossCount],
             sourceMatches: sourceMatches,
             columnWidth: 170,
-            cardHeight: 180,
+            cardHeight: _previewBracketCardHeight,
             firstRoundGap: 10,
             useBalancedColumnLayout: true,
           ),
@@ -254,7 +273,7 @@ class _TripleEliminationPreview extends StatelessWidget {
           roundMatches: [finalMatches],
           sourceMatches: sourceMatches,
           columnWidth: 170,
-          cardHeight: 180,
+          cardHeight: _previewBracketCardHeight,
           firstRoundGap: 10,
           useBalancedColumnLayout: true,
         ),
@@ -371,7 +390,7 @@ class _DoubleEliminationPreview extends StatelessWidget {
           roundMatches: winnersRounds,
           sourceMatches: sourceMatches,
           columnWidth: 170,
-          cardHeight: 180,
+          cardHeight: _previewBracketCardHeight,
           firstRoundGap: 10,
           useBalancedColumnLayout: true,
         ),
@@ -400,7 +419,7 @@ class _DoubleEliminationPreview extends StatelessWidget {
           roundMatches: losersRounds,
           sourceMatches: sourceMatches,
           columnWidth: 170,
-          cardHeight: 180,
+          cardHeight: _previewBracketCardHeight,
           firstRoundGap: 10,
           useBalancedColumnLayout: true,
         ),
@@ -423,7 +442,7 @@ class _DoubleEliminationPreview extends StatelessWidget {
           roundMatches: [finalMatches],
           sourceMatches: sourceMatches,
           columnWidth: 170,
-          cardHeight: 180,
+          cardHeight: _previewBracketCardHeight,
           firstRoundGap: 10,
           useBalancedColumnLayout: true,
         ),
@@ -505,7 +524,7 @@ class _CompactKnockoutPreviewTree extends StatelessWidget {
     return _BracketTreeLayout(
       totalRounds: roundSizes.length,
       columnWidth: 160,
-      cardHeight: 180,
+      cardHeight: _previewBracketCardHeight,
       firstRoundGap: 10,
       roundTitles: [
         for (var roundIndex = 0; roundIndex < roundSizes.length; roundIndex++)
@@ -1009,6 +1028,30 @@ class _GroupEliminationPreviewSection extends StatelessWidget {
   }
 }
 
+class _GroupDrawSetup extends StatelessWidget {
+  const _GroupDrawSetup({
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      key: const ValueKey('group-draw-on-start-switch'),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Gruppen per Auslosungsrad einteilen'),
+      subtitle: const Text(
+        'Beim Turnierstart wird per Rad gezogen, in welcher Reihenfolge die Spieler auf die Gruppen verteilt werden.',
+      ),
+      value: enabled,
+      onChanged: onChanged,
+    );
+  }
+}
+
 class _GroupEliminationPreviewCard extends StatelessWidget {
   const _GroupEliminationPreviewCard({
     required this.groupNumber,
@@ -1137,7 +1180,9 @@ class _InheritedKnockoutSetup extends StatelessWidget {
     required this.slotOrder,
     required this.participantLabels,
     required this.allowCrossSeed,
+    required this.drawOnStart,
     required this.onSeedingModeChanged,
+    required this.onDrawOnStartChanged,
     required this.onSwapSlot,
     required this.onResetSlots,
   });
@@ -1152,7 +1197,9 @@ class _InheritedKnockoutSetup extends StatelessWidget {
   final List<int?> slotOrder;
   final List<String> participantLabels;
   final bool allowCrossSeed;
+  final bool drawOnStart;
   final ValueChanged<String> onSeedingModeChanged;
+  final ValueChanged<bool> onDrawOnStartChanged;
   final void Function(int fromIndex, int toIndex) onSwapSlot;
   final VoidCallback onResetSlots;
 
@@ -1186,7 +1233,9 @@ class _InheritedKnockoutSetup extends StatelessWidget {
           slotOrder: slotOrder,
           participantLabels: participantLabels,
           allowCrossSeed: allowCrossSeed,
+          drawOnStart: drawOnStart,
           onSeedingModeChanged: onSeedingModeChanged,
+          onDrawOnStartChanged: onDrawOnStartChanged,
           onSwapSlot: onSwapSlot,
           onResetSlots: onResetSlots,
         ),
@@ -1285,6 +1334,9 @@ class _StageList extends StatelessWidget {
         final seedingText = stage.knockoutSeedingMode == 'random'
             ? ' - Zufall'
             : ' - Cross seeded';
+        final drawText = stage.knockoutDrawOnStart
+            ? ' - Auslosungsrad aktiv'
+            : '';
 
         return '${_typeLabel(stage.type)} - '
             '${stage.knockoutParticipantCount} Teilnehmer, '
@@ -1292,6 +1344,7 @@ class _StageList extends StatelessWidget {
             '${_lossLimitForStageType(stage.type) == 3 ? '${stage.knockoutByeCount} automatisch gesetzt' : '${stage.knockoutByeCount} Freilose'}'
             '${_lossLimitForStageType(stage.type) > 1 ? ' - Aus nach ${_lossLimitForStageType(stage.type)} Niederlage(n)' : ''}'
             '$seedingText'
+            '$drawText'
             '${_matchCountDetails(stage)}'
             '$qualifierText';
       }
@@ -1312,10 +1365,11 @@ class _StageList extends StatelessWidget {
       return '${groupLabel(entry.key + 1)} ${_groupPlayTypeLabel(_groupPlayTypeForStage(stage, entry.key))}';
     }).join(', ')}';
     final repeatText = _repeatDetails(stage);
+    final drawText = stage.groupDrawOnStart ? ' - Auslosungsrad aktiv' : '';
     final tieBreakerText =
         ' - Tie-Breaker: ${stage.groupTieBreakers.map(tieBreakerLabel).join(', ')}';
 
-    return '${_typeLabel(stage.type)} - $sizes$playTypeText$repeatText${_matchCountDetails(stage)}$qualifierText$tieBreakerText';
+    return '${_typeLabel(stage.type)} - $sizes$playTypeText$repeatText$drawText${_matchCountDetails(stage)}$qualifierText$tieBreakerText';
   }
 
   @override
