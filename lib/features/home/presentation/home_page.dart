@@ -140,10 +140,18 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
   Future<void> _openTournament(CreatedTournament tournament) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TournamentRunPage(tournament: tournament),
+        builder: (_) => _tournamentPageFor(tournament),
       ),
     );
     _reloadTournaments();
+  }
+
+  Widget _tournamentPageFor(CreatedTournament tournament) {
+    final lastStageIndex = tournament.runStages.length - 1;
+    if (lastStageIndex >= 0 && tournament.completedStageIndexes.contains(lastStageIndex)) {
+      return TournamentResultsPage(tournament: tournament);
+    }
+    return TournamentRunPage(tournament: tournament);
   }
 
   Future<void> _deleteTournament(CreatedTournament tournament) async {

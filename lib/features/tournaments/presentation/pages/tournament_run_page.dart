@@ -2003,6 +2003,17 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     });
     _advanceKnockoutWinners();
     await _saveTournamentProgress();
+    if (!mounted) {
+      return;
+    }
+    if (!hasNextStage) {
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => TournamentResultsPage(tournament: widget.tournament),
+        ),
+      );
+      return;
+    }
     await _applyPendingStartDrawForActiveStage();
   }
 
