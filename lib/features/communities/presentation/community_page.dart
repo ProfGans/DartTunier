@@ -8,6 +8,7 @@ import '../../tournaments/data/app_database.dart';
 import '../../tournaments/domain/tournament_models.dart';
 import '../data/supabase_community_repository.dart';
 import '../domain/community.dart';
+import '../domain/community_elo.dart';
 
 typedef CommunityTournamentCreationBuilder = Widget Function(
   String communityId,
@@ -122,7 +123,13 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
   }
 
   void _reload() {
-    _communitiesFuture = widget.repository.loadMyCommunities();
+    _communitiesFuture = widget.repository.loadMyCommunities().timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => throw StateError(
+        'Der Community-Server antwortet nicht. Bitte pruefe die Verbindung '
+        'und versuche es erneut.',
+      ),
+    );
   }
 
   Future<void> _createCommunity() async {
@@ -168,7 +175,7 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return _ErrorView(message: '${snapshot.error}', onRetry: () {
+          return _ErrorView(message: _communityErrorMessage(snapshot.error!), onRetry: () {
             setState(_reload);
           });
         }
@@ -243,6 +250,17 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
         );
       },
     );
+  }
+
+  String _communityErrorMessage(Object error) {
+    final errorText = error.toString().toLowerCase();
+    if (errorText.contains('host is unknown') ||
+        errorText.contains('failed host lookup') ||
+        errorText.contains('authretryablefetchexception')) {
+      return 'Der Community-Server ist nicht erreichbar. Bitte pruefe die '
+          'Supabase-Adresse oder deine Internetverbindung.';
+    }
+    return '$error';
   }
 }
 
@@ -324,6 +342,20 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                 icon: const Icon(Icons.emoji_events_outlined),
                 label: const Text('Community-Turnier erstellen'),
               ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CommunityRankingPage(
+                      communityName: widget.community.name,
+                      members: members,
+                      tournaments: tournaments,
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.leaderboard_outlined),
+                label: const Text('Rangliste'),
+              ),
               const SizedBox(height: 28),
               Text('Turniere', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
@@ -363,6 +395,90 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
       ),
     );
   }
+}
+
+class CommunityRankingPage extends StatefulWidget {
+  const CommunityRankingPage({
+    super.key,
+    required this.communityName,
+    required this.members,
+    required this.tournaments,
+  });
+
+  final String communityName;
+  final List<CommunityMember> members;
+  final List<CreatedTournament> tournaments;
+
+  @override
+  State<CommunityRankingPage> createState() => _CommunityRankingPageState();
+}
+
+class _CommunityRankingPageState extends State<CommunityRankingPage> {
+  bool _currentYearOnly = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = const CommunityEloCalculator().calculate(
+      members: widget.members,
+      tournaments: widget.tournaments,
+      currentYearOnly: _currentYearOnly,
+    );
+    return Scaffold(
+      appBar: AppBar(title: Text('Rangliste · ${widget.communityName}')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: true, label: Text('Dieses Jahr')),
+            ButtonSegment(value: false, label: Text('Gesamt')),
+          ],
+          selected: {_currentYearOnly},
+          onSelectionChanged: (value) => setState(() => _currentYearOnly = value.first),
+        ),
+        const SizedBox(height: 16),
+        const Text('Startwert: 1000 Elo · Standard-Elo-Formel · K-Faktor 32'),
+        const SizedBox(height: 12),
+        if (snapshot.entries.isEmpty)
+          const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Noch keine Community-Mitglieder vorhanden.')))
+        else Card(child: Column(children: [
+          for (var index = 0; index < snapshot.entries.length; index++)
+            ListTile(
+              leading: CircleAvatar(child: Text('${index + 1}')),
+              title: Text(snapshot.entries[index].player.displayName),
+              subtitle: Text('${snapshot.entries[index].wins} Siege · ${snapshot.entries[index].losses} Niederlagen · ${snapshot.entries[index].matches} Spiele'),
+              trailing: Text('${snapshot.entries[index].rating}', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CommunityRankingHistoryPage(
+                entry: snapshot.entries[index],
+                history: snapshot.history[snapshot.entries[index].player.playerProfileId ?? snapshot.entries[index].player.displayName] ?? const [],
+                currentYearOnly: _currentYearOnly,
+              ))),
+            ),
+        ])),
+      ]),
+    );
+  }
+
+}
+
+class CommunityRankingHistoryPage extends StatelessWidget {
+  const CommunityRankingHistoryPage({super.key, required this.entry, required this.history, required this.currentYearOnly});
+  final CommunityEloEntry entry;
+  final List<CommunityEloHistoryItem> history;
+  final bool currentYearOnly;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(entry.player.displayName)),
+    body: ListView(padding: const EdgeInsets.all(16), children: [
+      Text('${currentYearOnly ? 'Jahreswertung' : 'Gesamtwertung'} · Aktuell ${entry.rating} Elo', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 12),
+      if (history.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Noch keine ranglistenrelevanten Begegnungen.')))
+      else ...history.reversed.map((item) => Card(child: ListTile(
+        title: Text('${item.opponentName} · ${item.score}'),
+        subtitle: Text('${item.tournamentName} · ${item.playedAt.day.toString().padLeft(2, '0')}.${item.playedAt.month.toString().padLeft(2, '0')}.${item.playedAt.year}'),
+        trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [Text('${item.delta >= 0 ? '+' : ''}${item.delta}'), Text('${item.ratingAfter} Elo')]),
+      ))),
+    ]),
+  );
 }
 
 class _CreateCommunityDialog extends StatefulWidget {

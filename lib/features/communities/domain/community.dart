@@ -34,12 +34,14 @@ class Community {
 class CommunityMember {
   const CommunityMember({
     required this.userId,
+    this.playerProfileId,
     required this.displayName,
     required this.role,
     required this.joinedAt,
   });
 
   final String userId;
+  final String? playerProfileId;
   final String displayName;
   final String role;
   final DateTime joinedAt;

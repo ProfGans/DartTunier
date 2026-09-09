@@ -68,13 +68,16 @@ class SupabaseCommunityRepository {
   Future<List<CommunityMember>> loadMembers(String communityId) async {
     final rows = await _client
         .from('community_members')
-        .select('user_id, role, joined_at, player_profiles(display_name)')
+        .select('user_id, role, joined_at, player_profiles(id, display_name)')
         .eq('community_id', communityId)
         .order('joined_at');
     return [
       for (final row in rows)
         CommunityMember(
           userId: row['user_id'] as String,
+          playerProfileId:
+              (row['player_profiles'] as Map<String, dynamic>?)?['id']
+                  as String?,
           displayName:
               (row['player_profiles'] as Map<String, dynamic>?)?['display_name']
                   as String? ??

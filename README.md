@@ -15,3 +15,17 @@ flutter analyze
 flutter test
 ```
 
+## Online-Communities konfigurieren
+
+Communities verwenden ein Supabase-Projekt. Die Zugangsdaten werden nicht im
+Quellcode hinterlegt. Beim lokalen Start muessen deshalb die URL des aktiven
+Projekts und dessen Publishable/Anon-Key uebergeben werden:
+
+```powershell
+flutter run --dart-define=SUPABASE_URL=https://<projekt-ref>.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=<publishable-key>
+```
+
+Ohne diese Angaben laeuft die App im lokalen Account-Modus; Communities sind
+dann bewusst nicht verfuegbar. So fuehrt eine geloeschte oder falsche
+Supabase-Hostadresse nicht zu endlosem Laden.
+

@@ -50,6 +50,18 @@ class TournamentResultsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     const Text('Turnier abgeschlossen'),
+                    if (tournament.stages.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        tournament.stages
+                            .map(
+                              (stage) =>
+                                  '${stage.name}: ${stage.gameFormat.label}',
+                            )
+                            .join('\n'),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -70,7 +82,10 @@ class TournamentResultsPage extends StatelessWidget {
                 ),
               )
             else
-              _Podium(ranking: podium),
+              _Podium(
+                ranking: podium,
+                onPlayerTap: (stats) => _openPlayer(context, stats.player),
+              ),
             const SizedBox(height: 24),
             Text(
               'Turnierstatistik',
@@ -79,7 +94,11 @@ class TournamentResultsPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _StatisticsGrid(summary: summary),
+            _StatisticsGrid(
+              summary: summary,
+              onPlayersTap: () => _openPlayerList(context, summary),
+              onMatchesTap: () => _openMatches(context),
+            ),
             const SizedBox(height: 24),
             Text(
               'Gesamtwertung',
@@ -101,6 +120,10 @@ class TournamentResultsPage extends StatelessWidget {
                       place: index + 1,
                       stats: summary.ranking[index],
                       maxLegs: summary.maxLegs,
+                      onTap: () => _openPlayer(
+                        context,
+                        summary.ranking[index].player,
+                      ),
                     ),
                 ],
               ),
@@ -110,12 +133,40 @@ class TournamentResultsPage extends StatelessWidget {
       ),
     );
   }
+
+  void _openPlayer(BuildContext context, TournamentPlayer player) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => TournamentPlayerResultsPage(
+        tournament: tournament,
+        player: player,
+      ),
+    ));
+  }
+
+  void _openPlayerList(
+    BuildContext context,
+    _TournamentResultSummary summary,
+  ) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => TournamentPlayerListPage(
+        tournament: tournament,
+        ranking: summary.ranking,
+      ),
+    ));
+  }
+
+  void _openMatches(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => TournamentMatchesPage(tournament: tournament),
+    ));
+  }
 }
 
 class _Podium extends StatelessWidget {
-  const _Podium({required this.ranking});
+  const _Podium({required this.ranking, required this.onPlayerTap});
 
   final List<_PlayerResultStats> ranking;
+  final ValueChanged<_PlayerResultStats> onPlayerTap;
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +177,10 @@ class _Podium extends StatelessWidget {
       children: [
         for (var index = 0; index < ranking.length; index++)
           Expanded(
-            child: Card(
+            child: InkWell(
+              onTap: () => onPlayerTap(ranking[index]),
+              borderRadius: BorderRadius.circular(12),
+              child: Card(
               color: colors[index].withValues(alpha: .18),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -154,6 +208,7 @@ class _Podium extends StatelessWidget {
                   ],
                 ),
               ),
+              ),
             ),
           ),
       ],
@@ -162,9 +217,15 @@ class _Podium extends StatelessWidget {
 }
 
 class _StatisticsGrid extends StatelessWidget {
-  const _StatisticsGrid({required this.summary});
+  const _StatisticsGrid({
+    required this.summary,
+    required this.onPlayersTap,
+    required this.onMatchesTap,
+  });
 
   final _TournamentResultSummary summary;
+  final VoidCallback onPlayersTap;
+  final VoidCallback onMatchesTap;
 
   @override
   Widget build(BuildContext context) {
@@ -172,14 +233,15 @@ class _StatisticsGrid extends StatelessWidget {
       spacing: 10,
       runSpacing: 10,
       children: [
-        _StatisticCard(label: 'Spieler', value: '${summary.playerCount}'),
-        _StatisticCard(label: 'Spiele', value: '${summary.matchCount}'),
-        _StatisticCard(label: 'Legs', value: '${summary.legCount}'),
+        _StatisticCard(label: 'Spieler', value: '${summary.playerCount}', onTap: onPlayersTap),
+        _StatisticCard(label: 'Spiele', value: '${summary.matchCount}', onTap: onMatchesTap),
+        _StatisticCard(label: 'Legs', value: '${summary.legCount}', onTap: onMatchesTap),
         _StatisticCard(
           label: 'Legs / Spiel',
           value: summary.matchCount == 0
               ? '–'
               : (summary.legCount / summary.matchCount).toStringAsFixed(1),
+          onTap: onMatchesTap,
         ),
       ],
     );
@@ -187,17 +249,21 @@ class _StatisticsGrid extends StatelessWidget {
 }
 
 class _StatisticCard extends StatelessWidget {
-  const _StatisticCard({required this.label, required this.value});
+  const _StatisticCard({required this.label, required this.value, required this.onTap});
 
   final String label;
   final String value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 160,
-      child: Card(
-        child: Padding(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Card(
+          child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,6 +278,7 @@ class _StatisticCard extends StatelessWidget {
               ),
             ],
           ),
+          ),
         ),
       ),
     );
@@ -223,16 +290,19 @@ class _RankingRow extends StatelessWidget {
     required this.place,
     required this.stats,
     required this.maxLegs,
+    required this.onTap,
   });
 
   final int place;
   final _PlayerResultStats stats;
   final int maxLegs;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final value = maxLegs == 0 ? 0.0 : stats.legsFor / maxLegs;
     return ListTile(
+      onTap: onTap,
       leading: CircleAvatar(child: Text('$place')),
       title: Text(stats.player.name),
       subtitle: Column(
@@ -247,6 +317,131 @@ class _RankingRow extends StatelessWidget {
     );
   }
 }
+
+class TournamentPlayerListPage extends StatelessWidget {
+  const TournamentPlayerListPage({
+    super.key,
+    required this.tournament,
+    required this.ranking,
+  });
+
+  final CreatedTournament tournament;
+  final List<_PlayerResultStats> ranking;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Spielerübersicht')),
+    body: ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text('Spieler auswählen, um alle Begegnungen und Ergebnisse zu sehen.'),
+        const SizedBox(height: 12),
+        Card(child: Column(children: [
+          for (var index = 0; index < ranking.length; index++)
+            _RankingRow(
+              place: index + 1,
+              stats: ranking[index],
+              maxLegs: ranking.fold<int>(0, (maxLegs, entry) => entry.legsFor > maxLegs ? entry.legsFor : maxLegs),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => TournamentPlayerResultsPage(tournament: tournament, player: ranking[index].player),
+              )),
+            ),
+        ])),
+      ],
+    ),
+  );
+}
+
+class TournamentPlayerResultsPage extends StatelessWidget {
+  const TournamentPlayerResultsPage({
+    super.key,
+    required this.tournament,
+    required this.player,
+  });
+
+  final CreatedTournament tournament;
+  final TournamentPlayer player;
+
+  @override
+  Widget build(BuildContext context) {
+    final matches = _resultMatches(tournament)
+        .where((entry) => entry.match.homePlayer?.name == player.name || entry.match.awayPlayer?.name == player.name)
+        .toList();
+    final played = matches.where((entry) => entry.match.hasResult).toList();
+    final wins = played.where((entry) => entry.match.winner?.name == player.name).length;
+    return Scaffold(
+      appBar: AppBar(title: Text(player.name)),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Text('Ergebnisse von ${player.name}', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text('$wins Siege aus ${played.length} gewerteten Begegnungen'),
+        const SizedBox(height: 16),
+        if (matches.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Für diesen Spieler liegen keine Begegnungen vor.')))
+        else ...matches.map((entry) => _ResultMatchCard(entry: entry, highlightPlayer: player)),
+      ]),
+    );
+  }
+}
+
+class TournamentMatchesPage extends StatelessWidget {
+  const TournamentMatchesPage({super.key, required this.tournament});
+
+  final CreatedTournament tournament;
+
+  @override
+  Widget build(BuildContext context) {
+    final matches = _resultMatches(tournament);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Alle Begegnungen')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Text('${matches.where((entry) => entry.match.hasResult).length} gewertete Begegnungen', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 12),
+        if (matches.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Es wurden noch keine Begegnungen angelegt.')))
+        else ...matches.map((entry) => _ResultMatchCard(entry: entry)),
+      ]),
+    );
+  }
+}
+
+class _ResultMatchCard extends StatelessWidget {
+  const _ResultMatchCard({required this.entry, this.highlightPlayer});
+
+  final _ResultMatch entry;
+  final TournamentPlayer? highlightPlayer;
+
+  @override
+  Widget build(BuildContext context) {
+    final match = entry.match;
+    final home = match.homePlayer?.name ?? 'Noch offen';
+    final away = match.awayPlayer?.name ?? 'Noch offen';
+    final score = match.isAnnulled
+        ? 'Annulliert'
+        : match.hasResult ? '${match.homeLegs} : ${match.awayLegs}' : 'Noch nicht gespielt';
+    final highlightHome = highlightPlayer?.name == home;
+    final highlightAway = highlightPlayer?.name == away;
+    return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('${entry.stageName} · ${match.label ?? 'Runde ${match.round}'}', style: Theme.of(context).textTheme.labelLarge),
+      const SizedBox(height: 6),
+      Text('$home  $score  $away', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+      if (highlightHome || highlightAway) Padding(padding: const EdgeInsets.only(top: 4), child: Text(highlightHome ? '$home spielte zuhause' : '$away spielte auswärts')),
+    ])));
+  }
+}
+
+class _ResultMatch {
+  const _ResultMatch(this.stageName, this.match);
+  final String stageName;
+  final GroupMatch match;
+}
+
+List<_ResultMatch> _resultMatches(CreatedTournament tournament) => [
+  for (final stage in tournament.runStages)
+    if (stage is KnockoutTournamentRunStage)
+      for (final match in stage.matches) _ResultMatch(stage.name, match)
+    else if (stage is GroupTournamentRunStage)
+      for (final group in stage.groups)
+        for (final match in group.matches) _ResultMatch('${stage.name} · ${group.name}', match),
+];
 
 class _TournamentResultSummary {
   _TournamentResultSummary({

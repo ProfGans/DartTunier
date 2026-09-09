@@ -14,6 +14,7 @@ import 'features/tournaments/data/tournament_storage.dart';
 import 'features/tournaments/domain/engines/tournament_engine.dart';
 import 'features/tournaments/domain/tournament_models.dart'
     hide defaultGroupTieBreakers, groupLabel;
+import 'features/tournaments/domain/tournament_format_planner.dart';
 import 'features/tournaments/presentation/models/match_result.dart';
 import 'features/tournaments/presentation/pages/tournament_results_page.dart';
 import 'features/tournaments/presentation/widgets/creation/stage_setup_widgets.dart';
@@ -30,6 +31,7 @@ part 'features/tournaments/modes/groups/tournament_mode_groups.dart';
 part 'features/tournaments/modes/double_ko/tournament_mode_double_ko.dart';
 part 'features/tournaments/modes/triple_ko/tournament_mode_triple_ko.dart';
 part 'features/tournaments/presentation/pages/tournament_creation_page.dart';
+part 'features/tournaments/presentation/widgets/tournament_format_planner_dialog.dart';
 part 'features/tournaments/presentation/pages/tournament_run_page.dart';
 part 'features/tournaments/presentation/widgets/player_list.dart';
 part 'features/tournaments/presentation/widgets/creation/random_draw_dialog.dart';
