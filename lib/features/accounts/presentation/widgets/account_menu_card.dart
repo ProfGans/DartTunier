@@ -61,9 +61,7 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
       return;
     }
     if (account == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kein Account mit dieser E-Mail gefunden.')),
-      );
+      _showError('Kein Account mit dieser E-Mail gefunden.');
       return;
     }
 
@@ -109,11 +107,22 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
       if (!mounted) {
         return null;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_accountErrorMessage(error))),
-      );
+      _showError(_accountErrorMessage(error));
       return null;
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(days: 1),
+        content: SelectableText(message),
+        action: SnackBarAction(
+          label: '✕',
+          onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+        ),
+      ),
+    );
   }
 
   String _accountErrorMessage(Object error) {

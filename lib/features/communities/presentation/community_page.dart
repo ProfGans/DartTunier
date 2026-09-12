@@ -161,7 +161,14 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Community-Aktion fehlgeschlagen: $error')),
+        SnackBar(
+          duration: const Duration(days: 1),
+          content: SelectableText('Community-Aktion fehlgeschlagen: $error'),
+          action: SnackBarAction(
+            label: '✕',
+            onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+          ),
+        ),
       );
     }
   }
@@ -563,7 +570,7 @@ class _ErrorView extends StatelessWidget {
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       const Icon(Icons.error_outline, size: 40),
       const SizedBox(height: 12),
-      Text(message, textAlign: TextAlign.center),
+      SelectableText(message, textAlign: TextAlign.center),
       if (onRetry != null) ...[
         const SizedBox(height: 12),
         OutlinedButton(onPressed: onRetry, child: const Text('Erneut versuchen')),

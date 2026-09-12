@@ -35,6 +35,7 @@ class SupabaseCommunityRepository {
     required String name,
     required String description,
   }) async {
+    await _ensureCurrentPlayerProfile();
     final userId = currentUserId;
     final inserted = await _client
         .from('communities')
@@ -55,6 +56,7 @@ class SupabaseCommunityRepository {
   }
 
   Future<Community> joinCommunity(String inviteCode) async {
+    await _ensureCurrentPlayerProfile();
     final result = await _client.rpc(
       'join_community_by_code',
       params: {'requested_code': inviteCode.trim().toUpperCase()},
@@ -63,6 +65,23 @@ class SupabaseCommunityRepository {
       throw StateError('Community konnte nicht geladen werden.');
     }
     return Community.fromJson(result);
+  }
+
+  Future<void> _ensureCurrentPlayerProfile() async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw StateError('Fuer Communities ist eine Anmeldung erforderlich.');
+    }
+    final metadata = user.userMetadata ?? const <String, dynamic>{};
+    final displayName =
+        (metadata['display_name'] as String?) ?? user.email ?? 'Spieler';
+    await _client.from('player_profiles').upsert({
+      'id': user.id,
+      'user_id': user.id,
+      'display_name': displayName.trim(),
+      'is_active': true,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
   }
 
   Future<List<CommunityMember>> loadMembers(String communityId) async {
