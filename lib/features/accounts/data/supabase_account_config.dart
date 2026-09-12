@@ -6,22 +6,32 @@ class SupabaseAccountConfig {
 
   static const url = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://hnsyvqtqxdsbbyrayobv.supabase.co',
+    defaultValue: 'https://rcmmuljqwabqukhaqnea.supabase.co',
   );
   static const publishableKey = String.fromEnvironment(
     'SUPABASE_PUBLISHABLE_KEY',
-    defaultValue: 'sb_publishable_ED8NE9CWSRclj6lQ2baNqw_JPrpXsQB',
+    defaultValue: 'sb_publishable_9K6wh1V094TpGkCCyJK9yw_oPcqgDTH',
   );
   static const anonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
     defaultValue: publishableKey,
   );
 
-  static bool get isConfigured => url.isNotEmpty && anonKey.isNotEmpty;
+  static bool get isConfigured {
+    final uri = Uri.tryParse(url);
+    return uri != null &&
+        uri.hasScheme &&
+        uri.host.isNotEmpty &&
+        anonKey.isNotEmpty;
+  }
 }
 
 class SupabaseAccountBootstrap {
-  const SupabaseAccountBootstrap._();
+  SupabaseAccountBootstrap._();
+
+  static bool _isInitialized = false;
+
+  static bool get isInitialized => _isInitialized;
 
   static Future<void> initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -33,5 +43,6 @@ class SupabaseAccountBootstrap {
       url: SupabaseAccountConfig.url,
       publishableKey: SupabaseAccountConfig.anonKey,
     );
+    _isInitialized = true;
   }
 }

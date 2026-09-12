@@ -100,9 +100,6 @@ void main() {
     final account = await database.registerLocalAccount(
       displayName: 'Theo Checkout',
       email: 'theo@example.local',
-      country: 'Deutschland',
-      city: 'Koeln',
-      dartsSetupJson: '23g Steeldart',
     );
 
     final currentAccount = await database.loadCurrentAccount();
@@ -116,9 +113,9 @@ void main() {
         (profile) =>
             profile.userId == account.id &&
             profile.displayName == 'Theo Checkout' &&
-            profile.country == 'Deutschland' &&
-            profile.city == 'Koeln' &&
-            profile.dartsSetupJson == '23g Steeldart',
+            profile.country.isEmpty &&
+            profile.city.isEmpty &&
+            profile.dartsSetupJson.isEmpty,
       ),
       hasLength(1),
     );

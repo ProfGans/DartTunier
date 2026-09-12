@@ -231,6 +231,7 @@ class TournamentStage {
     this.qualificationAutoAdjust = true,
     this.qualifiedParticipantCount,
     this.qualificationSummary,
+    this.gameFormat = const TournamentGameFormat(),
   });
 
   factory TournamentStage.fromJson(Map<String, dynamic> json) {
@@ -265,6 +266,9 @@ class TournamentStage {
       qualificationAutoAdjust: json['qualificationAutoAdjust'] as bool? ?? true,
       qualifiedParticipantCount: json['qualifiedParticipantCount'] as int?,
       qualificationSummary: json['qualificationSummary'] as String?,
+      gameFormat: json['gameFormat'] is Map<String, dynamic>
+          ? TournamentGameFormat.fromJson(json['gameFormat'] as Map<String, dynamic>)
+          : const TournamentGameFormat(),
     );
   }
 
@@ -291,6 +295,7 @@ class TournamentStage {
   final bool qualificationAutoAdjust;
   final int? qualifiedParticipantCount;
   final String? qualificationSummary;
+  final TournamentGameFormat gameFormat;
 
   Map<String, dynamic> toJson() {
     return {
@@ -317,8 +322,56 @@ class TournamentStage {
       'qualificationAutoAdjust': qualificationAutoAdjust,
       'qualifiedParticipantCount': qualifiedParticipantCount,
       'qualificationSummary': qualificationSummary,
+      'gameFormat': gameFormat.toJson(),
     };
   }
+}
+
+/// Das tatsächlich gespielte Format einer Etappe. Es ist bewusst unabhängig
+/// von der Planungs-Schätzung gespeichert, damit es später in der Übersicht
+/// und bei Ergebnissen zuverlässig angezeigt werden kann.
+class TournamentGameFormat {
+  const TournamentGameFormat({
+    this.gameType = 'x01',
+    this.x01Score = 501,
+    this.checkoutType = 'double_out',
+    this.doubleIn = false,
+    this.bestOfLegs = 3,
+  });
+
+  factory TournamentGameFormat.fromJson(Map<String, dynamic> json) {
+    return TournamentGameFormat(
+      gameType: json['gameType'] as String? ?? 'x01',
+      x01Score: json['x01Score'] as int? ?? 501,
+      checkoutType: json['checkoutType'] as String? ?? 'double_out',
+      doubleIn: json['doubleIn'] as bool? ?? false,
+      bestOfLegs: json['bestOfLegs'] as int? ?? 3,
+    );
+  }
+
+  final String gameType;
+  final int x01Score;
+  final String checkoutType;
+  final bool doubleIn;
+  final int bestOfLegs;
+
+  String get checkoutLabel => switch (checkoutType) {
+    'single_out' => 'Single Out',
+    'master_out' => 'Master Out',
+    _ => 'Double Out',
+  };
+
+  String get label => gameType == 'cricket'
+      ? 'Cricket · Best of $bestOfLegs Legs'
+      : '$x01Score ${doubleIn ? 'Double In / ' : ''}$checkoutLabel · Best of $bestOfLegs Legs';
+
+  Map<String, dynamic> toJson() => {
+    'gameType': gameType,
+    'x01Score': x01Score,
+    'checkoutType': checkoutType,
+    'doubleIn': doubleIn,
+    'bestOfLegs': bestOfLegs,
+  };
 }
 
 class CreatedTournament {
@@ -330,6 +383,7 @@ class CreatedTournament {
     required this.players,
     required this.stages,
     required this.runStages,
+    this.communityId,
     this.activeStageIndex = 0,
     Set<int>? completedStageIndexes,
   }) : id = id ?? _newTournamentId(),
@@ -349,6 +403,7 @@ class CreatedTournament {
       ),
       stages: _mapListFromJson(json['stages'], TournamentStage.fromJson),
       runStages: _runStageListFromJson(json['runStages']),
+      communityId: json['communityId'] as String?,
       activeStageIndex: json['activeStageIndex'] as int? ?? 0,
       completedStageIndexes: _intListFromJson(
         json['completedStageIndexes'],
@@ -363,6 +418,7 @@ class CreatedTournament {
   final List<TournamentPlayer> players;
   final List<TournamentStage> stages;
   final List<TournamentRunStage> runStages;
+  final String? communityId;
   int activeStageIndex;
   final Set<int> completedStageIndexes;
 
@@ -375,6 +431,7 @@ class CreatedTournament {
       'players': players.map((player) => player.toJson()).toList(),
       'stages': stages.map((stage) => stage.toJson()).toList(),
       'runStages': runStages.map(_runStageToJson).toList(),
+      'communityId': communityId,
       'activeStageIndex': activeStageIndex,
       'completedStageIndexes': completedStageIndexes.toList()..sort(),
     };

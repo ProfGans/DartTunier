@@ -30,7 +30,7 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
     super.initState();
     _store =
         widget._store ??
-        (SupabaseAccountConfig.isConfigured
+        (SupabaseAccountBootstrap.isInitialized
             ? SupabaseAccountSessionStore()
             : LocalAccountSessionStore(widget._database ?? LocalAppDatabase()));
     _accountFuture = _store.loadCurrentAccount();
@@ -61,9 +61,7 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
       return;
     }
     if (account == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kein Account mit dieser E-Mail gefunden.')),
-      );
+      _showError('Kein Account mit dieser E-Mail gefunden.');
       return;
     }
 
@@ -86,9 +84,6 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
         displayName: result.displayName,
         email: result.email,
         password: result.password,
-        country: result.country,
-        city: result.city,
-        dartsSetup: result.dartsSetup,
       ),
     );
     if (!mounted) {
@@ -112,11 +107,22 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
       if (!mounted) {
         return null;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_accountErrorMessage(error))),
-      );
+      _showError(_accountErrorMessage(error));
       return null;
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(days: 1),
+        content: SelectableText(message),
+        action: SnackBarAction(
+          label: '✕',
+          onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+        ),
+      ),
+    );
   }
 
   String _accountErrorMessage(Object error) {
@@ -210,9 +216,6 @@ class _AccountDialogState extends State<_AccountDialog> {
   final _displayNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _countryController = TextEditingController();
-  final _cityController = TextEditingController();
-  final _dartsSetupController = TextEditingController();
   String? _errorText;
 
   bool get _isRegister => widget.mode == _AccountDialogMode.register;
@@ -222,9 +225,6 @@ class _AccountDialogState extends State<_AccountDialog> {
     _displayNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _countryController.dispose();
-    _cityController.dispose();
-    _dartsSetupController.dispose();
     super.dispose();
   }
 
@@ -256,9 +256,6 @@ class _AccountDialogState extends State<_AccountDialog> {
         displayName: displayName,
         email: email,
         password: password,
-        country: _countryController.text.trim(),
-        city: _cityController.text.trim(),
-        dartsSetup: _dartsSetupController.text.trim(),
       ),
     );
   }
@@ -316,38 +313,6 @@ class _AccountDialogState extends State<_AccountDialog> {
                 }
               },
             ),
-            if (_isRegister) ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: _countryController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Land',
-                  prefixIcon: Icon(Icons.flag_outlined),
-                ),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _cityController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Stadt',
-                  prefixIcon: Icon(Icons.location_city_outlined),
-                ),
-                textInputAction: TextInputAction.next,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _dartsSetupController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Dart-Setup',
-                  prefixIcon: Icon(Icons.sports_bar_outlined),
-                ),
-                onSubmitted: (_) => _submit(),
-              ),
-            ],
             if (_errorText != null) ...[
               const SizedBox(height: 12),
               Align(
@@ -380,15 +345,9 @@ class _AccountFormResult {
     required this.displayName,
     required this.email,
     required this.password,
-    required this.country,
-    required this.city,
-    required this.dartsSetup,
   });
 
   final String displayName;
   final String email;
   final String password;
-  final String country;
-  final String city;
-  final String dartsSetup;
 }

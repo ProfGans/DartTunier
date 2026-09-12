@@ -1,7 +1,14 @@
 part of '../../../../tournament_workspace.dart';
 
 class TournamentCreationPage extends StatefulWidget {
-  const TournamentCreationPage({super.key});
+  const TournamentCreationPage({
+    super.key,
+    this.communityId,
+    this.communityName,
+  });
+
+  final String? communityId;
+  final String? communityName;
 
   @override
   State<TournamentCreationPage> createState() => _TournamentCreationPageState();
@@ -37,6 +44,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   bool _knockoutDrawOnStart = false;
   bool _stageNameWasEdited = false;
   bool _isOpeningPlayerPicker = false;
+  TournamentGameFormat _stageGameFormat = const TournamentGameFormat();
 
   @override
   void initState() {
@@ -1097,6 +1105,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         qualificationSummary: _selectedStageType == 'groups'
             ? groupQualificationPlan?.summary
             : inheritedQualificationPlan?.summary,
+        gameFormat: _stageGameFormat,
       );
 
       final editingIndex = _editingStageIndex;
@@ -1130,6 +1139,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     _knockoutSeedingMode = 'cross';
     _groupDrawOnStart = false;
     _knockoutDrawOnStart = false;
+    _stageGameFormat = const TournamentGameFormat();
     _setDefaultStageNameIfNeeded();
   }
 
@@ -1143,6 +1153,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         offset: _stageNameController.text.length,
       );
       _stageNameWasEdited = true;
+      _stageGameFormat = stage.gameFormat;
 
       if (stage.type == 'groups') {
         _groupCountController.text = '${stage.groupSizes.length}';
@@ -1210,20 +1221,105 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     });
   }
 
+  Future<void> _openFormatPlanner() async {
+    final suggestion = await showDialog<TournamentFormatSuggestion>(
+      context: context,
+      builder: (_) => const TournamentFormatPlannerDialog(),
+    );
+    if (suggestion == null || !mounted) return;
+    // Der Dialog gibt seine Spielerzahl über die Metadaten des ersten Formats
+    // nicht zurück; bei bereits gewählten Spielern bleibt deren Auswahl immer
+    // unverändert. Die Etappen werden anschließend direkt anwendbar angelegt.
+    final inferredPlayerCount = _players.isNotEmpty
+        ? _players.length
+        : suggestion.participantCount;
+    final groups = suggestion.stages.first.groupCount;
+    final sizes = List.generate(groups, (index) => inferredPlayerCount ~/ groups + (index < inferredPlayerCount % groups ? 1 : 0));
+    final qualifiersByGroup = [for (final size in sizes) size < 2 ? size : 2];
+    final qualifierCount = qualifiersByGroup.fold<int>(0, (sum, value) => sum + value);
+    setState(() {
+      _stageGameFormat = suggestion.stages.first.format;
+      _playerCountController.text = '$inferredPlayerCount';
+      _groupCountController.text = '$groups';
+      _stages
+        ..clear()
+        ..add(TournamentStage(
+          name: groups == 1 ? 'Ligaphase' : 'Gruppenphase',
+          type: 'groups',
+          groupCount: groups,
+          groupSizes: sizes,
+          groupPlayType: 'round_robin',
+          groupPlayTypes: List.filled(groups, 'round_robin'),
+          groupRoundRobinRepeats: List.filled(groups, 1),
+          qualifiedParticipantCount: groups == 1 ? null : qualifierCount,
+          fixedQualifiersByGroup: groups == 1 ? const [] : qualifiersByGroup,
+          qualificationSummary: groups == 1 ? null : 'Die besten 2 jeder Gruppe',
+          gameFormat: suggestion.stages.first.format,
+        ));
+      if (suggestion.stages.length > 1) {
+        _stages.add(TournamentStage(
+          name: 'K.-o.-Finale',
+          type: 'single_knockout',
+          knockoutParticipantCount: qualifierCount,
+          knockoutBracketSize: _plannerNextPowerOfTwo(qualifierCount),
+          knockoutByeCount: _plannerNextPowerOfTwo(qualifierCount) - qualifierCount,
+          gameFormat: suggestion.stages.last.format,
+        ));
+      }
+      _resetStageForm();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Vorschlag übernommen. Du kannst jetzt die Spieler hinzufügen.'),
+    ));
+  }
+
+  int _plannerNextPowerOfTwo(int value) {
+    var result = 1;
+    while (result < value) {
+      result *= 2;
+    }
+    return result;
+  }
+
   Future<void> _createTournament() async {
     if (_stages.isEmpty || _players.isEmpty) {
       return;
     }
 
-    final tournament = const TournamentCreationController().createTournament(
-      name: _tournamentNameController.text.trim().isEmpty
+    late final CreatedTournament tournament;
+    try {
+      final controller = const TournamentCreationController();
+      final name = _tournamentNameController.text.trim().isEmpty
           ? 'Neues Turnier'
-          : _tournamentNameController.text.trim(),
-      players: _players,
-      stages: _stages,
-      runStages: _buildRunStages(),
-    );
+          : _tournamentNameController.text.trim();
+      final runStages = _buildRunStages();
+      if (widget.communityId case final String communityId) {
+        tournament = await controller.createCommunityTournament(
+          name: name,
+          players: _players,
+          stages: _stages,
+          runStages: runStages,
+          communityId: communityId,
+        );
+      } else {
+        tournament = controller.createTournament(
+          name: name,
+          players: _players,
+          stages: _stages,
+          runStages: runStages,
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Turnier konnte nicht gespeichert werden: $error')),
+      );
+      return;
+    }
 
+    if (!mounted) {
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TournamentRunPage(tournament: tournament),
@@ -1624,6 +1720,12 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _openFormatPlanner,
+              icon: const Icon(Icons.auto_awesome_outlined),
+              label: const Text('Passende Turnierform finden'),
+            ),
             const SizedBox(height: 24),
             TextField(
               controller: _tournamentNameController,
@@ -1766,6 +1868,11 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                   _setDefaultStageNameIfNeeded(value);
                 });
               },
+            ),
+            const SizedBox(height: 12),
+            _StageGameFormatSetup(
+              value: _stageGameFormat,
+              onChanged: (value) => setState(() => _stageGameFormat = value),
             ),
             if (_selectedStageType == 'groups') ...[
               const SizedBox(height: 12),

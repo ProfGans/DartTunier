@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/tournament_models.dart';
 
@@ -45,6 +46,25 @@ class TournamentStorage {
       tournaments[index] = tournament;
     }
     await _writeTournaments(tournaments);
+    if (tournament.communityId != null) {
+      await _saveCommunityTournament(tournament);
+    }
+  }
+
+  Future<void> _saveCommunityTournament(CreatedTournament tournament) async {
+    final client = Supabase.instance.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('Community-Turniere benoetigen eine Anmeldung.');
+    }
+    await client.from('tournaments').upsert({
+      'client_tournament_id': tournament.id,
+      'owner_user_id': userId,
+      'community_id': tournament.communityId,
+      'name': tournament.name,
+      'payload': tournament.toJson(),
+      'is_deleted': false,
+    }, onConflict: 'client_tournament_id');
   }
 
   Future<void> deleteTournament(String id) async {

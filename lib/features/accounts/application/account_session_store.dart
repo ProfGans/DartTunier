@@ -10,9 +10,6 @@ abstract class AccountSessionStore {
     required String displayName,
     required String email,
     required String password,
-    required String country,
-    required String city,
-    required String dartsSetup,
   });
 
   Future<AccountUser?> signInAccount({
@@ -39,16 +36,10 @@ class LocalAccountSessionStore implements AccountSessionStore {
     required String displayName,
     required String email,
     required String password,
-    required String country,
-    required String city,
-    required String dartsSetup,
   }) {
     return _database.registerLocalAccount(
       displayName: displayName,
       email: email,
-      country: country,
-      city: city,
-      dartsSetupJson: dartsSetup,
     );
   }
 

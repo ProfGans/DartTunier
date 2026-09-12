@@ -20,6 +20,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _openCommunityArea() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CommunityPage(
+          createTournamentBuilder: (communityId, communityName) =>
+              TournamentCreationPage(
+                communityId: communityId,
+                communityName: communityName,
+              ),
+          runTournamentBuilder: (tournament) =>
+              TournamentRunPage(tournament: tournament),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -73,6 +89,17 @@ class _HomePageState extends State<HomePage> {
                 onTap: _openPlayersArea,
               ),
             ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.hub_outlined),
+                title: const Text('Community'),
+                subtitle: const Text(
+                  'Communities, Mitglieder und gemeinsame Turniere.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openCommunityArea,
+              ),
+            ),
           ],
         ),
       ),
@@ -113,10 +140,18 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
   Future<void> _openTournament(CreatedTournament tournament) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TournamentRunPage(tournament: tournament),
+        builder: (_) => _tournamentPageFor(tournament),
       ),
     );
     _reloadTournaments();
+  }
+
+  Widget _tournamentPageFor(CreatedTournament tournament) {
+    final lastStageIndex = tournament.runStages.length - 1;
+    if (lastStageIndex >= 0 && tournament.completedStageIndexes.contains(lastStageIndex)) {
+      return TournamentResultsPage(tournament: tournament);
+    }
+    return TournamentRunPage(tournament: tournament);
   }
 
   Future<void> _deleteTournament(CreatedTournament tournament) async {

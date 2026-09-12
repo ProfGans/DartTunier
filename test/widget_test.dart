@@ -1117,6 +1117,12 @@ void main() {
     expect(find.text('Account'), findsOneWidget);
     expect(find.text('Anmelden'), findsOneWidget);
     expect(find.text('Turniere'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Community'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Community'), findsOneWidget);
 
     await openTournamentCreation(tester);
 
@@ -1389,12 +1395,9 @@ void main() {
       'theo.widget@example.local',
     );
     await tester.enterText(find.widgetWithText(TextField, 'Passwort'), 'secret1');
-    await tester.enterText(find.widgetWithText(TextField, 'Land'), 'Deutschland');
-    await tester.enterText(find.widgetWithText(TextField, 'Stadt'), 'Berlin');
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Dart-Setup'),
-      '23g Steeldart',
-    );
+    expect(find.widgetWithText(TextField, 'Land'), findsNothing);
+    expect(find.widgetWithText(TextField, 'Stadt'), findsNothing);
+    expect(find.widgetWithText(TextField, 'Dart-Setup'), findsNothing);
     await tester.tap(
       find.descendant(
         of: find.byType(AlertDialog),
@@ -1427,9 +1430,6 @@ class _FakeAccountSessionStore implements AccountSessionStore {
     required String displayName,
     required String email,
     required String password,
-    required String country,
-    required String city,
-    required String dartsSetup,
   }) async {
     final now = DateTime(2026);
     final account = AccountUser(

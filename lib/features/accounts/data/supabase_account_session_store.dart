@@ -26,18 +26,12 @@ class SupabaseAccountSessionStore implements AccountSessionStore {
     required String displayName,
     required String email,
     required String password,
-    required String country,
-    required String city,
-    required String dartsSetup,
   }) async {
     final response = await _client.auth.signUp(
       email: email.trim(),
       password: password,
       data: {
         'display_name': displayName.trim(),
-        'country': country.trim(),
-        'city': city.trim(),
-        'darts_setup': dartsSetup.trim(),
       },
     );
     final user = response.user;
@@ -55,9 +49,6 @@ class SupabaseAccountSessionStore implements AccountSessionStore {
     await _upsertPlayerProfile(
       userId: user.id,
       displayName: displayName,
-      country: country,
-      city: city,
-      dartsSetup: dartsSetup,
     );
     return _accountFromSupabaseUser(user);
   }
@@ -81,9 +72,6 @@ class SupabaseAccountSessionStore implements AccountSessionStore {
       userId: user.id,
       displayName:
           (metadata['display_name'] as String?) ?? user.email ?? 'Spieler',
-      country: (metadata['country'] as String?) ?? '',
-      city: (metadata['city'] as String?) ?? '',
-      dartsSetup: (metadata['darts_setup'] as String?) ?? '',
     );
     return _accountFromSupabaseUser(user);
   }
@@ -94,17 +82,11 @@ class SupabaseAccountSessionStore implements AccountSessionStore {
   Future<void> _upsertPlayerProfile({
     required String userId,
     required String displayName,
-    required String country,
-    required String city,
-    required String dartsSetup,
   }) async {
     await _client.from('player_profiles').upsert({
       'id': userId,
       'user_id': userId,
       'display_name': displayName.trim(),
-      'country': country.trim(),
-      'city': city.trim(),
-      'darts_setup_json': dartsSetup.trim(),
       'is_active': true,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     });
