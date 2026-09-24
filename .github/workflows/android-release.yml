@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      APPDATA: ${{ runner.temp }}/test-data
+      APPDATA: /tmp/dart-tournament-test-data
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
