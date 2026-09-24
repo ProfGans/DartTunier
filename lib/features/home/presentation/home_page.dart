@@ -8,6 +8,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  void _openSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
+    );
+  }
+
   Future<void> _openTournamentArea() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const TournamentHomePage()),
@@ -44,6 +50,13 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Dart Turnierverwaltung'),
         backgroundColor: colorScheme.primaryContainer,
+        actions: [
+          IconButton(
+            onPressed: _openSettings,
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Einstellungen',
+          ),
+        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -98,6 +111,37 @@ class _HomePageState extends State<HomePage> {
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _openCommunityArea,
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.devices_outlined),
+                title: const Text('Geräte'),
+                subtitle: const Text('Computer hinzufügen und Geräte im Netzwerk finden.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const DevicesPage()),
+                ),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.settings_outlined),
+                title: const Text('Einstellungen'),
+                subtitle: const Text('Parameter für die passende Turnierform anpassen.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openSettings,
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.science_outlined),
+                title: const Text('Dev Tools'),
+                subtitle: const Text('Turnierformen durchspielen und Kontrollberichte anzeigen.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const DevToolsPage()),
+                ),
               ),
             ),
           ],

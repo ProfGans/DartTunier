@@ -77,6 +77,14 @@ class SupabaseAccountSessionStore implements AccountSessionStore {
   }
 
   @override
+  bool get supportsPasswordReset => true;
+
+  @override
+  Future<void> sendPasswordResetEmail({required String email}) {
+    return _client.auth.resetPasswordForEmail(email.trim());
+  }
+
+  @override
   Future<void> signOutCurrentAccount() => _client.auth.signOut();
 
   Future<void> _upsertPlayerProfile({

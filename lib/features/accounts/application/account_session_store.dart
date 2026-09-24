@@ -17,6 +17,10 @@ abstract class AccountSessionStore {
     required String password,
   });
 
+  bool get supportsPasswordReset;
+
+  Future<void> sendPasswordResetEmail({required String email});
+
   Future<void> signOutCurrentAccount();
 }
 
@@ -49,6 +53,14 @@ class LocalAccountSessionStore implements AccountSessionStore {
     required String password,
   }) {
     return _database.signInLocalAccount(email: email);
+  }
+
+  @override
+  bool get supportsPasswordReset => false;
+
+  @override
+  Future<void> sendPasswordResetEmail({required String email}) {
+    throw UnsupportedError('Im lokalen Gastmodus gibt es kein Passwort.');
   }
 
   @override

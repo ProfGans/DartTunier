@@ -3,13 +3,14 @@ part of '../../../../tournament_workspace.dart';
 bool _isKnockoutStageType(String type) {
   return type == 'single_knockout' ||
       type == 'double_knockout' ||
-      type == 'triple_knockout';
+      type == 'triple_knockout' || type == 'kratzer';
 }
 
 int _lossLimitForStageType(String type) {
   return switch (type) {
     'double_knockout' => 2,
     'triple_knockout' => 3,
+    'kratzer' => 3,
     _ => 1,
   };
 }
@@ -38,3 +39,9 @@ class _KnockoutSeedSource {
   final int place;
 }
 
+
+int _optionalPlacementMatchCount(int count, Iterable<int> places) {
+  if (count < 4 || places.isEmpty) return 0;
+  final players = List.generate(count, (i) => TournamentPlayer.generated(i + 1));
+  return PlacementEngine.build(_buildKnockoutRoundsForPlayers(players), places.where((p) => p < count)).length;
+}

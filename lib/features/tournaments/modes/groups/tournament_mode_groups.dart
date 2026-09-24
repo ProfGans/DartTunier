@@ -119,12 +119,12 @@ TournamentGroup _buildEliminationTournamentGroup({
   final lossLimit = _lossLimitForGroupPlayType(playType);
   final requiredRank = requiredRankForGroup(stage, groupIndex);
   final rounds = lossLimit == 1
-      ? _buildKnockoutRoundsForPlayers(players, qualifyingRank: requiredRank)
+      ? _buildKnockoutRoundsForPlayers(players, qualifyingRank: stage.placementPlaces.isEmpty ? requiredRank : 1)
       : lossLimit == 2
           ? _buildDoubleEliminationRoundsForPlayers(players)
           : _buildTripleEliminationRoundsForPlayers(players);
   final placementMatches = lossLimit == 1
-      ? _buildPlacementMatchesForPlayers(
+      ? stage.placementPlaces.isNotEmpty ? PlacementEngine.build(rounds, {...stage.placementPlaces.where((p) => p < players.length), if (requiredRank >= 3 && requiredRank.isOdd && requiredRank < players.length) requiredRank}) : _buildPlacementMatchesForPlayers(
           players.length,
           requiredRank,
         )
@@ -141,6 +141,7 @@ TournamentGroup _buildEliminationTournamentGroup({
     knockoutRounds: rounds,
     placementMatches: placementMatches,
     eliminationLossLimit: lossLimit,
+    finalEndsTournament: stage.finalEndsTournament,
   );
 }
 
@@ -311,6 +312,7 @@ List<List<GroupMatch>> _buildDoubleEliminationRoundsForPlayers(
 
 List<List<GroupMatch>> _buildTripleEliminationRoundsForPlayers(
   List<TournamentPlayer> players, {
+  int lossLimit = 3,
   List<int?> slotOrder = const [],
 }) {
   if (players.length < 2) {
@@ -327,7 +329,7 @@ List<List<GroupMatch>> _buildTripleEliminationRoundsForPlayers(
           _groupSlotOrderAvoidsByePair(slotOrder)
       ? List<int?>.from(slotOrder)
       : _automaticGroupSlotOrder(players.length, bracketSize);
-  return _buildTripleEliminationRoundsFromSlots(players, slots);
+  return _buildTripleEliminationRoundsFromSlots(players, slots, lossLimit: lossLimit);
 }
 
 void _advanceKnockoutWinnersInBuiltRounds(List<List<GroupMatch>> rounds) {

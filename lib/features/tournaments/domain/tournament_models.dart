@@ -46,7 +46,10 @@ List<int> _intListFromJson(Object? value) {
   if (value is! List) {
     return const [];
   }
-  return [for (final item in value) if (item is int) item];
+  return [
+    for (final item in value)
+      if (item is int) item,
+  ];
 }
 
 List<int?> _nullableIntListFromJson(Object? value) {
@@ -63,7 +66,10 @@ List<String> _stringListFromJson(
   if (value is! List) {
     return List<String>.from(fallback);
   }
-  return [for (final item in value) if (item is String) item];
+  return [
+    for (final item in value)
+      if (item is String) item,
+  ];
 }
 
 List<T> _mapListFromJson<T>(
@@ -122,6 +128,7 @@ TournamentRunStage _runStageFromJson(Map<String, dynamic> json) {
         GroupMatch.fromJson,
       ),
       eliminationLossLimit: json['eliminationLossLimit'] as int? ?? 1,
+      finalEndsTournament: json['finalEndsTournament'] as bool? ?? false,
     );
   }
 
@@ -210,6 +217,9 @@ class TournamentStage {
   const TournamentStage({
     required this.name,
     required this.type,
+    this.finalEndsTournament = true,
+    this.knockoutLives,
+    this.placementPlaces = const [],
     this.groupCount,
     this.groupSizes = const [],
     this.groupPlayType = 'round_robin',
@@ -238,13 +248,14 @@ class TournamentStage {
     return TournamentStage(
       name: json['name'] as String? ?? '',
       type: json['type'] as String? ?? 'groups',
+      finalEndsTournament: json['finalEndsTournament'] as bool? ?? false,
+      knockoutLives: json['knockoutLives'] as int?,
+      placementPlaces: _intListFromJson(json['placementPlaces']),
       groupCount: json['groupCount'] as int?,
       groupSizes: _intListFromJson(json['groupSizes']),
       groupPlayType: json['groupPlayType'] as String? ?? 'round_robin',
       groupPlayTypes: _stringListFromJson(json['groupPlayTypes']),
-      groupRoundRobinRepeats: _intListFromJson(
-        json['groupRoundRobinRepeats'],
-      ),
+      groupRoundRobinRepeats: _intListFromJson(json['groupRoundRobinRepeats']),
       groupTieBreakers: _stringListFromJson(
         json['groupTieBreakers'],
         fallback: defaultGroupTieBreakers,
@@ -258,22 +269,26 @@ class TournamentStage {
       knockoutSeedingMode: json['knockoutSeedingMode'] as String? ?? 'cross',
       knockoutDrawOnStart: json['knockoutDrawOnStart'] as bool? ?? false,
       qualifiersByGroup: _intListFromJson(json['qualifiersByGroup']),
-      fixedQualifiersByGroup: _intListFromJson(
-        json['fixedQualifiersByGroup'],
-      ),
+      fixedQualifiersByGroup: _intListFromJson(json['fixedQualifiersByGroup']),
       extraQualifierRank: json['extraQualifierRank'] as int?,
       extraQualifierCount: json['extraQualifierCount'] as int?,
       qualificationAutoAdjust: json['qualificationAutoAdjust'] as bool? ?? true,
       qualifiedParticipantCount: json['qualifiedParticipantCount'] as int?,
       qualificationSummary: json['qualificationSummary'] as String?,
       gameFormat: json['gameFormat'] is Map<String, dynamic>
-          ? TournamentGameFormat.fromJson(json['gameFormat'] as Map<String, dynamic>)
+          ? TournamentGameFormat.fromJson(
+              json['gameFormat'] as Map<String, dynamic>,
+            )
           : const TournamentGameFormat(),
     );
   }
 
   final String name;
   final String type;
+  final bool finalEndsTournament;
+  final int? knockoutLives;
+  final List<int> placementPlaces;
+  int get lossLimit => knockoutLives ?? (type == 'double_knockout' ? 2 : type == 'triple_knockout' || type == 'kratzer' ? 3 : 1);
   final int? groupCount;
   final List<int> groupSizes;
   final String groupPlayType;
@@ -301,6 +316,9 @@ class TournamentStage {
     return {
       'name': name,
       'type': type,
+      'finalEndsTournament': finalEndsTournament,
+      'knockoutLives': knockoutLives,
+      'placementPlaces': placementPlaces,
       'groupCount': groupCount,
       'groupSizes': groupSizes,
       'groupPlayType': groupPlayType,
@@ -331,12 +349,20 @@ class TournamentStage {
 /// von der Planungs-Schätzung gespeichert, damit es später in der Übersicht
 /// und bei Ergebnissen zuverlässig angezeigt werden kann.
 class TournamentGameFormat {
+  static final List<int> supportedDrawLegs = List.unmodifiable(
+    List.generate(50, (i) => 2 + i * 2),
+  );
+  bool get allowsDraws => bestOfSets == 1 && bestOfLegs.isEven;
+  static final List<int> supportedBestOfLegs = List.unmodifiable(
+    List.generate(51, (index) => 1 + index * 2),
+  );
   const TournamentGameFormat({
     this.gameType = 'x01',
     this.x01Score = 501,
     this.checkoutType = 'double_out',
     this.doubleIn = false,
     this.bestOfLegs = 3,
+    this.bestOfSets = 1,
   });
 
   factory TournamentGameFormat.fromJson(Map<String, dynamic> json) {
@@ -346,6 +372,7 @@ class TournamentGameFormat {
       checkoutType: json['checkoutType'] as String? ?? 'double_out',
       doubleIn: json['doubleIn'] as bool? ?? false,
       bestOfLegs: json['bestOfLegs'] as int? ?? 3,
+      bestOfSets: json['bestOfSets'] as int? ?? 1,
     );
   }
 
@@ -355,6 +382,12 @@ class TournamentGameFormat {
   final bool doubleIn;
   final int bestOfLegs;
 
+  /// One set is the legacy leg-only format.
+  final int bestOfSets;
+  String get lengthLabel => bestOfSets == 1
+      ? 'Best of $bestOfLegs Legs${allowsDraws ? ' · Unentschieden möglich' : ''}'
+      : 'Best of $bestOfSets Sets · Best of $bestOfLegs Legs je Set';
+
   String get checkoutLabel => switch (checkoutType) {
     'single_out' => 'Single Out',
     'master_out' => 'Master Out',
@@ -362,8 +395,8 @@ class TournamentGameFormat {
   };
 
   String get label => gameType == 'cricket'
-      ? 'Cricket · Best of $bestOfLegs Legs'
-      : '$x01Score ${doubleIn ? 'Double In / ' : ''}$checkoutLabel · Best of $bestOfLegs Legs';
+      ? 'Cricket · $lengthLabel'
+      : '$x01Score ${doubleIn ? 'Double In / ' : ''}$checkoutLabel · $lengthLabel';
 
   Map<String, dynamic> toJson() => {
     'gameType': gameType,
@@ -371,6 +404,7 @@ class TournamentGameFormat {
     'checkoutType': checkoutType,
     'doubleIn': doubleIn,
     'bestOfLegs': bestOfLegs,
+    'bestOfSets': bestOfSets,
   };
 }
 
@@ -385,6 +419,7 @@ class CreatedTournament {
     required this.runStages,
     this.communityId,
     this.activeStageIndex = 0,
+    this.boardCount = 1,
     Set<int>? completedStageIndexes,
   }) : id = id ?? _newTournamentId(),
        createdAt = createdAt ?? DateTime.now(),
@@ -397,14 +432,12 @@ class CreatedTournament {
       createdAt: _dateTimeFromJson(json['createdAt']),
       updatedAt: _dateTimeFromJson(json['updatedAt']),
       name: json['name'] as String? ?? 'Neues Turnier',
-      players: _mapListFromJson(
-        json['players'],
-        TournamentPlayer.fromJson,
-      ),
+      players: _mapListFromJson(json['players'], TournamentPlayer.fromJson),
       stages: _mapListFromJson(json['stages'], TournamentStage.fromJson),
       runStages: _runStageListFromJson(json['runStages']),
       communityId: json['communityId'] as String?,
       activeStageIndex: json['activeStageIndex'] as int? ?? 0,
+      boardCount: (json['boardCount'] as int? ?? 1).clamp(1, 64),
       completedStageIndexes: _intListFromJson(
         json['completedStageIndexes'],
       ).toSet(),
@@ -420,6 +453,7 @@ class CreatedTournament {
   final List<TournamentRunStage> runStages;
   final String? communityId;
   int activeStageIndex;
+  int boardCount;
   final Set<int> completedStageIndexes;
 
   Map<String, dynamic> toJson() {
@@ -433,6 +467,7 @@ class CreatedTournament {
       'runStages': runStages.map(_runStageToJson).toList(),
       'communityId': communityId,
       'activeStageIndex': activeStageIndex,
+      'boardCount': boardCount,
       'completedStageIndexes': completedStageIndexes.toList()..sort(),
     };
   }
@@ -476,11 +511,13 @@ class KnockoutTournamentRunStage extends TournamentRunStage {
     required this.rounds,
     this.placementMatches = const [],
     this.eliminationLossLimit = 1,
+    this.finalEndsTournament = false,
   });
 
   final List<List<GroupMatch>> rounds;
   final List<GroupMatch> placementMatches;
   final int eliminationLossLimit;
+  final bool finalEndsTournament;
 
   List<GroupMatch> get matches => [
     for (final round in rounds) ...round,
@@ -498,6 +535,7 @@ class KnockoutTournamentRunStage extends TournamentRunStage {
           .map((match) => match.toJson())
           .toList(),
       'eliminationLossLimit': eliminationLossLimit,
+      'finalEndsTournament': finalEndsTournament,
     };
   }
 }
@@ -511,6 +549,7 @@ class TournamentGroup {
     this.knockoutRounds = const [],
     this.placementMatches = const [],
     this.eliminationLossLimit = 1,
+    this.finalEndsTournament = false,
   });
 
   final String name;
@@ -520,19 +559,27 @@ class TournamentGroup {
   final List<List<GroupMatch>> knockoutRounds;
   final List<GroupMatch> placementMatches;
   final int eliminationLossLimit;
+  final bool finalEndsTournament;
 
   factory TournamentGroup.fromJson(Map<String, dynamic> json) {
+    final storedMatches = _mapListFromJson(json['matches'], GroupMatch.fromJson);
+    final rounds = _matchRoundsFromJson(json['knockoutRounds']);
+    final placements = _mapListFromJson(json['placementMatches'], GroupMatch.fromJson);
+    // Both views must edit the same objects after restoring a saved tournament.
+    final matches = rounds.isEmpty ? storedMatches : <GroupMatch>[
+      ...rounds.expand((round) => round),
+      ...placements,
+      ...storedMatches.where((match) => match.isDecider),
+    ];
     return TournamentGroup(
       name: json['name'] as String? ?? '',
       playType: json['playType'] as String? ?? 'round_robin',
       players: _mapListFromJson(json['players'], TournamentPlayer.fromJson),
-      matches: _mapListFromJson(json['matches'], GroupMatch.fromJson),
-      knockoutRounds: _matchRoundsFromJson(json['knockoutRounds']),
-      placementMatches: _mapListFromJson(
-        json['placementMatches'],
-        GroupMatch.fromJson,
-      ),
+      matches: matches,
+      knockoutRounds: rounds,
+      placementMatches: placements,
       eliminationLossLimit: json['eliminationLossLimit'] as int? ?? 1,
+      finalEndsTournament: json['finalEndsTournament'] as bool? ?? false,
     );
   }
 
@@ -549,6 +596,7 @@ class TournamentGroup {
           .map((match) => match.toJson())
           .toList(),
       'eliminationLossLimit': eliminationLossLimit,
+      'finalEndsTournament': finalEndsTournament,
     };
   }
 }
@@ -560,10 +608,18 @@ class GroupMatch {
     required this.round,
     this.homeLegs,
     this.awayLegs,
+    this.homeSets,
+    this.awaySets,
     this.allowsBye = false,
+    this.placementKey,
+    this.placementRank,
     this.label,
     this.isAnnulled = false,
     this.isDecider = false,
+    this.boardNumber,
+    this.startedAt,
+    this.finishedAt,
+    this.startedPlayers,
   });
 
   factory GroupMatch.fromJson(Map<String, dynamic> json) {
@@ -573,10 +629,18 @@ class GroupMatch {
       round: json['round'] as int? ?? 1,
       homeLegs: json['homeLegs'] as int?,
       awayLegs: json['awayLegs'] as int?,
+      homeSets: json['homeSets'] as int?,
+      awaySets: json['awaySets'] as int?,
       allowsBye: json['allowsBye'] as bool? ?? false,
+      placementKey: json['placementKey'] as String?,
+      placementRank: json['placementRank'] as int?,
       label: json['label'] as String?,
       isAnnulled: json['isAnnulled'] as bool? ?? false,
       isDecider: json['isDecider'] as bool? ?? false,
+      boardNumber: json['boardNumber'] as int?,
+      startedAt: _dateTimeFromJson(json['startedAt']),
+      finishedAt: _dateTimeFromJson(json['finishedAt']),
+      startedPlayers: json['startedPlayers'] as String?,
     );
   }
 
@@ -585,10 +649,22 @@ class GroupMatch {
   final int round;
   int? homeLegs;
   int? awayLegs;
+  int? homeSets;
+  int? awaySets;
+  bool get hasSetScore => homeSets != null && awaySets != null;
+  int? get homeScore => hasSetScore ? homeSets : homeLegs;
+  int? get awayScore => hasSetScore ? awaySets : awayLegs;
+  String get scoreLabel => '$homeScore:$awayScore${hasSetScore ? ' Sets' : ''}';
   final bool allowsBye;
+  final String? placementKey;
+  final int? placementRank;
   final String? label;
   bool isAnnulled;
   final bool isDecider;
+  int? boardNumber;
+  DateTime? startedAt;
+  DateTime? finishedAt;
+  String? startedPlayers;
 
   bool get hasPlayers => homePlayer != null && awayPlayer != null;
   bool get hasScore => hasPlayers && homeLegs != null && awayLegs != null;
@@ -605,11 +681,11 @@ class GroupMatch {
     if (!hasResult) {
       return null;
     }
-    if (homeLegs! == awayLegs!) {
+    if (homeScore! == awayScore!) {
       return null;
     }
 
-    return homeLegs! > awayLegs! ? homePlayer : awayPlayer;
+    return homeScore! > awayScore! ? homePlayer : awayPlayer;
   }
 
   TournamentPlayer? get loser {
@@ -628,10 +704,18 @@ class GroupMatch {
       'round': round,
       'homeLegs': homeLegs,
       'awayLegs': awayLegs,
+      'homeSets': homeSets,
+      'awaySets': awaySets,
       'allowsBye': allowsBye,
+      'placementKey': placementKey,
+      'placementRank': placementRank,
       'label': label,
       'isAnnulled': isAnnulled,
       'isDecider': isDecider,
+      'boardNumber': boardNumber,
+      'startedAt': startedAt?.toIso8601String(),
+      'finishedAt': finishedAt?.toIso8601String(),
+      'startedPlayers': startedPlayers,
     };
   }
 }
@@ -733,4 +817,3 @@ class QualificationPlan {
     return groups.map(groupLabel).join(', ');
   }
 }
-

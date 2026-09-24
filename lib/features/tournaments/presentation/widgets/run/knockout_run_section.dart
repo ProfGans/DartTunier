@@ -56,6 +56,9 @@ class KnockoutRunSection extends StatelessWidget {
                 : 'Eliminationsplan - Aus nach ${stage.eliminationLossLimit} Niederlagen',
             style: Theme.of(context).textTheme.titleMedium,
           ),
+          if (stage.eliminationLossLimit > 1) Text(stage.finalEndsTournament
+            ? 'Das große Finale entscheidet unabhängig von übrigen Leben.'
+            : 'Kratzer-Modus · ${stage.eliminationLossLimit} Leben · Auch im Finale zählen die verbleibenden Leben.'),
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerLeft,

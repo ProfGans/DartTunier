@@ -6,11 +6,11 @@ class SupabaseAccountConfig {
 
   static const url = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://rcmmuljqwabqukhaqnea.supabase.co',
+    defaultValue: 'https://hnsyvqtqxdsbbyrayobv.supabase.co',
   );
   static const publishableKey = String.fromEnvironment(
     'SUPABASE_PUBLISHABLE_KEY',
-    defaultValue: 'sb_publishable_9K6wh1V094TpGkCCyJK9yw_oPcqgDTH',
+    defaultValue: 'sb_publishable_ED8NE9CWSRclj6lQ2baNqw_JPrpXsQB',
   );
   static const anonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',

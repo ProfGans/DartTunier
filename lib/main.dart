@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'app/dart_tournament_app.dart';
-import 'features/accounts/data/supabase_account_config.dart';
+import 'app/app_bootstrap.dart';
+import 'app/storage_session_root.dart';
 
 export 'app/dart_tournament_app.dart';
 export 'features/accounts/application/account_session_store.dart';
@@ -17,6 +17,6 @@ export 'features/tournaments/domain/tournament_models.dart'
 export 'tournament_workspace.dart';
 
 Future<void> main() async {
-  await SupabaseAccountBootstrap.initialize();
-  runApp(const DartTournamentApp());
+  final startupError = await AppBootstrap.initialize();
+  runApp(StorageSessionRoot(startupError: startupError));
 }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
 
-enum StageViewMode { overview, playOrder }
+enum StageViewMode { overview, playOrder, orderOfPlay }
 
 class StageProgressBar extends StatelessWidget {
   const StageProgressBar({
@@ -135,6 +135,11 @@ class StageViewModeSwitch extends StatelessWidget {
             value: StageViewMode.playOrder,
             icon: Icon(Icons.format_list_numbered),
             label: Text('Spielansicht'),
+          ),
+          ButtonSegment(
+            value: StageViewMode.orderOfPlay,
+            icon: Icon(Icons.view_week_outlined),
+            label: Text('Order of Play'),
           ),
         ],
         selected: {selectedMode},

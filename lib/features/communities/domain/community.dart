@@ -24,7 +24,8 @@ class Community {
       description: json['description'] as String? ?? '',
       inviteCode: json['invite_code'] as String? ?? '',
       ownerUserId: json['owner_user_id'] as String,
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       memberCount: json['member_count'] as int? ?? 0,
     );
@@ -38,9 +39,14 @@ class CommunityMember {
     required this.displayName,
     required this.role,
     required this.joinedAt,
+    this.linkedUserId,
+    this.aliasProfileIds = const [],
   });
 
-  final String userId;
+  final String? userId;
+  final String? linkedUserId;
+  final List<String> aliasProfileIds;
+  bool get isManual => userId == null;
   final String? playerProfileId;
   final String displayName;
   final String role;

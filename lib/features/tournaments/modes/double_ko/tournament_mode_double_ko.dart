@@ -50,6 +50,8 @@ List<List<GroupMatch>> _buildDoubleEliminationRoundsFromFirstRound(
         awayPlayer: match.awayPlayer,
         round: 1,
         homeLegs: match.homeLegs,
+        homeSets: match.homeSets,
+        awaySets: match.awaySets,
         awayLegs: match.awayLegs,
         allowsBye: true,
         label: match.homePlayer == null || match.awayPlayer == null

@@ -25,6 +25,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   final _database = LocalAppDatabase();
   final Set<int> _selectedExtraGroups = {};
   final List<TournamentPlayer> _players = [];
+  int _plannedBoardCount = 1;
   final List<TournamentStage> _stages = [];
   final List<String> _groupTieBreakers = List<String>.from(
     defaultGroupTieBreakers,
@@ -38,6 +39,10 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   int? _editingStageIndex;
   String _groupPlayType = 'round_robin';
   List<int?>? _manualKnockoutSlotOrder;
+  final Set<int> _placementPlaces = {};
+  bool _finalEndsTournament = true;
+  int _kratzerLives = 3;
+  int get _selectedLossLimit => _selectedStageType == 'kratzer' || (!_finalEndsTournament && _isKnockoutStageType(_selectedStageType) && _selectedStageType != 'single_knockout') ? _kratzerLives : _lossLimitForStageType(_selectedStageType);
   String _selectedStageType = 'groups';
   String _knockoutSeedingMode = 'cross';
   bool _groupDrawOnStart = false;
@@ -143,8 +148,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     if (_isKnockoutStageType(_selectedStageType)) {
       return _eliminationMatchEstimate(
         _knockoutParticipantCount() ?? 0,
-        _lossLimitForStageType(_selectedStageType),
-      );
+        _selectedLossLimit,
+      ) + (_selectedLossLimit == 1 ? _optionalPlacementMatchCount(_knockoutParticipantCount() ?? 0, _placementPlaces) : 0);
     }
 
     final groupSizes = _calculateGroupSizes();
@@ -155,7 +160,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     for (var index = 0; index < groupSizes.length; index++) {
       totalMatches += playTypes[index] == 'round_robin'
           ? _roundRobinMatchCount(groupSizes[index], repeats[index])
-          : _groupEliminationMatchEstimate(
+          : playTypes[index] == 'mini_knockout' && _placementPlaces.isNotEmpty ? groupSizes[index] - 1 + _optionalPlacementMatchCount(groupSizes[index], {..._placementPlaces, if (_requiredRankForCurrentGroup(index, qualificationPlan).isOdd && _requiredRankForCurrentGroup(index, qualificationPlan) >= 3) _requiredRankForCurrentGroup(index, qualificationPlan)}) : _groupEliminationMatchEstimate(
               groupSizes[index],
               _lossLimitForGroupPlayType(playTypes[index]),
               _requiredRankForCurrentGroup(index, qualificationPlan),
@@ -171,11 +176,11 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       final byeCount = _knockoutByeCount();
       return [
         '$participants Teilnehmer',
-        _lossLimitForStageType(_selectedStageType) == 3
+        _selectedLossLimit == 3
             ? '$byeCount automatisch gesetzt'
             : '$byeCount Freilose',
-        if (_lossLimitForStageType(_selectedStageType) > 1)
-          '${_lossLimitForStageType(_selectedStageType)} Niederlage(n) bis Aus',
+        if (_selectedLossLimit > 1)
+          '$_selectedLossLimit Niederlage(n) bis Aus',
       ];
     }
 
@@ -746,6 +751,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       'single_knockout' => 'K.-o.-Runde',
       'double_knockout' => 'Doppel-K.-o.',
       'triple_knockout' => 'Triple-K.-o.',
+      'kratzer' => 'Kratzer-Modus',
       _ => 'Gruppenphase',
     };
   }
@@ -947,7 +953,15 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     });
 
     try {
-      final profiles = await _database.loadPlayerProfiles();
+      final profiles = widget.communityId == null
+          ? await _database.loadPlayerProfiles()
+          : [for (final member in effectiveCommunityMembers(
+              await SupabaseCommunityRepository().loadMembers(widget.communityId!),
+            )) PlayerProfile(
+              id: member.playerProfileId!, userId: member.userId,
+              displayName: member.displayName, country: '', city: '',
+              dartsSetupJson: '', createdAt: member.joinedAt, isActive: true,
+            )];
       if (!mounted) {
         return;
       }
@@ -1023,7 +1037,32 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     });
   }
 
+  Widget _placementSelection() {
+    final sizes = _selectedStageType == 'groups' ? _calculateGroupSizes() : <int>[_knockoutParticipantCount() ?? 0];
+    final maximum = sizes.fold<int>(0, (a, b) => a > b ? a : b);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Optionale Platzierungsspiele'),
+      const Text('Mehrere Plätze auswählbar. Nötige Vorrunden werden automatisch ergänzt. In Mini-KO-Gruppen gilt die Auswahl je Gruppe.'),
+      Wrap(spacing: 8, children: [for (var place = 3; place < maximum; place += 2)
+        FilterChip(label: Text('Platz $place'), selected: _placementPlaces.contains(place),
+          onSelected: (selected) => setState(() { if (selected) { _placementPlaces.add(place); } else { _placementPlaces.remove(place); } })),
+      ]),
+      if (maximum < 4) const Text('Ab 4 Teilnehmern verfügbar.'),
+      const SizedBox(height: 12),
+    ]);
+  }
+
   void _saveStage() {
+    if (_selectedStageType == 'groups' && !hasValidGroupSizes(_calculateGroupSizes())) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Jede Gruppe benötigt mindestens 3 Spieler. Bitte weniger Gruppen wählen oder Spieler ergänzen.')));
+      return;
+    }
+    if (_stageGameFormat.bestOfLegs.isEven &&
+        (_stageGameFormat.bestOfSets > 1 || _selectedStageType != 'groups' ||
+         _groupPlayType != 'round_robin' || _groupPlayTypes.any((type) => type != 'round_robin'))) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gerade Leg-Längen sind nur für Jeder-gegen-jeden ohne Sets möglich.')));
+      return;
+    }
     final stageName = _stageNameController.text.trim();
     if (stageName.isEmpty) {
       return;
@@ -1040,6 +1079,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       final stage = TournamentStage(
         name: stageName,
         type: _selectedStageType,
+        placementPlaces: (_selectedStageType == 'single_knockout' || _selectedStageType == 'groups') ? (_placementPlaces.toList()..sort()) : const [],
+        finalEndsTournament: _selectedStageType != 'kratzer' && _finalEndsTournament,
+        knockoutLives: _isKnockoutStageType(_selectedStageType) ? _selectedLossLimit : null,
         groupCount: _selectedStageType == 'groups'
             ? _calculateGroupSizes().length
             : null,
@@ -1123,6 +1165,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     _editingStageIndex = null;
     _stageNameWasEdited = false;
     _selectedStageType = 'groups';
+    _placementPlaces.clear();
+    _finalEndsTournament = true;
+    _kratzerLives = 3;
     _groupPlayType = 'round_robin';
     _groupPlayTypes.clear();
     _groupRoundRobinRepeats.clear();
@@ -1148,6 +1193,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     setState(() {
       _editingStageIndex = index;
       _selectedStageType = stage.type;
+      _placementPlaces..clear()..addAll(stage.placementPlaces);
+      _finalEndsTournament = stage.finalEndsTournament;
+      _kratzerLives = stage.lossLimit;
       _stageNameController.text = stage.name;
       _stageNameController.selection = TextSelection.collapsed(
         offset: _stageNameController.text.length,
@@ -1227,18 +1275,27 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       builder: (_) => const TournamentFormatPlannerDialog(),
     );
     if (suggestion == null || !mounted) return;
-    // Der Dialog gibt seine Spielerzahl über die Metadaten des ersten Formats
-    // nicht zurück; bei bereits gewählten Spielern bleibt deren Auswahl immer
-    // unverändert. Die Etappen werden anschließend direkt anwendbar angelegt.
+    // Preserve selected players; local drafts can start with named placeholders.
     final inferredPlayerCount = _players.isNotEmpty
         ? _players.length
         : suggestion.participantCount;
     final groups = suggestion.stages.first.groupCount;
     final sizes = List.generate(groups, (index) => inferredPlayerCount ~/ groups + (index < inferredPlayerCount % groups ? 1 : 0));
-    final qualifiersByGroup = [for (final size in sizes) size < 2 ? size : 2];
+    if (!hasValidGroupSizes(sizes)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Der Vorschlag passt nicht zur aktuellen Spielerzahl: mindestens 3 Spieler je Gruppe erforderlich.')));
+      return;
+    }
+    final qualifiersByGroup = [for (final size in sizes) min(size, suggestion.qualifiersPerGroup)];
     final qualifierCount = qualifiersByGroup.fold<int>(0, (sum, value) => sum + value);
     setState(() {
+      if (_players.isEmpty && widget.communityId == null) {
+        _players.addAll(List.generate(
+          inferredPlayerCount,
+          (index) => TournamentPlayer.generated(index + 1),
+        ));
+      }
       _stageGameFormat = suggestion.stages.first.format;
+      _plannedBoardCount = suggestion.boardCount.clamp(1, 64);
       _playerCountController.text = '$inferredPlayerCount';
       _groupCountController.text = '$groups';
       _stages
@@ -1253,7 +1310,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
           groupRoundRobinRepeats: List.filled(groups, 1),
           qualifiedParticipantCount: groups == 1 ? null : qualifierCount,
           fixedQualifiersByGroup: groups == 1 ? const [] : qualifiersByGroup,
-          qualificationSummary: groups == 1 ? null : 'Die besten 2 jeder Gruppe',
+          qualificationSummary: groups == 1 ? null : 'Bis zu ${suggestion.qualifiersPerGroup} Beste jeder Gruppe',
           gameFormat: suggestion.stages.first.format,
         ));
       if (suggestion.stages.length > 1) {
@@ -1268,8 +1325,10 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       }
       _resetStageForm();
     });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Vorschlag übernommen. Du kannst jetzt die Spieler hinzufügen.'),
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(_players.isEmpty
+          ? 'Vorschlag übernommen. Bitte zuerst die Community-Spieler auswählen.'
+          : 'Vorschlag übernommen. Du kannst die Spieler bearbeiten oder das Turnier anlegen.'),
     ));
   }
 
@@ -1282,6 +1341,10 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   }
 
   Future<void> _createTournament() async {
+    if (_stages.any((stage) => stage.type == 'groups' && !hasValidGroupSizes(stage.groupSizes))) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Jede Gruppe benötigt mindestens 3 Spieler. Bitte die Etappen anpassen.')));
+      return;
+    }
     if (_stages.isEmpty || _players.isEmpty) {
       return;
     }
@@ -1300,9 +1363,11 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
           stages: _stages,
           runStages: runStages,
           communityId: communityId,
+          boardCount: _plannedBoardCount,
         );
       } else {
         tournament = controller.createTournament(
+          boardCount: _plannedBoardCount,
           name: name,
           players: _players,
           stages: _stages,
@@ -1320,7 +1385,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     if (!mounted) {
       return;
     }
-    Navigator.of(context).push(
+    Navigator.of(context).pushReplacement<void, void>(
       MaterialPageRoute<void>(
         builder: (_) => TournamentRunPage(tournament: tournament),
       ),
@@ -1366,7 +1431,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         final participantCount =
             stage.knockoutParticipantCount ?? incomingPlayers.length;
         final participants = incomingPlayers.take(participantCount).toList();
-        final lossLimit = _lossLimitForStageType(stage.type);
+        final lossLimit = stage.lossLimit;
         final rounds = lossLimit == 1
             ? _buildKnockoutRounds(
                 participants,
@@ -1379,6 +1444,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                   )
             : _buildTripleEliminationRounds(
                 participants,
+                lossLimit: lossLimit,
                 slotOrder: stage.knockoutSlotOrder,
               );
         runStages.add(
@@ -1386,8 +1452,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
             name: stage.name,
             rounds: rounds,
             placementMatches:
-                lossLimit == 1 ? _buildPlacementMatches(participants.length, requiredRank) : const [],
+                lossLimit == 1 ? stage.placementPlaces.isEmpty ? _buildPlacementMatches(participants.length, requiredRank) : PlacementEngine.build(rounds, {...stage.placementPlaces.where((p) => p < participants.length), if (requiredRank >= 3 && requiredRank.isOdd && requiredRank < participants.length) requiredRank}) : const [],
             eliminationLossLimit: lossLimit,
+            finalEndsTournament: stage.finalEndsTournament,
           ),
         );
         incomingPlayers = participants
@@ -1543,6 +1610,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
 
   List<List<GroupMatch>> _buildTripleEliminationRounds(
     List<TournamentPlayer> players, {
+    int lossLimit = 3,
     List<int?> slotOrder = const [],
   }) {
     if (players.length < 2) {
@@ -1559,7 +1627,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
             _slotOrderAvoidsByePair(slotOrder)
         ? List<int?>.from(slotOrder)
         : _automaticKnockoutSlotOrder(players.length, bracketSize);
-    return _buildTripleEliminationRoundsFromSlots(players, slots);
+    return _buildTripleEliminationRoundsFromSlots(players, slots, lossLimit: lossLimit);
   }
 
   void _advanceKnockoutWinnersInRounds(List<List<GroupMatch>> rounds) {
@@ -1845,6 +1913,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
               ),
               items: const [
                 DropdownMenuItem(value: 'groups', child: Text('Gruppenphase')),
+                DropdownMenuItem(value: 'kratzer', child: Text('Kratzer-Modus')),
                 DropdownMenuItem(
                   value: 'single_knockout',
                   child: Text('K.-o.-Runde'),
@@ -1865,11 +1934,30 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
 
                 setState(() {
                   _selectedStageType = value;
+                  _finalEndsTournament = value != 'kratzer';
+                  _kratzerLives = _lossLimitForStageType(value).clamp(2, 10);
                   _setDefaultStageNameIfNeeded(value);
                 });
               },
             ),
             const SizedBox(height: 12),
+            if ((_isKnockoutStageType(_selectedStageType) && _selectedStageType != 'single_knockout') || (_selectedStageType == 'groups' && (_lossLimitForGroupPlayType(_groupPlayType) > 1 || _groupPlayTypes.any((t) => _lossLimitForGroupPlayType(t) > 1)))) ...[
+              if (_selectedStageType != 'kratzer') SwitchListTile(
+                key: const ValueKey('final-ends-tournament'),
+                title: const Text('Ein großes Finale entscheidet'),
+                subtitle: const Text('Der Verlierer des großen Finales scheidet unabhängig von übrigen Leben aus.'),
+                value: _finalEndsTournament,
+                onChanged: (value) => setState(() => _finalEndsTournament = value),
+              ),
+              if (_selectedStageType == 'kratzer' || (!_finalEndsTournament && _selectedStageType != 'groups')) DropdownButtonFormField<int>(
+                key: ValueKey('kratzer-lives-$_kratzerLives'),
+                initialValue: _kratzerLives,
+                decoration: const InputDecoration(labelText: 'Kratzer-Modus: Leben', border: OutlineInputBorder()),
+                items: [for (var lives = 2; lives <= 10; lives++) DropdownMenuItem(value: lives, child: Text('$lives Leben'))],
+                onChanged: (value) => setState(() => _kratzerLives = value ?? 3),
+              ),
+            ],
+            if (_selectedStageType == 'single_knockout' || (_selectedStageType == 'groups' && (_groupPlayType == 'mini_knockout' || _groupPlayTypes.contains('mini_knockout')))) _placementSelection(),
             _StageGameFormatSetup(
               value: _stageGameFormat,
               onChanged: (value) => setState(() => _stageGameFormat = value),
@@ -1995,9 +2083,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 participantCount: knockoutParticipantCount,
                 bracketSize: knockoutBracketSize,
                 byeCount: knockoutByeCount,
-                eliminationLossLimit: _lossLimitForStageType(
-                  _selectedStageType,
-                ),
+                eliminationLossLimit: _selectedLossLimit,
                 seedingMode: _effectiveKnockoutSeedingMode(),
                 slotOrder: _knockoutSlotOrder(),
                 participantLabels: _knockoutParticipantLabels(),
@@ -2025,6 +2111,13 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
               onRemoveStage: _removeStage,
             ),
             const SizedBox(height: 24),
+            if (_players.isEmpty || _stages.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(_players.isEmpty
+                    ? 'Zum Anlegen fehlen die Teilnehmer. Bitte oben Spieler hinzufügen oder auswählen.'
+                    : 'Zum Anlegen fehlt eine Etappe. Bitte eine Etappe hinzufügen oder einen Vorschlag übernehmen.'),
+              ),
             FilledButton.icon(
               onPressed: _players.isEmpty || _stages.isEmpty
                   ? null

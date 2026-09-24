@@ -8,15 +8,20 @@ void main() {
   group('tournament simulation engine', () {
     test('completes common tournament option matrix', () {
       final engine = TournamentSimulationEngine();
-      final reports = [
-        for (final scenario in tournamentDevelopmentScenarios)
-          engine.run(scenario),
-      ];
-      writeTournamentSimulationLog(reports);
+      final reports = <TournamentSimulationReport>[];
+      final failures = <String>[];
+      for (final scenario in tournamentDevelopmentScenarios) {
+        try {
+          reports.add(engine.run(scenario));
+        } catch (error) {
+          failures.add('${scenario.name}: $error');
+        }
+      }
+      writeTournamentSimulationLog(reports, failures: failures);
 
       for (var index = 0; index < reports.length; index++) {
-        final scenario = tournamentDevelopmentScenarios[index];
         final report = reports[index];
+        final scenario = tournamentDevelopmentScenarios.firstWhere((s) => s.name == report.scenarioName);
         final expectedFinalCount = scenario.stages.last.qualifiers;
 
         expect(
@@ -39,6 +44,7 @@ void main() {
           );
         }
       }
+      expect(failures, isEmpty, reason: 'Produktive Laufzeit blockiert; Details im Turnier-Simulationslog.');
     });
 
     test('detects impossible qualifier requests', () {

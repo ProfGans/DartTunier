@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../tournaments/domain/tournament_models.dart';
+import '../../tournaments/data/tournament_storage.dart';
 import '../domain/community.dart';
 
 class SupabaseCommunityRepository {
@@ -10,6 +11,29 @@ class SupabaseCommunityRepository {
     : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
+  final TournamentStorage _storage = TournamentStorage();
+
+  Future<List<dynamic>> _cachedRows(
+    String key,
+    Future<List<dynamic>> Function() fetch, {
+    List<dynamic>? emptyCacheFallback,
+  }) async {
+    final userId = currentUserId;
+    try {
+      final rows = await fetch().timeout(const Duration(seconds: 5));
+      if (currentUserId != userId) throw StateError('Account gewechselt');
+      await _storage.writeCache(key, rows);
+      return rows;
+    } catch (_) {
+      if (currentUserId != userId) rethrow;
+      final cached = await _storage.readCache(key);
+      if (cached == null) {
+        if (emptyCacheFallback != null) return emptyCacheFallback;
+        rethrow;
+      }
+      return cached;
+    }
+  }
 
   String get currentUserId {
     final id = _client.auth.currentUser?.id;
@@ -20,10 +44,13 @@ class SupabaseCommunityRepository {
   }
 
   Future<List<Community>> loadMyCommunities() async {
-    final rows = await _client
-        .from('community_members')
-        .select('communities(*)')
-        .eq('user_id', currentUserId);
+    final rows = await _cachedRows(
+      'communities',
+      () async => await _client
+          .from('community_members')
+          .select('communities(*)')
+          .eq('user_id', currentUserId),
+    );
     return [
       for (final row in rows)
         if (row['communities'] case final Map<String, dynamic> community)
@@ -85,12 +112,33 @@ class SupabaseCommunityRepository {
   }
 
   Future<List<CommunityMember>> loadMembers(String communityId) async {
-    final rows = await _client
-        .from('community_members')
-        .select('user_id, role, joined_at, player_profiles(id, display_name)')
-        .eq('community_id', communityId)
-        .order('joined_at');
+    final rows = await _cachedRows(
+      'members:$communityId',
+      () async => await _client
+          .from('community_members')
+          .select('user_id, role, joined_at, player_profiles(id, display_name)')
+          .eq('community_id', communityId)
+          .order('joined_at'),
+    );
+    final guests = await _cachedRows(
+      'guest-members:$communityId',
+      () async => await _client
+          .from('community_guest_members')
+          .select('id, display_name, linked_user_id, joined_at')
+          .eq('community_id', communityId)
+          .order('joined_at'),
+      emptyCacheFallback: const [],
+    );
     return [
+      for (final guest in guests)
+        CommunityMember(
+          userId: null,
+          playerProfileId: guest['id'] as String,
+          linkedUserId: guest['linked_user_id'] as String?,
+          displayName: guest['display_name'] as String,
+          role: 'member',
+          joinedAt: DateTime.parse(guest['joined_at'] as String),
+        ),
       for (final row in rows)
         CommunityMember(
           userId: row['user_id'] as String,
@@ -110,17 +158,49 @@ class SupabaseCommunityRepository {
   }
 
   Future<List<CreatedTournament>> loadTournaments(String communityId) async {
-    final rows = await _client
-        .from('tournaments')
-        .select('payload')
+    List<CreatedTournament>? remote;
+    try {
+      final rows = await _client
+          .from('tournaments')
+          .select('payload')
+          .eq('community_id', communityId)
+          .eq('is_deleted', false)
+          .order('updated_at', ascending: false)
+          .timeout(const Duration(seconds: 5));
+      remote = [
+        for (final row in rows)
+          if (row['payload'] case final Map<String, dynamic> payload)
+            CreatedTournament.fromJson(payload),
+      ];
+    } catch (_) {
+      // Keep saved tournaments available while the server is unreachable.
+    }
+    return _storage.communityTournaments(communityId, remote);
+  }
+
+  Future<void> addManualMember(String communityId, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed.length > 80) {
+      throw ArgumentError('Bitte einen Namen mit 1 bis 80 Zeichen eingeben.');
+    }
+    await _client.from('community_guest_members').insert({
+      'community_id': communityId,
+      'display_name': trimmed,
+    });
+  }
+
+  Future<void> assignManualMember({
+    required String communityId,
+    required String memberId,
+    required String? userId,
+  }) async {
+    await _client
+        .from('community_guest_members')
+        .update({'linked_user_id': userId})
         .eq('community_id', communityId)
-        .eq('is_deleted', false)
-        .order('updated_at', ascending: false);
-    return [
-      for (final row in rows)
-        if (row['payload'] case final Map<String, dynamic> payload)
-          CreatedTournament.fromJson(payload),
-    ];
+        .eq('id', memberId)
+        .select('id')
+        .single();
   }
 
   String _createInviteCode() {

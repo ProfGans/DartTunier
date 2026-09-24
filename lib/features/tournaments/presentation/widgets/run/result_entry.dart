@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
 import '../../models/match_result.dart';
+import 'set_result_dialog.dart';
 
 class MatchResultTile extends StatelessWidget {
   const MatchResultTile({
@@ -115,7 +116,13 @@ class MatchResultTile extends StatelessWidget {
 }
 
 class ResultDialog extends StatefulWidget {
-  const ResultDialog({super.key, required this.match});
+  const ResultDialog({
+    super.key,
+    required this.match,
+    this.format = const TournamentGameFormat(),
+  });
+
+  final TournamentGameFormat format;
 
   final GroupMatch match;
 
@@ -124,6 +131,7 @@ class ResultDialog extends StatefulWidget {
 }
 
 class _ResultDialogState extends State<ResultDialog> {
+  String? _error;
   late final TextEditingController _homeLegsController;
   late final TextEditingController _awayLegsController;
 
@@ -151,7 +159,25 @@ class _ResultDialogState extends State<ResultDialog> {
     if (homeLegs == null || awayLegs == null || homeLegs < 0 || awayLegs < 0) {
       return;
     }
-    if (widget.match.isDecider && homeLegs == awayLegs) {
+    final draw = homeLegs == awayLegs;
+    final format = widget.format;
+    if (draw &&
+        (widget.match.isDecider ||
+            !format.allowsDraws ||
+            homeLegs * 2 != format.bestOfLegs)) {
+      setState(
+        () => _error =
+            'Unentschieden nur bei gerader Leg-Zahl und vollständig gespieltem Match. Entscheidungsspiele benötigen einen Sieger.',
+      );
+      return;
+    }
+    if (format.allowsDraws &&
+        !widget.match.isDecider &&
+        !draw &&
+        ((homeLegs > awayLegs ? homeLegs : awayLegs) !=
+                format.bestOfLegs ~/ 2 + 1 ||
+            homeLegs + awayLegs > format.bestOfLegs)) {
+      setState(() => _error = 'Ergebnis passt nicht zur gewählten Leg-Zahl.');
       return;
     }
 
@@ -166,11 +192,25 @@ class _ResultDialogState extends State<ResultDialog> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.format.bestOfSets > 1) {
+      return SetResultDialog(match: widget.match, format: widget.format);
+    }
     return AlertDialog(
       title: const Text('Ergebnis eingeben'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (_error != null)
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          if (widget.format.allowsDraws)
+            Text(
+              widget.match.isDecider
+                  ? 'Entscheidungsspiel: bei Gleichstand ein zusätzliches Leg spielen.'
+                  : 'Unentschieden: 1 Punkt je Spieler',
+            ),
           Text(
             '${widget.match.homePlayer?.name ?? 'offen'} vs '
             '${widget.match.awayPlayer?.name ?? 'offen'}',
@@ -206,6 +246,15 @@ class _ResultDialogState extends State<ResultDialog> {
         ],
       ),
       actions: [
+        if (widget.match.homeLegs != null ||
+            widget.match.awayLegs != null ||
+            widget.match.isAnnulled)
+          TextButton.icon(
+            onPressed: () =>
+                Navigator.of(context).pop(const MatchResult.cleared()),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Ergebnis entfernen'),
+          ),
         TextButton.icon(
           onPressed: _annul,
           icon: const Icon(Icons.block_outlined),
@@ -260,7 +309,7 @@ class _ScoreBadge extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     final badge = Container(
-      width: match.isAnnulled ? 92 : 64,
+      width: match.isAnnulled || match.hasSetScore ? 100 : 64,
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
@@ -275,7 +324,7 @@ class _ScoreBadge extends StatelessWidget {
         match.isAnnulled
             ? 'annulliert'
             : match.hasResult
-            ? '${match.homeLegs}:${match.awayLegs}'
+            ? match.scoreLabel
             : '-:-',
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),

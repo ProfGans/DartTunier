@@ -1,3 +1,4 @@
+import '../../../domain/knockout_round_names.dart';
 import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
@@ -82,14 +83,14 @@ class StagePlayOrderSection extends StatelessWidget {
     if (firstMatch != null && firstMatch.isDecider) {
       return 'Decider';
     }
-    return 'Runde ${firstMatch?.round ?? 0}';
+    return firstMatch == null ? 'Runde' : stageMatchName(stage, firstMatch);
   }
 
   String? _leadingLabel(GroupMatch match) {
     if (match.isDecider || _isPlacementMatchLabel(match.label)) {
       return match.label;
     }
-    return null;
+    return stageMatchName(stage, match);
   }
 
   bool _isPlacementMatchLabel(String? label) {

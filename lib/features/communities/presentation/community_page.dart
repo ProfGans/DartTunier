@@ -5,10 +5,15 @@ import '../../accounts/data/supabase_account_config.dart';
 import '../../accounts/data/supabase_account_session_store.dart';
 import '../../accounts/domain/account_user.dart';
 import '../../tournaments/data/app_database.dart';
+import '../../tournaments/data/tournament_storage.dart';
 import '../../tournaments/domain/tournament_models.dart';
 import '../data/supabase_community_repository.dart';
 import '../domain/community.dart';
 import '../domain/community_elo.dart';
+import '../domain/community_invitation.dart';
+import 'widgets/community_invitation_card.dart';
+import 'widgets/community_members_section.dart';
+import '../../devices/presentation/community_devices_section.dart';
 
 typedef CommunityTournamentCreationBuilder = Widget Function(
   String communityId,
@@ -340,7 +345,7 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
               if (widget.community.description.isNotEmpty)
                 Text(widget.community.description),
               const SizedBox(height: 12),
-              SelectableText('Einladungscode: ${widget.community.inviteCode}'),
+              CommunityInvitationCard(inviteCode: widget.community.inviteCode),
               const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: widget.createTournamentBuilder == null
@@ -364,6 +369,22 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                 label: const Text('Rangliste'),
               ),
               const SizedBox(height: 28),
+              ValueListenableBuilder<String>(
+                valueListenable: TournamentStorage.syncStatus,
+                builder: (context, status, _) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(status),
+                  subtitle: const Text('Geladene Turniere sind offline verfügbar. Synchronisierung nur beim Turnierabschluss oder manuell. Ohne Verbindung bitte später manuell synchronisieren.'),
+                  trailing: IconButton(
+                    tooltip: 'Jetzt synchronisieren',
+                    icon: const Icon(Icons.sync),
+                    onPressed: () async {
+                      await TournamentStorage().synchronize();
+                      if (mounted) setState(_reload);
+                    },
+                  ),
+                ),
+              ),
               Text('Turniere', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               if (tournaments.isEmpty)
@@ -387,15 +408,13 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                     ),
                   ),
               const SizedBox(height: 28),
-              Text('Mitglieder (${members.length})',
-                  style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              for (final member in members)
-                ListTile(
-                  leading: const Icon(Icons.person_outline),
-                  title: Text(member.displayName),
-                  trailing: Text(member.role == 'owner' ? 'Inhaber' : 'Mitglied'),
-                ),
+              CommunityDevicesSection(communityId: widget.community.id),
+              const SizedBox(height: 28),
+              CommunityMembersSection(
+                community: widget.community, members: members,
+                repository: widget.repository,
+                onChanged: () => setState(_reload),
+              ),
             ],
           );
         },
@@ -528,6 +547,7 @@ class _JoinCommunityDialog extends StatefulWidget {
 
 class _JoinCommunityDialogState extends State<_JoinCommunityDialog> {
   final _code = TextEditingController();
+  String? _error;
   @override
   void dispose() { _code.dispose(); super.dispose(); }
   @override
@@ -535,11 +555,16 @@ class _JoinCommunityDialogState extends State<_JoinCommunityDialog> {
     title: const Text('Community beitreten'),
     content: TextField(controller: _code, autofocus: true,
       textCapitalization: TextCapitalization.characters,
-      decoration: const InputDecoration(labelText: 'Einladungscode', border: OutlineInputBorder())),
+      decoration: InputDecoration(labelText: 'Einladungscode oder Link', errorText: _error, border: const OutlineInputBorder())),
     actions: [
       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
       FilledButton(onPressed: () {
-        if (_code.text.trim().isNotEmpty) Navigator.pop(context, _code.text);
+        final code = CommunityInvitation.parseInput(_code.text);
+        if (code != null) {
+          Navigator.pop(context, code);
+        } else {
+          setState(() => _error = 'Bitte einen gültigen Code oder Einladungslink eingeben.');
+        }
       }, child: const Text('Beitreten')),
     ],
   );

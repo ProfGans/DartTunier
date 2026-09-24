@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
+import '../../../domain/engines/qualification_certainty.dart';
 
 class StandingsTable extends StatelessWidget {
   const StandingsTable({
@@ -17,10 +18,6 @@ class StandingsTable extends StatelessWidget {
   final int groupNumber;
   final QualificationPlan? qualificationPlan;
   final List<String> tieBreakers;
-
-  bool get _allMatchesComplete {
-    return group.matches.every((match) => match.hasResult);
-  }
 
   bool _isFixedQualificationPlace(int place) {
     final plan = qualificationPlan;
@@ -45,123 +42,17 @@ class StandingsTable extends StatelessWidget {
         plan.extraGroups.contains(groupNumber);
   }
 
-  int _qualificationPlacesInGroup() {
-    final plan = qualificationPlan;
-    if (plan == null) {
-      return 0;
-    }
-
-    final fixedForGroup = groupNumber - 1 < plan.fixedByGroup.length
-        ? plan.fixedByGroup[groupNumber - 1]
-        : plan.fixedPerGroup;
-    return fixedForGroup +
-        (plan.extraGroups.contains(groupNumber) && plan.extraCount > 0 ? 1 : 0);
-  }
-
-  int _remainingMatchesFor(PlayerStanding standing) {
-    return group.matches.where((match) {
-      if (match.hasResult) {
-        return false;
-      }
-
-      return match.homePlayer?.name == standing.player.name ||
-          match.awayPlayer?.name == standing.player.name;
-    }).length;
-  }
-
   bool _isSureQualification(PlayerStanding standing, int place) {
-    if (!_isFixedQualificationPlace(place)) {
-      return false;
-    }
-
-    if (_allMatchesComplete) {
-      return true;
-    }
-
-    final qualificationPlaces = _qualificationPlacesInGroup();
-    if (qualificationPlaces < 1) {
-      return false;
-    }
-
-    final possibleOvertakers = standings.where((otherStanding) {
-      if (otherStanding.player.name == standing.player.name) {
-        return false;
-      }
-
-      final maxPoints =
-          otherStanding.points + (_remainingMatchesFor(otherStanding) * 3);
-      if (maxPoints > standing.points) {
-        return true;
-      }
-      if (maxPoints < standing.points) {
-        return false;
-      }
-
-      return _compareStandingsForTable(otherStanding, standing) < 0;
-    }).length;
-
-    return possibleOvertakers < qualificationPlaces;
+    final plan = qualificationPlan;
+    if (plan == null) return false;
+    final groupIndex = groupNumber - 1;
+    final fixedPlaces = groupIndex >= 0 && groupIndex < plan.fixedByGroup.length
+        ? plan.fixedByGroup[groupIndex] : plan.fixedPerGroup;
+    return const QualificationCertainty().isCertain(
+      standing: standing, place: place, fixedPlaces: fixedPlaces,
+      standings: standings, matches: group.matches, tieBreakers: tieBreakers,
+    );
   }
-
-  int _compareStandingsForTable(PlayerStanding a, PlayerStanding b) {
-    for (final tieBreaker in tieBreakers) {
-      final comparison = switch (tieBreaker) {
-        'points' => b.points.compareTo(a.points),
-        'legDifference' => b.legDifference.compareTo(a.legDifference),
-        'legsFor' => b.legsFor.compareTo(a.legsFor),
-        'headToHead' => _compareHeadToHeadForTable(a, b),
-        _ => 0,
-      };
-
-      if (comparison != 0) {
-        return comparison;
-      }
-    }
-
-    return a.player.name.compareTo(b.player.name);
-  }
-
-  int _compareHeadToHeadForTable(PlayerStanding a, PlayerStanding b) {
-    var aPoints = 0;
-    var bPoints = 0;
-    var aLegs = 0;
-    var bLegs = 0;
-
-    for (final match in group.matches.where(
-      (match) => match.hasResult && !match.isDecider,
-    )) {
-      final home = match.homePlayer!;
-      final away = match.awayPlayer!;
-      final isDirectMatch =
-          (home.name == a.player.name && away.name == b.player.name) ||
-          (home.name == b.player.name && away.name == a.player.name);
-      if (!isDirectMatch) {
-        continue;
-      }
-
-      final aIsHome = home.name == a.player.name;
-      final aMatchLegs = aIsHome ? match.homeLegs! : match.awayLegs!;
-      final bMatchLegs = aIsHome ? match.awayLegs! : match.homeLegs!;
-      aLegs += aMatchLegs;
-      bLegs += bMatchLegs;
-
-      if (aMatchLegs > bMatchLegs) {
-        aPoints += 3;
-      } else if (bMatchLegs > aMatchLegs) {
-        bPoints += 3;
-      } else {
-        aPoints++;
-        bPoints++;
-      }
-    }
-
-    final pointCompare = bPoints.compareTo(aPoints);
-    if (pointCompare != 0) return pointCompare;
-    final diffCompare = (bLegs - aLegs).compareTo(aLegs - bLegs);
-    if (diffCompare != 0) return diffCompare;
-    return bLegs.compareTo(aLegs);
-  }
-
   @override
   Widget build(BuildContext context) {
     final sureColor = const Color(0xFF0B6B45);

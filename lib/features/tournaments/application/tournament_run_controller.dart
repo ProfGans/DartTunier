@@ -12,10 +12,20 @@ class TournamentRunController {
     required int activeStageIndex,
     required Set<int> completedStageIndexes,
   }) async {
+    final wasComplete = _isComplete(tournament);
     tournament.activeStageIndex = activeStageIndex;
     tournament.completedStageIndexes
       ..clear()
       ..addAll(completedStageIndexes);
-    await (_storage ?? TournamentStorage()).saveTournament(tournament);
+    final storage = _storage ?? TournamentStorage();
+    await storage.saveTournament(tournament);
+    if (!wasComplete && _isComplete(tournament) && tournament.communityId != null) {
+      await storage.synchronize(tournamentId: tournament.id);
+    }
   }
+
+  bool _isComplete(CreatedTournament tournament) =>
+      tournament.runStages.isNotEmpty &&
+      List.generate(tournament.runStages.length, (index) => index)
+          .every(tournament.completedStageIndexes.contains);
 }

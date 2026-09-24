@@ -1,0 +1,102 @@
+import '../tournament_models.dart';
+
+class PlayEntry {
+  const PlayEntry(this.match, this.stageIndex, this.origin);
+  final GroupMatch match;
+  final int stageIndex;
+  final String origin;
+  Set<String> get players => {
+    if (match.homePlayer != null)
+      match.homePlayer!.profileId ?? match.homePlayer!.name,
+    if (match.awayPlayer != null)
+      match.awayPlayer!.profileId ?? match.awayPlayer!.name,
+  };
+  String get playerSignature => (players.toList()..sort()).join('\u0000');
+}
+
+class BoardAssignment {
+  const BoardAssignment(this.entry, this.block, this.board);
+  final PlayEntry entry;
+  final int block;
+  final int board;
+}
+
+class BoardSchedule {
+  const BoardSchedule(this.planned, this.running, this.finished, this.waiting);
+  final List<BoardAssignment> planned;
+  final List<PlayEntry> running;
+  final List<PlayEntry> finished;
+  final List<PlayEntry> waiting;
+}
+
+class BoardSchedulingEngine {
+  const BoardSchedulingEngine();
+  List<BoardAssignment> schedule({
+    required List<PlayEntry> all,
+    required List<PlayEntry> ready,
+    List<PlayEntry> running = const [],
+    List<PlayEntry> finished = const [],
+    required int boardCount,
+  }) {
+    if (boardCount < 1) throw ArgumentError.value(boardCount, 'boardCount');
+    final pending = List<PlayEntry>.from(ready);
+    final lastPlayed = <String, int>{};
+    for (var i = 0; i < finished.length; i++) {
+      if (!finished[i].match.hasResult) continue;
+      for (final player in finished[i].players) {
+        lastPlayed[player] = i - finished.length;
+      }
+    }
+    final planned = <BoardAssignment>[];
+    var block = 0;
+    while (pending.isNotEmpty) {
+      final busy = block == 0
+          ? <String>{for (final e in running) ...e.players}
+          : <String>{};
+      final boards = [
+        for (var b = 1; b <= boardCount; b++)
+          if (block != 0 || !running.any((e) => e.match.boardNumber == b)) b,
+      ];
+      int rest(PlayEntry e) => e.players
+          .map((p) => lastPlayed[p] ?? -100000)
+          .reduce((a, b) => a > b ? a : b);
+      final available =
+          pending.where((e) => !e.players.any(busy.contains)).toList()
+            ..sort((a, b) {
+              final r = rest(a).compareTo(rest(b));
+              return r != 0 ? r : all.indexOf(a).compareTo(all.indexOf(b));
+            });
+      // Try alternative first matches to avoid a greedy choice leaving boards idle.
+      var selected = <PlayEntry>[];
+      for (final first in available.take(64)) {
+        final batch = <PlayEntry>[];
+        final used = <String>{...busy};
+        for (final entry in [first, ...available.where((e) => e != first)]) {
+          if (batch.length >= boards.length) break;
+          if (entry.players.any(used.contains)) continue;
+          batch.add(entry);
+          used.addAll(entry.players);
+        }
+        if (batch.length > selected.length) selected = batch;
+        if (selected.length == boards.length) break;
+      }
+      for (var i = 0; i < selected.length; i++) {
+        final entry = selected[i];
+        planned.add(BoardAssignment(entry, block, boards[i]));
+        pending.remove(entry);
+        for (final player in entry.players) {
+          lastPlayed[player] = block;
+        }
+      }
+      if (block == 0) {
+        for (final entry in running) {
+          for (final player in entry.players) {
+            lastPlayed[player] = 0;
+          }
+        }
+      }
+      block++;
+    }
+    return planned;
+  }
+}

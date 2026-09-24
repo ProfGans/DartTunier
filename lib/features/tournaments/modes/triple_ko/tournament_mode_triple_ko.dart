@@ -1,6 +1,6 @@
 part of '../../../../tournament_workspace.dart';
 
-const String _tripleFinalLabel = 'Triple-KO Finalrunde';
+const String _tripleFinalLabel = tripleFinalLabel;
 
 String _lossLevelBracketLabel(int lossCount) {
   return switch (lossCount) {
@@ -19,12 +19,12 @@ String _lossLevelBracketTitle(int lossCount) {
 }
 
 String _lossLevelMatchLabel(int lossCount, int roundNumber) {
-  return '${_lossLevelBracketTitle(lossCount)} Runde $roundNumber';
+  return tripleRoundLabel(lossCount, roundNumber);
 }
 
 List<List<GroupMatch>> _buildTripleEliminationRoundsFromSlots(
   List<TournamentPlayer> players,
-  List<int?> slots,
+  List<int?> slots, {int lossLimit = 3}
 ) {
   if (players.length < 2 || slots.length < 2) {
     return const [];
@@ -47,78 +47,7 @@ List<List<GroupMatch>> _buildTripleEliminationRoundsFromSlots(
     );
   }
 
-  return _buildTripleEliminationRoundsFromInitialRound(
-    firstWinnersRound,
-    bracketSize,
-  );
-}
-
-List<List<GroupMatch>> _buildTripleEliminationRoundsFromFirstRound(
-  List<GroupMatch> firstRound,
-) {
-  if (firstRound.isEmpty) {
-    return const [];
-  }
-
-  final firstWinnersRound = [
-    for (final match in firstRound)
-      GroupMatch(
-        homePlayer: match.homePlayer,
-        awayPlayer: match.awayPlayer,
-        round: 1,
-        homeLegs: match.homeLegs,
-        awayLegs: match.awayLegs,
-        allowsBye: true,
-        label: match.homePlayer == null || match.awayPlayer == null
-            ? _autoAdvanceLabel
-            : _lossLevelMatchLabel(0, 1),
-        isAnnulled: match.isAnnulled,
-      ),
-  ];
-
-  return _buildTripleEliminationRoundsFromInitialRound(
-    firstWinnersRound,
-    firstWinnersRound.length * 2,
-  );
-}
-
-List<List<GroupMatch>> _buildTripleEliminationRoundsFromInitialRound(
-  List<GroupMatch> firstWinnersRound,
-  int bracketSize,
-) {
-  final rounds = <List<GroupMatch>>[firstWinnersRound];
-  final winnersRoundCount = _log2PowerOfTwo(bracketSize);
-
-  for (var roundNumber = 2; roundNumber <= winnersRoundCount; roundNumber++) {
-    final matchCount = bracketSize >> roundNumber;
-    rounds.add([
-      for (var index = 0; index < matchCount; index++)
-        GroupMatch(
-          round: rounds.length + 1,
-          label: _lossLevelMatchLabel(0, roundNumber),
-          allowsBye: true,
-        ),
-    ]);
-  }
-
-  final lowerCounts = _doubleExpectedLosersMatchCounts(bracketSize);
-  for (var lossCount = 1; lossCount <= 2; lossCount++) {
-    for (var index = 0; index < lowerCounts.length; index++) {
-      rounds.add([
-        for (var matchIndex = 0; matchIndex < lowerCounts[index]; matchIndex++)
-          GroupMatch(
-            round: rounds.length + 1,
-            label: _lossLevelMatchLabel(lossCount, index + 1),
-            allowsBye: true,
-          ),
-      ]);
-    }
-  }
-
-  rounds.add([
-    GroupMatch(round: rounds.length + 1, label: _tripleFinalLabel),
-  ]);
-  return rounds;
+  return TripleKoEngine.build(firstWinnersRound, lossLimit: lossLimit);
 }
 
 int _lossLevelRoundCount(List<List<GroupMatch>> rounds, int lossCount) {

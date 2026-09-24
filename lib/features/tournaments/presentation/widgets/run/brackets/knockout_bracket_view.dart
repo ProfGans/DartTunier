@@ -21,6 +21,38 @@ class _KnockoutBracketView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (placementMatches.any((m) => m.placementKey != null)) {
+      final edges = PlacementEngine.sources(stage.rounds, placementMatches);
+      final rounds = <List<GroupMatch>>[
+        for (final number in placementMatches.map((m) => m.round).toSet().toList()..sort())
+          placementMatches.where((m) => m.round == number).toList(),
+      ];
+      final numbers = _stageMatchNumbers([...stage.rounds, ...rounds]);
+      String sourceName(PlacementSource source) => '${source.loser ? 'Verlierer' : 'Gewinner'} Spiel ${numbers[source.match] ?? '?'}';
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _KnockoutBracketView(stage: stage, qualifyingRank: qualifyingRank,
+          onEditResult: onEditResult, canEditResults: canEditResults,
+          isEditMode: isEditMode, onSwapSlot: onSwapSlot),
+        const SizedBox(height: 24),
+        const _BracketBandTitle(title: 'Platzierungsspiele'),
+        _BracketTreeLayout(totalRounds: rounds.length, columnWidth: 260, cardHeight: 224,
+          firstRoundGap: 12, useBalancedColumnLayout: true, roundMatches: rounds,
+          sourceMatches: {for (final e in edges.entries) e.key: (first: e.value.home.match, second: e.value.away.match)},
+          roundTitles: [for (var i = 0; i < rounds.length; i++) 'Platzierung · ${knockoutRoundName(i, rounds.length)}'],
+          roundCards: [for (var i = 0; i < rounds.length; i++) [
+            for (var j = 0; j < rounds[i].length; j++) _KnockoutBracketMatchCard(
+              match: rounds[i][j], matchNumber: numbers[rounds[i][j]]!,
+              homeSourceLabel: sourceName(edges[rounds[i][j]]!.home),
+              awaySourceLabel: sourceName(edges[rounds[i][j]]!.away),
+              roundIndex: i, matchIndex: j, totalRounds: rounds.length, qualifyingRank: 0,
+              qualificationLabel: rounds[i][j].label,
+              onEditResult: onEditResult, canEditResult: canEditResults,
+              isEditMode: false,
+            ),
+          ]],
+        ),
+      ]);
+    }
     if (stage.eliminationLossLimit == 2) {
       final matchNumbers = _stageMatchNumbers(stage.rounds);
       final sourceMatches = _stageSourceMatches(stage);
@@ -41,7 +73,7 @@ class _KnockoutBracketView extends StatelessWidget {
         onSwapSlot: onSwapSlot,
       );
     }
-    if (stage.eliminationLossLimit == 3) {
+    if (stage.eliminationLossLimit >= 3) {
       final matchNumbers = _stageMatchNumbers(stage.rounds);
       final sourceMatches = _stageSourceMatches(stage);
       final sourceLabels = _deferUnresolvedSourcePlayerLabels(
@@ -71,14 +103,18 @@ class _KnockoutBracketView extends StatelessWidget {
       ..._singleKnockoutSourceMatches(displayRounds),
       ..._singleKnockoutPlacementSourceMatches(stage.rounds, placementMatches),
     };
-    final sourceLabels = _deferUnresolvedSourcePlayerLabels({
-      ..._singleKnockoutSourceLabels(displayRounds, matchNumbers),
-      ..._singleKnockoutPlacementSourceLabels(
-        stage.rounds,
-        placementMatches,
-        matchNumbers,
-      ),
-    }, sourceMatches, matchNumbers);
+    final sourceLabels = _deferUnresolvedSourcePlayerLabels(
+      {
+        ..._singleKnockoutSourceLabels(displayRounds, matchNumbers),
+        ..._singleKnockoutPlacementSourceLabels(
+          stage.rounds,
+          placementMatches,
+          matchNumbers,
+        ),
+      },
+      sourceMatches,
+      matchNumbers,
+    );
 
     return _BracketTreeLayout(
       totalRounds: displayRounds.length,
@@ -91,17 +127,21 @@ class _KnockoutBracketView extends StatelessWidget {
       roundTitles: [
         for (var index = 0; index < displayRounds.length; index++)
           stage.eliminationLossLimit == 2
-              ? _doubleEliminationColumnTitle(displayRounds[index])
+              ? displayRounds[index].map((m) => knockoutMatchName(m, stage.matches)).toSet().join(' / ')
               : stage.eliminationLossLimit > 1
-                  ? _lossLevelColumnTitle(displayRounds[index], index + 1)
-                  : _singleKnockoutColumnTitle(
-                      displayRounds[index],
-                      index,
-                      displayRounds.length,
-                    ),
+              ? displayRounds[index].map((m) => knockoutMatchName(m, stage.matches)).toSet().join(' / ')
+              : _singleKnockoutColumnTitle(
+                  displayRounds[index],
+                  index,
+                  displayRounds.length,
+                ),
       ],
       roundCards: [
-        for (var roundIndex = 0; roundIndex < displayRounds.length; roundIndex++)
+        for (
+          var roundIndex = 0;
+          roundIndex < displayRounds.length;
+          roundIndex++
+        )
           [
             for (
               var matchIndex = 0;
@@ -157,10 +197,12 @@ List<List<GroupMatch>> _singleKnockoutRoundsWithPlacement(
       .where((match) => match.label?.startsWith('Platz 5 Halbfinale') ?? false)
       .toList();
   final finalColumnMatches = placementMatches
-      .where((match) =>
-          match.label == 'Spiel um Platz 3' ||
-          match.label == 'Spiel um Platz 5' ||
-          match.label == 'Spiel um Platz 7')
+      .where(
+        (match) =>
+            match.label == 'Spiel um Platz 3' ||
+            match.label == 'Spiel um Platz 5' ||
+            match.label == 'Spiel um Platz 7',
+      )
       .toList();
 
   if (fifthSemis.isNotEmpty) {
@@ -272,7 +314,7 @@ Map<GroupMatch, ({String? first, String? second})> _stageSourceLabels(
   if (stage.eliminationLossLimit == 2) {
     return _doubleSourceLabels(stage.rounds, matchNumbers);
   }
-  if (stage.eliminationLossLimit == 3) {
+  if (stage.eliminationLossLimit >= 3) {
     return _lossLevelSourceLabels(stage.rounds, matchNumbers);
   }
   return _singleKnockoutSourceLabels(stage.rounds, matchNumbers);
@@ -284,14 +326,14 @@ Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})> _stageSourceMatches(
   if (stage.eliminationLossLimit == 2) {
     return _doubleSourceMatches(stage.rounds);
   }
-  if (stage.eliminationLossLimit == 3) {
+  if (stage.eliminationLossLimit >= 3) {
     return _lossLevelSourceMatches(stage.rounds);
   }
   return _singleKnockoutSourceMatches(stage.rounds);
 }
 
 Map<GroupMatch, ({String? first, String? second})>
-    _deferUnresolvedSourcePlayerLabels(
+_deferUnresolvedSourcePlayerLabels(
   Map<GroupMatch, ({String? first, String? second})> labels,
   Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})> sourceMatches,
   Map<GroupMatch, int> matchNumbers,
@@ -357,7 +399,11 @@ Map<GroupMatch, ({String? first, String? second})> _singleKnockoutSourceLabels(
 ) {
   final labels = <GroupMatch, ({String? first, String? second})>{};
   for (var roundIndex = 1; roundIndex < rounds.length; roundIndex++) {
-    for (var matchIndex = 0; matchIndex < rounds[roundIndex].length; matchIndex++) {
+    for (
+      var matchIndex = 0;
+      matchIndex < rounds[roundIndex].length;
+      matchIndex++
+    ) {
       final previous = rounds[roundIndex - 1];
       final firstSourceIndex = matchIndex * 2;
       final secondSourceIndex = firstSourceIndex + 1;
@@ -377,12 +423,14 @@ Map<GroupMatch, ({String? first, String? second})> _singleKnockoutSourceLabels(
 }
 
 Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})>
-    _singleKnockoutSourceMatches(List<List<GroupMatch>> rounds) {
+_singleKnockoutSourceMatches(List<List<GroupMatch>> rounds) {
   final sources = <GroupMatch, ({GroupMatch? first, GroupMatch? second})>{};
   for (var roundIndex = 1; roundIndex < rounds.length; roundIndex++) {
-    for (var matchIndex = 0;
-        matchIndex < rounds[roundIndex].length;
-        matchIndex++) {
+    for (
+      var matchIndex = 0;
+      matchIndex < rounds[roundIndex].length;
+      matchIndex++
+    ) {
       final previous = rounds[roundIndex - 1];
       sources[rounds[roundIndex][matchIndex]] = (
         first: matchIndex * 2 < previous.length
@@ -398,7 +446,7 @@ Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})>
 }
 
 Map<GroupMatch, ({String? first, String? second})>
-    _singleKnockoutPlacementSourceLabels(
+_singleKnockoutPlacementSourceLabels(
   List<List<GroupMatch>> rounds,
   List<GroupMatch> placementMatches,
   Map<GroupMatch, int> matchNumbers,
@@ -410,9 +458,16 @@ Map<GroupMatch, ({String? first, String? second})>
   return {
     for (final entry in sources.entries)
       entry.key: (
-        first: _placementSourceLabel(entry.key, entry.value.first, matchNumbers),
-        second:
-            _placementSourceLabel(entry.key, entry.value.second, matchNumbers),
+        first: _placementSourceLabel(
+          entry.key,
+          entry.value.first,
+          matchNumbers,
+        ),
+        second: _placementSourceLabel(
+          entry.key,
+          entry.value.second,
+          matchNumbers,
+        ),
       ),
   };
 }
@@ -433,7 +488,7 @@ String? _placementSourceLabel(
 }
 
 Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})>
-    _singleKnockoutPlacementSourceMatches(
+_singleKnockoutPlacementSourceMatches(
   List<List<GroupMatch>> rounds,
   List<GroupMatch> placementMatches,
 ) {
@@ -596,7 +651,10 @@ Map<GroupMatch, ({String? first, String? second})> _doubleSourceLabels(
 
   for (var roundNumber = 2; roundNumber <= losersRoundCount; roundNumber++) {
     final current = _matchesWithLabel(rounds, _doubleLosersLabel(roundNumber));
-    final previousLosers = _matchesWithLabel(rounds, _doubleLosersLabel(roundNumber - 1));
+    final previousLosers = _matchesWithLabel(
+      rounds,
+      _doubleLosersLabel(roundNumber - 1),
+    );
     final incomingWinnersRound = roundNumber == losersRoundCount
         ? winnersRoundCount
         : ((roundNumber + 2) ~/ 2);
@@ -628,13 +686,18 @@ Map<GroupMatch, ({String? first, String? second})> _doubleSourceLabels(
   final grandFinal = _matchesWithLabel(rounds, _doubleGrandFinalLabel);
   if (grandFinal.isNotEmpty) {
     final winnersFinal = _doubleWinnersRoundMatches(rounds, winnersRoundCount);
-    final losersFinal = _matchesWithLabel(rounds, _doubleLosersLabel(losersRoundCount));
+    final losersFinal = _matchesWithLabel(
+      rounds,
+      _doubleLosersLabel(losersRoundCount),
+    );
     labels[grandFinal.first] = (
       first: winnersFinal.isEmpty
           ? null
           : _winnerSourceLabel(winnersFinal.first, matchNumbers),
       second: losersFinal.isEmpty
-          ? null
+          ? (winnersRoundCount == 1 && winnersFinal.isNotEmpty
+              ? _loserSourceLabel(winnersFinal.first, matchNumbers)
+              : null)
           : _winnerSourceLabel(losersFinal.first, matchNumbers),
     );
   }
@@ -718,17 +781,21 @@ Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})> _doubleSourceMatches(
 
   for (var roundNumber = 2; roundNumber <= losersRoundCount; roundNumber++) {
     final current = _matchesWithLabel(rounds, _doubleLosersLabel(roundNumber));
-    final previousLosers =
-        _matchesWithLabel(rounds, _doubleLosersLabel(roundNumber - 1));
-    final incomingWinnersRound =
-        roundNumber == losersRoundCount ? winnersRoundCount : ((roundNumber + 2) ~/ 2);
+    final previousLosers = _matchesWithLabel(
+      rounds,
+      _doubleLosersLabel(roundNumber - 1),
+    );
+    final incomingWinnersRound = roundNumber == losersRoundCount
+        ? winnersRoundCount
+        : ((roundNumber + 2) ~/ 2);
     final incomingWinners = _matchesWithLabel(
       rounds,
       _doubleWinnersLabel(incomingWinnersRound),
     );
     for (var index = 0; index < current.length; index++) {
-      final previousIndex =
-          previousLosers.length == current.length ? index : index * 2;
+      final previousIndex = previousLosers.length == current.length
+          ? index
+          : index * 2;
       sources[current[index]] = (
         first: previousIndex < previousLosers.length
             ? previousLosers[previousIndex]
@@ -736,8 +803,8 @@ Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})> _doubleSourceMatches(
         second: previousLosers.length == current.length
             ? (index < incomingWinners.length ? incomingWinners[index] : null)
             : (previousIndex + 1 < previousLosers.length
-                ? previousLosers[previousIndex + 1]
-                : null),
+                  ? previousLosers[previousIndex + 1]
+                  : null),
       );
     }
   }
@@ -745,11 +812,15 @@ Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})> _doubleSourceMatches(
   final grandFinal = _matchesWithLabel(rounds, _doubleGrandFinalLabel);
   if (grandFinal.isNotEmpty) {
     final winnersFinal = _doubleWinnersRoundMatches(rounds, winnersRoundCount);
-    final losersFinal =
-        _matchesWithLabel(rounds, _doubleLosersLabel(losersRoundCount));
+    final losersFinal = _matchesWithLabel(
+      rounds,
+      _doubleLosersLabel(losersRoundCount),
+    );
     sources[grandFinal.first] = (
       first: winnersFinal.isEmpty ? null : winnersFinal.first,
-      second: losersFinal.isEmpty ? null : losersFinal.first,
+      second: losersFinal.isEmpty
+          ? (winnersRoundCount == 1 && winnersFinal.isNotEmpty ? winnersFinal.first : null)
+          : losersFinal.first,
     );
   }
 
@@ -805,7 +876,7 @@ Map<GroupMatch, ({String? first, String? second})> _lossLevelSourceLabels(
 }
 
 Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})>
-    _lossLevelSourceMatches(List<List<GroupMatch>> rounds) {
+_lossLevelSourceMatches(List<List<GroupMatch>> rounds) {
   final edges = _lossLevelSourceEdges(rounds);
   return {
     for (final entry in edges.entries)
@@ -817,157 +888,23 @@ Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})>
 }
 
 Map<GroupMatch, ({_SourceEdge? first, _SourceEdge? second})>
-    _lossLevelSourceEdges(List<List<GroupMatch>> rounds) {
-  final sources = <GroupMatch, ({_SourceEdge? first, _SourceEdge? second})>{};
-  for (var lossCount = 0; lossCount < 3; lossCount++) {
-    final roundCount = _lossLevelRoundCount(rounds, lossCount);
-    for (var roundNumber = 2; roundNumber <= roundCount; roundNumber++) {
-      final previous = lossCount == 0 && roundNumber == 2 && rounds.isNotEmpty
-          ? rounds.first
-          : _matchesWithLabel(rounds, _lossLevelMatchLabel(lossCount, roundNumber - 1));
-      final current = _matchesWithLabel(
-        rounds,
-        _lossLevelMatchLabel(lossCount, roundNumber),
-      );
-      for (var index = 0; index < current.length; index++) {
-        final currentSources = sources[current[index]] ?? (first: null, second: null);
-        final previousIndex = previous.length == current.length ? index : index * 2;
-        sources[current[index]] = previous.length == current.length
-            ? (
-                first: previousIndex < previous.length
-                    ? _SourceEdge.winner(previous[previousIndex])
-                    : null,
-                second: currentSources.second,
-              )
-            : (
-                first: previousIndex < previous.length
-                    ? _SourceEdge.winner(previous[previousIndex])
-                    : null,
-                second: previousIndex + 1 < previous.length
-                    ? _SourceEdge.winner(previous[previousIndex + 1])
-                    : null,
-              );
-      }
-    }
-  }
-
-  for (var sourceLossCount = 0; sourceLossCount < 2; sourceLossCount++) {
-    final targetLossCount = sourceLossCount + 1;
-    final sourceRoundCount = _lossLevelRoundCount(rounds, sourceLossCount);
-    final targetRoundCount = _lossLevelRoundCount(rounds, targetLossCount);
-    for (var roundNumber = 1; roundNumber <= sourceRoundCount; roundNumber++) {
-      final sourceRound = sourceLossCount == 0 && roundNumber == 1 && rounds.isNotEmpty
-          ? rounds.first
-          : _matchesWithLabel(rounds, _lossLevelMatchLabel(sourceLossCount, roundNumber));
-      final targetRoundNumber = roundNumber == 1
-          ? 1
-          : roundNumber == sourceRoundCount
-              ? targetRoundCount
-              : roundNumber * 2 - 2;
-      final targetRound = _matchesWithLabel(
-        rounds,
-        _lossLevelMatchLabel(targetLossCount, targetRoundNumber),
-      );
-      if (sourceRound.isEmpty || targetRound.isEmpty) {
-        continue;
-      }
-
-      if (roundNumber == 1) {
-        final droppingSources = [
-          for (final match in sourceRound)
-            if (match.label != _autoAdvanceLabel) match,
-        ];
-        if (droppingSources.isEmpty) {
-          continue;
-        }
-        if (droppingSources.length <= targetRound.length) {
-          for (var index = 0; index < droppingSources.length; index++) {
-            final targetIndex =
-                (index * targetRound.length) ~/ droppingSources.length;
-            final currentSources =
-                sources[targetRound[targetIndex]] ?? (first: null, second: null);
-            sources[targetRound[targetIndex]] = (
-              first: _SourceEdge.loser(droppingSources[index]),
-              second: currentSources.second,
-            );
-          }
-          continue;
-        }
-
-        for (var index = 0; index < droppingSources.length; index++) {
-          var targetIndex = (index * targetRound.length) ~/ droppingSources.length;
-          if (targetIndex >= targetRound.length) {
-            break;
-          }
-          var currentSources =
-              sources[targetRound[targetIndex]] ?? (first: null, second: null);
-          while (targetIndex < targetRound.length &&
-              currentSources.first != null &&
-              currentSources.second != null) {
-            targetIndex++;
-            if (targetIndex < targetRound.length) {
-              currentSources =
-                  sources[targetRound[targetIndex]] ?? (first: null, second: null);
-            }
-          }
-          if (targetIndex >= targetRound.length) {
-            break;
-          }
-          sources[targetRound[targetIndex]] = currentSources.first == null
-              ? (
-                  first: _SourceEdge.loser(droppingSources[index]),
-                  second: currentSources.second,
-                )
-              : (
-                  first: currentSources.first,
-                  second: _SourceEdge.loser(droppingSources[index]),
-                );
-        }
-        continue;
-      }
-
-      for (var index = 0; index < sourceRound.length; index++) {
-        final targetIndex = roundNumber == 1 ? index ~/ 2 : index;
-        if (targetIndex >= targetRound.length) {
-          break;
-        }
-        final currentSources = sources[targetRound[targetIndex]] ?? (first: null, second: null);
-        sources[targetRound[targetIndex]] = index.isEven && roundNumber == 1
-            ? (
-                first: _SourceEdge.loser(sourceRound[index]),
-                second: currentSources.second,
-              )
-            : (
-                first: currentSources.first,
-                second: _SourceEdge.loser(sourceRound[index]),
-              );
-      }
-    }
-  }
-
-  final finalMatches = _matchesWithLabel(rounds, _tripleFinalLabel);
-  if (finalMatches.isNotEmpty) {
-    final zeroFinal = _matchesWithLabel(
-      rounds,
-      _lossLevelMatchLabel(0, _lossLevelRoundCount(rounds, 0)),
-    );
-    final twoLossFinal = _matchesWithLabel(
-      rounds,
-      _lossLevelMatchLabel(2, _lossLevelRoundCount(rounds, 2)),
-    );
-    sources[finalMatches.first] = (
-      first: zeroFinal.isEmpty ? null : _SourceEdge.winner(zeroFinal.first),
-      second: twoLossFinal.isEmpty ? null : _SourceEdge.winner(twoLossFinal.first),
-    );
-  }
-
-  return sources;
+_lossLevelSourceEdges(List<List<GroupMatch>> rounds) {
+  final edges = TripleKoEngine.advance(rounds, update: false);
+  _SourceEdge? convert(TripleSource? source) => source == null
+      ? null
+      : source.loser
+      ? _SourceEdge.loser(source.match)
+      : _SourceEdge.winner(source.match);
+  return {
+    for (final entry in edges.entries)
+      entry.key: (
+        first: convert(entry.value.first),
+        second: convert(entry.value.second),
+      ),
+  };
 }
 
-String? _sourceEdgeLabel(
-  _SourceEdge? edge,
-  Map<GroupMatch, int> matchNumbers,
-) {
+String? _sourceEdgeLabel(_SourceEdge? edge, Map<GroupMatch, int> matchNumbers) {
   if (edge == null) {
     return null;
   }
@@ -1000,7 +937,8 @@ class _DoubleEliminationBracketView extends StatelessWidget {
   final KnockoutTournamentRunStage stage;
   final Map<GroupMatch, int> matchNumbers;
   final Map<GroupMatch, ({String? first, String? second})> sourceLabels;
-  final Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})> sourceMatches;
+  final Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})>
+  sourceMatches;
   final int qualifyingRank;
   final void Function(GroupMatch match) onEditResult;
   final bool canEditResults;
@@ -1034,9 +972,11 @@ class _DoubleEliminationBracketView extends StatelessWidget {
               _bracketRoundTitle(index, winnersRounds.length),
           ],
           roundCards: [
-            for (var roundIndex = 0;
-                roundIndex < winnersRounds.length;
-                roundIndex++)
+            for (
+              var roundIndex = 0;
+              roundIndex < winnersRounds.length;
+              roundIndex++
+            )
               _matchCards(
                 winnersRounds[roundIndex],
                 roundIndex,
@@ -1057,12 +997,14 @@ class _DoubleEliminationBracketView extends StatelessWidget {
           sourceMatches: sourceMatches,
           roundTitles: [
             for (var index = 0; index < losersRounds.length; index++)
-              _doubleLosersLabel(index + 1),
+              _bracketRoundTitle(index, losersRounds.length),
           ],
           roundCards: [
-            for (var roundIndex = 0;
-                roundIndex < losersRounds.length;
-                roundIndex++)
+            for (
+              var roundIndex = 0;
+              roundIndex < losersRounds.length;
+              roundIndex++
+            )
               _matchCards(
                 losersRounds[roundIndex],
                 roundIndex,
@@ -1074,16 +1016,19 @@ class _DoubleEliminationBracketView extends StatelessWidget {
         _BracketBandTitle(title: 'Finale'),
         const SizedBox(height: 8),
         _BracketTreeLayout(
-          totalRounds: finalMatches.isEmpty ? 0 : 1,
+          totalRounds: finalMatches.length,
           columnWidth: 260,
           cardHeight: 204,
           firstRoundGap: 12,
           useBalancedColumnLayout: true,
-          roundMatches: [finalMatches],
+          roundMatches: [
+            for (final match in finalMatches) [match],
+          ],
           sourceMatches: sourceMatches,
-          roundTitles: const ['Grand Final'],
+          roundTitles: const ['Finale'],
           roundCards: [
-            _matchCards(finalMatches, 0, 1),
+            for (var i = 0; i < finalMatches.length; i++)
+              _matchCards([finalMatches[i]], i, finalMatches.length),
           ],
         ),
       ],
@@ -1143,7 +1088,8 @@ class _TripleEliminationBracketView extends StatelessWidget {
   final KnockoutTournamentRunStage stage;
   final Map<GroupMatch, int> matchNumbers;
   final Map<GroupMatch, ({String? first, String? second})> sourceLabels;
-  final Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})> sourceMatches;
+  final Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})>
+  sourceMatches;
   final int qualifyingRank;
   final void Function(GroupMatch match) onEditResult;
   final bool canEditResults;
@@ -1157,10 +1103,8 @@ class _TripleEliminationBracketView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var lossCount = 0; lossCount < 3; lossCount++) ...[
-          _BracketBandTitle(
-            title: _lossLevelBracketLabel(lossCount),
-          ),
+        for (var lossCount = 0; lossCount < stage.eliminationLossLimit; lossCount++) ...[
+          _BracketBandTitle(title: _lossLevelBracketLabel(lossCount)),
           const SizedBox(height: 8),
           _BracketTreeLayout(
             totalRounds: _lossLevelRounds(lossCount).length,
@@ -1171,20 +1115,24 @@ class _TripleEliminationBracketView extends StatelessWidget {
             roundMatches: _lossLevelRounds(lossCount),
             sourceMatches: sourceMatches,
             roundTitles: [
-              for (var roundIndex = 0;
-                  roundIndex < _lossLevelRounds(lossCount).length;
-                  roundIndex++)
+              for (
+                var roundIndex = 0;
+                roundIndex < _lossLevelRounds(lossCount).length;
+                roundIndex++
+              )
                 lossCount == 0
                     ? _bracketRoundTitle(
                         roundIndex,
                         _lossLevelRounds(lossCount).length,
                       )
-                    : _lossLevelMatchLabel(lossCount, roundIndex + 1),
+                    : _bracketRoundTitle(roundIndex, _lossLevelRounds(lossCount).length),
             ],
             roundCards: [
-              for (var roundIndex = 0;
-                  roundIndex < _lossLevelRounds(lossCount).length;
-                  roundIndex++)
+              for (
+                var roundIndex = 0;
+                roundIndex < _lossLevelRounds(lossCount).length;
+                roundIndex++
+              )
                 _matchCards(
                   _lossLevelRounds(lossCount)[roundIndex],
                   roundIndex,
@@ -1204,10 +1152,10 @@ class _TripleEliminationBracketView extends StatelessWidget {
           useBalancedColumnLayout: true,
           roundMatches: [finalMatches],
           sourceMatches: sourceMatches,
-          roundTitles: const [_tripleFinalLabel],
-          roundCards: [
-            _matchCards(finalMatches, 0, 1),
+          roundTitles: [
+            for (var i = 0; i < finalMatches.length; i++) 'Finale',
           ],
+          roundCards: [_matchCards(finalMatches, 0, 1)],
         ),
       ],
     );
@@ -1264,69 +1212,14 @@ class _BracketBandTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.bold,
-      ),
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
     );
   }
 }
 
-String _bracketRoundTitle(int roundIndex, int totalRounds) {
-  final remainingRounds = totalRounds - roundIndex;
-  if (remainingRounds == 4) {
-    return 'Achtelfinale';
-  }
-  if (remainingRounds == 3) {
-    return 'Viertelfinale';
-  }
-  if (roundIndex == totalRounds - 1) {
-    return 'Finale';
-  }
-  if (roundIndex == totalRounds - 2) {
-    return 'Halbfinale';
-  }
-  return 'Runde ${roundIndex + 1}';
-}
-
-String _doubleEliminationColumnTitle(List<GroupMatch> matches) {
-  final labels = [
-    for (final match in matches)
-      if (match.label != null) match.label!,
-  ];
-  if (labels.isEmpty) {
-    return 'Runde';
-  }
-  final winnersLabels = labels
-      .where((label) => label.startsWith(_doubleWinnersPrefix))
-      .toList();
-  final losersLabels = labels
-      .where((label) => label.startsWith(_doubleLosersPrefix))
-      .toList();
-  if (winnersLabels.isNotEmpty && losersLabels.isNotEmpty) {
-    return '${winnersLabels.first} / ${losersLabels.first}';
-  }
-  return labels.first;
-}
-
-String _lossLevelColumnTitle(List<GroupMatch> matches, int fallbackRound) {
-  final labels = [
-    for (final match in matches)
-      if (match.label != null) match.label!,
-  ];
-  if (labels.isEmpty) {
-    return 'Runde $fallbackRound';
-  }
-  final distinctLabels = <String>[];
-  for (final label in labels) {
-    if (!distinctLabels.contains(label)) {
-      distinctLabels.add(label);
-    }
-  }
-  if (distinctLabels.length == 1) {
-    return distinctLabels.single;
-  }
-  return distinctLabels.join(' / ');
-}
+String _bracketRoundTitle(int roundIndex, int totalRounds) => knockoutRoundName(roundIndex, totalRounds);
 
 class _BracketTreeLayout extends StatelessWidget {
   const _BracketTreeLayout({
@@ -1349,7 +1242,8 @@ class _BracketTreeLayout extends StatelessWidget {
   final List<String> roundTitles;
   final List<List<Widget>> roundCards;
   final List<List<GroupMatch>>? roundMatches;
-  final Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})>? sourceMatches;
+  final Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})>?
+  sourceMatches;
   final double columnWidth;
   final double cardHeight;
   final double firstRoundGap;
@@ -1410,16 +1304,14 @@ class _BracketTreeLayout extends StatelessWidget {
     return _defaultCenterY(roundIndex, matchIndex, _baseContentHeight());
   }
 
-  double _defaultCenterY(
-    int roundIndex,
-    int matchIndex,
-    double contentHeight,
-  ) {
+  double _defaultCenterY(int roundIndex, int matchIndex, double contentHeight) {
     if (useBalancedColumnLayout) {
       final columnHeight = _columnContentHeight(roundIndex);
       final columnTop =
           _headerHeight + _headerGap + (contentHeight - columnHeight) / 2;
-      return columnTop + matchIndex * (cardHeight + firstRoundGap) + cardHeight / 2;
+      return columnTop +
+          matchIndex * (cardHeight + firstRoundGap) +
+          cardHeight / 2;
     }
 
     final firstPitch = cardHeight + firstRoundGap;
@@ -1427,9 +1319,15 @@ class _BracketTreeLayout extends StatelessWidget {
     final firstMatchIndex = matchIndex * span;
     final lastMatchIndex = firstMatchIndex + span - 1;
     final firstCenter =
-        _headerHeight + _headerGap + firstMatchIndex * firstPitch + cardHeight / 2;
+        _headerHeight +
+        _headerGap +
+        firstMatchIndex * firstPitch +
+        cardHeight / 2;
     final lastCenter =
-        _headerHeight + _headerGap + lastMatchIndex * firstPitch + cardHeight / 2;
+        _headerHeight +
+        _headerGap +
+        lastMatchIndex * firstPitch +
+        cardHeight / 2;
     return (firstCenter + lastCenter) / 2;
   }
 
@@ -1441,9 +1339,11 @@ class _BracketTreeLayout extends StatelessWidget {
     final matches = roundMatches!;
     final positions = <GroupMatch, ({int roundIndex, int matchIndex})>{};
     for (var roundIndex = 0; roundIndex < matches.length; roundIndex++) {
-      for (var matchIndex = 0;
-          matchIndex < matches[roundIndex].length;
-          matchIndex++) {
+      for (
+        var matchIndex = 0;
+        matchIndex < matches[roundIndex].length;
+        matchIndex++
+      ) {
         positions[matches[roundIndex][matchIndex]] = (
           roundIndex: roundIndex,
           matchIndex: matchIndex,
@@ -1455,17 +1355,21 @@ class _BracketTreeLayout extends StatelessWidget {
     final centers = [
       for (var roundIndex = 0; roundIndex < roundCards.length; roundIndex++)
         [
-          for (var matchIndex = 0;
-              matchIndex < roundCards[roundIndex].length;
-              matchIndex++)
+          for (
+            var matchIndex = 0;
+            matchIndex < roundCards[roundIndex].length;
+            matchIndex++
+          )
             _defaultCenterY(roundIndex, matchIndex, baseContentHeight),
         ],
     ];
 
     for (var roundIndex = 0; roundIndex < matches.length; roundIndex++) {
-      for (var matchIndex = 0;
-          matchIndex < matches[roundIndex].length;
-          matchIndex++) {
+      for (
+        var matchIndex = 0;
+        matchIndex < matches[roundIndex].length;
+        matchIndex++
+      ) {
         final target = matches[roundIndex][matchIndex];
         final sources = sourceMatches![target];
         if (sources == null) {
@@ -1492,7 +1396,7 @@ class _BracketTreeLayout extends StatelessWidget {
         }
         centers[roundIndex][matchIndex] =
             sourceCenters.reduce((sum, value) => sum + value) /
-                sourceCenters.length;
+            sourceCenters.length;
       }
     }
 
@@ -1544,7 +1448,11 @@ class _BracketTreeLayout extends StatelessWidget {
                 height: _headerHeight,
                 child: _BracketRoundTitle(title: roundTitles[roundIndex]),
               ),
-            for (var roundIndex = 0; roundIndex < roundCards.length; roundIndex++)
+            for (
+              var roundIndex = 0;
+              roundIndex < roundCards.length;
+              roundIndex++
+            )
               for (
                 var matchIndex = 0;
                 matchIndex < roundCards[roundIndex].length;
@@ -1575,9 +1483,11 @@ class _BracketTreeLayout extends StatelessWidget {
     final matches = roundMatches!;
     final sourcesByMatch = sourceMatches!;
     for (var roundIndex = 0; roundIndex < matches.length; roundIndex++) {
-      for (var matchIndex = 0;
-          matchIndex < matches[roundIndex].length;
-          matchIndex++) {
+      for (
+        var matchIndex = 0;
+        matchIndex < matches[roundIndex].length;
+        matchIndex++
+      ) {
         positions[matches[roundIndex][matchIndex]] = (
           roundIndex: roundIndex,
           matchIndex: matchIndex,
@@ -1587,9 +1497,11 @@ class _BracketTreeLayout extends StatelessWidget {
 
     final connections = <_BracketConnection>[];
     for (var roundIndex = 0; roundIndex < matches.length; roundIndex++) {
-      for (var matchIndex = 0;
-          matchIndex < matches[roundIndex].length;
-          matchIndex++) {
+      for (
+        var matchIndex = 0;
+        matchIndex < matches[roundIndex].length;
+        matchIndex++
+      ) {
         final target = matches[roundIndex][matchIndex];
         final sources = sourcesByMatch[target];
         if (sources == null) {
@@ -1618,9 +1530,11 @@ class _BracketTreeLayout extends StatelessWidget {
   List<_BracketConnection> _fallbackConnections() {
     final connections = <_BracketConnection>[];
     for (var roundIndex = 0; roundIndex < roundCards.length - 1; roundIndex++) {
-      for (var matchIndex = 0;
-          matchIndex < roundCards[roundIndex].length;
-          matchIndex++) {
+      for (
+        var matchIndex = 0;
+        matchIndex < roundCards[roundIndex].length;
+        matchIndex++
+      ) {
         final nextMatchIndex = matchIndex ~/ 2;
         if (nextMatchIndex >= roundCards[roundIndex + 1].length) {
           continue;
@@ -1839,8 +1753,11 @@ class _BracketConnectorPainter extends CustomPainter {
     if (useBalancedColumnLayout) {
       final contentHeight = _contentHeight();
       final columnHeight = _columnContentHeight(roundIndex);
-      final columnTop = headerHeight + headerGap + (contentHeight - columnHeight) / 2;
-      return columnTop + matchIndex * (cardHeight + firstRoundGap) + cardHeight / 2;
+      final columnTop =
+          headerHeight + headerGap + (contentHeight - columnHeight) / 2;
+      return columnTop +
+          matchIndex * (cardHeight + firstRoundGap) +
+          cardHeight / 2;
     }
 
     final firstPitch = cardHeight + firstRoundGap;
@@ -1848,7 +1765,10 @@ class _BracketConnectorPainter extends CustomPainter {
     final firstMatchIndex = matchIndex * span;
     final lastMatchIndex = firstMatchIndex + span - 1;
     final firstCenter =
-        headerHeight + headerGap + firstMatchIndex * firstPitch + cardHeight / 2;
+        headerHeight +
+        headerGap +
+        firstMatchIndex * firstPitch +
+        cardHeight / 2;
     final lastCenter =
         headerHeight + headerGap + lastMatchIndex * firstPitch + cardHeight / 2;
     return (firstCenter + lastCenter) / 2;
@@ -1866,16 +1786,20 @@ class _BracketConnectorPainter extends CustomPainter {
           connection.toRoundIndex >= roundCards.length ||
           connection.fromMatchIndex >=
               roundCards[connection.fromRoundIndex].length ||
-          connection.toMatchIndex >= roundCards[connection.toRoundIndex].length) {
+          connection.toMatchIndex >=
+              roundCards[connection.toRoundIndex].length) {
         continue;
       }
 
       final startX =
-          connection.fromRoundIndex * (columnWidth + connectorWidth) + columnWidth;
+          connection.fromRoundIndex * (columnWidth + connectorWidth) +
+          columnWidth;
       final endX = connection.toRoundIndex * (columnWidth + connectorWidth);
       final midX = startX + (endX - startX) / 2;
-      final startY =
-          _centerY(connection.fromRoundIndex, connection.fromMatchIndex);
+      final startY = _centerY(
+        connection.fromRoundIndex,
+        connection.fromMatchIndex,
+      );
       final endY = _centerY(connection.toRoundIndex, connection.toMatchIndex);
 
       final path = Path()
@@ -2007,8 +1931,9 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
           const SizedBox(height: 8),
           _BracketPlayerSlot(
             player: match.homePlayer,
-            score: match.homePlayer == null ? null : match.homeLegs,
-            isWinner: match.hasResult &&
+            score: match.homePlayer == null ? null : match.homeScore,
+            isWinner:
+                match.hasResult &&
                 _isRealBracketPlayer(match.homePlayer) &&
                 winner == match.homePlayer,
             label: homeLabel,
@@ -2019,8 +1944,9 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
           const SizedBox(height: 6),
           _BracketPlayerSlot(
             player: match.awayPlayer,
-            score: match.awayPlayer == null ? null : match.awayLegs,
-            isWinner: match.hasResult &&
+            score: match.awayPlayer == null ? null : match.awayScore,
+            isWinner:
+                match.hasResult &&
                 _isRealBracketPlayer(match.awayPlayer) &&
                 winner == match.awayPlayer,
             label: awayLabel,
@@ -2248,4 +2174,3 @@ class _QualificationMarker extends StatelessWidget {
     );
   }
 }
-

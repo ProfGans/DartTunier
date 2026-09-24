@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../application/account_session_store.dart';
 import '../../data/supabase_account_config.dart';
@@ -45,9 +46,16 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
   Future<void> _openSignInDialog() async {
     final result = await showDialog<_AccountFormResult>(
       context: context,
-      builder: (context) => const _AccountDialog(mode: _AccountDialogMode.signIn),
+      builder: (context) => _AccountDialog(
+        mode: _AccountDialogMode.signIn,
+        allowPasswordReset: _store.supportsPasswordReset,
+      ),
     );
     if (result == null) {
+      return;
+    }
+    if (result.resetPassword) {
+      await _sendPasswordReset(result.email);
       return;
     }
 
@@ -66,6 +74,32 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
     }
 
     _reloadAccount();
+  }
+
+  Future<void> _sendPasswordReset(String email) async {
+    final normalizedEmail = email.trim();
+    if (normalizedEmail.isEmpty ||
+        !normalizedEmail.contains('@') ||
+        !normalizedEmail.contains('.')) {
+      _showError('Bitte gib zuerst eine gueltige E-Mail-Adresse ein.');
+      return;
+    }
+
+    final succeeded = await _runAccountAction<bool>(() async {
+      await _store.sendPasswordResetEmail(email: normalizedEmail);
+      return true;
+    });
+    if (!mounted || succeeded != true) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Falls ein Online-Account mit dieser E-Mail existiert, wurde eine '
+          'Nachricht zum Zuruecksetzen des Passworts gesendet.',
+        ),
+      ),
+    );
   }
 
   Future<void> _openRegisterDialog() async {
@@ -126,6 +160,22 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
   }
 
   String _accountErrorMessage(Object error) {
+    if (error is AuthException) {
+      if (error.code == 'invalid_credentials' ||
+          error.message.toLowerCase().contains('invalid login credentials')) {
+        return 'E-Mail oder Passwort ist falsch. Falls du den Account zuvor '
+            'nur lokal verwendet hast, erstelle bitte einen Online-Account.';
+      }
+      if (error.code == 'email_not_confirmed') {
+        return 'Bitte bestaetige zuerst deine E-Mail-Adresse.';
+      }
+      if (error.code == 'user_already_exists' ||
+          error.message.toLowerCase().contains('already registered')) {
+        return 'Diese E-Mail-Adresse ist bereits registriert. Nutze Anmelden '
+            'oder Passwort vergessen.';
+      }
+      return error.message;
+    }
     final message = error.toString();
     if (message.contains('AuthException')) {
       return message
@@ -204,9 +254,13 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
 enum _AccountDialogMode { signIn, register }
 
 class _AccountDialog extends StatefulWidget {
-  const _AccountDialog({required this.mode});
+  const _AccountDialog({
+    required this.mode,
+    this.allowPasswordReset = false,
+  });
 
   final _AccountDialogMode mode;
+  final bool allowPasswordReset;
 
   @override
   State<_AccountDialog> createState() => _AccountDialogState();
@@ -256,6 +310,25 @@ class _AccountDialogState extends State<_AccountDialog> {
         displayName: displayName,
         email: email,
         password: password,
+        resetPassword: false,
+      ),
+    );
+  }
+
+  void _resetPassword() {
+    final email = _emailController.text.trim();
+    if (!email.contains('@') || !email.contains('.')) {
+      setState(() {
+        _errorText = 'Bitte gib zuerst eine gueltige E-Mail ein.';
+      });
+      return;
+    }
+    Navigator.of(context).pop(
+      _AccountFormResult(
+        displayName: '',
+        email: email,
+        password: '',
+        resetPassword: true,
       ),
     );
   }
@@ -327,6 +400,11 @@ class _AccountDialogState extends State<_AccountDialog> {
         ),
       ),
       actions: [
+        if (!_isRegister && widget.allowPasswordReset)
+          TextButton(
+            onPressed: _resetPassword,
+            child: const Text('Passwort vergessen'),
+          ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Abbrechen'),
@@ -345,9 +423,11 @@ class _AccountFormResult {
     required this.displayName,
     required this.email,
     required this.password,
+    required this.resetPassword,
   });
 
   final String displayName;
   final String email;
   final String password;
+  final bool resetPassword;
 }

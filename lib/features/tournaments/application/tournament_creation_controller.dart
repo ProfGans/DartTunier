@@ -8,12 +8,14 @@ class TournamentCreationController {
   final TournamentStorage? _storage;
 
   CreatedTournament createTournament({
+    int boardCount = 1,
     required String name,
     required List<TournamentPlayer> players,
     required List<TournamentStage> stages,
     required List<TournamentRunStage> runStages,
   }) {
     final tournament = _buildTournament(
+      boardCount: boardCount,
       name: name,
       players: players,
       stages: stages,
@@ -24,6 +26,7 @@ class TournamentCreationController {
   }
 
   Future<CreatedTournament> createCommunityTournament({
+    int boardCount = 1,
     required String name,
     required List<TournamentPlayer> players,
     required List<TournamentStage> stages,
@@ -36,12 +39,14 @@ class TournamentCreationController {
       stages: stages,
       runStages: runStages,
       communityId: communityId,
+      boardCount: boardCount,
     );
     await (_storage ?? TournamentStorage()).saveTournament(tournament);
     return tournament;
   }
 
   CreatedTournament _buildTournament({
+    int boardCount = 1,
     required String name,
     required List<TournamentPlayer> players,
     required List<TournamentStage> stages,
@@ -49,12 +54,12 @@ class TournamentCreationController {
     String? communityId,
   }) {
     return CreatedTournament(
+      boardCount: boardCount.clamp(1, 64),
       name: name.trim().isEmpty ? 'Neues Turnier' : name.trim(),
       players: List.unmodifiable(players),
       stages: List.unmodifiable(stages),
       runStages: runStages,
       communityId: communityId,
     );
-
   }
 }

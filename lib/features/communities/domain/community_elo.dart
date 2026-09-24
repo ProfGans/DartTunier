@@ -2,6 +2,7 @@ import 'dart:math';
 
 import '../../tournaments/domain/tournament_models.dart';
 import 'community.dart';
+import 'community_member_identity.dart';
 
 const int communityInitialElo = 1000;
 const int communityEloKFactor = 32;
@@ -50,41 +51,87 @@ class CommunityEloCalculator {
   }) {
     final cutoffYear = (now ?? DateTime.now()).year;
     final entries = <String, CommunityEloEntry>{
-      for (final member in members) _idForMember(member): CommunityEloEntry(player: member),
+      for (final member in effectiveCommunityMembers(members))
+        _idForMember(member): CommunityEloEntry(player: member),
+    };
+    final aliases = <String, String>{
+      for (final entry in entries.entries)
+        for (final alias in entry.value.player.aliasProfileIds)
+          alias: entry.key,
     };
     final history = <String, List<CommunityEloHistoryItem>>{};
-    final ordered = [...tournaments]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final ordered = [...tournaments]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     for (final tournament in ordered) {
       if (currentYearOnly && tournament.createdAt.year != cutoffYear) continue;
       for (final match in _matches(tournament)) {
-        if (!match.hasResult || match.homePlayer == null || match.awayPlayer == null) continue;
-        final homeId = _idForPlayer(match.homePlayer!);
-        final awayId = _idForPlayer(match.awayPlayer!);
+        if (!match.hasResult ||
+            match.homePlayer == null ||
+            match.awayPlayer == null) {
+          continue;
+        }
+        final homeKey = _idForPlayer(match.homePlayer!);
+        final awayKey = _idForPlayer(match.awayPlayer!);
+        final homeId = aliases[homeKey] ?? homeKey;
+        final awayId = aliases[awayKey] ?? awayKey;
+        if (homeId == awayId) continue;
         final home = entries[homeId];
         final away = entries[awayId];
         if (home == null || away == null) continue;
-        final homeWon = match.homeLegs! > match.awayLegs!;
-        final awayWon = match.awayLegs! > match.homeLegs!;
+        final homeWon = match.winner == match.homePlayer;
+        final awayWon = match.winner == match.awayPlayer;
         if (!homeWon && !awayWon) continue;
-        final expectedHome = 1 / (1 + pow(10, (away.rating - home.rating) / 400));
+        final expectedHome =
+            1 / (1 + pow(10, (away.rating - home.rating) / 400));
         final expectedAway = 1 - expectedHome;
-        final homeDelta = (communityEloKFactor * ((homeWon ? 1 : 0) - expectedHome)).round();
-        final awayDelta = (communityEloKFactor * ((awayWon ? 1 : 0) - expectedAway)).round();
+        final homeDelta =
+            (communityEloKFactor * ((homeWon ? 1 : 0) - expectedHome)).round();
+        final awayDelta =
+            (communityEloKFactor * ((awayWon ? 1 : 0) - expectedAway)).round();
         home.rating += homeDelta;
         away.rating += awayDelta;
-        home.matches++; away.matches++;
-        if (homeWon) { home.wins++; away.losses++; } else { away.wins++; home.losses++; }
-        final score = '${match.homeLegs}:${match.awayLegs}';
-        (history[homeId] ??= []).add(CommunityEloHistoryItem(playedAt: tournament.createdAt, tournamentName: tournament.name, opponentName: away.player.displayName, score: score, delta: homeDelta, ratingAfter: home.rating));
-        (history[awayId] ??= []).add(CommunityEloHistoryItem(playedAt: tournament.createdAt, tournamentName: tournament.name, opponentName: home.player.displayName, score: '${match.awayLegs}:${match.homeLegs}', delta: awayDelta, ratingAfter: away.rating));
+        home.matches++;
+        away.matches++;
+        if (homeWon) {
+          home.wins++;
+          away.losses++;
+        } else {
+          away.wins++;
+          home.losses++;
+        }
+        final score = match.scoreLabel;
+        (history[homeId] ??= []).add(
+          CommunityEloHistoryItem(
+            playedAt: tournament.createdAt,
+            tournamentName: tournament.name,
+            opponentName: away.player.displayName,
+            score: score,
+            delta: homeDelta,
+            ratingAfter: home.rating,
+          ),
+        );
+        (history[awayId] ??= []).add(
+          CommunityEloHistoryItem(
+            playedAt: tournament.createdAt,
+            tournamentName: tournament.name,
+            opponentName: home.player.displayName,
+            score:
+                '${match.awayScore}:${match.homeScore}${match.hasSetScore ? ' Sets' : ''}',
+            delta: awayDelta,
+            ratingAfter: away.rating,
+          ),
+        );
       }
     }
-    final result = entries.values.toList()..sort((a, b) => b.rating.compareTo(a.rating));
+    final result = entries.values.toList()
+      ..sort((a, b) => b.rating.compareTo(a.rating));
     return CommunityEloSnapshot(entries: result, history: history);
   }
 
-  String _idForMember(CommunityMember member) => member.playerProfileId ?? member.displayName;
-  String _idForPlayer(TournamentPlayer player) => player.profileId ?? player.name;
+  String _idForMember(CommunityMember member) =>
+      member.playerProfileId ?? member.displayName;
+  String _idForPlayer(TournamentPlayer player) =>
+      player.profileId ?? player.name;
   Iterable<GroupMatch> _matches(CreatedTournament tournament) sync* {
     for (final stage in tournament.runStages) {
       if (stage is KnockoutTournamentRunStage) yield* stage.matches;

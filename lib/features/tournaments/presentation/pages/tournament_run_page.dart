@@ -17,6 +17,24 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   bool _isApplyingStartDraw = false;
   final Set<int> _completedStageIndexes = {};
   final _runController = const TournamentRunController();
+  BoardDeviceDispatcher? _deviceDispatcher;
+
+  Future<void> _openBoardDevices() async {
+    final devices = DevicesScope.maybeOf(context);
+    if (devices == null) return;
+    _deviceDispatcher ??= BoardDeviceDispatcher(devices: devices,
+      tournament: widget.tournament, activeStage: () => _activeStageIndex);
+    await _deviceDispatcher!.start();
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => BoardDeviceAssignmentPage(dispatcher: _deviceDispatcher!)));
+  }
+
+  @override
+  void dispose() {
+    _deviceDispatcher?.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -37,17 +55,33 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   }
 
   Future<void> _saveTournamentProgress() async {
-    await _runController.saveProgress(
-      tournament: widget.tournament,
-      activeStageIndex: _activeStageIndex,
-      completedStageIndexes: _completedStageIndexes,
-    );
+    try {
+      await _runController.saveProgress(
+        tournament: widget.tournament,
+        activeStageIndex: _activeStageIndex,
+        completedStageIndexes: _completedStageIndexes,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Änderungen konnten nicht gespeichert werden.'),
+          action: SnackBarAction(
+            label: 'Erneut versuchen',
+            onPressed: _saveTournamentProgress,
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _editResult(GroupMatch match) async {
     final result = await showDialog<MatchResult>(
       context: context,
-      builder: (context) => ResultDialog(match: match),
+      builder: (context) => ResultDialog(
+        match: match,
+        format: widget.tournament.stages[_activeStageIndex].gameFormat,
+      ),
     );
 
     if (result == null) {
@@ -56,8 +90,12 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
 
     setState(() {
       match.isAnnulled = result.isAnnulled;
+      match.homeSets = result.homeSets;
+      match.awaySets = result.awaySets;
       if (result.isAnnulled) {
         match.homeLegs = null;
+        match.homeSets = null;
+        match.awaySets = null;
         match.awayLegs = null;
       } else {
         match.homeLegs = result.homeLegs;
@@ -65,6 +103,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       }
       _advanceKnockoutWinners();
       _ensureGroupDeciders();
+      const OrderOfPlayController().resultRecorded(match);
     });
     await _saveTournamentProgress();
   }
@@ -72,7 +111,10 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   bool _canEditKnockoutBracket(KnockoutTournamentRunStage stage) {
     return stage.rounds.isNotEmpty &&
         stage.rounds.first.isNotEmpty &&
-        stage.matches.every((match) => !match.hasScore && !match.isAnnulled);
+        stage.matches.every(
+          (match) =>
+              !match.hasScore && !match.isAnnulled && match.startedAt == null,
+        );
   }
 
   Future<void> _swapKnockoutRunSlots(
@@ -130,6 +172,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     for (var roundIndex = 0; roundIndex < rounds.length; roundIndex++) {
       for (final match in rounds[roundIndex]) {
         match.homeLegs = null;
+        match.homeSets = null;
+        match.awaySets = null;
         match.awayLegs = null;
         match.isAnnulled = false;
         if (roundIndex > 0) {
@@ -145,6 +189,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       match.homePlayer = null;
       match.awayPlayer = null;
       match.homeLegs = null;
+      match.homeSets = null;
+      match.awaySets = null;
       match.awayLegs = null;
       match.isAnnulled = false;
     }
@@ -154,9 +200,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     for (final stage in widget.tournament.runStages) {
       if (stage is KnockoutTournamentRunStage) {
         if (stage.eliminationLossLimit == 2) {
-          _advanceDoubleEliminationRounds(stage.rounds);
-        } else if (stage.eliminationLossLimit == 3) {
-          _advanceTripleEliminationRounds(stage.rounds);
+          _advanceDoubleEliminationRounds(stage.rounds, finalEndsTournament: stage.finalEndsTournament);
+        } else if (stage.eliminationLossLimit >= 3) {
+          TripleKoEngine.advance(stage.rounds, lossLimit: stage.eliminationLossLimit, finalEndsTournament: stage.finalEndsTournament);
         } else {
           _advanceWinnersInRounds(stage.rounds);
           _advancePlacementMatches(stage.rounds, stage.placementMatches);
@@ -167,7 +213,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         for (final group in stage.groups) {
           if (_isEliminationGroupPlayType(group.playType)) {
             if (group.eliminationLossLimit == 2) {
-              _advanceDoubleEliminationRounds(group.knockoutRounds);
+              _advanceDoubleEliminationRounds(group.knockoutRounds, finalEndsTournament: group.finalEndsTournament);
               group.matches
                 ..clear()
                 ..addAll([
@@ -177,7 +223,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
               continue;
             }
             if (group.eliminationLossLimit == 3) {
-              _advanceTripleEliminationRounds(group.knockoutRounds);
+              TripleKoEngine.advance(group.knockoutRounds, lossLimit: group.eliminationLossLimit, finalEndsTournament: group.finalEndsTournament);
               group.matches
                 ..clear()
                 ..addAll([
@@ -207,6 +253,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         if (matchIndex.isEven) {
           if (targetMatch.homePlayer != winner) {
             targetMatch.homeLegs = null;
+            targetMatch.homeSets = null;
+            targetMatch.awaySets = null;
             targetMatch.awayLegs = null;
             targetMatch.isAnnulled = false;
           }
@@ -214,6 +262,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         } else {
           if (targetMatch.awayPlayer != winner) {
             targetMatch.homeLegs = null;
+            targetMatch.homeSets = null;
+            targetMatch.awaySets = null;
             targetMatch.awayLegs = null;
             targetMatch.isAnnulled = false;
           }
@@ -266,9 +316,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
 
     final sortedByTieBreakers = List<BestOfCandidate>.from(candidates)
-      ..sort(
-        (a, b) => _compareBestOfTieBreakersOnly(stage, a, b),
-      );
+      ..sort((a, b) => _compareBestOfTieBreakersOnly(stage, a, b));
     final boundaryIndex = plan.extraCount - 1;
     if (boundaryIndex < 0 || boundaryIndex >= sortedByTieBreakers.length) {
       return;
@@ -278,17 +326,23 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     final tiedAtBoundary = sortedByTieBreakers
         .where(
           (candidate) =>
-              _compareBestOfTieBreakersOnly(stage, candidate, boundaryCandidate) ==
+              _compareBestOfTieBreakersOnly(
+                stage,
+                candidate,
+                boundaryCandidate,
+              ) ==
               0,
         )
         .toList();
     final firstTiedIndex = sortedByTieBreakers.indexWhere(
       (candidate) =>
-          _compareBestOfTieBreakersOnly(stage, candidate, boundaryCandidate) == 0,
+          _compareBestOfTieBreakersOnly(stage, candidate, boundaryCandidate) ==
+          0,
     );
     final lastTiedIndex = sortedByTieBreakers.lastIndexWhere(
       (candidate) =>
-          _compareBestOfTieBreakersOnly(stage, candidate, boundaryCandidate) == 0,
+          _compareBestOfTieBreakersOnly(stage, candidate, boundaryCandidate) ==
+          0,
     );
 
     if (tiedAtBoundary.length < 2 ||
@@ -436,7 +490,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         }
         final home = match.homePlayer;
         final away = match.awayPlayer;
-        return (home == first.standing.player && away == second.standing.player) ||
+        return (home == first.standing.player &&
+                away == second.standing.player) ||
             (home == second.standing.player && away == first.standing.player);
       });
     });
@@ -461,11 +516,43 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     );
   }
 
-  void _advanceDoubleEliminationRounds(List<List<GroupMatch>> rounds) {
+  void _advanceDoubleEliminationRounds(List<List<GroupMatch>> rounds, {bool finalEndsTournament = false}) {
     _repairDoubleEliminationRoundsIfNeeded(rounds);
 
     final winnersRoundCount = _doubleWinnersRoundCount(rounds);
     final losersRoundCount = _doubleLosersRoundCount(rounds);
+    if (winnersRoundCount == 1 && losersRoundCount == 0) {
+      final opening = rounds.first.single;
+      final finalMatch = _matchesWithLabel(
+        rounds,
+        _doubleGrandFinalLabel,
+      ).single;
+      _setMatchPlayers(finalMatch, opening.winner, opening.loser);
+      final resets = _matchesWithLabel(rounds, _doubleResetFinalLabel);
+      if (!finalEndsTournament && finalMatch.hasResult && finalMatch.winner == finalMatch.awayPlayer) {
+        if (resets.isEmpty) {
+          rounds.add([
+            GroupMatch(
+              round: rounds.length + 1,
+              label: _doubleResetFinalLabel,
+              homePlayer: finalMatch.homePlayer,
+              awayPlayer: finalMatch.awayPlayer,
+            ),
+          ]);
+        } else {
+          _setMatchPlayers(
+            resets.single,
+            finalMatch.homePlayer,
+            finalMatch.awayPlayer,
+          );
+        }
+      } else {
+        rounds.removeWhere(
+          (r) => r.isNotEmpty && r.first.label == _doubleResetFinalLabel,
+        );
+      }
+      return;
+    }
     if (winnersRoundCount == 0 || losersRoundCount == 0) {
       return;
     }
@@ -491,8 +578,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       final targetLosersRoundNumber = roundNumber == 1
           ? 1
           : roundNumber == winnersRoundCount
-              ? losersRoundCount
-              : roundNumber * 2 - 2;
+          ? losersRoundCount
+          : roundNumber * 2 - 2;
       final targetLosersRound = _matchesWithLabel(
         rounds,
         _doubleLosersLabel(targetLosersRoundNumber),
@@ -503,10 +590,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
           targetLosersRound,
         );
       } else {
-        _dropWinnersLosersToLosersRound(
-          currentWinnersRound,
-          targetLosersRound,
-        );
+        _dropWinnersLosersToLosersRound(currentWinnersRound, targetLosersRound);
       }
     }
 
@@ -525,7 +609,10 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
 
       if (nextLosersRound.length == currentLosersRound.length) {
         for (var index = 0; index < currentLosersRound.length; index++) {
-          _setMatchHomePlayer(nextLosersRound[index], currentLosersRound[index].winner);
+          _setMatchHomePlayer(
+            nextLosersRound[index],
+            currentLosersRound[index].winner,
+          );
         }
       } else {
         _advancePairedWinners(currentLosersRound, nextLosersRound);
@@ -554,7 +641,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       losersFinal.isEmpty ? null : losersFinal.first.winner,
     );
 
-    if (grandFinal.first.hasResult &&
+    if (!finalEndsTournament && grandFinal.first.hasResult &&
         grandFinal.first.winner == grandFinal.first.awayPlayer &&
         _matchesWithLabel(rounds, _doubleResetFinalLabel).isEmpty) {
       rounds.add([
@@ -568,153 +655,6 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
   }
 
-  void _advanceTripleEliminationRounds(List<List<GroupMatch>> rounds) {
-    _repairTripleEliminationRoundsIfNeeded(rounds);
-
-    _advanceLossLevelWinners(rounds, 0);
-    _dropLossLevelLosersToNextLossLevel(rounds, 0);
-    _advanceLossLevelWinners(rounds, 1);
-    _dropLossLevelLosersToNextLossLevel(rounds, 1);
-    _advanceLossLevelWinners(rounds, 2);
-
-    final finalMatches = _matchesWithLabel(rounds, _tripleFinalLabel);
-    if (finalMatches.isEmpty) {
-      return;
-    }
-
-    final winnersFinal = _matchesWithLabel(
-      rounds,
-      _lossLevelMatchLabel(0, _lossLevelRoundCount(rounds, 0)),
-    );
-    final oneLossFinal = _matchesWithLabel(
-      rounds,
-      _lossLevelMatchLabel(1, _lossLevelRoundCount(rounds, 1)),
-    );
-    final twoLossFinal = _matchesWithLabel(
-      rounds,
-      _lossLevelMatchLabel(2, _lossLevelRoundCount(rounds, 2)),
-    );
-
-    _setMatchHomePlayer(
-      finalMatches.first,
-      winnersFinal.isEmpty ? null : winnersFinal.first.winner,
-    );
-    _setMatchAwayPlayer(
-      finalMatches.first,
-      twoLossFinal.isNotEmpty && twoLossFinal.first.winner != null
-          ? twoLossFinal.first.winner
-          : oneLossFinal.isEmpty
-              ? null
-              : oneLossFinal.first.winner,
-    );
-  }
-
-  void _repairTripleEliminationRoundsIfNeeded(List<List<GroupMatch>> rounds) {
-    if (rounds.isEmpty || rounds.first.isEmpty) {
-      return;
-    }
-
-    if (_matchesWithLabel(rounds, _lossLevelMatchLabel(1, 1)).isNotEmpty &&
-        _matchesWithLabel(rounds, _lossLevelMatchLabel(2, 1)).isNotEmpty &&
-        _matchesWithLabel(rounds, _tripleFinalLabel).isNotEmpty) {
-      return;
-    }
-
-    final repairedRounds = _buildTripleEliminationRoundsFromFirstRound(
-      rounds.first,
-    );
-    rounds
-      ..clear()
-      ..addAll(repairedRounds);
-  }
-
-  void _advanceLossLevelWinners(
-    List<List<GroupMatch>> rounds,
-    int lossCount,
-  ) {
-    final roundCount = _lossLevelRoundCount(rounds, lossCount);
-    for (var roundNumber = 2; roundNumber <= roundCount; roundNumber++) {
-      final previous = lossCount == 0 && roundNumber == 2
-          ? _lossLevelMatches(
-              rounds,
-              lossCount,
-              roundNumber - 1,
-              includeAutoAdvances: true,
-            )
-          : _lossLevelMatches(rounds, lossCount, roundNumber - 1);
-      final current = _lossLevelMatches(rounds, lossCount, roundNumber);
-      if (previous.isEmpty || current.isEmpty) {
-        continue;
-      }
-
-      if (current.length == previous.length) {
-        for (var index = 0; index < current.length; index++) {
-          _setMatchHomePlayer(current[index], previous[index].winner);
-        }
-      } else {
-        _advancePairedWinners(previous, current);
-      }
-    }
-  }
-
-  void _dropLossLevelLosersToNextLossLevel(
-    List<List<GroupMatch>> rounds,
-    int sourceLossCount,
-  ) {
-    final targetLossCount = sourceLossCount + 1;
-    final sourceRoundCount = _lossLevelRoundCount(rounds, sourceLossCount);
-    final targetRoundCount = _lossLevelRoundCount(rounds, targetLossCount);
-    if (sourceRoundCount == 0 || targetRoundCount == 0) {
-      return;
-    }
-
-    for (var roundNumber = 1; roundNumber <= sourceRoundCount; roundNumber++) {
-      final sourceRound = _lossLevelMatches(
-        rounds,
-        sourceLossCount,
-        roundNumber,
-        includeAutoAdvances: sourceLossCount == 0 && roundNumber == 1,
-      );
-      if (sourceRound.isEmpty) {
-        continue;
-      }
-
-      final targetRoundNumber = roundNumber == 1
-          ? 1
-          : roundNumber == sourceRoundCount
-              ? targetRoundCount
-              : roundNumber * 2 - 2;
-      final targetRound = _lossLevelMatches(
-        rounds,
-        targetLossCount,
-        targetRoundNumber,
-      );
-      if (targetRound.isEmpty) {
-        continue;
-      }
-
-      if (roundNumber == 1) {
-        _dropFirstWinnersLosersToInitialLosersRound(sourceRound, targetRound);
-      } else {
-        _dropWinnersLosersToLosersRound(sourceRound, targetRound);
-      }
-    }
-  }
-
-  List<GroupMatch> _lossLevelMatches(
-    List<List<GroupMatch>> rounds,
-    int lossCount,
-    int roundNumber, {
-    bool includeAutoAdvances = false,
-  }) {
-    if (lossCount == 0 &&
-        roundNumber == 1 &&
-        includeAutoAdvances &&
-        rounds.isNotEmpty) {
-      return rounds.first;
-    }
-    return _matchesWithLabel(rounds, _lossLevelMatchLabel(lossCount, roundNumber));
-  }
 
   void _repairDoubleEliminationRoundsIfNeeded(List<List<GroupMatch>> rounds) {
     if (!_doubleEliminationRoundsNeedRepair(rounds)) {
@@ -766,34 +706,16 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       losers.add(loser);
     }
 
-    for (var matchIndex = 0; matchIndex < losersRound.length; matchIndex++) {
-      _setMatchPlayers(losersRound[matchIndex], null, null);
-    }
-
-    if (losers.length <= losersRound.length) {
-      for (var index = 0; index < losers.length; index++) {
-        final targetIndex = (index * losersRound.length) ~/ losers.length;
-        _setMatchPlayers(losersRound[targetIndex], losers[index], null);
-      }
-      return;
-    }
-
+    final slots = List<TournamentPlayer?>.filled(losersRound.length * 2, null);
     for (var index = 0; index < losers.length; index++) {
-      var targetIndex = (index * losersRound.length) ~/ losers.length;
-      while (targetIndex < losersRound.length &&
-          losersRound[targetIndex].homePlayer != null &&
-          losersRound[targetIndex].awayPlayer != null) {
-        targetIndex++;
+      var slot = ((index * losersRound.length) ~/ losers.length) * 2;
+      while (slot < slots.length && slots[slot] != null) {
+        slot++;
       }
-      if (targetIndex >= losersRound.length) {
-        break;
-      }
-      final targetMatch = losersRound[targetIndex];
-      if (targetMatch.homePlayer == null) {
-        _setMatchHomePlayer(targetMatch, losers[index]);
-      } else {
-        _setMatchAwayPlayer(targetMatch, losers[index]);
-      }
+      if (slot < slots.length) slots[slot] = losers[index];
+    }
+    for (var i = 0; i < losersRound.length; i++) {
+      _setMatchPlayers(losersRound[i], slots[i * 2], slots[i * 2 + 1]);
     }
   }
 
@@ -813,6 +735,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   void _setMatchHomePlayer(GroupMatch match, TournamentPlayer? player) {
     if (match.homePlayer != player) {
       match.homeLegs = null;
+      match.homeSets = null;
+      match.awaySets = null;
       match.awayLegs = null;
       match.isAnnulled = false;
     }
@@ -822,6 +746,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   void _setMatchAwayPlayer(GroupMatch match, TournamentPlayer? player) {
     if (match.awayPlayer != player) {
       match.homeLegs = null;
+      match.homeSets = null;
+      match.awaySets = null;
       match.awayLegs = null;
       match.isAnnulled = false;
     }
@@ -934,11 +860,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
 
       for (var first = 0; first < tied.length; first++) {
         for (var second = first + 1; second < tied.length; second++) {
-          _addDeciderIfMissing(
-            group,
-            tied[first].player,
-            tied[second].player,
-          );
+          _addDeciderIfMissing(group, tied[first].player, tied[second].player);
         }
       }
     }
@@ -997,7 +919,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       }
       final home = match.homePlayer;
       final away = match.awayPlayer;
-      return (home == first && away == second) || (home == second && away == first);
+      return (home == first && away == second) ||
+          (home == second && away == first);
     });
     if (alreadyExists) {
       return;
@@ -1026,6 +949,10 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     List<List<GroupMatch>> rounds,
     List<GroupMatch> placementMatches,
   ) {
+    if (placementMatches.any((m) => m.placementKey != null)) {
+      PlacementEngine.advance(rounds, placementMatches);
+      return;
+    }
     if (rounds.length >= 2 && placementMatches.isNotEmpty) {
       final semifinalRound = rounds.last.length >= 2
           ? rounds.last
@@ -1084,7 +1011,11 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
           ? null
           : fifthFinalMatches.first;
       if (fifthFinal != null && fifthSemis.length >= 2) {
-        _setMatchPlayers(fifthFinal, fifthSemis[0].winner, fifthSemis[1].winner);
+        _setMatchPlayers(
+          fifthFinal,
+          fifthSemis[0].winner,
+          fifthSemis[1].winner,
+        );
       }
 
       final seventhPlaceMatches = placementMatches
@@ -1107,6 +1038,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   ) {
     if (match.homePlayer != homePlayer || match.awayPlayer != awayPlayer) {
       match.homeLegs = null;
+      match.homeSets = null;
+      match.awaySets = null;
       match.awayLegs = null;
       match.isAnnulled = false;
     }
@@ -1139,11 +1072,11 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       away.legsFor += awayLegs;
       away.legsAgainst += homeLegs;
 
-      if (homeLegs > awayLegs) {
+      if (match.winner == match.homePlayer) {
         home.wins++;
         home.points += 3;
         away.losses++;
-      } else if (awayLegs > homeLegs) {
+      } else if (match.winner == match.awayPlayer) {
         away.wins++;
         away.points += 3;
         home.losses++;
@@ -1200,7 +1133,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     PlayerStanding b,
     List<GroupMatch> matches,
   ) {
-    for (final match in matches.where((match) => match.isDecider && match.hasResult)) {
+    for (final match in matches.where(
+      (match) => match.isDecider && match.hasResult,
+    )) {
       final home = match.homePlayer!;
       final away = match.awayPlayer!;
       final isDirectMatch =
@@ -1243,9 +1178,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       aLegs += aMatchLegs;
       bLegs += bMatchLegs;
 
-      if (aMatchLegs > bMatchLegs) {
+      if (match.winner?.name == a.player.name) {
         aPoints += 3;
-      } else if (bMatchLegs > aMatchLegs) {
+      } else if (match.winner?.name == b.player.name) {
         bPoints += 3;
       } else {
         aPoints++;
@@ -1262,7 +1197,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
 
   bool _stageHasOpenMatches(TournamentRunStage stage) {
     if (stage is KnockoutTournamentRunStage) {
-      return !_knockoutHasWinner(stage) || _hasOpenPlacementMatches(stage.placementMatches);
+      return !_knockoutHasWinner(stage) ||
+          _hasOpenPlacementMatches(stage.placementMatches);
     }
     if (stage is GroupTournamentRunStage) {
       return stage.groups.any((group) {
@@ -1283,6 +1219,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   }
 
   bool _knockoutHasWinner(KnockoutTournamentRunStage stage) {
+    if (stage.finalEndsTournament && stage.rounds.isNotEmpty && stage.rounds.last.length == 1 && stage.rounds.last.single.hasResult && (stage.rounds.last.single.label == _doubleGrandFinalLabel || stage.rounds.last.single.label == _tripleFinalLabel)) return true;
     if (stage.eliminationLossLimit > 1) {
       return stage.rounds.isNotEmpty &&
           stage.rounds.last.every((match) => match.isResolved) &&
@@ -1304,6 +1241,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     int groupIndex,
   ) {
     final requiredRank = _requiredRankForGroupStage(stage, groupIndex);
+    if (group.placementMatches.any((m) => m.placementKey != null)) {
+      return group.knockoutRounds.isNotEmpty && group.knockoutRounds.last.single.isResolved && !_hasOpenPlacementMatches(group.placementMatches);
+    }
     if (requiredRank >= group.players.length) {
       return true;
     }
@@ -1311,7 +1251,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       return false;
     }
 
+    if (_hasOpenPlacementMatches(group.placementMatches)) return false;
     if (group.eliminationLossLimit > 1) {
+      if (group.finalEndsTournament && group.knockoutRounds.last.length == 1 && group.knockoutRounds.last.single.hasResult && (group.knockoutRounds.last.single.label == _doubleGrandFinalLabel || group.knockoutRounds.last.single.label == _tripleFinalLabel)) return true;
       return _activeEliminationPlayers(
             group.knockoutRounds,
             group.eliminationLossLimit,
@@ -1323,13 +1265,17 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         !_hasOpenPlacementMatches(group.placementMatches);
   }
 
-  int _requiredRankForGroupStage(GroupTournamentRunStage stage, int groupIndex) {
+  int _requiredRankForGroupStage(
+    GroupTournamentRunStage stage,
+    int groupIndex,
+  ) {
     final plan = stage.qualificationPlan;
     if (plan == null) {
       return 1;
     }
 
-    final fixedForGroup = groupIndex >= 0 && groupIndex < plan.fixedByGroup.length
+    final fixedForGroup =
+        groupIndex >= 0 && groupIndex < plan.fixedByGroup.length
         ? plan.fixedByGroup[groupIndex]
         : plan.fixedPerGroup;
     final groupNumber = groupIndex + 1;
@@ -1398,6 +1344,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
           stage.rounds,
           stage.eliminationLossLimit,
           fallbackPlayers: const [],
+          finalEndsTournament: stage.finalEndsTournament,
         );
       }
       return _knockoutRanking(
@@ -1415,8 +1362,18 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       return widget.tournament.runStages[stageIndex];
     }
 
-    var incomingPlayers = _advancingPlayersFromStage(
+    // Qualification and seeding remain provisional until the source stage is
+    // completed. Preview the bracket structure without presenting live table
+    // positions as confirmed participants (including possible bye recipients).
+    final qualifierCount = _advancingPlayersFromStage(
       widget.tournament.runStages[_activeStageIndex],
+    ).length;
+    var incomingPlayers = List.generate(
+      qualifierCount,
+      (index) => TournamentPlayer(
+        name: 'Qualifikant ${index + 1} (noch offen)',
+        isGenerated: true,
+      ),
     );
     late TournamentRunStage previewStage;
 
@@ -1440,7 +1397,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   List<TournamentPlayer> _advancingPlayersFromGroupStage(
     GroupTournamentRunStage stage,
   ) {
-    if (stage.groups.any((group) => _isEliminationGroupPlayType(group.playType))) {
+    if (stage.groups.any(
+      (group) => _isEliminationGroupPlayType(group.playType),
+    )) {
       return _advancingPlayersFromMixedGroups(stage);
     }
 
@@ -1495,7 +1454,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     return advancingPlayers;
   }
 
-  List<TournamentPlayer> _advancingPlayersFromMixedGroups(GroupTournamentRunStage stage) {
+  List<TournamentPlayer> _advancingPlayersFromMixedGroups(
+    GroupTournamentRunStage stage,
+  ) {
     final plan = stage.qualificationPlan;
     if (plan == null) {
       return [
@@ -1536,9 +1497,10 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       return _miniKnockoutRankingForGroup(group);
     }
 
-    return _standingsFor(group, stage.tieBreakers)
-        .map((standing) => standing.player)
-        .toList();
+    return _standingsFor(
+      group,
+      stage.tieBreakers,
+    ).map((standing) => standing.player).toList();
   }
 
   List<TournamentPlayer> _miniKnockoutRankingForGroup(TournamentGroup group) {
@@ -1547,6 +1509,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         group.knockoutRounds,
         group.eliminationLossLimit,
         fallbackPlayers: group.players,
+        finalEndsTournament: group.finalEndsTournament,
       );
     }
 
@@ -1560,6 +1523,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   List<TournamentPlayer> _multiEliminationRanking(
     List<List<GroupMatch>> rounds,
     int lossLimit, {
+    bool finalEndsTournament = false,
     required List<TournamentPlayer> fallbackPlayers,
   }) {
     final players = _playersInEliminationRounds(rounds);
@@ -1580,6 +1544,13 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
 
     final ranked = [...players];
     ranked.sort((a, b) {
+      if (finalEndsTournament && rounds.isNotEmpty && rounds.last.length == 1 && rounds.last.single.hasResult && (rounds.last.single.label == _doubleGrandFinalLabel || rounds.last.single.label == _tripleFinalLabel)) {
+        final finalMatch = rounds.last.single;
+        if (a.name == finalMatch.winner?.name) return -1;
+        if (b.name == finalMatch.winner?.name) return 1;
+        if (a.name == finalMatch.loser?.name) return -1;
+        if (b.name == finalMatch.loser?.name) return 1;
+      }
       final aLosses = losses[a.name] ?? 0;
       final bLosses = losses[b.name] ?? 0;
       final lossCompare = aLosses.compareTo(bLosses);
@@ -1673,7 +1644,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       addPlayer(player);
     }
 
-    return rankedPlayers;
+    return PlacementEngine.applyRanking(rankedPlayers, placementMatches);
   }
 
   TournamentRunStage _buildRunStageFromPlayers(
@@ -1685,27 +1656,68 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
           ? players.length
           : stage.knockoutParticipantCount!.clamp(0, players.length).toInt();
       final participants = players.take(participantCount).toList();
-      final lossLimit = _lossLimitForStageType(stage.type);
+      var slots = stage.knockoutSlotOrder;
+      final stageIndex = widget.tournament.stages.indexOf(stage);
+      if (stage.knockoutSeedingMode == 'cross' &&
+          !stage.knockoutDrawOnStart &&
+          stageIndex > 0 &&
+          stageIndex - 1 < widget.tournament.runStages.length) {
+        final source = widget.tournament.runStages[stageIndex - 1];
+        if (source is GroupTournamentRunStage &&
+            source.groups.every(
+              (group) => !_isEliminationGroupPlayType(group.playType),
+            )) {
+          final candidates = <BestOfCandidate>[];
+          for (var index = 0; index < source.groups.length; index++) {
+            final standings = _standingsFor(
+              source.groups[index],
+              source.tieBreakers,
+            );
+            for (var place = 0; place < standings.length; place++) {
+              candidates.add(
+                BestOfCandidate(
+                  groupName: source.groups[index].name,
+                  groupNumber: index + 1,
+                  place: place + 1,
+                  standing: standings[place],
+                ),
+              );
+            }
+          }
+          final defaultSlots = [
+            for (final seed in _seedOrderForSize(
+              _nextPowerOfTwo(participants.length),
+            ))
+              seed <= participants.length ? seed : null,
+          ];
+          slots = const GroupByeSeeding().assign(
+            slots: slots.isEmpty ? defaultSlots : slots,
+            players: participants,
+            candidates: candidates,
+            tieBreakers: source.tieBreakers,
+          );
+        }
+      }
+      final lossLimit = stage.lossLimit;
       return KnockoutTournamentRunStage(
         name: stage.name,
         rounds: lossLimit == 1
-            ? _buildKnockoutRoundsForPlayers(
-                participants,
-                slotOrder: stage.knockoutSlotOrder,
-              )
+            ? _buildKnockoutRoundsForPlayers(participants, slotOrder: slots)
             : lossLimit == 2
-                ? _buildDoubleEliminationRoundsForPlayers(
-                    participants,
-                    slotOrder: stage.knockoutSlotOrder,
-                  )
+            ? _buildDoubleEliminationRoundsForPlayers(
+                participants,
+                slotOrder: slots,
+              )
             : _buildTripleEliminationRoundsForPlayers(
                 participants,
-                slotOrder: stage.knockoutSlotOrder,
+                lossLimit: lossLimit,
+                slotOrder: slots,
               ),
         placementMatches: lossLimit == 1
-            ? _buildPlacementMatchesForPlayers(participants.length, 1)
+            ? stage.placementPlaces.isEmpty ? _buildPlacementMatchesForPlayers(participants.length, 1) : PlacementEngine.build(_buildKnockoutRoundsForPlayers(participants, slotOrder: slots), stage.placementPlaces.where((p) => p < participants.length))
             : const [],
         eliminationLossLimit: lossLimit,
+        finalEndsTournament: stage.finalEndsTournament,
       );
     }
 
@@ -1860,7 +1872,10 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
 
     final incomingPlayers = _incomingPlayersForStage(_activeStageIndex);
-    final participantCount = _drawParticipantCount(stageConfig, incomingPlayers);
+    final participantCount = _drawParticipantCount(
+      stageConfig,
+      incomingPlayers,
+    );
     if (participantCount < 2) {
       return;
     }
@@ -1880,8 +1895,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
             ? participantCount
             : _drawBracketSize(stageConfig, participantCount),
         useBracketSlots: stageConfig.type != 'groups',
-        groupSizes:
-            stageConfig.type == 'groups' ? stageConfig.groupSizes : const [],
+        groupSizes: stageConfig.type == 'groups'
+            ? stageConfig.groupSizes
+            : const [],
       ),
     );
     _isApplyingStartDraw = false;
@@ -1917,7 +1933,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       return List<TournamentPlayer>.from(widget.tournament.players);
     }
 
-    return _advancingPlayersFromStage(widget.tournament.runStages[stageIndex - 1]);
+    return _advancingPlayersFromStage(
+      widget.tournament.runStages[stageIndex - 1],
+    );
   }
 
   int _drawParticipantCount(
@@ -1985,14 +2003,18 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     final nextStageIndex = _activeStageIndex + 1;
     final hasNextStage = nextStageIndex < widget.tournament.runStages.length;
     final advancingPlayers = hasNextStage
-        ? _advancingPlayersFromStage(widget.tournament.runStages[_activeStageIndex])
+        ? _advancingPlayersFromStage(
+            widget.tournament.runStages[_activeStageIndex],
+          )
         : const <TournamentPlayer>[];
 
     setState(() {
       if (hasNextStage) {
         final nextStageConfig = widget.tournament.stages[nextStageIndex];
-        widget.tournament.runStages[nextStageIndex] =
-            _buildRunStageFromPlayers(nextStageConfig, advancingPlayers);
+        widget.tournament.runStages[nextStageIndex] = _buildRunStageFromPlayers(
+          nextStageConfig,
+          advancingPlayers,
+        );
       }
 
       _completedStageIndexes.add(_activeStageIndex);
@@ -2025,6 +2047,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         if (match.hasPlayers && !match.isResolved) {
           match.isAnnulled = true;
           match.homeLegs = null;
+          match.homeSets = null;
+          match.awaySets = null;
           match.awayLegs = null;
         }
       }
@@ -2048,6 +2072,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       appBar: AppBar(
         title: Text(widget.tournament.name),
         actions: [
+          IconButton(tooltip: 'Boards auf Geräte übertragen',
+            onPressed: _openBoardDevices, icon: const Icon(Icons.connected_tv)),
           TextButton.icon(
             onPressed: () {
               Navigator.of(context).popUntil((route) => route.isFirst);
@@ -2071,6 +2097,16 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 });
               },
             ),
+            if (_viewStageIndex < widget.tournament.stages.length)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Text(
+                  widget.tournament.stages[_viewStageIndex].gameFormat.label,
+                ),
+              ),
             StageViewModeSwitch(
               selectedMode: _stageViewMode,
               onModeChanged: (mode) {
@@ -2083,6 +2119,15 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  if (!isViewingActiveStage &&
+                      _viewStageIndex > _activeStageIndex &&
+                      _stageViewMode != StageViewMode.orderOfPlay)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Vorschau: Teilnehmer und Setzung stehen erst nach Abschluss der vorherigen Etappe fest.',
+                      ),
+                    ),
                   if (_stageViewMode == StageViewMode.overview) ...[
                     if (activeStage is GroupTournamentRunStage)
                       GroupStageRunSection(
@@ -2091,7 +2136,12 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                         onEditResult: _editResult,
                         canEditResults: canEditResults,
                         miniKnockoutBracketBuilder:
-                            (group, qualifyingRank, onEditResult, canEditResults) {
+                            (
+                              group,
+                              qualifyingRank,
+                              onEditResult,
+                              canEditResults,
+                            ) {
                               return _KnockoutBracketView(
                                 stage: KnockoutTournamentRunStage(
                                   name: group.name,
@@ -2116,7 +2166,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                         canEditResults: canEditResults,
                         isEditMode: _isBracketEditMode && canEditResults,
                         canEditBracket:
-                            canEditResults && _canEditKnockoutBracket(activeStage),
+                            canEditResults &&
+                            _canEditKnockoutBracket(activeStage),
                         onEditModeChanged: (enabled) {
                           setState(() {
                             _isBracketEditMode = enabled;
@@ -2149,7 +2200,17 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                               );
                             },
                       ),
-                  ] else
+                  ] else if (_stageViewMode == StageViewMode.orderOfPlay)
+                    OrderOfPlaySection(
+                      tournament: widget.tournament,
+                      activeStage: _activeStageIndex,
+                      onResult: _editResult,
+                      onChange: () async {
+                        setState(() {});
+                        await _saveTournamentProgress();
+                      },
+                    )
+                  else
                     StagePlayOrderSection(
                       stage: activeStage,
                       matches: _matchesForStage(activeStage),
@@ -2163,7 +2224,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
               canCompleteStage: canCompleteStage,
               isLastStage: isLastStage,
               isViewingActiveStage: isViewingActiveStage,
-              activeStageName: widget.tournament.runStages[_activeStageIndex].name,
+              activeStageName:
+                  widget.tournament.runStages[_activeStageIndex].name,
               onCompleteStage: _completeCurrentStage,
               onFinishEarly: _finishCurrentStageEarly,
             ),
@@ -2173,4 +2235,3 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     );
   }
 }
-

@@ -1,3 +1,5 @@
+import '../../domain/engines/placement_engine.dart';
+import '../../domain/knockout_round_names.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/tournament_models.dart';
@@ -416,11 +418,11 @@ class _ResultMatchCard extends StatelessWidget {
     final away = match.awayPlayer?.name ?? 'Noch offen';
     final score = match.isAnnulled
         ? 'Annulliert'
-        : match.hasResult ? '${match.homeLegs} : ${match.awayLegs}' : 'Noch nicht gespielt';
+        : match.hasResult ? match.scoreLabel : 'Noch nicht gespielt';
     final highlightHome = highlightPlayer?.name == home;
     final highlightAway = highlightPlayer?.name == away;
     return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('${entry.stageName} · ${match.label ?? 'Runde ${match.round}'}', style: Theme.of(context).textTheme.labelLarge),
+      Text('${entry.stageName} · ${entry.roundName}', style: Theme.of(context).textTheme.labelLarge),
       const SizedBox(height: 6),
       Text('$home  $score  $away', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
       if (highlightHome || highlightAway) Padding(padding: const EdgeInsets.only(top: 4), child: Text(highlightHome ? '$home spielte zuhause' : '$away spielte auswärts')),
@@ -429,18 +431,19 @@ class _ResultMatchCard extends StatelessWidget {
 }
 
 class _ResultMatch {
-  const _ResultMatch(this.stageName, this.match);
+  const _ResultMatch(this.stageName, this.match, this.roundName);
   final String stageName;
+  final String roundName;
   final GroupMatch match;
 }
 
 List<_ResultMatch> _resultMatches(CreatedTournament tournament) => [
   for (final stage in tournament.runStages)
     if (stage is KnockoutTournamentRunStage)
-      for (final match in stage.matches) _ResultMatch(stage.name, match)
+      for (final match in stage.matches) _ResultMatch(stage.name, match, stageMatchName(stage, match))
     else if (stage is GroupTournamentRunStage)
       for (final group in stage.groups)
-        for (final match in group.matches) _ResultMatch('${stage.name} · ${group.name}', match),
+        for (final match in group.matches) _ResultMatch('${stage.name} · ${group.name}', match, stageMatchName(stage, match)),
 ];
 
 class _TournamentResultSummary {
@@ -482,10 +485,10 @@ class _TournamentResultSummary {
         homeStats.legsAgainst += awayLegs;
         awayStats.legsFor += awayLegs;
         awayStats.legsAgainst += homeLegs;
-        if (homeLegs > awayLegs) {
+        if (match.winner == match.homePlayer) {
           homeStats.wins++;
           awayStats.losses++;
-        } else if (awayLegs > homeLegs) {
+        } else if (match.winner == match.awayPlayer) {
           awayStats.wins++;
           homeStats.losses++;
         }
@@ -569,6 +572,11 @@ class _TournamentResultSummary {
         if (roundComparison != 0) return roundComparison;
         return a.name.compareTo(b.name);
       });
+      if (stage.finalEndsTournament && stage.rounds.isNotEmpty && stage.rounds.last.length == 1 && stage.rounds.last.single.hasResult) {
+        final last = stage.rounds.last.single;
+        players.removeWhere((p) => p.name == last.winner?.name || p.name == last.loser?.name);
+        players.insertAll(0, [if (last.winner != null) last.winner!, if (last.loser != null) last.loser!]);
+      }
       return players;
     }
 
@@ -588,7 +596,7 @@ class _TournamentResultSummary {
         for (final match in stage.rounds[roundIndex]) add(match.loser);
       }
     }
-    return ranking;
+    return PlacementEngine.applyRanking(ranking, stage.placementMatches);
   }
 
   static void addUnique(List<TournamentPlayer> players, TournamentPlayer? player) {
