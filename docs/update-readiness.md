@@ -1,6 +1,6 @@
 # Infrastruktur und Update-Sicherheit
 
-Prüfstand: 24.09.2026. Backup/Wiederherstellung und Speichersperren sind implementiert. Android-Updateprüfung, APK-Download und Installer-Übergabe über GitHub Releases sind lokal vorbereitet; Veröffentlichung und Gerätetest stehen aus. Siehe `android-releases.md`.
+Prüfstand: 24.09.2026. Backup/Wiederherstellung und Speichersperren sind implementiert. Der erste signierte Android-Release über GitHub ist veröffentlicht. Backup und Datenerhalt beim APK-Upgrade wurden im Android-Emulator geprüft; ein physischer Gerätetest steht noch aus. Siehe `android-releases.md`.
 
 ## Speichervertrag
 

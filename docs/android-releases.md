@@ -16,7 +16,11 @@ Keystore und Passwörter nicht in Issues, Chat, Commits oder Release-Assets ver�
 
 Mit installierter und angemeldeter GitHub CLI lassen sich die vier Secrets über `tool/set_android_release_secrets.ps1` übertragen. Das Skript liest die lokalen Werte, übergibt sie über stdin und gibt sie nicht aus. Am 24.09.2026 wurden alle vier Secrets im Repository eingerichtet und eine geprüfte Schlüsselkopie im vom Besitzer bestimmten Backup-Ordner abgelegt. Die Cloud-Synchronisierung dieser Kopie muss separat kontrolliert werden.
 
-Prüfstand: Release-APK `1.0.0+2` lokal erfolgreich gebaut, Signatur mit `apksigner verify` bestätigt. Zertifikat-SHA256: `f14e4dfcfb69823a316db82558f484c0f4a49fd3a68bbf2a3f7e70a2127d884a`. Kein Android-Testgerät verbunden, Installation/Upgrade noch nicht praktisch geprüft.
+Prüfstand 24.09.2026: Release `v1.0.0+2` ist unter https://github.com/ProfGans/DartTunier/releases/tag/v1.0.0%2B2 veröffentlicht. Die verwendete APK stammt aus dem erfolgreichen GitHub-Workflow https://github.com/ProfGans/DartTunier/actions/runs/36023666231. Der erste Build wurde nach Korrektur der Workflow-Konfiguration manuell gestartet; zukünftige Versionstags starten den korrigierten Workflow automatisch.
+
+Die Signatur der GitHub-APK wurde mit `apksigner verify` bestätigt. Zertifikat-SHA256: `f14e4dfcfb69823a316db82558f484c0f4a49fd3a68bbf2a3f7e70a2127d884a`.
+
+Im isolierten Android-Emulator (API 36) wurden Backup-Import und -Export über die echten Systemdialoge getestet. Anschließend wurde die GitHub-APK mit Buildnummer 2 ohne Deinstallation über eine ältere, gleich signierte Testversion mit Buildnummer 1 installiert. Die Vorher-/Nachher-Exporte haben für alle vier Speicher identische SHA256-Prüfsummen: `tournaments.json`, `app_database.sqlite`, `planning_settings.json`, `devices.json`. Das Testturnier einschließlich Ergebnis 2:1 blieb erhalten. Die Update-Seite erkennt anschließend Build 2 als aktuell. Ein physisches Android-Gerät und der komplette Download-/Installieren-Button-Ablauf wurden dabei nicht getestet; das APK-Upgrade erfolgte per ADB.
 
 ## Eine Version veröffentlichen
 
@@ -34,4 +38,4 @@ Der Benutzer bestätigt die eigentliche Installation in Android. Nach Öffnen de
 
 **Erste Umstellung von Debug auf Release:** Android akzeptiert wegen der unterschiedlichen Signaturen kein direktes Update. Vor jeder Deinstallation muss ein externes Backup nachweislich vorliegen. Der Android-Export nutzt jetzt den systemeigenen Dokumentdialog (z.B. Downloads); Import verwendet die Datei-Auswahl. Zuerst eine mit dem bisherigen Debug-Schlüssel gebaute Zwischenversion mit dieser Backup-Funktion installieren und den Export auf dem Gerät prüfen. Erst danach gegebenenfalls Debug-App deinstallieren, Release-App installieren und externes Backup importieren. Keinesfalls ohne Sicherung deinstallieren.
 
-Release-Prüfung: Workflow, signierte APK und In-place-Upgrade vor Veröffentlichung kontrollieren. Der Workflow veröffentlicht absichtlich nicht selbständig. Der bisherige lokale Teststand ersetzt keinen Android-Installations- und Datenerhalt-Test.
+Release-Prüfung: Workflow, signierte APK und In-place-Upgrade vor jeder weiteren Veröffentlichung kontrollieren. Der Workflow veröffentlicht absichtlich nicht selbständig.
