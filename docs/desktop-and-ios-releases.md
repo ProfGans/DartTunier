@@ -30,6 +30,11 @@ Update-Suche innerhalb der App ist weiterhin nur für Android implementiert.
 Vor Veröffentlichung auf den jeweiligen Zielsystemen starten und Backup/Restore prüfen.
 Ein erfolgreicher Compilerlauf allein ist kein Laufzeittest.
 
+Erster GitHub-Testlauf: https://github.com/ProfGans/DartTunier/actions/runs/36187520493
+Die Pakete dieses manuellen Laufs liegen unter Actions → Artifacts; sie werden
+nicht nachträglich an den alten Versionstag gehängt. Der nächste neue Versionstag
+verwendet den gemeinsamen Release-Ablauf.
+
 Referenzen:
 - https://docs.flutter.dev/deployment/ios
 - https://docs.flutter.dev/deployment/macos
