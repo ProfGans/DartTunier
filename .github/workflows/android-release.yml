@@ -1,4 +1,4 @@
-name: Android Release
+name: App Release
 
 on:
   push:
@@ -71,11 +71,113 @@ jobs:
         with:
           name: android-release-apk
           path: dist/*
-      - name: Create draft release
-        if: github.ref_type == 'tag'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "Android $RELEASE_TAG" --generate-notes
       - name: Remove signing material
         if: always()
         run: rm -f android/key.properties "$RUNNER_TEMP/android-release.jks"
+
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            runner: windows-2022
+          - platform: linux
+            runner: ubuntu-22.04
+          - platform: macos
+            runner: macos-14
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4'
+          channel: stable
+          cache: true
+      - name: Linux dependencies
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - run: flutter pub get --enforce-lockfile
+      - name: Build desktop app
+        run: flutter build ${{ matrix.platform }} --release
+      - name: Package Windows bundle
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath dist/dart-turnier-windows-x64.zip
+      - name: Package Linux bundle
+        if: matrix.platform == 'linux'
+        run: |
+          mkdir -p dist
+          tar -czf dist/dart-turnier-linux-x64.tar.gz -C build/linux/x64/release/bundle .
+      - name: Package macOS app (not notarized)
+        if: matrix.platform == 'macos'
+        run: |
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/dart_tournament_manager.app dist/dart-turnier-macos-unnotarized.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+
+  ios-check:
+    runs-on: macos-14
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4'
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build ios --release --no-codesign
+      - name: Package unsigned build for developers only
+        run: |
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app dist/ios-unsigned-build-check.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-build-check-NOT-INSTALLABLE
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: [build, desktop]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-release-apk
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: dist
+      - name: Create checksums and draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cd dist
+          sha256sum dart-turnier-* > SHA256SUMS
+          cat > "$RUNNER_TEMP/release-notes.md" <<'EOF'
+          Android: signierte APK.
+          Windows x64: ZIP vollständig entpacken und dart_tournament_manager.exe starten. Nicht Authenticode-signiert.
+          Linux x64: vollständiges Archiv entpacken, dart_tournament_manager starten. Benötigt GTK 3 und eine mit Ubuntu 22.04 kompatible Laufzeit.
+          macOS: App-ZIP, noch ohne Developer-ID-Signierung und Apple-Notarisierung. Gatekeeper kann den Start blockieren.
+          iOS: noch kein installierbarer Download; Apple-Signierung und Vertriebsweg fehlen. Der separate Actions-Build ist nur ein unsignierter Build-Check.
+
+          Vor einem Wechsel eine Datensicherung exportieren. Automatische In-App-Updates stehen derzeit nur für Android zur Verfügung.
+          EOF
+          gh release create "$RELEASE_TAG" ./* --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "Dart Turnier $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"

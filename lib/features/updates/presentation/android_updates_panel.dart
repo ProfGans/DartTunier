@@ -17,6 +17,7 @@ class _AndroidUpdatesPanelState extends State<AndroidUpdatesPanel> {
   double? _progress;
   String _status = 'Updates für Android aus ProfGans/DartTunier.';
   String? _installed;
+  String? _backupStatus;
   AndroidRelease? _release;
 
   Future<void> _run(Future<void> Function() action) async {
@@ -49,50 +50,30 @@ class _AndroidUpdatesPanelState extends State<AndroidUpdatesPanel> {
     });
   });
 
+  Future<void> _exportBackup() => _run(() async {
+    try {
+      final saved = await exportAndroidBackup();
+      if (!mounted) return;
+      setState(
+        () => _backupStatus = saved
+            ? 'Backup am gewählten Speicherort gespeichert.'
+            : 'Speichern abgebrochen. Es wurde kein Backup exportiert.',
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () =>
+              _backupStatus = 'Backup konnte nicht gespeichert werden: $error',
+        );
+      }
+    }
+  });
   Future<void> _install() => _run(() async {
     if (!_downloaded) {
       await _service.download(_release!, (value) {
         if (mounted) setState(() => _progress = value);
       });
       _downloaded = true;
-    }
-    if (!mounted) return;
-    final backup = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Backup vor dem Update?'),
-        content: const SingleChildScrollView(
-          child: Text(
-            'Möchtest du deine Turniere, Ergebnisse und Einstellungen zusätzlich '
-            'als Backup-Datei speichern? Du wählst den Speicherort selbst.\n\n'
-            'Eine interne Sicherung wird vor der Installation automatisch erstellt. '
-            'Die exportierte Datei ist nicht verschlüsselt; bewahre sie sicher auf.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Abbrechen'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Ohne Export fortfahren'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Backup speichern und installieren'),
-          ),
-        ],
-      ),
-    );
-    if (backup == null || !mounted) return;
-    if (backup && !await exportAndroidBackup()) {
-      if (mounted) {
-        setState(
-          () => _status = 'Backup abgebrochen. Update noch nicht installiert.',
-        );
-      }
-      return;
     }
     if (!mounted) return;
     final started = await _service.install();
@@ -124,6 +105,39 @@ class _AndroidUpdatesPanelState extends State<AndroidUpdatesPanel> {
             child: const Text('Nach Updates suchen'),
           ),
           if (_release != null) ...[
+            Card(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Empfohlen: Daten vor dem Update sichern',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Speichere deine Turniere, Ergebnisse und Einstellungen '
+                      'vor der Aktualisierung als Backup-Datei außerhalb der App. '
+                      'Du kannst den Speicherort selbst wählen. '
+                      'Die Datei ist nicht verschlüsselt; bewahre sie sicher auf.',
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _exportBackup,
+                      icon: const Icon(Icons.save_alt),
+                      label: const Text('Daten sichern'),
+                    ),
+                    if (_backupStatus != null) ...[
+                      const SizedBox(height: 8),
+                      Text(_backupStatus!),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             const SizedBox(height: 16),
             Text(
               _release!.notes.isEmpty
@@ -132,7 +146,7 @@ class _AndroidUpdatesPanelState extends State<AndroidUpdatesPanel> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Vor der Installation wird dein lokaler Datenbestand gesichert. '
+              'Vor der Installation wird zusätzlich automatisch eine interne Sicherung erstellt. '
               'Android fragt nach deiner Bestätigung. Bitte die bestehende App nicht deinstallieren.',
             ),
             const SizedBox(height: 12),
