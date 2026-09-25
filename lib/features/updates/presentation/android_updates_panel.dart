@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../backups/presentation/android_backup_export.dart';
 import '../data/android_update_service.dart';
 import '../domain/android_release.dart';
 
@@ -55,6 +56,45 @@ class _AndroidUpdatesPanelState extends State<AndroidUpdatesPanel> {
       });
       _downloaded = true;
     }
+    if (!mounted) return;
+    final backup = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Backup vor dem Update?'),
+        content: const SingleChildScrollView(
+          child: Text(
+            'Möchtest du deine Turniere, Ergebnisse und Einstellungen zusätzlich '
+            'als Backup-Datei speichern? Du wählst den Speicherort selbst.\n\n'
+            'Eine interne Sicherung wird vor der Installation automatisch erstellt. '
+            'Die exportierte Datei ist nicht verschlüsselt; bewahre sie sicher auf.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Ohne Export fortfahren'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Backup speichern und installieren'),
+          ),
+        ],
+      ),
+    );
+    if (backup == null || !mounted) return;
+    if (backup && !await exportAndroidBackup()) {
+      if (mounted) {
+        setState(
+          () => _status = 'Backup abgebrochen. Update noch nicht installiert.',
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
     final started = await _service.install();
     if (mounted) {
       setState(

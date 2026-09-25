@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../data/backup_service.dart';
+import 'android_backup_export.dart';
 import 'backup_file_dialogs.dart';
 
 class BackupPanel extends StatefulWidget {
@@ -54,11 +54,8 @@ class _BackupPanelState extends State<BackupPanel> {
 
   Future<void> _export() => _run(() async {
     if (Platform.isAndroid) {
-      final bytes = await (await _service()).exportBytes();
-      final saved = await const MethodChannel(
-        'dartturnier/backups',
-      ).invokeMethod<bool>('export', bytes);
-      if (mounted && saved == true) {
+      final saved = await exportAndroidBackup(service: await _service());
+      if (mounted && saved) {
         setState(
           () => _message = 'Backup am gewählten Speicherort gespeichert.',
         );
