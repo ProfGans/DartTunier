@@ -2144,6 +2144,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
             ),
             Expanded(
               child: ListView(
+                key: ValueKey('stage-$_viewStageIndex-$_stageViewMode'),
                 padding: const EdgeInsets.all(16),
                 children: [
                   if (!isViewingActiveStage &&

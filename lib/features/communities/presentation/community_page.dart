@@ -323,7 +323,6 @@ class CommunityDetailPage extends StatelessWidget {
 
 class _CommunitySectionPage extends StatefulWidget {
   const _CommunitySectionPage({
-    super.key,
     required this.community,
     required this.repository,
     required this.area,
@@ -348,8 +347,9 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
   void initState() {
     super.initState();
     if (widget.area != CommunityArea.devices &&
-        widget.area != CommunityArea.invitations)
+        widget.area != CommunityArea.invitations) {
       _reload();
+    }
   }
 
   void _reload() {

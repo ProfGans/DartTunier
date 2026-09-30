@@ -185,7 +185,10 @@ class GroupPlayTypeSetup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Spieltyp je Gruppe', style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          'Spieltyp je Gruppe',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -195,6 +198,7 @@ class GroupPlayTypeSetup extends StatelessWidget {
               SizedBox(
                 width: 220,
                 child: DropdownButtonFormField<String>(
+                  itemHeight: null,
                   key: ValueKey(
                     'group-play-type-${index + 1}-${playTypes[index]}',
                   ),
@@ -205,10 +209,7 @@ class GroupPlayTypeSetup extends StatelessWidget {
                     labelText: groupLabel(index + 1),
                   ),
                   items: const [
-                    DropdownMenuItem(
-                      value: 'round_robin',
-                      child: Text('Liga'),
-                    ),
+                    DropdownMenuItem(value: 'round_robin', child: Text('Liga')),
                     DropdownMenuItem(
                       value: 'mini_knockout',
                       child: Text('Mini-KO'),
@@ -268,9 +269,9 @@ class StageMatchCountPreview extends StatelessWidget {
               children: [
                 Text(
                   '$matchCount Spiele in dieser Etappe',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 if (details.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -330,11 +331,11 @@ class GroupTieBreakerSetup extends StatelessWidget {
                   children: [
                     CircleAvatar(radius: 12, child: Text('${index + 1}')),
                     const SizedBox(width: 8),
-                    Text(tieBreakerLabel(tieBreakers[index])),
+                    Flexible(child: Text(tieBreakerLabel(tieBreakers[index]))),
                     IconButton(
                       constraints: const BoxConstraints.tightFor(
-                        width: 32,
-                        height: 36,
+                        width: 48,
+                        height: 48,
                       ),
                       padding: EdgeInsets.zero,
                       onPressed: index == 0
@@ -345,8 +346,8 @@ class GroupTieBreakerSetup extends StatelessWidget {
                     ),
                     IconButton(
                       constraints: const BoxConstraints.tightFor(
-                        width: 32,
-                        height: 36,
+                        width: 48,
+                        height: 48,
                       ),
                       padding: EdgeInsets.zero,
                       onPressed: index == tieBreakers.length - 1

@@ -243,6 +243,8 @@ class _ScorerPageState extends State<ScorerPage> {
               validator: _number,
             ),
             DropdownButtonFormField<StartRequirement>(
+              isExpanded: true, isDense: false,
+              itemHeight: null,
               initialValue: start,
               decoration: const InputDecoration(labelText: 'In-Regel'),
               items: const [
@@ -258,6 +260,8 @@ class _ScorerPageState extends State<ScorerPage> {
               onChanged: (v) => setState(() => start = v!),
             ),
             DropdownButtonFormField<CheckoutRequirement>(
+              isExpanded: true, isDense: false,
+              itemHeight: null,
               initialValue: checkout,
               decoration: const InputDecoration(labelText: 'Out-Regel'),
               items: [
@@ -306,6 +310,8 @@ class _ScorerPageState extends State<ScorerPage> {
               label: const Text('Teilnehmer hinzufügen'),
             ),
             DropdownButtonFormField<int>(
+              isExpanded: true, isDense: false,
+              itemHeight: null,
               key: ValueKey(participants.length),
               initialValue: starter,
               decoration: const InputDecoration(

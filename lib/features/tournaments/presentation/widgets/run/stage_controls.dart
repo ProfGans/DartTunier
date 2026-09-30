@@ -124,43 +124,59 @@ class StageViewModeSwitch extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      child: LayoutBuilder(builder: (context, constraints) {
-        if (constraints.maxWidth < 560 ||
-            MediaQuery.textScalerOf(context).scale(16) > 24) {
-          return DropdownButtonFormField<StageViewMode>(
-            initialValue: selectedMode,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Turnieransicht'),
-            items: const [
-              DropdownMenuItem(value: StageViewMode.overview, child: Text('Uebersicht')),
-              DropdownMenuItem(value: StageViewMode.playOrder, child: Text('Spielansicht')),
-              DropdownMenuItem(value: StageViewMode.orderOfPlay, child: Text('Order of Play')),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 560 ||
+              MediaQuery.textScalerOf(context).scale(16) > 24) {
+            return DropdownButtonFormField<StageViewMode>(
+              isDense: false,
+              itemHeight: null,
+              key: ValueKey(selectedMode),
+              initialValue: selectedMode,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Turnieransicht'),
+              items: const [
+                DropdownMenuItem(
+                  value: StageViewMode.overview,
+                  child: Text('Uebersicht'),
+                ),
+                DropdownMenuItem(
+                  value: StageViewMode.playOrder,
+                  child: Text('Spielansicht'),
+                ),
+                DropdownMenuItem(
+                  value: StageViewMode.orderOfPlay,
+                  child: Text('Order of Play'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) onModeChanged(value);
+              },
+            );
+          }
+          return SegmentedButton<StageViewMode>(
+            segments: const [
+              ButtonSegment(
+                value: StageViewMode.overview,
+                icon: Icon(Icons.view_agenda_outlined),
+                label: Text('Uebersicht'),
+              ),
+              ButtonSegment(
+                value: StageViewMode.playOrder,
+                icon: Icon(Icons.format_list_numbered),
+                label: Text('Spielansicht'),
+              ),
+              ButtonSegment(
+                value: StageViewMode.orderOfPlay,
+                icon: Icon(Icons.view_week_outlined),
+                label: Text('Order of Play'),
+              ),
             ],
-            onChanged: (value) { if (value != null) onModeChanged(value); },
+            selected: {selectedMode},
+            onSelectionChanged: (selection) => onModeChanged(selection.first),
           );
-        }
-        return SegmentedButton<StageViewMode>(
-        segments: const [
-          ButtonSegment(
-            value: StageViewMode.overview,
-            icon: Icon(Icons.view_agenda_outlined),
-            label: Text('Uebersicht'),
-          ),
-          ButtonSegment(
-            value: StageViewMode.playOrder,
-            icon: Icon(Icons.format_list_numbered),
-            label: Text('Spielansicht'),
-          ),
-          ButtonSegment(
-            value: StageViewMode.orderOfPlay,
-            icon: Icon(Icons.view_week_outlined),
-            label: Text('Order of Play'),
-          ),
-        ],
-        selected: {selectedMode},
-        onSelectionChanged: (selection) => onModeChanged(selection.first),
-        );
-      }),
+        },
+      ),
     );
   }
 }

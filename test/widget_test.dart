@@ -1340,7 +1340,11 @@ void main() {
     await tester.tap(find.text('1. Vorrunde'));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(ListView).last, const Offset(0, -160));
+    await tester.scrollUntilVisible(
+      find.text('Spiele').first,
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Spiele').first);
     await tester.pumpAndSettle();

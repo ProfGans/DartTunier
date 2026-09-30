@@ -79,6 +79,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
           onChanged: (value) => setState(() => score = int.tryParse(value)),
         ),
         DropdownButtonFormField<CheckoutRequirement>(
+          isExpanded: true, isDense: false,
+          itemHeight: null,
           initialValue: requirement,
           decoration: const InputDecoration(labelText: 'Out-Regel'),
           items: [

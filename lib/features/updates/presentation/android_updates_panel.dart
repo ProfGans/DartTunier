@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../backups/presentation/android_backup_export.dart';
@@ -89,7 +90,7 @@ class _AndroidUpdatesPanelState extends State<AndroidUpdatesPanel> {
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy,
-    child: ListView(
+    child: AdaptiveContentList(
       padding: const EdgeInsets.all(20),
       children: [
         Text('Updates', style: Theme.of(context).textTheme.headlineSmall),

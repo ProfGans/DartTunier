@@ -9,21 +9,21 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   void _openSettings() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
   }
 
   Future<void> _openTournamentArea() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const TournamentHomePage()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const TournamentHomePage()));
   }
 
   Future<void> _openPlayersArea() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const PlayersPage()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const PlayersPage()));
   }
 
   Future<void> _openCommunityArea() async {
@@ -62,14 +62,18 @@ class _HomePageState extends State<HomePage> {
         child: AdaptiveContentList(
           padding: const EdgeInsets.all(24),
           children: [
-            Icon(Icons.dashboard_outlined, size: 64, color: colorScheme.primary),
+            Icon(
+              Icons.dashboard_outlined,
+              size: 64,
+              color: colorScheme.primary,
+            ),
             const SizedBox(height: 16),
             Text(
               'Hauptmenue',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -80,83 +84,99 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 24),
             const AccountMenuCard(),
             const SizedBox(height: 8),
-            AdaptiveTileLayout(children: [
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.sports_score),
-                title: const Text('Scorer'),
-                subtitle: const Text('X01 spielen, gegen Bots antreten und Checkoutwege anzeigen.'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const ScorerPage()),
+            AdaptiveTileLayout(
+              children: [
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.sports_score),
+                    title: const Text('Scorer'),
+                    subtitle: const Text(
+                      'X01 spielen, gegen Bots antreten und Checkoutwege anzeigen.',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ScorerPage(),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.emoji_events_outlined),
-                title: const Text('Turniere'),
-                subtitle: const Text(
-                  'Turniere erstellen, fortsetzen und verwalten.',
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.emoji_events_outlined),
+                    title: const Text('Turniere'),
+                    subtitle: const Text(
+                      'Turniere erstellen, fortsetzen und verwalten.',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _openTournamentArea,
+                  ),
                 ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _openTournamentArea,
-              ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.groups_outlined),
-                title: const Text('Spieler'),
-                subtitle: const Text(
-                  'Spielerprofile anlegen, bearbeiten und verwalten.',
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.groups_outlined),
+                    title: const Text('Spieler'),
+                    subtitle: const Text(
+                      'Spielerprofile anlegen, bearbeiten und verwalten.',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _openPlayersArea,
+                  ),
                 ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _openPlayersArea,
-              ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.hub_outlined),
-                title: const Text('Community'),
-                subtitle: const Text(
-                  'Communities, Mitglieder und gemeinsame Turniere.',
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.hub_outlined),
+                    title: const Text('Community'),
+                    subtitle: const Text(
+                      'Communities, Mitglieder und gemeinsame Turniere.',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _openCommunityArea,
+                  ),
                 ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _openCommunityArea,
-              ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.devices_outlined),
-                title: const Text('Geräte'),
-                subtitle: const Text('Computer hinzufügen und Geräte im Netzwerk finden.'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const DevicesPage()),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.devices_outlined),
+                    title: const Text('Geräte'),
+                    subtitle: const Text(
+                      'Computer hinzufügen und Geräte im Netzwerk finden.',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DevicesPage(),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.settings_outlined),
-                title: const Text('Einstellungen'),
-                subtitle: const Text('Parameter für die passende Turnierform anpassen.'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _openSettings,
-              ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.science_outlined),
-                title: const Text('Dev Tools'),
-                subtitle: const Text('Turnierformen durchspielen und Kontrollberichte anzeigen.'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const DevToolsPage()),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.settings_outlined),
+                    title: const Text('Einstellungen'),
+                    subtitle: const Text(
+                      'Parameter für die passende Turnierform anpassen.',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _openSettings,
+                  ),
                 ),
-              ),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.science_outlined),
+                    title: const Text('Dev Tools'),
+                    subtitle: const Text(
+                      'Turnierformen durchspielen und Kontrollberichte anzeigen.',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DevToolsPage(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            ]),
           ],
         ),
       ),
@@ -196,16 +216,15 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
 
   Future<void> _openTournament(CreatedTournament tournament) async {
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _tournamentPageFor(tournament),
-      ),
+      MaterialPageRoute<void>(builder: (_) => _tournamentPageFor(tournament)),
     );
     _reloadTournaments();
   }
 
   Widget _tournamentPageFor(CreatedTournament tournament) {
     final lastStageIndex = tournament.runStages.length - 1;
-    if (lastStageIndex >= 0 && tournament.completedStageIndexes.contains(lastStageIndex)) {
+    if (lastStageIndex >= 0 &&
+        tournament.completedStageIndexes.contains(lastStageIndex)) {
       return TournamentResultsPage(tournament: tournament);
     }
     return TournamentRunPage(tournament: tournament);
@@ -216,9 +235,9 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${tournament.name} geloescht.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${tournament.name} geloescht.')));
     _reloadTournaments();
   }
 
@@ -264,9 +283,9 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
                 const SizedBox(height: 32),
                 Text(
                   'Gespeicherte Turniere',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
                 if (tournaments.isEmpty)
@@ -302,4 +321,3 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
     );
   }
 }
-

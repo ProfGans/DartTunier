@@ -47,21 +47,29 @@ class AdaptiveContentList extends StatelessWidget {
 
 /// Natural-height tiles: text scaling never has to fit a fixed grid height.
 class AdaptiveTileLayout extends StatelessWidget {
-  const AdaptiveTileLayout({super.key, required this.children});
+  const AdaptiveTileLayout({
+    super.key,
+    required this.children,
+    this.minTileWidth = 340,
+  });
 
   final List<Widget> children;
+  final double minTileWidth;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
-      final columns = (constraints.maxWidth / (340 * scale))
-          .floor().clamp(1, 3);
+      final columns = (constraints.maxWidth / (minTileWidth * scale))
+          .floor()
+          .clamp(1, 3);
       final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
       return Wrap(
         spacing: 12,
         runSpacing: 12,
-        children: [for (final child in children) SizedBox(width: width, child: child)],
+        children: [
+          for (final child in children) SizedBox(width: width, child: child),
+        ],
       );
     },
   );

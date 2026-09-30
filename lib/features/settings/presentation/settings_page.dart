@@ -16,9 +16,13 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   int _selected = 0;
+  final _panelsKey = GlobalKey();
 
   static const _sections = [
-    'Passende Turnierform', 'Datensicherung', 'Updates', 'Scorer & Bots',
+    'Passende Turnierform',
+    'Datensicherung',
+    'Updates',
+    'Scorer & Bots',
   ];
 
   @override
@@ -27,61 +31,79 @@ class _SettingsPageState extends State<SettingsPage> {
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 840 ||
+          final compact =
+              constraints.maxWidth < 840 ||
               MediaQuery.textScalerOf(context).scale(16) > 24;
           final content = Expanded(
             child: IndexedStack(
+              key: _panelsKey,
               index: _selected,
               children: const [
-                _PlanningParametersPanel(), BackupPanel(),
-                AndroidUpdatesPanel(), BotSettingsPanel(),
+                _PlanningParametersPanel(),
+                BackupPanel(),
+                AndroidUpdatesPanel(),
+                BotSettingsPanel(),
               ],
             ),
           );
           if (compact) {
-            return Column(children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: DropdownButtonFormField<int>(
-                  initialValue: _selected,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Bereich'),
-                  items: [for (var i = 0; i < _sections.length; i++)
-                    DropdownMenuItem(value: i, child: Text(_sections[i])),
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: DropdownButtonFormField<int>(
+                    isDense: false,
+                    itemHeight: null,
+                    initialValue: _selected,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Bereich'),
+                    items: [
+                      for (var i = 0; i < _sections.length; i++)
+                        DropdownMenuItem(value: i, child: Text(_sections[i])),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setState(() => _selected = value);
+                    },
+                  ),
+                ),
+                content,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: 240,
+                child: ListView(
+                  primary: false,
+                  padding: const EdgeInsets.all(8),
+                  children: [
+                    for (var i = 0; i < _sections.length; i++)
+                      ListTile(
+                        selected: _selected == i,
+                        selectedTileColor: Theme.of(
+                          context,
+                        ).colorScheme.secondaryContainer,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        title: Text(_sections[i]),
+                        onTap: () => setState(() => _selected = i),
+                      ),
                   ],
-                  onChanged: (value) {
-                    if (value != null) setState(() => _selected = value);
-                  },
                 ),
               ),
+              const VerticalDivider(width: 1),
               content,
-            ]);
-          }
-          return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            SizedBox(
-              width: 240,
-              child: ListView(
-                primary: false,
-                padding: const EdgeInsets.all(8),
-                children: [for (var i = 0; i < _sections.length; i++)
-                  ListTile(
-                    selected: _selected == i,
-                    selectedTileColor: Theme.of(context).colorScheme.secondaryContainer,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    title: Text(_sections[i]),
-                    onTap: () => setState(() => _selected = i),
-                  ),
-                ],
-              ),
-            ),
-            const VerticalDivider(width: 1),
-            content,
-          ]);
+            ],
+          );
         },
       ),
     ),
   );
 }
+
 class _PlanningParametersPanel extends StatefulWidget {
   const _PlanningParametersPanel();
 

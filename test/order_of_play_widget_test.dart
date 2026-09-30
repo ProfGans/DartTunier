@@ -74,7 +74,9 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('Order of Play'));
+    await tester.tap(find.byType(DropdownButtonFormField<StageViewMode>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Order of Play').last);
     await tester.pumpAndSettle();
     expect(find.text('Verfügbare Boards'), findsOneWidget);
     expect(tester.takeException(), isNull);

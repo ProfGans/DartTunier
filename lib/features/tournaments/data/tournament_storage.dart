@@ -78,13 +78,13 @@ class TournamentStorage {
 
   Future<List<dynamic>?> readCache(String key) => _locked(() async {
     final document = await _readDocument();
-    return (document['cache'] as Map?)?['${_userId}:$key'] as List<dynamic>?;
+    return (document['cache'] as Map?)?['$_userId:$key'] as List<dynamic>?;
   });
 
   Future<void> writeCache(String key, List<dynamic> rows) => _locked(() async {
     final document = await _readDocument();
     final cache = Map<String, dynamic>.from(document['cache'] as Map? ?? {});
-    cache['${_userId}:$key'] = rows;
+    cache['$_userId:$key'] = rows;
     document['cache'] = cache;
     await _writeDocument(document);
   });

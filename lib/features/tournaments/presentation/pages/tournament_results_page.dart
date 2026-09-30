@@ -22,9 +22,8 @@ class TournamentResultsPage extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Hauptmenue',
-            onPressed: () => Navigator.of(context).popUntil(
-              (route) => route.isFirst,
-            ),
+            onPressed: () =>
+                Navigator.of(context).popUntil((route) => route.isFirst),
             icon: const Icon(Icons.home_outlined),
           ),
         ],
@@ -72,9 +71,9 @@ class TournamentResultsPage extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               'Podium',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             if (podium.isEmpty)
@@ -92,9 +91,9 @@ class TournamentResultsPage extends StatelessWidget {
             const SizedBox(height: 24),
             Text(
               'Turnierstatistik',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             _StatisticsGrid(
@@ -105,9 +104,9 @@ class TournamentResultsPage extends StatelessWidget {
             const SizedBox(height: 24),
             Text(
               'Gesamtwertung',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -123,10 +122,8 @@ class TournamentResultsPage extends StatelessWidget {
                       place: index + 1,
                       stats: summary.ranking[index],
                       maxLegs: summary.maxLegs,
-                      onTap: () => _openPlayer(
-                        context,
-                        summary.ranking[index].player,
-                      ),
+                      onTap: () =>
+                          _openPlayer(context, summary.ranking[index].player),
                     ),
                 ],
               ),
@@ -138,30 +135,31 @@ class TournamentResultsPage extends StatelessWidget {
   }
 
   void _openPlayer(BuildContext context, TournamentPlayer player) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => TournamentPlayerResultsPage(
-        tournament: tournament,
-        player: player,
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            TournamentPlayerResultsPage(tournament: tournament, player: player),
       ),
-    ));
+    );
   }
 
-  void _openPlayerList(
-    BuildContext context,
-    _TournamentResultSummary summary,
-  ) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => TournamentPlayerListPage(
-        tournament: tournament,
-        ranking: summary.ranking,
+  void _openPlayerList(BuildContext context, _TournamentResultSummary summary) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _TournamentPlayerListPage(
+          tournament: tournament,
+          ranking: summary.ranking,
+        ),
       ),
-    ));
+    );
   }
 
   void _openMatches(BuildContext context) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => TournamentMatchesPage(tournament: tournament),
-    ));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TournamentMatchesPage(tournament: tournament),
+      ),
+    );
   }
 }
 
@@ -175,15 +173,14 @@ class _Podium extends StatelessWidget {
   Widget build(BuildContext context) {
     const medals = [Icons.looks_one, Icons.looks_two, Icons.looks_3];
     const colors = [Color(0xffffc107), Color(0xffb0bec5), Color(0xffcd7f32)];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    return AdaptiveTileLayout(
+      minTileWidth: 220,
       children: [
         for (var index = 0; index < ranking.length; index++)
-          Expanded(
-            child: InkWell(
-              onTap: () => onPlayerTap(ranking[index]),
-              borderRadius: BorderRadius.circular(12),
-              child: Card(
+          InkWell(
+            onTap: () => onPlayerTap(ranking[index]),
+            borderRadius: BorderRadius.circular(12),
+            child: Card(
               color: colors[index].withValues(alpha: .18),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -202,15 +199,12 @@ class _Podium extends StatelessWidget {
                     Text(
                       ranking[index].player.name,
                       textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
-              ),
               ),
             ),
           ),
@@ -236,9 +230,21 @@ class _StatisticsGrid extends StatelessWidget {
       spacing: 10,
       runSpacing: 10,
       children: [
-        _StatisticCard(label: 'Spieler', value: '${summary.playerCount}', onTap: onPlayersTap),
-        _StatisticCard(label: 'Spiele', value: '${summary.matchCount}', onTap: onMatchesTap),
-        _StatisticCard(label: 'Legs', value: '${summary.legCount}', onTap: onMatchesTap),
+        _StatisticCard(
+          label: 'Spieler',
+          value: '${summary.playerCount}',
+          onTap: onPlayersTap,
+        ),
+        _StatisticCard(
+          label: 'Spiele',
+          value: '${summary.matchCount}',
+          onTap: onMatchesTap,
+        ),
+        _StatisticCard(
+          label: 'Legs',
+          value: '${summary.legCount}',
+          onTap: onMatchesTap,
+        ),
         _StatisticCard(
           label: 'Legs / Spiel',
           value: summary.matchCount == 0
@@ -252,7 +258,11 @@ class _StatisticsGrid extends StatelessWidget {
 }
 
 class _StatisticCard extends StatelessWidget {
-  const _StatisticCard({required this.label, required this.value, required this.onTap});
+  const _StatisticCard({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
 
   final String label;
   final String value;
@@ -267,20 +277,20 @@ class _StatisticCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Card(
           child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
       ),
@@ -311,7 +321,9 @@ class _RankingRow extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${stats.wins} Siege · ${stats.losses} Niederlagen · ${stats.legsFor}:${stats.legsAgainst} Legs'),
+          Text(
+            '${stats.wins} Siege · ${stats.losses} Niederlagen · ${stats.legsFor}:${stats.legsAgainst} Legs',
+          ),
           const SizedBox(height: 5),
           LinearProgressIndicator(value: value),
         ],
@@ -321,9 +333,8 @@ class _RankingRow extends StatelessWidget {
   }
 }
 
-class TournamentPlayerListPage extends StatelessWidget {
-  const TournamentPlayerListPage({
-    super.key,
+class _TournamentPlayerListPage extends StatelessWidget {
+  const _TournamentPlayerListPage({
     required this.tournament,
     required this.ranking,
   });
@@ -337,19 +348,34 @@ class TournamentPlayerListPage extends StatelessWidget {
     body: AdaptiveContentList(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Spieler auswählen, um alle Begegnungen und Ergebnisse zu sehen.'),
+        const Text(
+          'Spieler auswählen, um alle Begegnungen und Ergebnisse zu sehen.',
+        ),
         const SizedBox(height: 12),
-        Card(child: Column(children: [
-          for (var index = 0; index < ranking.length; index++)
-            _RankingRow(
-              place: index + 1,
-              stats: ranking[index],
-              maxLegs: ranking.fold<int>(0, (maxLegs, entry) => entry.legsFor > maxLegs ? entry.legsFor : maxLegs),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                builder: (_) => TournamentPlayerResultsPage(tournament: tournament, player: ranking[index].player),
-              )),
-            ),
-        ])),
+        Card(
+          child: Column(
+            children: [
+              for (var index = 0; index < ranking.length; index++)
+                _RankingRow(
+                  place: index + 1,
+                  stats: ranking[index],
+                  maxLegs: ranking.fold<int>(
+                    0,
+                    (maxLegs, entry) =>
+                        entry.legsFor > maxLegs ? entry.legsFor : maxLegs,
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => TournamentPlayerResultsPage(
+                        tournament: tournament,
+                        player: ranking[index].player,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ],
     ),
   );
@@ -368,20 +394,44 @@ class TournamentPlayerResultsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final matches = _resultMatches(tournament)
-        .where((entry) => entry.match.homePlayer?.name == player.name || entry.match.awayPlayer?.name == player.name)
+        .where(
+          (entry) =>
+              entry.match.homePlayer?.name == player.name ||
+              entry.match.awayPlayer?.name == player.name,
+        )
         .toList();
     final played = matches.where((entry) => entry.match.hasResult).toList();
-    final wins = played.where((entry) => entry.match.winner?.name == player.name).length;
+    final wins = played
+        .where((entry) => entry.match.winner?.name == player.name)
+        .length;
     return Scaffold(
       appBar: AppBar(title: Text(player.name)),
-      body: AdaptiveContentList(padding: const EdgeInsets.all(16), children: [
-        Text('Ergebnisse von ${player.name}', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Text('$wins Siege aus ${played.length} gewerteten Begegnungen'),
-        const SizedBox(height: 16),
-        if (matches.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Für diesen Spieler liegen keine Begegnungen vor.')))
-        else ...matches.map((entry) => _ResultMatchCard(entry: entry, highlightPlayer: player)),
-      ]),
+      body: AdaptiveContentList(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            'Ergebnisse von ${player.name}',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text('$wins Siege aus ${played.length} gewerteten Begegnungen'),
+          const SizedBox(height: 16),
+          if (matches.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('Für diesen Spieler liegen keine Begegnungen vor.'),
+              ),
+            )
+          else
+            ...matches.map(
+              (entry) =>
+                  _ResultMatchCard(entry: entry, highlightPlayer: player),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -396,12 +446,25 @@ class TournamentMatchesPage extends StatelessWidget {
     final matches = _resultMatches(tournament);
     return Scaffold(
       appBar: AppBar(title: const Text('Alle Begegnungen')),
-      body: AdaptiveContentList(padding: const EdgeInsets.all(16), children: [
-        Text('${matches.where((entry) => entry.match.hasResult).length} gewertete Begegnungen', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 12),
-        if (matches.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Es wurden noch keine Begegnungen angelegt.')))
-        else ...matches.map((entry) => _ResultMatchCard(entry: entry)),
-      ]),
+      body: AdaptiveContentList(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            '${matches.where((entry) => entry.match.hasResult).length} gewertete Begegnungen',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          if (matches.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('Es wurden noch keine Begegnungen angelegt.'),
+              ),
+            )
+          else
+            ...matches.map((entry) => _ResultMatchCard(entry: entry)),
+        ],
+      ),
     );
   }
 }
@@ -419,15 +482,41 @@ class _ResultMatchCard extends StatelessWidget {
     final away = match.awayPlayer?.name ?? 'Noch offen';
     final score = match.isAnnulled
         ? 'Annulliert'
-        : match.hasResult ? match.scoreLabel : 'Noch nicht gespielt';
+        : match.hasResult
+        ? match.scoreLabel
+        : 'Noch nicht gespielt';
     final highlightHome = highlightPlayer?.name == home;
     final highlightAway = highlightPlayer?.name == away;
-    return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('${entry.stageName} · ${entry.roundName}', style: Theme.of(context).textTheme.labelLarge),
-      const SizedBox(height: 6),
-      Text('$home  $score  $away', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-      if (highlightHome || highlightAway) Padding(padding: const EdgeInsets.only(top: 4), child: Text(highlightHome ? '$home spielte zuhause' : '$away spielte auswärts')),
-    ])));
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${entry.stageName} · ${entry.roundName}',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '$home  $score  $away',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            if (highlightHome || highlightAway)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  highlightHome
+                      ? '$home spielte zuhause'
+                      : '$away spielte auswärts',
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -441,10 +530,16 @@ class _ResultMatch {
 List<_ResultMatch> _resultMatches(CreatedTournament tournament) => [
   for (final stage in tournament.runStages)
     if (stage is KnockoutTournamentRunStage)
-      for (final match in stage.matches) _ResultMatch(stage.name, match, stageMatchName(stage, match))
+      for (final match in stage.matches)
+        _ResultMatch(stage.name, match, stageMatchName(stage, match))
     else if (stage is GroupTournamentRunStage)
       for (final group in stage.groups)
-        for (final match in group.matches) _ResultMatch('${stage.name} · ${group.name}', match, stageMatchName(stage, match)),
+        for (final match in group.matches)
+          _ResultMatch(
+            '${stage.name} · ${group.name}',
+            match,
+            stageMatchName(stage, match),
+          ),
 ];
 
 class _TournamentResultSummary {
@@ -462,11 +557,15 @@ class _TournamentResultSummary {
   final int playerCount;
   final String rankingHint;
 
-  int get maxLegs => ranking.fold(0, (max, item) => item.legsFor > max ? item.legsFor : max);
+  int get maxLegs =>
+      ranking.fold(0, (max, item) => item.legsFor > max ? item.legsFor : max);
 
-  factory _TournamentResultSummary.fromTournament(CreatedTournament tournament) {
+  factory _TournamentResultSummary.fromTournament(
+    CreatedTournament tournament,
+  ) {
     final stats = {
-      for (final player in tournament.players) player.name: _PlayerResultStats(player),
+      for (final player in tournament.players)
+        player.name: _PlayerResultStats(player),
     };
     var matchCount = 0;
     var legCount = 0;
@@ -476,8 +575,14 @@ class _TournamentResultSummary {
         if (!match.hasResult) continue;
         final home = match.homePlayer!;
         final away = match.awayPlayer!;
-        final homeStats = stats.putIfAbsent(home.name, () => _PlayerResultStats(home));
-        final awayStats = stats.putIfAbsent(away.name, () => _PlayerResultStats(away));
+        final homeStats = stats.putIfAbsent(
+          home.name,
+          () => _PlayerResultStats(home),
+        );
+        final awayStats = stats.putIfAbsent(
+          away.name,
+          () => _PlayerResultStats(away),
+        );
         final homeLegs = match.homeLegs!;
         final awayLegs = match.awayLegs!;
         matchCount++;
@@ -507,8 +612,9 @@ class _TournamentResultSummary {
       final entry = stats[player.name];
       if (entry != null) ranking.add(entry);
     }
-    final remaining = stats.values.where((entry) => !ranking.contains(entry)).toList()
-      ..sort(_compareStats);
+    final remaining =
+        stats.values.where((entry) => !ranking.contains(entry)).toList()
+          ..sort(_compareStats);
     ranking.addAll(remaining);
 
     return _TournamentResultSummary(
@@ -545,7 +651,8 @@ class _TournamentResultSummary {
   ) {
     final ranking = <TournamentPlayer>[];
     void add(TournamentPlayer? player) {
-      if (player != null && !ranking.any((entry) => entry.name == player.name)) {
+      if (player != null &&
+          !ranking.any((entry) => entry.name == player.name)) {
         ranking.add(player);
       }
     }
@@ -567,16 +674,28 @@ class _TournamentResultSummary {
         }
       }
       players.sort((a, b) {
-        final lossComparison = (losses[a.name] ?? 0).compareTo(losses[b.name] ?? 0);
+        final lossComparison = (losses[a.name] ?? 0).compareTo(
+          losses[b.name] ?? 0,
+        );
         if (lossComparison != 0) return lossComparison;
-        final roundComparison = (lastRound[b.name] ?? 0).compareTo(lastRound[a.name] ?? 0);
+        final roundComparison = (lastRound[b.name] ?? 0).compareTo(
+          lastRound[a.name] ?? 0,
+        );
         if (roundComparison != 0) return roundComparison;
         return a.name.compareTo(b.name);
       });
-      if (stage.finalEndsTournament && stage.rounds.isNotEmpty && stage.rounds.last.length == 1 && stage.rounds.last.single.hasResult) {
+      if (stage.finalEndsTournament &&
+          stage.rounds.isNotEmpty &&
+          stage.rounds.last.length == 1 &&
+          stage.rounds.last.single.hasResult) {
         final last = stage.rounds.last.single;
-        players.removeWhere((p) => p.name == last.winner?.name || p.name == last.loser?.name);
-        players.insertAll(0, [if (last.winner != null) last.winner!, if (last.loser != null) last.loser!]);
+        players.removeWhere(
+          (p) => p.name == last.winner?.name || p.name == last.loser?.name,
+        );
+        players.insertAll(0, [
+          if (last.winner != null) last.winner!,
+          if (last.loser != null) last.loser!,
+        ]);
       }
       return players;
     }
@@ -587,20 +706,33 @@ class _TournamentResultSummary {
         add(finalRound.first.winner);
         add(finalRound.first.loser);
       } else {
-        for (final match in finalRound) add(match.winner);
+        for (final match in finalRound) {
+          add(match.winner);
+        }
       }
-      for (final match in stage.placementMatches.where((match) => match.label == 'Spiel um Platz 3')) {
+      for (final match in stage.placementMatches.where(
+        (match) => match.label == 'Spiel um Platz 3',
+      )) {
         add(match.winner);
         add(match.loser);
       }
-      for (var roundIndex = stage.rounds.length - 2; roundIndex >= 0; roundIndex--) {
-        for (final match in stage.rounds[roundIndex]) add(match.loser);
+      for (
+        var roundIndex = stage.rounds.length - 2;
+        roundIndex >= 0;
+        roundIndex--
+      ) {
+        for (final match in stage.rounds[roundIndex]) {
+          add(match.loser);
+        }
       }
     }
     return PlacementEngine.applyRanking(ranking, stage.placementMatches);
   }
 
-  static void addUnique(List<TournamentPlayer> players, TournamentPlayer? player) {
+  static void addUnique(
+    List<TournamentPlayer> players,
+    TournamentPlayer? player,
+  ) {
     if (player != null && !players.any((entry) => entry.name == player.name)) {
       players.add(player);
     }

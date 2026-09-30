@@ -169,7 +169,7 @@ class _TournamentFormatPlannerDialogState
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _x01Selection,
+              initialValue: _x01Selection,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'X01-Punktzahl',
@@ -193,7 +193,7 @@ class _TournamentFormatPlannerDialogState
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _checkoutType,
+              initialValue: _checkoutType,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Checkout-Modus',
@@ -325,7 +325,8 @@ class _StageGameFormatSetup extends StatelessWidget {
           _field(
             width: 160,
             child: DropdownButtonFormField<int>(
-              value: value.x01Score,
+              key: ValueKey('x01-${value.x01Score}'),
+              initialValue: value.x01Score,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'X01-Punktzahl',
@@ -343,7 +344,8 @@ class _StageGameFormatSetup extends StatelessWidget {
           _field(
             width: 180,
             child: DropdownButtonFormField<String>(
-              value: value.checkoutType,
+              key: ValueKey('checkout-${value.checkoutType}'),
+              initialValue: value.checkoutType,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Checkout',
@@ -369,7 +371,8 @@ class _StageGameFormatSetup extends StatelessWidget {
           _field(
             width: 145,
             child: DropdownButtonFormField<int>(
-              value: value.bestOfLegs,
+              key: ValueKey('legs-${value.bestOfLegs}'),
+              initialValue: value.bestOfLegs,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Best of Legs',
@@ -394,6 +397,7 @@ class _StageGameFormatSetup extends StatelessWidget {
           _field(
             width: 180,
             child: DropdownButtonFormField<int>(
+              key: ValueKey('sets-${value.bestOfSets}'),
               initialValue: value.bestOfSets,
               isExpanded: true,
               decoration: const InputDecoration(
@@ -414,7 +418,8 @@ class _StageGameFormatSetup extends StatelessWidget {
           _field(
             width: 160,
             child: DropdownButtonFormField<bool>(
-              value: value.doubleIn,
+              key: ValueKey('double-in-${value.doubleIn}'),
+              initialValue: value.doubleIn,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Double In',

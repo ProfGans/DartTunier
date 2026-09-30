@@ -700,7 +700,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < breakpoint) {
+        if (constraints.maxWidth < breakpoint *
+            (MediaQuery.textScalerOf(context).scale(16) / 16)) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1822,15 +1823,16 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 ),
                 onSubmitted: (_) => _addPlayer(),
               ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+              trailing: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   IconButton.filled(
                     onPressed: _addPlayer,
                     icon: const Icon(Icons.add),
                     tooltip: 'Spieler hinzufuegen',
                   ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: _isOpeningPlayerPicker
                         ? null
@@ -1903,7 +1905,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
               ),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            DropdownButtonFormField<String>( isExpanded: true, isDense: false, itemHeight: null,
               key: const ValueKey('stage-type-field'),
               initialValue: _selectedStageType,
               decoration: const InputDecoration(
@@ -1949,7 +1951,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 value: _finalEndsTournament,
                 onChanged: (value) => setState(() => _finalEndsTournament = value),
               ),
-              if (_selectedStageType == 'kratzer' || (!_finalEndsTournament && _selectedStageType != 'groups')) DropdownButtonFormField<int>(
+              if (_selectedStageType == 'kratzer' || (!_finalEndsTournament && _selectedStageType != 'groups')) DropdownButtonFormField<int>( isExpanded: true, isDense: false, itemHeight: null,
                 key: ValueKey('kratzer-lives-$_kratzerLives'),
                 initialValue: _kratzerLives,
                 decoration: const InputDecoration(labelText: 'Kratzer-Modus: Leben', border: OutlineInputBorder()),
@@ -1964,7 +1966,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
             ),
             if (_selectedStageType == 'groups') ...[
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
+              DropdownButtonFormField<String>( isExpanded: true, isDense: false, itemHeight: null,
                 key: const ValueKey('group-play-type-field'),
                 initialValue: _groupPlayType,
                 decoration: const InputDecoration(

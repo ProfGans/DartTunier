@@ -86,3 +86,4 @@ lib/
 - Inhalte bei Bildschirmtastatur und geringer Fensterhoehe scrollbar halten. Horizontales Scrollen nur fuer fachlich notwendige Tabellen/Brackets; dort Scrollbarkeit erkennbar machen.
 - Bei UI-Aenderungen `flutter analyze` und passende Widget-Tests ausfuehren. Responsive Regressionen mit mindestens 360x800, 800x600 und 1440x900 sowie grosser Schrift absichern; bei Bedarf 320 Pixel und Querformat ergaenzen. Vor Abschluss betroffene Ansichten visuell auf Desktop und Mobile pruefen, soweit die Umgebung dies erlaubt; fehlende Geraete-/Sichtpruefungen ausdruecklich nennen.
 - Bestehende Turnier-Entwicklungstests bleiben zusaetzlich verbindlich. Designpruefung darf Fachlogik und Persistenz nicht veraendern.
+- Gemeinsame responsive Regressionstests: `flutter test test/adaptive_layout_test.dart test/responsive_pages_test.dart`. Details und optionale gerenderte Vorschauen stehen in `docs/responsive_design.md`; bei neuen Seiten die Matrix erweitern.

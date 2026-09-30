@@ -8,7 +8,8 @@ import 'package:dart_tournament_manager/features/tournaments/domain/tournament_m
 
 class MenuRepository extends SupabaseCommunityRepository {
   MenuRepository()
-    : super(client: SupabaseClient('https://example.test', 'test'));
+    : super(client: SupabaseClient('https://example.test', 'test',
+        authOptions: const AuthClientOptions(autoRefreshToken: false)));
   int memberLoads = 0;
   int tournamentLoads = 0;
   @override
@@ -66,7 +67,7 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Einladen'), 150);
-      await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Einladen'));
     await tester.pumpAndSettle();
     expect(find.text('Einladen · Dartclub'), findsOneWidget);
