@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
 import '../application/board_device_dispatcher.dart';
 import '../domain/app_device.dart';
@@ -116,7 +117,7 @@ class _BoardDeviceAssignmentPageState extends State<BoardDeviceAssignmentPage> {
           ),
         ],
       ),
-      body: ListView(
+      body: AdaptiveContentList(
         padding: const EdgeInsets.all(24),
         children: [
           const Text(

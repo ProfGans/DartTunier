@@ -75,3 +75,14 @@ lib/
 3. Grosse Presentation-Dateien in kleinere, echte Widget-Libraries aufteilen. Begonnen bei Run-Controls, MatchResult, Ergebnis-Erfassung und Creation-Setup-/Qualifikations-Widgets.
 4. Private `_...` Widgets/Helfer, die dateiuebergreifend gebraucht werden, bewusst public machen oder in passende Libraries verschieben.
 5. `tournament_workspace.dart` loeschen, sobald keine `part`-Dateien mehr existieren.
+
+## Verbindliche Desktop- und Mobile-Designregeln
+
+- Jede neue oder geaenderte Oberflaeche fuer Smartphone, Tablet und Desktop planen und pruefen. Verfuegbare Layout-Breite mit LayoutBuilder auswerten, nicht das Betriebssystem als Layout-Ersatz verwenden. Fensterverkleinerung und Rotation muessen ohne Zustandsverlust funktionieren.
+- Formulare und Verwaltungslisten nutzen `lib/shared/widgets/adaptive_content.dart`: lesbare begrenzte Desktop-Breite, kompakte mobile Raender und SafeArea. Brackets, Boards und andere raeumliche Arbeitsflaechen duerfen die volle Breite nutzen.
+- Desktop-Flaeche fuer sinnvolle Spalten und Navigation nutzen. Auf kleinen Displays Navigation kompakt oberhalb des Inhalts anbieten; keine permanente Seitenleiste, die Formulare zusammendrueckt.
+- Keine festen Texthoehen oder erzwungene Verkleinerung von Schrift. Lange deutsche Bezeichnungen, Namen und Textskalierung bis 200 Prozent beruecksichtigen. Aktionen umbrechen oder in ein beschriftetes Menue verschieben.
+- Touch-Ziele mindestens 48 logische Pixel, eindeutige Icon-Tooltips, sichtbarer Tastaturfokus und Bedienung mit Tab/Enter. Maus, Tastatur und Touch beruecksichtigen.
+- Inhalte bei Bildschirmtastatur und geringer Fensterhoehe scrollbar halten. Horizontales Scrollen nur fuer fachlich notwendige Tabellen/Brackets; dort Scrollbarkeit erkennbar machen.
+- Bei UI-Aenderungen `flutter analyze` und passende Widget-Tests ausfuehren. Responsive Regressionen mit mindestens 360x800, 800x600 und 1440x900 sowie grosser Schrift absichern; bei Bedarf 320 Pixel und Querformat ergaenzen. Vor Abschluss betroffene Ansichten visuell auf Desktop und Mobile pruefen, soweit die Umgebung dies erlaubt; fehlende Geraete-/Sichtpruefungen ausdruecklich nennen.
+- Bestehende Turnier-Entwicklungstests bleiben zusaetzlich verbindlich. Designpruefung darf Fachlogik und Persistenz nicht veraendern.

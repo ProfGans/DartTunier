@@ -16,6 +16,9 @@ class _TournamentFormatPlannerDialogState
   final _minimumMatches = TextEditingController(text: '3');
   final _minHours = TextEditingController(text: '2');
   final _maxHours = TextEditingController(text: '4');
+  final _targetHours = TextEditingController(text: '3');
+  bool _useTargetDuration = false;
+  String? _targetError;
   String _checkoutType = 'double_out';
 
   String _x01Selection = 'variable_301_501';
@@ -32,10 +35,21 @@ class _TournamentFormatPlannerDialogState
     _minimumMatches.dispose();
     _minHours.dispose();
     _maxHours.dispose();
+    _targetHours.dispose();
     super.dispose();
   }
 
   Future<void> _calculate() async {
+    final targetHours = double.tryParse(_targetHours.text.trim().replaceAll(',', '.'));
+    if (_useTargetDuration && (targetHours == null || !targetHours.isFinite ||
+        targetHours <= 0 || targetHours > 8760 || (targetHours * 60).round() < 1)) {
+      setState(() {
+        _targetError = 'Gültige Dauer von 1 Minute bis 8760 Stunden eingeben.';
+        _suggestions = null;
+      });
+      return;
+    }
+    setState(() => _targetError = null);
     final groupText = _maximumGroups.text.trim();
     final groupLimit = int.tryParse(groupText);
     if (groupText.isNotEmpty &&
@@ -63,6 +77,7 @@ class _TournamentFormatPlannerDialogState
                     int.tryParse(_minimumMatches.text) ?? 1,
                 minimumMinutes: (int.tryParse(_minHours.text) ?? 0) * 60,
                 maximumMinutes: (int.tryParse(_maxHours.text) ?? 24) * 60,
+                targetMinutes: _useTargetDuration ? (targetHours! * 60).round() : null,
                 x01Selection: _x01Selection,
                 checkoutType: _checkoutType,
                 allowSets: _allowSets,
@@ -105,10 +120,39 @@ class _TournamentFormatPlannerDialogState
                 _numberField(_players, 'Anzahl Spieler'),
                 _numberField(_boards, 'Anzahl Boards'),
                 _numberField(_minimumMatches, 'Mindestens Spiele/Spieler'),
-                _numberField(_minHours, 'Mind. Dauer (Stunden)'),
-                _numberField(_maxHours, 'Max. Dauer (Stunden)'),
               ],
             ),
+            const SizedBox(height: 12),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Von–bis-Dauer')),
+                ButtonSegment(value: true, label: Text('Wunschdauer')),
+              ],
+              selected: {_useTargetDuration},
+              onSelectionChanged: _calculating ? null : (selection) => setState(() {
+                _useTargetDuration = selection.single;
+                _suggestions = null;
+                _targetError = null;
+              }),
+            ),
+            const SizedBox(height: 12),
+            if (_useTargetDuration)
+              TextField(
+                controller: _targetHours,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Wunschdauer (Stunden)',
+                  helperText: 'Zum Beispiel 2,5 für 2 h 30 min. Vorschläge werden nach Nähe zur Wunschdauer sortiert.',
+                  helperMaxLines: 3,
+                  errorText: _targetError,
+                  border: const OutlineInputBorder(),
+                ),
+              )
+            else
+              Wrap(spacing: 12, runSpacing: 12, children: [
+                _numberField(_minHours, 'Mind. Dauer (Stunden)'),
+                _numberField(_maxHours, 'Max. Dauer (Stunden)'),
+              ]),
             const SizedBox(height: 12),
             TextField(
               key: const ValueKey('planner-maximum-groups'),

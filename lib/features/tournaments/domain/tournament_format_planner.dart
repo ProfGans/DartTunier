@@ -20,6 +20,7 @@ class TournamentPlanningRequest {
     this.bestOfLegs = 3,
     this.allowSets = false,
     this.allowDraws = false,
+    this.targetMinutes,
   });
 
   final int players;
@@ -33,6 +34,9 @@ class TournamentPlanningRequest {
   final int minimumMatchesPerPlayer;
   final int minimumMinutes;
   final int maximumMinutes;
+
+  /// If present, replaces the time window with nearest-duration ranking.
+  final int? targetMinutes;
 
   /// A numeric score as a string, or `variable_301_501`.
   final String x01Selection;
@@ -115,7 +119,8 @@ class TournamentFormatPlanner {
     TournamentPlanningRequest request, {
     required bool automatic,
   }) {
-    if (request.players < 2 ||
+    if ((request.targetMinutes != null && request.targetMinutes! <= 0) ||
+        request.players < 2 ||
         request.boards < 1 ||
         request.bestOfLegs < 1 ||
         (request.bestOfLegs.isEven && !request.allowDraws)) {
@@ -146,7 +151,11 @@ class TournamentFormatPlanner {
                 doubleIn: request.checkoutType == 'double_in_out',
               ),
     ];
-    for (var groups = 1; groups <= min(request.players ~/ minimumPlayersPerGroup, limit); groups++) {
+    for (
+      var groups = 1;
+      groups <= min(request.players ~/ minimumPlayersPerGroup, limit);
+      groups++
+    ) {
       final sizes = _balancedSizes(request.players, groups);
       final minimumGames = sizes.map((size) => size - 1).reduce(min);
       final effectiveBoards = min(
@@ -201,8 +210,9 @@ class TournamentFormatPlanner {
           );
           final fits =
               minimumGames >= request.minimumMatchesPerPlayer &&
-              duration.totalMinutes >= request.minimumMinutes &&
-              duration.totalMinutes <= request.maximumMinutes;
+              (request.targetMinutes != null ||
+                  (duration.totalMinutes >= request.minimumMinutes &&
+                      duration.totalMinutes <= request.maximumMinutes));
           candidates.add(
             TournamentFormatSuggestion(
               title: groups == 1
@@ -238,6 +248,12 @@ class TournamentFormatPlanner {
     final fitting = candidates.where((c) => _fits(c, request)).toList();
     final ranked = fitting.isEmpty ? candidates : fitting;
     ranked.sort((a, b) {
+      if (request.targetMinutes case final target?) {
+        final distance = (a.estimatedMinutes - target).abs().compareTo(
+          (b.estimatedMinutes - target).abs(),
+        );
+        if (distance != 0) return distance;
+      }
       final penalty = _penalty(a, request).compareTo(_penalty(b, request));
       if (penalty != 0) return penalty;
       final groups = a.stages.first.groupCount.compareTo(
@@ -260,8 +276,9 @@ class TournamentFormatPlanner {
     TournamentPlanningRequest request,
   ) =>
       suggestion.minimumMatchesPerPlayer >= request.minimumMatchesPerPlayer &&
-      suggestion.estimatedMinutes >= request.minimumMinutes &&
-      suggestion.estimatedMinutes <= request.maximumMinutes;
+      (request.targetMinutes != null ||
+          (suggestion.estimatedMinutes >= request.minimumMinutes &&
+              suggestion.estimatedMinutes <= request.maximumMinutes));
 
   int _penalty(
     TournamentFormatSuggestion suggestion,
@@ -271,6 +288,9 @@ class TournamentFormatPlanner {
       0,
       request.minimumMatchesPerPlayer - suggestion.minimumMatchesPerPlayer,
     );
+    if (request.targetMinutes != null) {
+      return missingGames * parameters.missingMatchPenalty;
+    }
     final tooShort = max(
       0,
       request.minimumMinutes - suggestion.estimatedMinutes,
@@ -316,7 +336,7 @@ class TournamentFormatPlanner {
           _legMinutes(format501) *
           PlanningDuration.estimatedLegs(format501.bestOfLegs),
     ).totalMinutes;
-    return estimated501 > request.maximumMinutes
+    return estimated501 > (request.targetMinutes ?? request.maximumMinutes)
         ? TournamentGameFormat(
             x01Score: 301,
             bestOfLegs: request.bestOfLegs,

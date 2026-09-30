@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
 import '../../accounts/data/supabase_account_config.dart';
 import '../../accounts/presentation/widgets/account_menu_card.dart';
@@ -76,7 +77,7 @@ class _CommunityInvitationPageState extends State<CommunityInvitationPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Community-Einladung')),
-    body: ListView(
+    body: AdaptiveContentList(
       padding: const EdgeInsets.all(24),
       children: [
         Text(

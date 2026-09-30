@@ -1,3 +1,5 @@
+import 'shared/widgets/adaptive_content.dart';
+import 'features/scorer/presentation/scorer_page.dart';
 import 'features/tournaments/domain/engines/placement_engine.dart';
 import 'features/tournaments/domain/knockout_round_names.dart';
 import 'features/tournaments/domain/group_size_rules.dart';
@@ -23,6 +25,8 @@ import 'features/communities/data/supabase_community_repository.dart';
 import 'features/communities/domain/community_member_identity.dart';
 import 'features/tournaments/application/tournament_creation_controller.dart';
 import 'features/tournaments/application/tournament_run_controller.dart';
+import 'features/tournaments/domain/engines/group_position_editor.dart';
+import 'features/tournaments/presentation/widgets/run/group_positions_dialog.dart';
 import 'features/tournaments/application/order_of_play/order_of_play_controller.dart';
 import 'features/tournaments/presentation/widgets/run/order_of_play_section.dart';
 import 'features/tournaments/data/app_database.dart';

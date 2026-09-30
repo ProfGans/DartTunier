@@ -1,7 +1,9 @@
+import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import '../../backups/presentation/backup_panel.dart';
 import '../../updates/presentation/android_updates_panel.dart';
 import 'package:flutter/material.dart';
 import '../data/planning_settings_storage.dart';
+import '../../scorer/presentation/bot_settings_page.dart';
 
 import '../../tournaments/domain/tournament_planning_parameters.dart';
 
@@ -15,62 +17,71 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   int _selected = 0;
 
+  static const _sections = [
+    'Passende Turnierform', 'Datensicherung', 'Updates', 'Scorer & Bots',
+  ];
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Einstellungen')),
     body: SafeArea(
       child: LayoutBuilder(
-        builder: (context, constraints) => Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 840 ||
+              MediaQuery.textScalerOf(context).scale(16) > 24;
+          final content = Expanded(
+            child: IndexedStack(
+              index: _selected,
+              children: const [
+                _PlanningParametersPanel(), BackupPanel(),
+                AndroidUpdatesPanel(), BotSettingsPanel(),
+              ],
+            ),
+          );
+          if (compact) {
+            return Column(children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: DropdownButtonFormField<int>(
+                  initialValue: _selected,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Bereich'),
+                  items: [for (var i = 0; i < _sections.length; i++)
+                    DropdownMenuItem(value: i, child: Text(_sections[i])),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _selected = value);
+                  },
+                ),
+              ),
+              content,
+            ]);
+          }
+          return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             SizedBox(
-              width: constraints.maxWidth < 600 ? 128 : 240,
+              width: 240,
               child: ListView(
                 primary: false,
                 padding: const EdgeInsets.all(8),
-                children: [
+                children: [for (var i = 0; i < _sections.length; i++)
                   ListTile(
-                    selected: _selected == 0,
-                    selectedTileColor: Theme.of(
-                      context,
-                    ).colorScheme.secondaryContainer,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    title: const Text('Passende Turnierform'),
-                    onTap: () => setState(() => _selected = 0),
-                  ),
-                  ListTile(
-                    selected: _selected == 1,
-                    title: const Text('Datensicherung'),
-                    onTap: () => setState(() => _selected = 1),
-                  ),
-                  ListTile(
-                    selected: _selected == 2,
-                    title: const Text('Updates'),
-                    onTap: () => setState(() => _selected = 2),
+                    selected: _selected == i,
+                    selectedTileColor: Theme.of(context).colorScheme.secondaryContainer,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    title: Text(_sections[i]),
+                    onTap: () => setState(() => _selected = i),
                   ),
                 ],
               ),
             ),
             const VerticalDivider(width: 1),
-            Expanded(
-              child: IndexedStack(
-                index: _selected,
-                children: const [
-                  _PlanningParametersPanel(),
-                  BackupPanel(),
-                  AndroidUpdatesPanel(),
-                ],
-              ),
-            ),
-          ],
-        ),
+            content,
+          ]);
+        },
       ),
     ),
   );
 }
-
 class _PlanningParametersPanel extends StatefulWidget {
   const _PlanningParametersPanel();
 
@@ -171,7 +182,7 @@ class _PlanningParametersPanelState extends State<_PlanningParametersPanel> {
     }
     return Form(
       key: _form,
-      child: ListView(
+      child: AdaptiveContentList(
         padding: const EdgeInsets.all(20),
         children: [
           Text(

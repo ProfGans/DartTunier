@@ -1779,7 +1779,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Turnier erstellen')),
       body: SafeArea(
-        child: ListView(
+        child: AdaptiveContentList(
           padding: const EdgeInsets.all(24),
           children: [
             Text(

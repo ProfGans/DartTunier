@@ -22,6 +22,7 @@ class GroupStageRunSection extends StatelessWidget {
     required this.onEditResult,
     required this.canEditResults,
     required this.miniKnockoutBracketBuilder,
+    this.onEditPositions,
   });
 
   final GroupTournamentRunStage stage;
@@ -33,6 +34,7 @@ class GroupStageRunSection extends StatelessWidget {
   final void Function(GroupMatch match) onEditResult;
   final bool canEditResults;
   final MiniKnockoutBracketBuilder miniKnockoutBracketBuilder;
+  final VoidCallback? onEditPositions;
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +53,19 @@ class GroupStageRunSection extends StatelessWidget {
             style: Theme.of(
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: onEditPositions,
+              icon: const Icon(Icons.open_with),
+              label: const Text('Positionen bearbeiten'),
+            ),
+          ),
+          const Text(
+            'Spieler können nur in der aktuellen Gruppenphase und vor '
+            'dem ersten Spielstart oder Ergebnis getauscht werden.',
           ),
           const SizedBox(height: 16),
           for (var index = 0; index < stage.groups.length; index++)
@@ -76,7 +91,9 @@ class GroupStageRunSection extends StatelessWidget {
               ),
           if (stage.qualificationPlan != null &&
               stage.qualificationPlan!.extraCount > 0 &&
-              stage.groups.every((group) => group.playType == 'round_robin')) ...[
+              stage.groups.every(
+                (group) => group.playType == 'round_robin',
+              )) ...[
             const SizedBox(height: 4),
             BestOfComparisonTable(
               stage: stage,

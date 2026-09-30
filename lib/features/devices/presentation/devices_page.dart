@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../application/devices_controller.dart';
@@ -138,7 +139,7 @@ class _DevicesPageState extends State<DevicesPage> {
                       ],
                     ),
             )
-          : ListView(
+          : AdaptiveContentList(
               padding: const EdgeInsets.all(24),
               children: [
                 Text(

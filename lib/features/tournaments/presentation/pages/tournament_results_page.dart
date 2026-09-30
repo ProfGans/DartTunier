@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import '../../domain/engines/placement_engine.dart';
 import '../../domain/knockout_round_names.dart';
 import 'package:flutter/material.dart';
@@ -19,17 +20,17 @@ class TournamentResultsPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Turnierergebnisse'),
         actions: [
-          TextButton.icon(
+          IconButton(
+            tooltip: 'Hauptmenue',
             onPressed: () => Navigator.of(context).popUntil(
               (route) => route.isFirst,
             ),
             icon: const Icon(Icons.home_outlined),
-            label: const Text('Hauptmenue'),
           ),
         ],
       ),
       body: SafeArea(
-        child: ListView(
+        child: AdaptiveContentList(
           padding: const EdgeInsets.all(16),
           children: [
             Card(
@@ -333,7 +334,7 @@ class TournamentPlayerListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Spielerübersicht')),
-    body: ListView(
+    body: AdaptiveContentList(
       padding: const EdgeInsets.all(16),
       children: [
         const Text('Spieler auswählen, um alle Begegnungen und Ergebnisse zu sehen.'),
@@ -373,7 +374,7 @@ class TournamentPlayerResultsPage extends StatelessWidget {
     final wins = played.where((entry) => entry.match.winner?.name == player.name).length;
     return Scaffold(
       appBar: AppBar(title: Text(player.name)),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
+      body: AdaptiveContentList(padding: const EdgeInsets.all(16), children: [
         Text('Ergebnisse von ${player.name}', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text('$wins Siege aus ${played.length} gewerteten Begegnungen'),
@@ -395,7 +396,7 @@ class TournamentMatchesPage extends StatelessWidget {
     final matches = _resultMatches(tournament);
     return Scaffold(
       appBar: AppBar(title: const Text('Alle Begegnungen')),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
+      body: AdaptiveContentList(padding: const EdgeInsets.all(16), children: [
         Text('${matches.where((entry) => entry.match.hasResult).length} gewertete Begegnungen', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         if (matches.isEmpty) const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Es wurden noch keine Begegnungen angelegt.')))

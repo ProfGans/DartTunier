@@ -59,7 +59,7 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: SafeArea(
-        child: ListView(
+        child: AdaptiveContentList(
           padding: const EdgeInsets.all(24),
           children: [
             Icon(Icons.dashboard_outlined, size: 64, color: colorScheme.primary),
@@ -80,6 +80,18 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 24),
             const AccountMenuCard(),
             const SizedBox(height: 8),
+            AdaptiveTileLayout(children: [
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.sports_score),
+                title: const Text('Scorer'),
+                subtitle: const Text('X01 spielen, gegen Bots antreten und Checkoutwege anzeigen.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const ScorerPage()),
+                ),
+              ),
+            ),
             Card(
               child: ListTile(
                 leading: const Icon(Icons.emoji_events_outlined),
@@ -144,6 +156,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+            ]),
           ],
         ),
       ),
@@ -224,7 +237,7 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
           builder: (context, snapshot) {
             final tournaments = snapshot.data ?? const <CreatedTournament>[];
 
-            return ListView(
+            return AdaptiveContentList(
               padding: const EdgeInsets.all(24),
               children: [
                 Icon(Icons.sports_score, size: 64, color: colorScheme.primary),

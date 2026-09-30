@@ -117,6 +117,33 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         );
   }
 
+  Future<void> _editGroupPositions(GroupTournamentRunStage stage) async {
+    if (_isApplyingStartDraw ||
+        widget.tournament.runStages[_activeStageIndex] != stage ||
+        _completedStageIndexes.contains(_activeStageIndex) ||
+        !GroupPositionEditor.canEdit(stage)) {
+      return;
+    }
+    final pair = await showDialog<List<TournamentPlayer>>(
+      context: context,
+      builder: (_) => GroupPositionsDialog(stage: stage),
+    );
+    if (!mounted || pair == null ||
+        widget.tournament.runStages[_activeStageIndex] != stage ||
+        _completedStageIndexes.contains(_activeStageIndex)) {
+      return;
+    }
+    var changed = false;
+    setState(() {
+      changed = GroupPositionEditor.swap(stage, pair[0], pair[1]);
+      if (changed) {
+        _advanceKnockoutWinners();
+        _ensureGroupDeciders();
+      }
+    });
+    if (changed) await _saveTournamentProgress();
+  }
+
   Future<void> _swapKnockoutRunSlots(
     KnockoutTournamentRunStage stage,
     int fromSlotIndex,
@@ -2074,12 +2101,12 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         actions: [
           IconButton(tooltip: 'Boards auf Geräte übertragen',
             onPressed: _openBoardDevices, icon: const Icon(Icons.connected_tv)),
-          TextButton.icon(
+          IconButton(
+            tooltip: 'Hauptmenue',
             onPressed: () {
               Navigator.of(context).popUntil((route) => route.isFirst);
             },
             icon: const Icon(Icons.home_outlined),
-            label: const Text('Hauptmenue'),
           ),
         ],
       ),
@@ -2132,6 +2159,12 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                     if (activeStage is GroupTournamentRunStage)
                       GroupStageRunSection(
                         stage: activeStage,
+                        onEditPositions: isViewingActiveStage &&
+                                !_isApplyingStartDraw &&
+                                !_completedStageIndexes.contains(_viewStageIndex) &&
+                                GroupPositionEditor.canEdit(activeStage)
+                            ? () => _editGroupPositions(activeStage)
+                            : null,
                         standingsFor: _standingsFor,
                         onEditResult: _editResult,
                         canEditResults: canEditResults,

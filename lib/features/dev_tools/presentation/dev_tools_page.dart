@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'dart:math';
 import '../domain/random_tournament_simulations.dart';
 import 'package:flutter/foundation.dart';
@@ -76,7 +77,7 @@ class _DevToolsPageState extends State<DevToolsPage> {
     final failures = results?.where((r) => r['passed'] == false).length ?? 0;
     return Scaffold(
       appBar: AppBar(title: const Text('Dev Tools')),
-      body: ListView(
+      body: AdaptiveContentList(
         padding: const EdgeInsets.all(20),
         children: [
           Text(

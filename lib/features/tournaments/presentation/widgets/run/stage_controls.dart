@@ -124,7 +124,22 @@ class StageViewModeSwitch extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      child: SegmentedButton<StageViewMode>(
+      child: LayoutBuilder(builder: (context, constraints) {
+        if (constraints.maxWidth < 560 ||
+            MediaQuery.textScalerOf(context).scale(16) > 24) {
+          return DropdownButtonFormField<StageViewMode>(
+            initialValue: selectedMode,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Turnieransicht'),
+            items: const [
+              DropdownMenuItem(value: StageViewMode.overview, child: Text('Uebersicht')),
+              DropdownMenuItem(value: StageViewMode.playOrder, child: Text('Spielansicht')),
+              DropdownMenuItem(value: StageViewMode.orderOfPlay, child: Text('Order of Play')),
+            ],
+            onChanged: (value) { if (value != null) onModeChanged(value); },
+          );
+        }
+        return SegmentedButton<StageViewMode>(
         segments: const [
           ButtonSegment(
             value: StageViewMode.overview,
@@ -144,7 +159,8 @@ class StageViewModeSwitch extends StatelessWidget {
         ],
         selected: {selectedMode},
         onSelectionChanged: (selection) => onModeChanged(selection.first),
-      ),
+        );
+      }),
     );
   }
 }

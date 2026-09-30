@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
 
 import '../../tournaments/data/app_database.dart';
@@ -92,7 +93,7 @@ class _PlayersPageState extends State<PlayersPage> {
           future: _playersFuture,
           builder: (context, snapshot) {
             final players = snapshot.data ?? const <PlayerProfile>[];
-            return ListView(
+            return AdaptiveContentList(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
               children: [
                 Icon(Icons.groups_outlined, size: 64, color: colorScheme.primary),
