@@ -69,7 +69,7 @@ class BoardDisplayClient {
     }
   }
 
-  Future<void> send({
+  Future<Map<String, dynamic>?> send({
     required String address,
     required String targetId,
     required String key,
@@ -134,6 +134,16 @@ class BoardDisplayClient {
       )) {
         throw const HttpException('Antwort des Geräts ungültig');
       }
+      final completed = ack['result'] as String?;
+      if (completed == null) return null;
+      if (!DeviceLinkAuth.verify(
+        key,
+        'result\n$nonce\n$completed',
+        ack['resultProof'] as String?,
+      )) {
+        throw const HttpException('Ergebnis des Geräts ungültig');
+      }
+      return jsonDecode(completed) as Map<String, dynamic>;
     } finally {
       client.close(force: true);
     }
@@ -143,7 +153,7 @@ class BoardDisplayClient {
     final bytes = <int>[];
     await for (final chunk in response.timeout(const Duration(seconds: 3))) {
       bytes.addAll(chunk);
-      if (bytes.length > 8192) throw const HttpException('Antwort zu groß');
+      if (bytes.length > 1048576) throw const HttpException('Antwort zu groß');
     }
     return utf8.decode(bytes);
   }

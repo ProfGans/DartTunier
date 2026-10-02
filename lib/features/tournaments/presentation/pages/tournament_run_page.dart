@@ -1,9 +1,10 @@
 part of '../../../../tournament_workspace.dart';
 
 class TournamentRunPage extends StatefulWidget {
-  const TournamentRunPage({super.key, required this.tournament});
+  const TournamentRunPage({super.key, required this.tournament, this.openDevicesOnStart = false});
 
   final CreatedTournament tournament;
+  final bool openDevicesOnStart;
 
   @override
   State<TournamentRunPage> createState() => _TournamentRunPageState();
@@ -18,13 +19,61 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   final Set<int> _completedStageIndexes = {};
   final _runController = const TournamentRunController();
   BoardDeviceDispatcher? _deviceDispatcher;
+  Future<void> _deviceResults = Future.value();
+  Future<void> _acceptDeviceResult(Map<String, dynamic> result) {
+    final next = _deviceResults.then((_) async {
+      if (!mounted) throw StateError('Turnierleitung geschlossen');
+      if (widget.tournament.communityId != null) {
+        await CommunityAccessRepository().requireCached(widget.tournament.communityId!, CommunityPermission.leadTournaments);
+      }
+      const importer = DeviceResultImporter();
+      final match = importer.validate(widget.tournament, result);
+      if (match.deviceResult?['matchId'] != result['matchId']) {
+        final previous = GroupMatch.fromJson(match.toJson());
+        importer.apply(match, result, widget.tournament.stages[_activeStageIndex].gameFormat);
+        try {
+          await _runController.saveProgress(tournament: widget.tournament,
+            activeStageIndex: _activeStageIndex, completedStageIndexes: _completedStageIndexes);
+        } catch (_) {
+          match.homeLegs = previous.homeLegs; match.awayLegs = previous.awayLegs;
+          match.homeSets = previous.homeSets; match.awaySets = previous.awaySets;
+          match.deviceResult = previous.deviceResult; match.finishedAt = previous.finishedAt;
+          rethrow;
+        }
+      }
+      if (!mounted) return;
+      setState(() { _advanceKnockoutWinners(); _ensureGroupDeciders(); });
+      await _runController.saveProgress(tournament: widget.tournament,
+        activeStageIndex: _activeStageIndex, completedStageIndexes: _completedStageIndexes);
+    });
+    _deviceResults = next.then<void>((_) {}, onError: (Object error, StackTrace stack) {});
+    return next;
+  }
 
   Future<void> _openBoardDevices() async {
+    try {
+      await CommunityAccessRepository().require(widget.tournament.communityId, CommunityPermission.assignDevices);
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Keine Berechtigung zum Zuteilen von Geräten.')));
+      return;
+    }
+    if (!mounted) return;
     final devices = DevicesScope.maybeOf(context);
     if (devices == null) return;
     _deviceDispatcher ??= BoardDeviceDispatcher(devices: devices,
-      tournament: widget.tournament, activeStage: () => _activeStageIndex);
-    await _deviceDispatcher!.start();
+      tournament: widget.tournament, activeStage: () => _activeStageIndex,
+      onResult: _acceptDeviceResult);
+    try {
+      await _deviceDispatcher!.start();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(widget.tournament.communityId == null
+          ? 'Gerätesuche konnte nicht gestartet werden. Netzwerk und Gerätemodus prüfen.'
+          : 'Gruppengeräte konnten nicht geladen werden. Verbindung und Geräte-Mitgliedschaft prüfen.')));
+      }
+      return;
+    }
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => BoardDeviceAssignmentPage(dispatcher: _deviceDispatcher!)));
@@ -39,6 +88,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.tournament.leagueMatch != null) return;
     _activeStageIndex = widget.tournament.activeStageIndex.clamp(
       0,
       widget.tournament.runStages.isEmpty
@@ -51,6 +101,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     _ensureGroupDeciders();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _applyPendingStartDrawForActiveStage();
+      if (widget.openDevicesOnStart) _openBoardDevices();
     });
   }
 
@@ -61,6 +112,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         activeStageIndex: _activeStageIndex,
         completedStageIndexes: _completedStageIndexes,
       );
+      await _deviceDispatcher?.publish();
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -89,6 +141,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     }
 
     setState(() {
+      match.deviceResult = null;
       match.isAnnulled = result.isAnnulled;
       match.homeSets = result.homeSets;
       match.awaySets = result.awaySets;
@@ -2086,6 +2139,14 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
 
   @override
   Widget build(BuildContext context) {
+    return CommunityPermissionGate(communityId: widget.tournament.communityId,
+      permission: CommunityPermission.leadTournaments, builder: _buildAuthorized);
+  }
+
+  Widget _buildAuthorized(BuildContext context) {
+    if (widget.tournament.leagueMatch != null) {
+      return LeagueMatchPage(tournament: widget.tournament, openDevicesOnStart: widget.openDevicesOnStart);
+    }
     final activeStage = _stageForView(_viewStageIndex);
     final isViewingActiveStage = _viewStageIndex == _activeStageIndex;
     final canCompleteStage =
@@ -2113,6 +2174,17 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       body: SafeArea(
         child: Column(
           children: [
+            TournamentTimingPanel(tournament: widget.tournament, onStart: () async {
+              final previous = widget.tournament.startedAt;
+              widget.tournament.startedAt ??= DateTime.now();
+              try {
+                await _runController.saveProgress(tournament: widget.tournament, activeStageIndex: _activeStageIndex, completedStageIndexes: _completedStageIndexes);
+                if (mounted) setState(() {});
+              } catch (_) {
+                widget.tournament.startedAt = previous;
+                rethrow;
+              }
+            }),
             StageProgressBar(
               stages: widget.tournament.runStages,
               activeStageIndex: _viewStageIndex,

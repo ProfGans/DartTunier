@@ -5,15 +5,39 @@ import 'package:dart_tournament_manager/features/communities/presentation/commun
 import 'package:dart_tournament_manager/features/communities/data/supabase_community_repository.dart';
 import 'package:dart_tournament_manager/features/communities/domain/community.dart';
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
+import 'package:dart_tournament_manager/features/communities/data/community_access_repository.dart';
+import 'package:dart_tournament_manager/features/communities/domain/community_permissions.dart';
+
+class MenuAccess extends CommunityAccessRepository {
+  MenuAccess({this.canEdit = true});
+  final bool canEdit;
+  @override
+  Future<CommunityPermissions> permissions(String id) async =>
+      CommunityPermissions(
+        CommunityPermission.values
+            .where((p) => canEdit || p != CommunityPermission.editCommunity)
+            .map((p) => p.key),
+      );
+  @override
+  Future<String> invitation(String id) async => 'ABCD1234';
+}
 
 class MenuRepository extends SupabaseCommunityRepository {
-  MenuRepository()
-    : super(client: SupabaseClient('https://example.test', 'test',
-        authOptions: const AuthClientOptions(autoRefreshToken: false)));
+  MenuRepository({this.canEdit = true})
+    : super(
+        client: SupabaseClient(
+          'https://example.test',
+          'test',
+          authOptions: const AuthClientOptions(autoRefreshToken: false),
+        ),
+      );
   int memberLoads = 0;
+  final bool canEdit;
+  @override
+  CommunityAccessRepository get access => MenuAccess(canEdit: canEdit);
   int tournamentLoads = 0;
   @override
-  String get currentUserId => 'owner';
+  String get currentUserId => 'member';
   @override
   Future<List<CommunityMember>> loadMembers(String id) async {
     memberLoads++;
@@ -28,6 +52,35 @@ class MenuRepository extends SupabaseCommunityRepository {
 }
 
 void main() {
+  testWidgets('member without edit right receives a permission explanation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CommunityDetailPage(
+          community: Community(
+            id: 'club',
+            name: 'Dartclub',
+            description: '',
+            inviteCode: '',
+            ownerUserId: 'owner',
+            createdAt: DateTime(2026),
+          ),
+          repository: MenuRepository(canEdit: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Community bearbeiten'), 150);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Community bearbeiten'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Deiner Rolle fehlt das Recht „Community bearbeiten“.'),
+      findsOneWidget,
+    );
+    expect(find.byType(TextFormField), findsNothing);
+  });
   testWidgets('community menu separates areas and loads only opened content', (
     tester,
   ) async {
@@ -74,5 +127,22 @@ void main() {
     expect(repository.memberLoads, 1);
     expect(repository.tournamentLoads, 1);
     expect(tester.takeException(), isNull);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Statistik'));
+    await tester.tap(find.text('Statistik'));
+    await tester.pumpAndSettle();
+    expect(find.text('Statistik · Dartclub'), findsOneWidget);
+    expect(find.text('Spielerstatistiken'), findsOneWidget);
+    expect(repository.memberLoads, 2);
+    expect(repository.tournamentLoads, 2);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Community bearbeiten'), 150);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Community bearbeiten'));
+    await tester.pumpAndSettle();
+    expect(find.text('Community bearbeiten'), findsOneWidget);
+    expect(find.byType(TextFormField), findsWidgets);
   });
 }

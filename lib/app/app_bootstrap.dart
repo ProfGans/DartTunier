@@ -4,14 +4,16 @@ import '../features/accounts/data/supabase_account_config.dart';
 import '../features/backups/data/backup_service.dart';
 import '../features/tournaments/data/tournament_storage.dart';
 import '../shared/persistence/app_instance_lock.dart';
+import '../features/updates/application/desktop_update_launcher.dart';
 
 class AppBootstrap {
   AppBootstrap._();
   static AppInstanceLock? _instance;
 
-  static Future<String?> initialize() async {
+  static Future<String?> initialize({List<String> args = const []}) async {
     WidgetsFlutterBinding.ensureInitialized();
     if (_instance != null) return null;
+    await DesktopUpdateLauncher.forward(args);
     try {
       final store = await TournamentStorage().storageFile();
       _instance = await AppInstanceLock.acquire(
@@ -29,6 +31,11 @@ class AppBootstrap {
           'Bitte den Datenordner und die Sicherungen im Unterordner backups prüfen.';
     }
     await SupabaseAccountBootstrap.initialize();
+    try {
+      await DesktopUpdateLauncher.acknowledge(args);
+    } catch (_) {
+      return 'Desktop-Update konnte nicht aktiviert werden. Starte die ursprüngliche App mit --desktop-update-original.';
+    }
     return null;
   }
 }

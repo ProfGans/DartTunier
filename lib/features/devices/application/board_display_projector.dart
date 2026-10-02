@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../../tournaments/application/order_of_play/order_of_play_controller.dart';
 import '../../tournaments/domain/tournament_models.dart';
 import '../domain/board_display.dart';
@@ -53,11 +54,26 @@ class BoardDisplayProjector {
       state: state,
       home: entry?.match.homePlayer?.name ?? '',
       away: entry?.match.awayPlayer?.name ?? '',
+      homeMembers: entry?.match.homePlayer?.members.map((p) => p.name).toList() ?? const [],
+      awayMembers: entry?.match.awayPlayer?.members.map((p) => p.name).toList() ?? const [],
       detail: '$detail${entry?.origin ?? ''}',
       format: entry != null && entry.stageIndex < tournament.stages.length
           ? tournament.stages[entry.stageIndex].gameFormat.label
           : '',
       score: entry?.match.scoreLabel ?? '',
+      matchId: entry == null ? null : matchId(tournament, entry),
+      gameFormat: entry != null && entry.stageIndex < tournament.stages.length
+          ? tournament.stages[entry.stageIndex].gameFormat
+          : null,
     );
+  }
+
+  static String matchId(CreatedTournament tournament, PlayEntry entry) {
+    final index = const OrderOfPlayController()
+        .entries(tournament)
+        .indexWhere((item) => identical(item.match, entry.match));
+    return jsonEncode([tournament.id, index, entry.match.startedAt?.microsecondsSinceEpoch,
+      entry.match.homePlayer?.toJson(), entry.match.awayPlayer?.toJson(),
+      entry.stageIndex < tournament.stages.length ? tournament.stages[entry.stageIndex].gameFormat.toJson() : null]);
   }
 }

@@ -6,6 +6,7 @@ import '../../data/supabase_account_config.dart';
 import '../../data/supabase_account_session_store.dart';
 import '../../../tournaments/data/app_database.dart';
 import '../../domain/account_user.dart';
+import '../../../statistics/presentation/player_profile_page.dart';
 
 class AccountMenuCard extends StatefulWidget {
   const AccountMenuCard({
@@ -60,10 +61,8 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
     }
 
     final account = await _runAccountAction<AccountUser?>(
-      () => _store.signInAccount(
-        email: result.email,
-        password: result.password,
-      ),
+      () =>
+          _store.signInAccount(email: result.email, password: result.password),
     );
     if (!mounted) {
       return;
@@ -74,6 +73,11 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
     }
 
     _reloadAccount();
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlayerProfilePage(account: account),
+      ),
+    );
   }
 
   Future<void> _sendPasswordReset(String email) async {
@@ -105,9 +109,8 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
   Future<void> _openRegisterDialog() async {
     final result = await showDialog<_AccountFormResult>(
       context: context,
-      builder: (context) => const _AccountDialog(
-        mode: _AccountDialogMode.register,
-      ),
+      builder: (context) =>
+          const _AccountDialog(mode: _AccountDialogMode.register),
     );
     if (result == null) {
       return;
@@ -236,9 +239,20 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
 
         return Card(
           child: ListTile(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => PlayerProfilePage(account: account),
+              ),
+            ),
             leading: CircleAvatar(child: Text(account.initials)),
             title: Text(account.displayName),
-            subtitle: Text(account.email),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(account.email),
+                const Text('Mein Profil und Statistiken öffnen'),
+              ],
+            ),
             trailing: IconButton(
               onPressed: _signOut,
               icon: const Icon(Icons.logout_outlined),
@@ -254,10 +268,7 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
 enum _AccountDialogMode { signIn, register }
 
 class _AccountDialog extends StatefulWidget {
-  const _AccountDialog({
-    required this.mode,
-    this.allowPasswordReset = false,
-  });
+  const _AccountDialog({required this.mode, this.allowPasswordReset = false});
 
   final _AccountDialogMode mode;
   final bool allowPasswordReset;
@@ -409,10 +420,7 @@ class _AccountDialogState extends State<_AccountDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Abbrechen'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(title),
-        ),
+        FilledButton(onPressed: _submit, child: Text(title)),
       ],
     );
   }

@@ -30,11 +30,68 @@ class ScorerController extends ChangeNotifier {
   late List<bool> opened;
   late int activePlayer, legStarter;
   int? winner;
+  bool get isDraw =>
+      settings.allowsDraws &&
+      legs.length == 2 &&
+      legs[0] == settings.bestOfLegs ~/ 2 &&
+      legs[1] == legs[0];
+  bool get isComplete => winner != null || isDraw;
   List<DartThrowResult> visit = [];
   String message = '';
   final List<_Snapshot> _history = [];
+  final List<Map<String, dynamic>> _actions = [];
+
+  List<Map<String, dynamic>> exportActions() => [
+    for (final action in _actions) Map.of(action),
+  ];
+
+  /// Replay actual darts (including bot hits), never roll the bot again.
+  void restoreActions(List<dynamic> actions) {
+    if (_actions.isNotEmpty) throw StateError('Spiel ist bereits gestartet');
+    final throws = {
+      for (final d in const X01Rules().buildAllThrows()) d.label: d,
+    };
+    for (final raw in actions) {
+      final a = Map<String, dynamic>.from(raw as Map);
+      switch (a['type']) {
+        case 'score':
+          submitScore(
+            a['points'] as int,
+            checkoutDarts: a['darts'] as int?,
+            checkoutAttempts: a['attempts'] as int?,
+          );
+        case 'bust':
+          submitBust(checkoutAttempts: a['attempts'] as int?);
+        case 'dart':
+          final dart = throws[a['label']];
+          if (dart == null) throw const FormatException('Ungültiger Dart');
+          throwDart(dart, checkoutAttempt: a['attempt'] as bool?);
+        case 'undo':
+          undo();
+        default:
+          throw const FormatException('Ungültiger Spielverlauf');
+      }
+    }
+  }
+
   final List<ScorerVisit> _statisticsVisits = [];
+  List<ScorerVisit> get statisticsVisits =>
+      List.unmodifiable(_statisticsVisits);
   int _leg = 0;
+  int get displayedLeg => isComplete && _leg > 0 ? _leg - 1 : _leg;
+  // Completed team visits include busts and checkouts, across leg boundaries.
+  int memberIndex(int participant) {
+    final count = settings.participants[participant].members.length;
+    if (count == 0) return 0;
+    return _statisticsVisits.where((v) => v.player == participant).length %
+        count;
+  }
+
+  String get activeThrower {
+    final p = settings.participants[activePlayer];
+    return p.members.isEmpty ? p.name : p.members[memberIndex(activePlayer)];
+  }
+
   int? _visitCheckoutAttempts = 0;
   ScorerStatistics get statistics => ScorerStatistics.calculate(
     _statisticsVisits,
@@ -95,7 +152,7 @@ class ScorerController extends ChangeNotifier {
   }
 
   bool get isBotTurn =>
-      winner == null && settings.participants[activePlayer].bot != null;
+      !isComplete && settings.participants[activePlayer].bot != null;
   bool get canUndo => _history.isNotEmpty;
   int get dartsLeft => 3 - visit.length;
   VisitResult get progress => _engine.evaluateVisit(
@@ -108,7 +165,7 @@ class ScorerController extends ChangeNotifier {
   int get remaining => progress.remainingScore;
 
   void submitScore(int points, {int? checkoutDarts, int? checkoutAttempts}) {
-    if (winner != null || isBotTurn || visit.isNotEmpty) return;
+    if (isComplete || isBotTurn || visit.isNotEmpty) return;
     final result = VisitScoreEntry.evaluate(
       score: remaining,
       points: points,
@@ -125,6 +182,12 @@ class ScorerController extends ChangeNotifier {
       darts: countedDarts,
     );
     _history.add(_Snapshot(this));
+    _actions.add({
+      'type': 'score',
+      'points': points,
+      'darts': checkoutDarts,
+      'attempts': checkoutAttempts,
+    });
     _recordVisit(result, countedDarts, attempts);
     message =
         '${settings.participants[activePlayer].name}: $points Punkte'
@@ -134,13 +197,14 @@ class ScorerController extends ChangeNotifier {
   }
 
   void submitBust({int? checkoutAttempts}) {
-    if (winner != null || isBotTurn || visit.isNotEmpty) return;
+    if (isComplete || isBotTurn || visit.isNotEmpty) return;
     final attempts = _validatedAttempts(
       checkoutAttempts,
       finish: false,
       darts: 3,
     );
     _history.add(_Snapshot(this));
+    _actions.add({'type': 'bust', 'attempts': checkoutAttempts});
     _statisticsVisits.add(
       ScorerVisit(
         player: activePlayer,
@@ -159,7 +223,12 @@ class ScorerController extends ChangeNotifier {
   }
 
   void throwDart(DartThrowResult dart, {bool? checkoutAttempt}) {
-    if (winner != null) return;
+    if (isComplete) return;
+    _actions.add({
+      'type': 'dart',
+      'label': dart.label,
+      'attempt': checkoutAttempt,
+    });
     _history.add(_Snapshot(this));
     final canFinish =
         FixedCheckouts.routes(
@@ -224,7 +293,7 @@ class ScorerController extends ChangeNotifier {
         if (sets[activePlayer] >= config.setsToWin) winner = activePlayer;
       }
     }
-    if (winner != null) return;
+    if (isComplete) return;
     scores = [
       for (final p in settings.participants)
         p.startScore ?? settings.startScore,
@@ -271,6 +340,7 @@ class ScorerController extends ChangeNotifier {
   /// Undo a human dart together with any ensuing bot darts.
   void undo() {
     if (!canUndo) return;
+    _actions.add({'type': 'undo'});
     do {
       _history.removeLast().restore(this);
     } while (isBotTurn && _history.isNotEmpty);

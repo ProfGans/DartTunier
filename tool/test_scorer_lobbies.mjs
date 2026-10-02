@@ -1,0 +1,80 @@
+// Run with: node tool/test_scorer_lobbies.mjs
+// Uses the same local PGlite installation as test_community_permissions.mjs.
+import { PGlite } from '../build/rbac_sql_tests/node_modules/@electric-sql/pglite/dist/index.js';
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db = new PGlite();
+const host='11111111-1111-1111-1111-111111111111';
+const guest='22222222-2222-2222-2222-222222222222';
+const stranger='33333333-3333-3333-3333-333333333333';
+const group='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+await db.exec(`create role authenticated; create role anon; create schema auth;
+create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}');
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+grant usage on schema public,auth to authenticated,anon;
+grant execute on function auth.uid() to authenticated,anon;
+alter default privileges in schema public grant all on tables to authenticated;`);
+await db.exec(await readFile('supabase/schema.sql','utf8'));
+await db.exec(await readFile('supabase/migrations/202610020002_scorer_lobbies.sql','utf8'));
+await db.exec(`insert into auth.users(id) values('${host}'),('${guest}'),('${stranger}');
+insert into public.player_profiles(id,user_id,display_name) values('${host}','${host}','Host'),('${guest}','${guest}','Guest');
+insert into public.communities(id,owner_user_id,name,invite_code) values('${group}','${host}','Club','ABCD1234');
+insert into public.community_members(community_id,user_id,role) values('${group}','${host}','owner'),('${group}','${guest}','member');`);
+async function as(user) { await db.exec(`reset role; select set_config('request.jwt.claim.sub','${user}',false); set role authenticated;`); }
+async function call(action,args={}) { return (await db.query('select public.scorer_lobby_action($1,$2) as result',[action,args])).rows[0].result; }
+await as(host);
+const room=await call('create');
+assert.equal(room.code.length,32);
+assert.equal((await call('candidates')).length,1);
+await assert.rejects(call('invite',{id:room.id,user_id:stranger}));
+await call('invite',{id:room.id,user_id:guest});
+await as(stranger);
+await assert.rejects(call('snapshot',{id:room.id}));
+await assert.rejects(db.query('select * from public.scorer_lobbies'));
+await assert.rejects(db.query('insert into public.scorer_lobby_members(lobby_id,user_id,display_name) values($1,$2,$3)',[room.id,host,'Forged']));
+assert.deepEqual(await call('invitations'),[]);
+await as(guest);
+const invite=(await call('invitations'))[0];
+assert.equal(invite.host_name,'Host');
+await as(stranger);
+await assert.rejects(call('respond',{invitation:invite.id,accept:true}));
+await as(guest);
+await call('respond',{invitation:invite.id,accept:true});
+assert.deepEqual(await call('invitations'),[]);
+await call('join',{code:room.code}); // idempotent QR re-scan
+await as(host);
+let snapshot=await call('snapshot',{id:room.id});
+assert.equal(snapshot.members.length,1);
+assert.equal(snapshot.members[0].user_id,guest);
+assert.equal(snapshot.members[0].display_name,'Guest');
+await call('remove',{id:room.id,user_id:guest});
+assert.equal((await call('snapshot',{id:room.id})).members.length,0);
+await as(stranger);
+await call('join',{code:room.code}); // QR possession + own authenticated identity
+await as(host);
+assert.equal((await call('close',{id:room.id})).members[0].user_id,stranger);
+await as(guest);
+await assert.rejects(call('join',{code:room.code}));
+await as(host);
+const second=await call('create');
+await call('invite',{id:second.id,user_id:guest});
+await as(guest);
+const declined=(await call('invitations'))[0];
+await call('respond',{invitation:declined.id,accept:false});
+await as(host);
+await call('invite',{id:second.id,user_id:guest});
+await as(guest);
+assert.deepEqual(await call('invitations'),[]); // no repeated invitation spam
+await db.exec('reset role');
+await db.query("update public.scorer_lobbies set expires_at=now()-interval '1 second' where id=$1",[second.id]);
+await as(guest);
+await assert.rejects(call('join',{code:second.code}));
+await as(host);
+assert.equal((await call('snapshot',{id:second.id})).open,false);
+const third=await call('create');
+await call('create');
+assert.equal((await call('snapshot',{id:third.id})).open,false);
+await db.exec("reset role; select set_config('request.jwt.claim.sub','',false); set role anon;");
+await assert.rejects(call('join',{code:third.code}));
+await db.close();
+console.log('Scorer lobby SQL: joins, identity, shared groups, accept/decline, expiry, close and permissions passed.');

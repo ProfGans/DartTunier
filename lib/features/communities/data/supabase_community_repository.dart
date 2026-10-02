@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../tournaments/domain/tournament_models.dart';
 import '../../tournaments/data/tournament_storage.dart';
 import '../domain/community.dart';
+import 'community_access_repository.dart';
+import '../domain/community_permissions.dart';
 
 class SupabaseCommunityRepository {
   SupabaseCommunityRepository({SupabaseClient? client})
@@ -12,6 +14,57 @@ class SupabaseCommunityRepository {
 
   final SupabaseClient _client;
   final TournamentStorage _storage = TournamentStorage();
+  CommunityAccessRepository get access =>
+      CommunityAccessRepository(client: _client);
+  static const communityColumns =
+      'id,owner_user_id,name,description,avatar_base64,created_at,updated_at';
+
+  Future<Community> updateProfile(
+    Community community, {
+    required String name,
+    required String bio,
+    required String? avatarBase64,
+  }) async {
+    final accountId = currentUserId;
+    await access.require(community.id, CommunityPermission.editCommunity);
+    if (name.trim().isEmpty ||
+        name.trim().length > 80 ||
+        bio.trim().length > 1000 ||
+        (avatarBase64?.length ?? 0) > 131072) {
+      throw const FormatException('Name, Bio oder Profilbild ist ungültig.');
+    }
+    final row = Map<String, dynamic>.from(
+      await _client.rpc(
+            'update_community_profile',
+            params: {
+              'requested_community_id': community.id,
+              'profile_name': name.trim(),
+              'profile_bio': bio.trim(),
+              'profile_avatar': avatarBase64,
+            },
+          )
+          as Map,
+    );
+    if (currentUserId != accountId) {
+      throw StateError('Account wurde gewechselt.');
+    }
+    try {
+      final cached = await _storage.readCache('communities');
+      if (cached != null) {
+        await _storage.writeCache('communities', [
+          for (final item in cached)
+            if ((item as Map)['communities'] is Map &&
+                (item['communities'] as Map)['id'] == community.id)
+              {'communities': row}
+            else
+              item,
+        ]);
+      }
+    } catch (_) {
+      // The server already saved successfully; a cache failure must not report an unsaved profile.
+    }
+    return Community.fromJson(row);
+  }
 
   Future<List<dynamic>> _cachedRows(
     String key,
@@ -48,7 +101,7 @@ class SupabaseCommunityRepository {
       'communities',
       () async => await _client
           .from('community_members')
-          .select('communities(*)')
+          .select('communities($communityColumns)')
           .eq('user_id', currentUserId),
     );
     return [
@@ -72,7 +125,7 @@ class SupabaseCommunityRepository {
           'description': description.trim(),
           'invite_code': _createInviteCode(),
         })
-        .select()
+        .select(communityColumns)
         .single();
     await _client.from('community_members').insert({
       'community_id': inserted['id'],
@@ -159,23 +212,29 @@ class SupabaseCommunityRepository {
 
   Future<List<CreatedTournament>> loadTournaments(String communityId) async {
     List<CreatedTournament>? remote;
+    final deletedIds = <String>{};
     try {
       final rows = await _client
           .from('tournaments')
-          .select('payload')
+          .select('payload,is_deleted,client_tournament_id')
           .eq('community_id', communityId)
-          .eq('is_deleted', false)
           .order('updated_at', ascending: false)
           .timeout(const Duration(seconds: 5));
       remote = [
         for (final row in rows)
-          if (row['payload'] case final Map<String, dynamic> payload)
-            CreatedTournament.fromJson(payload),
+          if (row['is_deleted'] != true)
+            if (row['payload'] case final Map<String, dynamic> payload)
+              CreatedTournament.fromJson(payload),
       ];
+      deletedIds.addAll(
+        rows
+            .where((row) => row['is_deleted'] == true)
+            .map((row) => row['client_tournament_id'] as String),
+      );
     } catch (_) {
       // Keep saved tournaments available while the server is unreachable.
     }
-    return _storage.communityTournaments(communityId, remote);
+    return _storage.communityTournaments(communityId, remote, deletedIds);
   }
 
   Future<void> addManualMember(String communityId, String name) async {

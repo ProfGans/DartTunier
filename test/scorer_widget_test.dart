@@ -15,6 +15,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: ScorerPage(botStorage: _BotStorage())),
     );
+    await tester.scrollUntilVisible(
+      find.text('Checkoutrechner'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Checkoutrechner'));
     await tester.pumpAndSettle();
     expect(find.text('1.  T20 → T20 → BULL'), findsOneWidget);
@@ -44,6 +49,12 @@ void main() {
     await tester.tap(find.text('1 Dart'));
     await tester.pumpAndSettle();
     expect(find.text('Anna gewinnt!'), findsOneWidget);
+    await tester.scrollUntilVisible(find.byTooltip('Rückgängig'), 250);
+    await Scrollable.ensureVisible(
+      tester.element(find.byTooltip('Rückgängig')),
+      alignment: .5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Rückgängig'));
     await tester.pump();
     expect(find.text('Anna gewinnt!'), findsNothing);
@@ -60,7 +71,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Gegen Bot spielen'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('Spiel starten'),
         350,

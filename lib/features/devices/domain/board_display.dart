@@ -1,3 +1,5 @@
+import '../../tournaments/domain/tournament_models.dart';
+
 class BoardDisplay {
   const BoardDisplay({
     required this.tournamentId,
@@ -9,6 +11,10 @@ class BoardDisplay {
     this.detail = '',
     this.format = '',
     this.score = '',
+    this.matchId,
+    this.gameFormat,
+    this.homeMembers = const [],
+    this.awayMembers = const [],
   });
   final String tournamentId;
   final String tournamentName;
@@ -16,11 +22,18 @@ class BoardDisplay {
   final String state;
   final String home;
   final String away;
+  final List<String> homeMembers, awayMembers;
   final String detail;
   final String format;
   final String score;
+  final String? matchId;
+  final TournamentGameFormat? gameFormat;
   Map<String, dynamic> toJson() => {
-    'version': 1,
+    'version': 3,
+    'homeMembers': homeMembers,
+    'awayMembers': awayMembers,
+    'matchId': matchId,
+    'gameFormat': gameFormat?.toJson(),
     'tournamentId': tournamentId,
     'tournamentName': tournamentName,
     'board': board,
@@ -33,7 +46,7 @@ class BoardDisplay {
   };
   factory BoardDisplay.fromJson(Map<String, dynamic> json) {
     final board = json['board'];
-    if (json['version'] != 1 ||
+    if (![1, 2, 3].contains(json['version']) ||
         board is! int ||
         board < 1 ||
         board > 64 ||
@@ -61,9 +74,17 @@ class BoardDisplay {
       state: field('state'),
       home: field('home'),
       away: field('away'),
+      homeMembers: List<String>.from(json['homeMembers'] as List? ?? const []),
+      awayMembers: List<String>.from(json['awayMembers'] as List? ?? const []),
       detail: field('detail'),
       format: field('format'),
       score: field('score'),
+      matchId: json['matchId'] as String?,
+      gameFormat: json['gameFormat'] is Map<String, dynamic>
+          ? TournamentGameFormat.fromJson(
+              json['gameFormat'] as Map<String, dynamic>,
+            )
+          : null,
     );
   }
 }

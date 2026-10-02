@@ -1,8 +1,10 @@
+import '../features/scorer/presentation/lobby/scorer_invitation_listener.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../tournament_workspace.dart';
 import 'app_theme.dart';
+import '../features/tournaments/application/tournament_sync_service.dart';
 import 'navigation/community_link_listener.dart';
 import '../features/communities/presentation/community_invitation_page.dart';
 import '../features/devices/application/devices_controller.dart';
@@ -17,21 +19,31 @@ class DartTournamentApp extends StatefulWidget {
   State<DartTournamentApp> createState() => _DartTournamentAppState();
 }
 
-class _DartTournamentAppState extends State<DartTournamentApp> {
+class _DartTournamentAppState extends State<DartTournamentApp> with WidgetsBindingObserver {
+  final _tournamentSync = TournamentSyncService();
   final _navigatorKey = GlobalKey<NavigatorState>();
   late final DevicesController _devices;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _tournamentSync.start();
     _devices = DevicesController();
     _devices.initialize();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _tournamentSync.dispose();
     _devices.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _tournamentSync.synchronize();
   }
 
   @override
@@ -54,30 +66,33 @@ class _DartTournamentAppState extends State<DartTournamentApp> {
             ),
           );
         },
-        child: MaterialApp(
+        child: ScorerInvitationListener(
           navigatorKey: _navigatorKey,
-          title: 'Dart Turnierverwaltung',
-          builder: (context, child) => AnimatedBuilder(
-            animation: _devices,
-            builder: (context, _) => Stack(
-              children: [
-                child ?? const SizedBox(),
-                if (_devices.settings?.enabled == true &&
-                    _devices.showDisplay &&
-                    _devices.receiver.display != null)
-                  Positioned.fill(
-                    child: BoardDisplayView(controller: _devices),
-                  ),
-                if (_devices.receiver.pairingName != null)
-                  Positioned.fill(
-                    child: PairingRequestView(receiver: _devices.receiver),
-                  ),
-              ],
+          child: MaterialApp(
+            navigatorKey: _navigatorKey,
+            title: 'Dart Turnierverwaltung',
+            builder: (context, child) => AnimatedBuilder(
+              animation: _devices,
+              builder: (context, _) => Stack(
+                children: [
+                  child ?? const SizedBox(),
+                  if (_devices.settings?.enabled == true &&
+                      _devices.receiver.display != null)
+                    Positioned.fill(
+                      child: Offstage(offstage: !_devices.showDisplay,
+                        child: BoardDisplayView(controller: _devices)),
+                    ),
+                  if (_devices.receiver.pairingName != null)
+                    Positioned.fill(
+                      child: PairingRequestView(receiver: _devices.receiver),
+                    ),
+                ],
+              ),
             ),
+            scrollBehavior: const DartTournamentScrollBehavior(),
+            theme: buildDartTournamentTheme(),
+            home: const HomePage(),
           ),
-          scrollBehavior: const DartTournamentScrollBehavior(),
-          theme: buildDartTournamentTheme(),
-          home: const HomePage(),
         ),
       ),
     );

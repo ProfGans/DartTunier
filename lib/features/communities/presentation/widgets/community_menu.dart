@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/adaptive_content.dart';
+import 'community_avatar.dart';
 
 enum CommunityArea {
   tournaments(
     'Turniere',
     'Turniere erstellen, fortsetzen und synchronisieren.',
     Icons.emoji_events_outlined,
+  ),
+  roles(
+    'Rollen & Rechte',
+    'Rollen erstellen, Berechtigungen festlegen und Mitgliedern zuweisen.',
+    Icons.admin_panel_settings_outlined,
   ),
   members(
     'Mitglieder',
@@ -17,6 +23,11 @@ enum CommunityArea {
     'Elo-Wertungen und Ergebnisse ansehen.',
     Icons.leaderboard_outlined,
   ),
+  statistics(
+    'Statistik',
+    'Gespeicherte Spiele, Siege, Legs und Sets der Community.',
+    Icons.bar_chart_outlined,
+  ),
   devices(
     'Geräte',
     'Gruppengeräte anzeigen und im Netzwerk suchen.',
@@ -26,6 +37,11 @@ enum CommunityArea {
     'Einladen',
     'Einladungslink, Code und QR-Code teilen.',
     Icons.qr_code,
+  ),
+  profile(
+    'Community bearbeiten',
+    'Name, Profilbild und Bio ändern.',
+    Icons.edit_outlined,
   );
 
   const CommunityArea(this.title, this.description, this.icon);
@@ -39,18 +55,16 @@ class CommunityMenu extends StatelessWidget {
     super.key,
     required this.description,
     required this.onSelected,
+    this.avatarBase64,
   });
   final String description;
+  final String? avatarBase64;
   final ValueChanged<CommunityArea> onSelected;
 
   @override
   Widget build(BuildContext context) => AdaptiveContentList(
     children: [
-      Icon(
-        Icons.hub_outlined,
-        size: 64,
-        color: Theme.of(context).colorScheme.primary,
-      ),
+      Center(child: CommunityAvatar(base64Image: avatarBase64, radius: 40)),
       const SizedBox(height: 16),
       Text(
         'Community-Menü',

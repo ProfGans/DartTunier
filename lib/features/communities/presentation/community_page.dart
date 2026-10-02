@@ -1,5 +1,7 @@
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
+import '../../statistics/presentation/tournament_statistics_view.dart';
+import '../../statistics/domain/tournament_player_statistics.dart';
 
 import '../../accounts/application/account_session_store.dart';
 import '../../accounts/data/supabase_account_config.dart';
@@ -12,9 +14,15 @@ import '../data/supabase_community_repository.dart';
 import '../domain/community.dart';
 import '../domain/community_elo.dart';
 import '../domain/community_invitation.dart';
-import 'widgets/community_invitation_card.dart';
+import 'widgets/community_invitation_section.dart';
+import 'community_roles_page.dart';
+import 'community_profile_page.dart';
+import 'widgets/community_avatar.dart';
+import 'widgets/community_tournament_actions.dart';
+import '../domain/community_permissions.dart';
 import 'widgets/community_members_section.dart';
 import 'widgets/community_menu.dart';
+import 'widgets/community_permission_gate.dart';
 import '../../devices/presentation/community_devices_section.dart';
 
 typedef CommunityTournamentCreationBuilder =
@@ -245,7 +253,9 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
               for (final community in communities)
                 Card(
                   child: ListTile(
-                    leading: const Icon(Icons.hub_outlined),
+                    leading: CommunityAvatar(
+                      base64Image: community.avatarBase64,
+                    ),
                     title: Text(community.name),
                     subtitle: community.description.isEmpty
                         ? null
@@ -263,6 +273,7 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
                           ),
                         ),
                       );
+                      if (mounted) setState(_reload);
                     },
                   ),
                 ),
@@ -284,7 +295,7 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
   }
 }
 
-class CommunityDetailPage extends StatelessWidget {
+class CommunityDetailPage extends StatefulWidget {
   const CommunityDetailPage({
     super.key,
     required this.community,
@@ -297,6 +308,34 @@ class CommunityDetailPage extends StatelessWidget {
   final CommunityTournamentCreationBuilder? createTournamentBuilder;
   final CommunityTournamentRunBuilder? runTournamentBuilder;
   @override
+  State<CommunityDetailPage> createState() => _CommunityDetailPageState();
+}
+
+class _CommunityDetailPageState extends State<CommunityDetailPage> {
+  late Community community = widget.community;
+  SupabaseCommunityRepository get repository => widget.repository;
+  CommunityTournamentCreationBuilder? get createTournamentBuilder =>
+      widget.createTournamentBuilder;
+  CommunityTournamentRunBuilder? get runTournamentBuilder =>
+      widget.runTournamentBuilder;
+  Future<void> _editProfile() async {
+    final updated = await Navigator.of(context).push<Community>(
+      MaterialPageRoute(
+        builder: (_) => CommunityPermissionGate(
+          communityId: community.id,
+          permission: CommunityPermission.editCommunity,
+          repository: repository.access,
+          builder: (_) => CommunityProfilePage(
+            community: community,
+            repository: repository,
+          ),
+        ),
+      ),
+    );
+    if (updated != null && mounted) setState(() => community = updated);
+  }
+
+  @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(community.name),
@@ -304,7 +343,12 @@ class CommunityDetailPage extends StatelessWidget {
     ),
     body: CommunityMenu(
       description: community.description,
+      avatarBase64: community.avatarBase64,
       onSelected: (area) {
+        if (area == CommunityArea.profile) {
+          _editProfile();
+          return;
+        }
         Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => _CommunitySectionPage(
@@ -341,13 +385,15 @@ class _CommunitySectionPage extends StatefulWidget {
 }
 
 class _CommunitySectionPageState extends State<_CommunitySectionPage> {
+  CommunityPermissions _rights = CommunityPermissions([]);
   late Future<(List<CommunityMember>, List<CreatedTournament>)> _contentFuture;
 
   @override
   void initState() {
     super.initState();
     if (widget.area != CommunityArea.devices &&
-        widget.area != CommunityArea.invitations) {
+        widget.area != CommunityArea.invitations &&
+        widget.area != CommunityArea.roles) {
       _reload();
     }
   }
@@ -358,6 +404,7 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
 
   Future<(List<CommunityMember>, List<CreatedTournament>)>
   _loadContent() async {
+    _rights = await widget.repository.access.permissions(widget.community.id);
     final members = widget.area == CommunityArea.tournaments
         ? <CommunityMember>[]
         : await widget.repository.loadMembers(widget.community.id);
@@ -369,7 +416,10 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
 
   Future<void> _createTournament() async {
     final builder = widget.createTournamentBuilder;
-    if (builder == null) return;
+    if (builder == null ||
+        !_rights.allows(CommunityPermission.createTournaments)) {
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => builder(widget.community.id, widget.community.name),
@@ -381,6 +431,13 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
   @override
   Widget build(BuildContext context) {
     final title = '${widget.area.title} · ${widget.community.name}';
+    if (widget.area == CommunityArea.roles) {
+      return CommunityRolesPage(
+        community: widget.community,
+        membersRepository: widget.repository,
+        access: widget.repository.access,
+      );
+    }
     if (widget.area == CommunityArea.devices ||
         widget.area == CommunityArea.invitations) {
       return Scaffold(
@@ -390,7 +447,10 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
             if (widget.area == CommunityArea.devices)
               CommunityDevicesSection(communityId: widget.community.id)
             else
-              CommunityInvitationCard(inviteCode: widget.community.inviteCode),
+              CommunityInvitationSection(
+                communityId: widget.community.id,
+                access: widget.repository.access,
+              ),
           ],
         ),
       );
@@ -410,6 +470,21 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
             );
           }
           final (members, tournaments) = snapshot.data!;
+          if (widget.area == CommunityArea.statistics) {
+            final aliases = <String, String>{};
+            for (final member in members) {
+              if (member.linkedUserId != null &&
+                  member.playerProfileId != null) {
+                aliases[member.playerProfileId!] = member.linkedUserId!;
+              }
+            }
+            return TournamentStatisticsView(
+              rows: const TournamentStatisticsCalculator().calculate(
+                tournaments,
+                aliases: aliases,
+              ),
+            );
+          }
           if (widget.area == CommunityArea.ranking) {
             return CommunityRankingPage(
               communityName: widget.community.name,
@@ -425,6 +500,7 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
                   community: widget.community,
                   members: members,
                   repository: widget.repository,
+                  permissions: _rights,
                   onChanged: () => setState(_reload),
                 ),
               ],
@@ -434,7 +510,9 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
             padding: const EdgeInsets.all(24),
             children: [
               FilledButton.icon(
-                onPressed: widget.createTournamentBuilder == null
+                onPressed:
+                    widget.createTournamentBuilder == null ||
+                        !_rights.allows(CommunityPermission.createTournaments)
                     ? null
                     : _createTournament,
                 icon: const Icon(Icons.emoji_events_outlined),
@@ -447,7 +525,7 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(status),
                   subtitle: const Text(
-                    'Geladene Turniere sind offline verfügbar. Synchronisierung nur beim Turnierabschluss oder manuell. Ohne Verbindung bitte später manuell synchronisieren.',
+                    'Änderungen werden zuerst lokal gespeichert und bei geöffneter App alle zwei Minuten synchronisiert, beim Turnierabschluss sofort. Ohne Verbindung bleiben sie lokal und werden später erneut übertragen. Manuelle Synchronisierung ist jederzeit möglich.',
                   ),
                   trailing: IconButton(
                     tooltip: 'Jetzt synchronisieren',
@@ -470,7 +548,25 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
                       leading: const Icon(Icons.emoji_events_outlined),
                       title: Text(tournament.name),
                       subtitle: Text('${tournament.players.length} Spieler'),
-                      onTap: widget.runTournamentBuilder == null
+                      trailing:
+                          _rights.allows(CommunityPermission.assignDevices) ||
+                              _rights.allows(
+                                CommunityPermission.editTournaments,
+                              ) ||
+                              _rights.allows(
+                                CommunityPermission.deleteTournaments,
+                              )
+                          ? CommunityTournamentActions(
+                              tournament: tournament,
+                              permissions: _rights,
+                              onChanged: () => setState(_reload),
+                            )
+                          : null,
+                      onTap:
+                          widget.runTournamentBuilder == null ||
+                              !_rights.allows(
+                                CommunityPermission.leadTournaments,
+                              )
                           ? null
                           : () async {
                               await Navigator.of(context).push(
@@ -554,7 +650,7 @@ class _CommunityRankingPageState extends State<CommunityRankingPage> {
                       leading: CircleAvatar(child: Text('${index + 1}')),
                       title: Text(snapshot.entries[index].player.displayName),
                       subtitle: Text(
-                        '${snapshot.entries[index].wins} Siege · ${snapshot.entries[index].losses} Niederlagen · ${snapshot.entries[index].matches} Spiele',
+                        '${snapshot.entries[index].wins} Siege · ${snapshot.entries[index].draws} Unentschieden · ${snapshot.entries[index].losses} Niederlagen · ${snapshot.entries[index].matches} Spiele',
                       ),
                       trailing: Text(
                         '${snapshot.entries[index].rating}',

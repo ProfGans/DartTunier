@@ -38,6 +38,52 @@ void main() {
       isNull,
     );
   });
+  test(
+    'beta opt-in includes prereleases, keeps stable releases and prevents downgrades',
+    () {
+      final beta = release(12)..['prerelease'] = true;
+      expect(AndroidRelease.newest([release(10), beta], 9)!.build, 10);
+      final selected = AndroidRelease.newest(
+        [release(10), beta],
+        9,
+        includePrereleases: true,
+      )!;
+      expect(selected.build, 12);
+      expect(selected.isPrerelease, isTrue);
+      expect(
+        AndroidRelease.newest(
+          [beta, release(13)],
+          9,
+          includePrereleases: true,
+        )!.isPrerelease,
+        isFalse,
+      );
+      expect(
+        AndroidRelease.newest(
+          [beta, release(10)],
+          12,
+          includePrereleases: true,
+        ),
+        isNull,
+      );
+      expect(AndroidRelease.newest([beta, release(10)], 12), isNull);
+      expect(
+        AndroidRelease.fromGitHub(
+          release(14)
+            ..['prerelease'] = true
+            ..['draft'] = true,
+          includePrereleases: true,
+        ),
+        isNull,
+      );
+      final incomplete = release(15)..['prerelease'] = true;
+      (incomplete['assets'][0] as Map)['digest'] = null;
+      expect(
+        AndroidRelease.fromGitHub(incomplete, includePrereleases: true),
+        isNull,
+      );
+    },
+  );
   test('requires digest, trusted repository and bounded APK size', () {
     for (final change in [
       {'digest': null},

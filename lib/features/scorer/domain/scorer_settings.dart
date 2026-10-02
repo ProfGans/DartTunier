@@ -1,8 +1,17 @@
 import 'x01/x01_models.dart';
 
 class ScorerParticipant {
-  const ScorerParticipant(this.name, {this.bot, this.startScore});
+  const ScorerParticipant(
+    this.name, {
+    this.bot,
+    this.startScore,
+    this.accountId,
+    this.members = const [],
+  });
+  final String? accountId;
   final String name;
+  final List<String> members;
+  bool get isTeam => members.length > 1;
   final BotProfile? bot;
   final int? startScore;
 }
@@ -21,7 +30,7 @@ class ScorerSettings {
   }) : participants = List.unmodifiable(participants) {
     if (startScore < 2 ||
         bestOfLegs < 1 ||
-        bestOfLegs.isEven ||
+        (bestOfLegs.isEven && (bestOfSets != 1 || participants.length != 2)) ||
         bestOfSets < 1 ||
         bestOfSets.isEven ||
         participants.isEmpty ||
@@ -31,6 +40,8 @@ class ScorerSettings {
         participants.any(
           (p) =>
               p.name.trim().isEmpty ||
+              p.members.any((name) => name.trim().isEmpty) ||
+              p.members.toSet().length != p.members.length ||
               (p.startScore != null && p.startScore! < 2),
         )) {
       throw ArgumentError('Ungültige Spieleinstellungen');
@@ -41,6 +52,7 @@ class ScorerSettings {
   final StartRequirement startRequirement;
   final CheckoutRequirement checkoutRequirement;
   final List<ScorerParticipant> participants;
+  bool get allowsDraws => bestOfSets == 1 && bestOfLegs.isEven;
   MatchConfig get matchConfig => MatchConfig(
     startScore: startScore,
     mode: bestOfSets == 1 ? MatchMode.legs : MatchMode.sets,

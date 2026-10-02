@@ -5,8 +5,12 @@ import '../domain/app_device.dart';
 import '../domain/board_display.dart';
 import '../data/board_display_client.dart';
 import '../data/device_link_auth.dart';
+import '../data/community_device_repository.dart';
+import '../../tournaments/data/tournament_storage.dart';
 import 'devices_controller.dart';
 import 'board_display_projector.dart';
+import '../../communities/data/community_access_repository.dart';
+import '../../communities/domain/community_permissions.dart';
 
 class BoardDeviceConnection {
   BoardDeviceConnection({
@@ -26,12 +30,18 @@ class BoardDeviceDispatcher extends ChangeNotifier {
     required this.tournament,
     required this.activeStage,
     BoardDisplayClient? client,
+    this.onResult,
   }) : _client = client ?? BoardDisplayClient();
   final DevicesController devices;
-  final CreatedTournament tournament;
+  CreatedTournament tournament;
   final int Function() activeStage;
   final BoardDisplayClient _client;
+  final Future<void> Function(Map<String, dynamic> result)? onResult;
   final connections = <int, BoardDeviceConnection>{};
+  Set<String>? _groupDevices;
+  List<DevicePresence> get availablePeers => devices.discovery.peers.where(
+    (peer) => tournament.communityId == null || (_groupDevices?.contains(peer.device.id) ?? false),
+  ).toList();
   Timer? _timer;
   bool _disposed = false;
   bool _sending = false;
@@ -47,7 +57,25 @@ class BoardDeviceDispatcher extends ChangeNotifier {
   }
 
   Future<void> start() async {
+    await CommunityAccessRepository().require(
+      tournament.communityId,
+      CommunityPermission.assignDevices,
+    );
     if (_started) return;
+    final communityId = tournament.communityId;
+    if (communityId != null) {
+      final cache = TournamentStorage();
+      final cacheKey = 'device-group-members-v1:$communityId';
+      List<dynamic>? rows;
+      try {
+        rows = await CommunityDeviceRepository().devices(communityId);
+        await cache.writeCache(cacheKey, rows);
+      } catch (_) {
+        rows = await cache.readCache(cacheKey);
+        if (rows == null) rethrow;
+      }
+      _groupDevices = rows.map((row) => (row as Map)['device_id'] as String).toSet();
+    }
     _started = true;
     await devices.openPage();
     if (_disposed) return;
@@ -59,11 +87,18 @@ class BoardDeviceDispatcher extends ChangeNotifier {
     DevicePresence peer,
     String key,
   ) => _exclusive(() async {
+    await CommunityAccessRepository().require(
+      tournament.communityId,
+      CommunityPermission.assignDevices,
+    );
     if (_disposed) return;
     if (board < 1 ||
         board > tournament.boardCount ||
         !DeviceLinkAuth.validKey(key)) {
       throw const FormatException('Board oder Kopplungscode ungültig');
+    }
+    if (tournament.communityId != null && !(_groupDevices?.contains(peer.device.id) ?? false)) {
+      throw StateError('Dieses Gerät gehört nicht zur Community.');
     }
     if (peer.device.id == devices.settings?.self.id ||
         connections.values.any((c) => c.device.id == peer.device.id)) {
@@ -111,13 +146,23 @@ class BoardDeviceDispatcher extends ChangeNotifier {
     final online = devices.discovery.peers.where(
       (p) => p.device.id == connection.device.id,
     );
-    await _client.send(
+    final result = await _client.send(
       address: online.isEmpty ? connection.address : online.first.address,
       targetId: connection.device.id,
       key: connection.key,
       sourceId: devices.settings!.self.id,
-      display: display,
+      display: onResult != null ? display : BoardDisplay.fromJson({...display.toJson(), 'gameFormat': null}),
     );
+    if (result != null &&
+        display.state == 'running' &&
+        result['matchId'] == display.matchId) {
+      if (onResult == null) {
+        throw StateError(
+          'Ergebnisübernahme nur in der Turnierleitung verfügbar.',
+        );
+      }
+      await onResult!(result);
+    }
   }
 
   Future<void> publish() {
@@ -144,9 +189,9 @@ class BoardDeviceDispatcher extends ChangeNotifier {
             try {
               await _send(entry.value, display);
               entry.value.status = 'Verbunden';
-            } catch (_) {
+            } catch (error) {
               entry.value.status =
-                  'Nicht verbunden · Kopplungscode, Gerätemodus und Netzwerk prüfen';
+                  'Übertragung fehlgeschlagen: $error';
             }
           }(),
       ]);

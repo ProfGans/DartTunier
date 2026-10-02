@@ -8,6 +8,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  Future<void> _openScorer() async {
+    try {
+      final account = await loadCurrentAccount();
+      if (!mounted) return;
+      await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ScorerPage(account: account)));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account konnte nicht geladen werden. Bitte erneut versuchen.')));
+    }
+  }
   void _openSettings() {
     Navigator.of(
       context,
@@ -83,9 +92,12 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 24),
             const AccountMenuCard(),
+            const PushSenderMenu(),
+            const PushDeviceMenu(),
             const SizedBox(height: 8),
             AdaptiveTileLayout(
               children: [
+                const AutoscoreTesterMenuCard(),
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.sports_score),
@@ -94,11 +106,7 @@ class _HomePageState extends State<HomePage> {
                       'X01 spielen, gegen Bots antreten und Checkoutwege anzeigen.',
                     ),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const ScorerPage(),
-                      ),
-                    ),
+                    onTap: _openScorer,
                   ),
                 ),
                 Card(
@@ -231,7 +239,11 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
   }
 
   Future<void> _deleteTournament(CreatedTournament tournament) async {
-    await _storage.deleteTournament(tournament.id);
+    try { await _storage.deleteTournament(tournament.id); }
+    catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Löschen nicht möglich: $error')));
+      return;
+    }
     if (!mounted) {
       return;
     }
@@ -302,8 +314,9 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
                         leading: const Icon(Icons.emoji_events_outlined),
                         title: Text(tournament.name),
                         subtitle: Text(
-                          '${tournament.players.length} Spieler - '
-                          '${tournament.stages.length} Etappen',
+                          tournament.leagueMatch != null
+                              ? 'Ligaspiel · ${tournament.leagueMatch!.homePoints}:${tournament.leagueMatch!.awayPoints} Mannschaftspunkte'
+                              : '${tournament.players.length} Spieler - ${tournament.stages.length} Etappen',
                         ),
                         trailing: IconButton(
                           onPressed: () => _deleteTournament(tournament),

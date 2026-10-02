@@ -14,6 +14,7 @@ class CommunityEloEntry {
   int matches = 0;
   int wins = 0;
   int losses = 0;
+  int draws = 0;
 }
 
 class CommunityEloHistoryItem {
@@ -80,19 +81,22 @@ class CommunityEloCalculator {
         if (home == null || away == null) continue;
         final homeWon = match.winner == match.homePlayer;
         final awayWon = match.winner == match.awayPlayer;
-        if (!homeWon && !awayWon) continue;
+        final draw = !homeWon && !awayWon && match.homeScore == match.awayScore;
+        if (!homeWon && !awayWon && !draw) continue;
         final expectedHome =
             1 / (1 + pow(10, (away.rating - home.rating) / 400));
-        final expectedAway = 1 - expectedHome;
         final homeDelta =
-            (communityEloKFactor * ((homeWon ? 1 : 0) - expectedHome)).round();
+            (communityEloKFactor * ((draw ? .5 : homeWon ? 1 : 0) - expectedHome)).round();
         final awayDelta =
-            (communityEloKFactor * ((awayWon ? 1 : 0) - expectedAway)).round();
+            -homeDelta;
         home.rating += homeDelta;
         away.rating += awayDelta;
         home.matches++;
         away.matches++;
-        if (homeWon) {
+        if (draw) {
+          home.draws++;
+          away.draws++;
+        } else if (homeWon) {
           home.wins++;
           away.losses++;
         } else {

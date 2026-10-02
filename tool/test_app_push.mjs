@@ -1,0 +1,35 @@
+import { PGlite } from '../build/rbac_sql_tests/node_modules/@electric-sql/pglite/dist/index.js';
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db = new PGlite();
+const owner='11111111-1111-1111-1111-111111111111', other='22222222-2222-2222-2222-222222222222';
+await db.exec(`create role authenticated; create role anon; create role service_role;
+create schema auth; create table auth.users(id uuid primary key);
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+grant usage on schema public,auth to authenticated,anon;
+create table public.player_profiles(user_id uuid,display_name text);
+insert into auth.users values('${owner}'),('${other}');
+insert into public.player_profiles values('${owner}','ProfGans'),('${other}','ProfGans');`);
+const migration = await readFile('supabase/migrations/202610020003_app_push.sql','utf8');
+await db.exec(migration); await db.exec(migration);
+async function as(user) {await db.exec(`reset role;select set_config('request.jwt.claim.sub','${user}',false);set role authenticated;`);}
+async function canSend() {return (await db.query('select public.can_send_app_push() as allowed')).rows[0].allowed;}
+await as(owner); assert.equal(await canSend(),false);
+await assert.rejects(db.query('insert into public.app_push_senders values($1)',[owner]));
+await assert.rejects(db.query('select public.list_app_push_devices()'));
+await db.exec(`reset role;insert into public.app_push_senders values('${owner}');`);
+await as(other);assert.equal(await canSend(),false);
+await assert.rejects(db.query('select * from public.app_push_devices'));
+const token='test-device-token-for-push-registration';
+await db.query('select public.register_app_push_device($1,$2,$3)',[token,'Handy','android']);
+await as(owner);assert.equal(await canSend(),true);
+const list=(await db.query('select public.list_app_push_devices() as devices')).rows[0].devices;
+assert.equal(list.length,1);assert.equal(list[0].name,'Handy');assert.equal(list[0].token,undefined);
+await db.query('select public.unregister_app_push_device($1)',[token]);
+assert.equal((await db.query('select public.list_app_push_devices() as devices')).rows[0].devices.length,1);
+await as(other); await db.query('select public.unregister_app_push_device($1)',[token]);
+await db.exec('reset role;set role anon;');
+await assert.rejects(db.query('select public.register_app_push_device($1,$2,$3)',[token,'anonymous','android']));
+await assert.rejects(db.query('select public.can_send_app_push()'));
+await db.close();
+console.log('Push SQL: allowlist, same-name impersonation, device registration, token privacy and revocation passed.');

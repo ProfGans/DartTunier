@@ -7,9 +7,9 @@ class PlayEntry {
   final String origin;
   Set<String> get players => {
     if (match.homePlayer != null)
-      match.homePlayer!.profileId ?? match.homePlayer!.name,
+      ...match.homePlayer!.individuals.map((p) => p.profileId ?? p.name),
     if (match.awayPlayer != null)
-      match.awayPlayer!.profileId ?? match.awayPlayer!.name,
+      ...match.awayPlayer!.individuals.map((p) => p.profileId ?? p.name),
   };
   String get playerSignature => (players.toList()..sort()).join('\u0000');
 }

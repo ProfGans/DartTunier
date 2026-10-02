@@ -26,12 +26,12 @@ class CapturingClient extends BoardDisplayClient {
   final states = <String>[];
   Completer<void>? gate;
   @override
-  Future<void> send({required String address, required String targetId,
+  Future<Map<String, dynamic>?> send({required String address, required String targetId,
     required String key, required String sourceId, required BoardDisplay display,
     int port = BoardDisplayServer.defaultPort}) async {
     final wait = gate; gate = null;
     await wait?.future;
-    states.add(display.state);
+    states.add(display.state); return null;
   }
 }
 const display = BoardDisplay(
@@ -227,3 +227,4 @@ void main() {
     },
   );
 }
+

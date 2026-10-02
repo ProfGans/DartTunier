@@ -72,7 +72,7 @@ void main() {
     c.dispose();
   });
   test('Invalid best-of and bot-only matches are rejected', () {
-    expect(() => game(legs: 2), throwsArgumentError);
+    expect(() => game(legs: 2, sets: 3), throwsArgumentError);
     expect(() => ScorerSettings(participants: const []), throwsArgumentError);
   });
   test('Every fixed checkout is unique, legal and has at most five routes', () {

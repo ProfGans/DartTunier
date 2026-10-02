@@ -1,6 +1,6 @@
 # Android-Updates über ProfGans/DartTunier
 
-Die App verwendet das bestehende öffentliche Repository. Keine GitHub-Tokens werden in die APK eingebaut. Unter Einstellungen → Updates wird manuell nach veröffentlichten, stabilen Android-Releases gesucht.
+Die App verwendet das bestehende öffentliche Repository. Keine GitHub-Tokens werden in die APK eingebaut. Unter Einstellungen → Updates wird manuell nach veröffentlichten Android-Releases gesucht. Standardmäßig sind nur stabile Versionen aktiviert; **Beta-Updates einschließen** berücksichtigt zusätzlich GitHub-Vorabversionen. Die Auswahl bleibt nach einem Neustart erhalten.
 
 ## Einmalige Einrichtung
 
@@ -27,10 +27,12 @@ Im isolierten Android-Emulator (API 36) wurden Backup-Import und -Export über d
 - `pubspec.yaml` erhöhen, z.B. `1.0.0+2`. Die Zahl nach `+` ist der Android-versionCode und muss mit jeder Veröffentlichung strikt steigen.
 - Änderungen committen und pushen. Danach einen dazu passenden Tag `v1.0.0+2` pushen.
 - GitHub Actions testet und baut die signierte Universal-APK sowie Windows-, Linux- und macOS-Pakete. Nach erfolgreichen Android- und Desktop-Jobs erstellt der Workflow **App Release** einen gemeinsamen **Release-Entwurf** mit `dart-turnier-android.apk`, den Desktop-Archiven und `SHA256SUMS`. Apple-Einschränkungen und Paketdetails stehen in `docs/desktop-and-ios-releases.md`.
-- APK auf einem Testgerät prüfen und erst dann den Entwurf veröffentlichen. Die App ignoriert Entwürfe und Vorabversionen. Workflow-Dispatch baut nur ein herunterladbares Actions-Artefakt.
+- APK auf einem Testgerät prüfen und erst dann den Entwurf veröffentlichen. Für einen Beta-Test im GitHub-Release **Set as a pre-release** aktivieren und den Release veröffentlichen. Die App ignoriert weiterhin Entwürfe; Vorabversionen erscheinen nur bei eingeschalteter Beta-Suche. Workflow-Dispatch baut nur ein herunterladbares Actions-Artefakt.
 - Die App nutzt den von GitHub bereitgestellten SHA-256-Digest des APK-Assets. Ohne Digest wird kein installierbares Update angeboten. Tags ohne Buildnummer werden ebenfalls ignoriert.
 
 ## Installation und Datenerhalt
+
+Beta-Releases verwenden ebenfalls das bestehende Tagformat `v1.0.0+12` und das Asset `dart-turnier-android.apk`. Der GitHub-Schalter kennzeichnet die Vorabversion; ein `-beta`-Suffix im Tag wird vom aktuellen Workflow und Parser nicht unterstützt. Auch Beta-Buildnummern müssen strikt steigen. Wird Beta wieder ausgeschaltet, bietet die App erst eine stabile Version mit höherer Buildnummer an; sie führt keinen Downgrade durch. Beim Kanalwechsel wird ein zuvor gefundenes Update verworfen und eine neue Suche erforderlich.
 
 Die App lädt nur per HTTPS von GitHub und dessen Asset-Servern, prüft Länge und Prüfsumme und lässt Android Paket-ID, höhere Buildnummer und denselben Signaturschlüssel prüfen. Vor dem Start des Android-Installers wird eine lokale Sicherung erstellt. Fehlt die Freigabe zum Installieren aus dieser Quelle, öffnet die App Androids Einstellungen; anschließend erneut Installieren wählen.
 

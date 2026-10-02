@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dart_tournament_manager/features/statistics/presentation/statistics_date_dialog.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
@@ -5,6 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dart_tournament_manager/features/league/domain/league_match.dart';
+import 'package:dart_tournament_manager/features/tournaments/presentation/widgets/creation/team_participant_list.dart';
+import 'package:dart_tournament_manager/features/league/presentation/league_match_page.dart';
 import 'package:dart_tournament_manager/tournament_workspace.dart';
 import 'package:dart_tournament_manager/features/settings/presentation/settings_page.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/scorer_match_page.dart';
@@ -12,15 +17,33 @@ import 'package:dart_tournament_manager/features/scorer/domain/scorer_settings.d
 import 'package:dart_tournament_manager/shared/persistence/storage_access.dart';
 import 'package:dart_tournament_manager/app/app_theme.dart';
 import 'package:dart_tournament_manager/features/communities/presentation/community_page.dart';
+import 'package:dart_tournament_manager/features/communities/presentation/community_roles_page.dart';
+import 'package:dart_tournament_manager/features/communities/presentation/community_profile_page.dart';
+import 'package:dart_tournament_manager/features/communities/domain/community_permissions.dart';
+import 'package:dart_tournament_manager/features/communities/domain/community.dart';
+import 'support/community_role_fakes.dart';
 import 'package:dart_tournament_manager/features/players/presentation/players_page.dart';
 import 'package:dart_tournament_manager/features/dev_tools/presentation/dev_tools_page.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/scorer_page.dart';
+import 'package:dart_tournament_manager/features/autoscoring/presentation/autoscoring_page.dart';
+import 'package:dart_tournament_manager/features/autoscoring/presentation/autoscore_demo_page.dart';
+import 'package:dart_tournament_manager/features/scorer/presentation/scorer_setup_page.dart';
+import 'package:dart_tournament_manager/features/scorer/domain/scorer_opponents.dart';
+import 'package:dart_tournament_manager/features/scorer/presentation/lobby/scorer_join_page.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/checkout_page.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/bot_settings_page.dart';
 import 'package:dart_tournament_manager/features/tournaments/presentation/pages/tournament_results_page.dart';
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
 import 'package:dart_tournament_manager/features/tournaments/data/app_database.dart';
 import 'package:dart_tournament_manager/features/accounts/application/account_session_store.dart';
+import 'package:dart_tournament_manager/features/accounts/domain/account_user.dart';
+import 'package:dart_tournament_manager/features/statistics/data/player_statistics_repository.dart';
+import 'package:dart_tournament_manager/features/statistics/domain/saved_scorer_match.dart';
+import 'package:dart_tournament_manager/features/scorer/domain/scorer_statistics.dart';
+import 'package:dart_tournament_manager/features/statistics/domain/tournament_player_statistics.dart';
+import 'package:dart_tournament_manager/features/statistics/presentation/player_profile_page.dart';
+import 'package:dart_tournament_manager/features/statistics/presentation/tournament_statistics_view.dart';
+import 'package:dart_tournament_manager/features/tournaments/data/tournament_storage.dart';
 
 class _TestPaths extends PathProviderPlatform {
   _TestPaths(this.path);
@@ -31,6 +54,7 @@ class _TestPaths extends PathProviderPlatform {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   const previewFont = String.fromEnvironment('LAYOUT_PREVIEW_FONT');
   setUpAll(() async {
     if (previewFont.isNotEmpty) {
@@ -61,7 +85,69 @@ void main() {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = Size(width, 800);
         addTearDown(tester.view.reset);
+        final profileRepository = PlayerStatisticsRepository(
+          storage: TournamentStorage(
+            file: File('${directory.path}/statistics.json'),
+          ),
+        );
+        await tester.runAsync(
+          () => profileRepository.save(
+            SavedScorerMatch(
+              id: 'preview',
+              accountId: 'test-account',
+              playedAt: DateTime(2026, 10, 1),
+              playerIndex: 0,
+              names: ['Anna Beispiel', 'Ben Beispiel'],
+              startScores: [40, 40],
+              standard501Rules: true,
+              doubleOut: true,
+              winner: 0,
+              visits: const [
+                ScorerVisit(
+                  player: 0,
+                  leg: 0,
+                  starter: 0,
+                  points: 40,
+                  darts: 1,
+                  remaining: 0,
+                  bust: false,
+                  checkoutAttempts: 1,
+                ),
+              ],
+            ),
+          ),
+        );
         for (final page in <Widget>[
+          PlayerProfilePage(
+            account: AccountUser(
+              id: 'test-account',
+              username: 'Anna',
+              displayName: 'Anna Beispiel',
+              email: 'anna@example.test',
+              avatarUrl: null,
+              createdAt: DateTime(2026),
+              updatedAt: DateTime(2026),
+              lastLogin: null,
+              isActive: true,
+            ),
+            repository: profileRepository,
+          ),
+          Scaffold(
+            body: TournamentStatisticsView(
+              rows: [
+                TournamentPlayerStatistics(
+                    'anna',
+                    'Anna mit einem besonders langen Spielernamen',
+                  )
+                  ..matches = 5
+                  ..wins = 3
+                  ..losses = 2
+                  ..legsFor = 12
+                  ..legsAgainst = 7
+                  ..tournaments.add('cup'),
+              ],
+            ),
+          ),
           const HomePage(),
           const TournamentHomePage(),
           const PlayersPage(),
@@ -72,7 +158,33 @@ void main() {
           ),
           const DevToolsPage(),
           const ScorerPage(),
+          for (final mode in ScorerOpponents.values)
+            ScorerSetupPage(opponents: mode),
+          const ScorerJoinPage(),
+          CommunityRoleEditor(
+            grantable: CommunityPermissions(
+              CommunityPermission.values.map((p) => p.key),
+            ),
+          ),
+          CommunityProfilePage(
+            community: Community(id:'club', name:'Dartverein am Wochenende', description:'Unsere Community für gemeinsame Turniere und gesellige Dartabende.', inviteCode:'', ownerUserId:'owner', createdAt:DateTime(2026)),
+            repository: RolePreviewMembers(),
+          ),
+          CommunityRolesPage(
+            community: Community(
+              id: 'club',
+              name: 'Dartverein',
+              description: '',
+              inviteCode: '',
+              ownerUserId: 'owner',
+              createdAt: DateTime(2026),
+            ),
+            membersRepository: RolePreviewMembers(),
+            access: RolePreviewAccess(),
+          ),
           const CheckoutPage(),
+          const AutoscoringPage(),
+          const AutoscoreDemoPage(),
           const BotSettingsPage(),
           TournamentResultsPage(
             tournament: CreatedTournament(
@@ -90,11 +202,17 @@ void main() {
           ),
           const SettingsPage(),
           const TournamentCreationPage(),
+          const LeagueMatchPage(),
+          LeagueMatchPage(tournament: CreatedTournament(name: 'Liga: Heim gegen Gast', players: [], stages: [], runStages: [], leagueMatch: LeagueMatch.rhl(homeTeam: 'Heim', awayTeam: 'Gast', homePlayers: ['Anna', 'Lena', 'Jan', 'Tom'], awayPlayers: ['Ben', 'Max', 'Lisa', 'Mia']))),
+          Scaffold(body: SafeArea(child: SingleChildScrollView(child: TeamParticipantList(
+            players: [TournamentPlayer.team([TournamentPlayer.generated(1), TournamentPlayer.generated(2)]), TournamentPlayer.generated(3)],
+            onRename: (_) {}, onRemove: (_) {}, onMerge: (_, _) {}, onSplit: (_) {},
+          )))),
           ScorerMatchPage(
             settings: ScorerSettings(
               participants: const [
-                ScorerParticipant('Anna'),
-                ScorerParticipant('Ben'),
+                ScorerParticipant('Team Anna', members: ['Anna', 'Lena']),
+                ScorerParticipant('Team Ben', members: ['Ben', 'Tom', 'Jan']),
               ],
             ),
           ),
@@ -114,6 +232,15 @@ void main() {
               ),
             );
             await StorageAccess.run(() async {});
+            if (page is PlayerProfilePage) {
+              for (var attempt = 0; attempt < 100; attempt++) {
+                await tester.pump();
+                if (find.byType(CircularProgressIndicator).evaluate().isEmpty) {
+                  break;
+                }
+                await Future<void>.delayed(const Duration(milliseconds: 10));
+              }
+            }
           });
           await tester.pumpAndSettle();
           expect(
@@ -147,12 +274,73 @@ void main() {
                 format: ui.ImageByteFormat.png,
               );
               final file = File(
-                'build/layout_previews/${page.runtimeType}_${width}_$scale.png',
+                'build/layout_previews/${page.runtimeType}${page is ScorerSetupPage ? "_${page.opponents.name}" : ""}_${width}_$scale.png',
               );
               await file.parent.create(recursive: true);
               await file.writeAsBytes(bytes!.buffer.asUint8List());
               picture.dispose();
             });
+          }
+          if (page is PlayerProfilePage) {
+            await tester.scrollUntilVisible(find.text('Zeitraum wählen'), 200);
+            await Scrollable.ensureVisible(
+              tester.element(find.text('Zeitraum wählen')),
+              alignment: .5,
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('Zeitraum wählen'));
+            await tester.pumpAndSettle();
+            expect(find.byType(StatisticsDateDialog), findsOneWidget);
+            await tester.enterText(
+              find.byType(TextFormField).first,
+              '01.01.1971',
+            );
+            await tester.enterText(
+              find.byType(TextFormField).last,
+              '02.01.1971',
+            );
+            await tester.tap(find.text('Anwenden'));
+            await tester.pumpAndSettle();
+            await tester.scrollUntilVisible(
+              find.text('Keine Aufnahmen im gewählten Zeitraum.'),
+              200,
+            );
+            expect(find.text('Anna Beispiel · Ben Beispiel'), findsNothing);
+            await tester.scrollUntilVisible(find.text('Gesamt'), -200);
+            await Scrollable.ensureVisible(
+              tester.element(find.text('Gesamt')),
+              alignment: .5,
+            );
+            await tester.pumpAndSettle();
+            for (
+              var attempt = 0;
+              attempt < 5 &&
+                  find.text('Gesamt').hitTestable().evaluate().isEmpty;
+              attempt++
+            ) {
+              await tester.drag(
+                find.byType(ListView).first,
+                const Offset(0, -120),
+              );
+              await tester.pumpAndSettle();
+            }
+            await tester.tap(find.text('Gesamt'));
+            await tester.pumpAndSettle();
+            await tester.scrollUntilVisible(
+              find.text('Anna Beispiel · Ben Beispiel'),
+              250,
+            );
+            await Scrollable.ensureVisible(
+              tester.element(find.text('Anna Beispiel · Ben Beispiel')),
+              alignment: .5,
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('Anna Beispiel · Ben Beispiel'));
+            await tester.pumpAndSettle();
+            expect(find.text('Meine Spielstatistik'), findsOneWidget);
+            expect(tester.takeException(), isNull);
+            await tester.tap(find.text('Schließen'));
+            await tester.pumpAndSettle();
           }
           final scrollables = find.byType(Scrollable);
           if (scrollables.evaluate().isNotEmpty) {

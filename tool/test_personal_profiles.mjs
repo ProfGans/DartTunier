@@ -1,0 +1,22 @@
+import { PGlite } from '../build/rbac_sql_tests/node_modules/@electric-sql/pglite/dist/index.js';
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db = new PGlite();
+const a='11111111-1111-1111-1111-111111111111', b='22222222-2222-2222-2222-222222222222';
+await db.exec(`create role authenticated; create role anon; create schema auth; create table auth.users(id uuid primary key); create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$; grant usage on schema public,auth to authenticated,anon; insert into auth.users values('${a}'),('${b}');`);
+const sql=await readFile('supabase/migrations/202610020004_personal_profiles.sql','utf8');
+await db.exec(sql); await db.exec(sql);
+async function as(id) { await db.exec(`reset role; select set_config('request.jwt.claim.sub','${id}',false); set role authenticated;`); }
+await as(a);
+await db.query('insert into personal_profiles values($1,$2)',[a, {version:1,name:'Anna',picture:'AQID'}]);
+await assert.rejects(db.query('insert into personal_profiles values($1,$2)',[b,{version:1,name:'Other'}]));
+await as(b);
+assert.equal((await db.query('select * from personal_profiles')).rows.length,0);
+assert.equal((await db.query("update personal_profiles set payload = payload || '{\"name\":\"Attack\"}' returning *")).rows.length,0);
+await as(a);
+assert.equal((await db.query('select payload from personal_profiles')).rows[0].payload.picture,'AQID');
+await assert.rejects(db.query('update personal_profiles set payload=$1',[{version:2,name:'Invalid'}]));
+await db.exec('reset role; set role anon');
+await assert.rejects(db.query('select * from personal_profiles'));
+await db.close();
+console.log('PASS: migration idempotence, image persistence, version check, owner isolation, anonymous denial.');

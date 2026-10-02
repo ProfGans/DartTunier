@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/supabase_community_repository.dart';
 import '../../domain/community.dart';
+import '../../domain/community_permissions.dart';
 
 class CommunityMembersSection extends StatefulWidget {
   const CommunityMembersSection({
@@ -10,11 +11,13 @@ class CommunityMembersSection extends StatefulWidget {
     required this.members,
     required this.repository,
     required this.onChanged,
+    this.permissions,
   });
   final Community community;
   final List<CommunityMember> members;
   final SupabaseCommunityRepository repository;
   final VoidCallback onChanged;
+  final CommunityPermissions? permissions;
 
   @override
   State<CommunityMembersSection> createState() =>
@@ -146,6 +149,43 @@ class _CommunityMembersSectionState extends State<CommunityMembersSection> {
     );
   }
 
+  Future<void> _remove(CommunityMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${member.displayName} entfernen?'),
+        content: Text(
+          member.isManual
+              ? 'Der manuelle Mitgliedseintrag wird entfernt. Gespeicherte Turnierergebnisse bleiben erhalten.'
+              : 'Der Account verliert den Zugriff auf diese Community.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Entfernen'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _run(
+        () => member.isManual
+            ? widget.repository.access.removeManualMember(
+                widget.community.id,
+                member.playerProfileId!,
+              )
+            : widget.repository.access.removeMember(
+                widget.community.id,
+                member.userId!,
+              ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final canManage =
@@ -180,11 +220,34 @@ class _CommunityMembersSectionState extends State<CommunityMembersSection> {
                   ? 'Inhaber'
                   : 'Mitglied mit Account',
             ),
-            trailing: canManage && member.isManual
-                ? IconButton(
-                    tooltip: 'Account zuordnen',
-                    icon: const Icon(Icons.link),
-                    onPressed: _busy ? null : () => _assign(member),
+            trailing:
+                (canManage && member.isManual) ||
+                    (member.userId != widget.community.ownerUserId &&
+                        widget.permissions?.allows(
+                              CommunityPermission.removeMembers,
+                            ) ==
+                            true)
+                ? PopupMenuButton<String>(
+                    tooltip: 'Mitglied verwalten',
+                    enabled: !_busy,
+                    onSelected: (action) =>
+                        action == 'assign' ? _assign(member) : _remove(member),
+                    itemBuilder: (_) => [
+                      if (canManage && member.isManual)
+                        const PopupMenuItem(
+                          value: 'assign',
+                          child: Text('Account zuordnen'),
+                        ),
+                      if (member.userId != widget.community.ownerUserId &&
+                          widget.permissions?.allows(
+                                CommunityPermission.removeMembers,
+                              ) ==
+                              true)
+                        const PopupMenuItem(
+                          value: 'remove',
+                          child: Text('Mitglied entfernen'),
+                        ),
+                    ],
                   )
                 : null,
           ),

@@ -1,5 +1,6 @@
 import '../../../shared/persistence/storage_access.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 
@@ -7,20 +8,31 @@ import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/tournament_models.dart';
+import '../../communities/data/community_access_repository.dart';
+import '../../communities/domain/community_permissions.dart';
+import '../../communities/domain/community_tournament_access.dart';
 
 class TournamentStorage {
   TournamentStorage({
     File? file,
     String? Function()? currentUserId,
     Future<void> Function(Map<String, dynamic>)? upload,
+    Future<void> Function(String, CommunityPermission)? authorize,
   }) : _file = file,
        _currentUserId = currentUserId,
-       _upload = upload;
+       _upload = upload,
+       _authorize = authorize;
 
   final File? _file;
   final String? Function()? _currentUserId;
   final Future<void> Function(Map<String, dynamic>)? _upload;
-  static bool _syncing = false;
+  final Future<void> Function(String, CommunityPermission)? _authorize;
+  Future<void> _check(String communityId, CommunityPermission permission) =>
+      (_authorize ?? CommunityAccessRepository(storage: this).requireCached)(
+        communityId,
+        permission,
+      );
+  static Future<void> _syncTail = Future<void>.value();
   static final syncStatus = ValueNotifier<String>('Lokal gespeichert');
 
   String? get _userId {
@@ -95,7 +107,37 @@ class TournamentStorage {
   // V4 adds an outbox and account-scoped read caches. V1-V3 have neither.
   // V5 stores final rules and lives. Missing fields keep legacy life-based finals.
   // V6 adds optional placement selections and classification match identities.
-  static const _schemaVersion = 6;
+  // V7 adds account-scoped scorer histories, included in existing backups.
+  // V9 adds optional RHL fixtures. Earlier tournaments keep leagueMatch = null.
+  // v10 stores team rosters; older players remain individual participants.
+  // v11 adds league board/scorer progress. Old leagues start without assignments.
+  // v12 adds optional tournament timing and the original planning baseline.
+  // v13 stores the original board-scheduled match completion timeline.
+  static const _schemaVersion = 13;
+
+  Future<Map<String, dynamic>> readPlayerStatistics(String accountId) =>
+      _locked(() async {
+        final document = await _readDocument();
+        final accounts = document['playerStatistics'] as Map? ?? {};
+        return Map<String, dynamic>.from(accounts[accountId] as Map? ?? {});
+      });
+
+  Future<void> updatePlayerStatistics(
+    String accountId,
+    void Function(Map<String, dynamic>) update,
+  ) => _locked(() async {
+    final document = await _readDocument();
+    final accounts = Map<String, dynamic>.from(
+      document['playerStatistics'] as Map? ?? {},
+    );
+    final records = Map<String, dynamic>.from(
+      accounts[accountId] as Map? ?? {},
+    );
+    update(records);
+    accounts[accountId] = records;
+    document['playerStatistics'] = accounts;
+    await _writeDocument(document);
+  });
 
   Future<List<CreatedTournament>> loadTournaments() =>
       _locked(_loadTournamentsUnlocked);
@@ -115,14 +157,28 @@ class TournamentStorage {
       final tournaments = await _loadTournamentsUnlocked();
       tournament.updatedAt = DateTime.now();
       final index = tournaments.indexWhere((item) => item.id == tournament.id);
+      final previous = index < 0 ? null : tournaments[index];
+      if (tournament.communityId != null || previous?.communityId != null) {
+        for (final permission in requiredTournamentPermissions(
+          previous?.toJson(),
+          tournament.toJson(),
+        )) {
+          await _check(
+            previous?.communityId ?? tournament.communityId!,
+            permission,
+          );
+        }
+      }
       if (index == -1) {
         tournaments.insert(0, tournament);
       } else {
         tournaments[index] = tournament;
       }
-      await _writeTournaments(tournaments);
+      final document = await _readDocument();
+      document['tournaments'] = tournaments
+          .map((item) => item.toJson())
+          .toList();
       if (tournament.communityId != null) {
-        final document = await _readDocument();
         final pending = Map<String, dynamic>.from(
           document['pending'] as Map? ?? {},
         );
@@ -131,19 +187,38 @@ class TournamentStorage {
           'payload': tournament.toJson(),
         };
         document['pending'] = pending;
-        await _writeDocument(document);
+      }
+      // Persist the playable state and its upload together, before any network I/O.
+      await _writeDocument(document);
+      if (tournament.communityId != null) {
         syncStatus.value = 'Lokal gespeichert – Synchronisierung ausstehend';
       }
     });
+    final complete =
+        tournament.leagueMatch?.complete ??
+        (tournament.runStages.isNotEmpty &&
+            List.generate(
+              tournament.runStages.length,
+              (i) => i,
+            ).every(tournament.completedStageIndexes.contains));
+    if (tournament.communityId != null && complete) {
+      unawaited(synchronize(tournamentId: tournament.id));
+    }
   }
 
-  Future<void> synchronize({String? tournamentId}) =>
-      StorageAccess.run(() => _synchronize(tournamentId: tournamentId));
+  Future<void> synchronize({String? tournamentId}) {
+    // Queue requests rather than dropping a completion request during an upload.
+    // Only disk snapshots/acknowledgements hold the storage lock, never network I/O.
+    final next = _syncTail.then(
+      (_) => _synchronize(tournamentId: tournamentId),
+    );
+    _syncTail = next.catchError((Object error) {});
+    return next;
+  }
 
   Future<void> _synchronize({String? tournamentId}) async {
     final userId = _userId;
-    if (_syncing || userId == null) return;
-    _syncing = true;
+    if (userId == null) return;
     try {
       final document = await _locked(_readDocument);
       final pending = Map<String, dynamic>.from(
@@ -166,11 +241,13 @@ class TournamentStorage {
           'is_deleted': false,
         };
         if (_upload != null) {
-          await _upload(row);
+          await _upload(row).timeout(const Duration(seconds: 8));
         } else {
           await Supabase.instance.client
-              .from('tournaments')
-              .upsert(row, onConflict: 'client_tournament_id')
+              .rpc(
+                'save_community_tournament',
+                params: {'tournament_payload': tournament.toJson()},
+              )
               .timeout(const Duration(seconds: 8));
         }
         await _locked(() async {
@@ -190,20 +267,28 @@ class TournamentStorage {
       }
     } catch (_) {
       syncStatus.value =
-          'Lokal gespeichert – Synchronisierung fehlgeschlagen. Bitte manuell erneut versuchen.';
-    } finally {
-      _syncing = false;
+          'Lokal gespeichert – Synchronisierung ausstehend. Automatischer Wiederholungsversuch folgt.';
     }
   }
 
   Future<List<CreatedTournament>> communityTournaments(
     String communityId, [
     List<CreatedTournament>? remote,
+    Set<String> deletedIds = const {},
   ]) => _locked(() async {
     final document = await _readDocument();
     final pending = document['pending'] as Map? ?? {};
     final local = await _loadTournamentsUnlocked();
     if (remote != null) {
+      local.removeWhere(
+        (item) =>
+            item.communityId == communityId && deletedIds.contains(item.id),
+      );
+      for (final id in deletedIds) {
+        pending.remove(id);
+      }
+      document['pending'] = pending;
+      await _writeDocument(document);
       for (final tournament in remote) {
         if (pending.containsKey(tournament.id)) continue;
         local.removeWhere((item) => item.id == tournament.id);
@@ -217,6 +302,21 @@ class TournamentStorage {
   Future<void> deleteTournament(String id) async {
     await _locked(() async {
       final tournaments = await _loadTournamentsUnlocked();
+      final target = tournaments.where((t) => t.id == id).firstOrNull;
+      if (target?.communityId != null) {
+        await _check(
+          target!.communityId!,
+          CommunityPermission.deleteTournaments,
+        );
+        // Deletion is online-only so a denied delete cannot silently erase pending work.
+        await Supabase.instance.client.rpc(
+          'delete_community_tournament',
+          params: {
+            'target_community': target.communityId!,
+            'target_tournament': id,
+          },
+        );
+      }
       tournaments.removeWhere((tournament) => tournament.id == id);
       await _writeTournaments(tournaments);
       final document = await _readDocument();

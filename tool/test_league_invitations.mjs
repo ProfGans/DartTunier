@@ -1,0 +1,43 @@
+// Local PostgreSQL-compatible test; does not contact the production server.
+import { PGlite } from '../build/rbac_sql_tests/node_modules/@electric-sql/pglite/dist/index.js';
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db = new PGlite();
+const host='11111111-1111-1111-1111-111111111111';
+const guest='22222222-2222-2222-2222-222222222222';
+const stranger='33333333-3333-3333-3333-333333333333';
+const group='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+await db.exec(`create role authenticated; create role anon; create schema auth;
+create table auth.users(id uuid primary key,raw_user_meta_data jsonb default '{}');
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+grant usage on schema public,auth to authenticated,anon;
+grant execute on function auth.uid() to authenticated,anon;
+alter default privileges in schema public grant all on tables to authenticated;`);
+await db.exec(await readFile('supabase/schema.sql','utf8'));
+await db.exec(`insert into auth.users(id) values('${host}'),('${guest}'),('${stranger}');
+insert into public.player_profiles(id,user_id,display_name) values('${host}','${host}','Host'),('${guest}','${guest}','Guest');
+insert into public.communities(id,owner_user_id,name,invite_code) values('${group}','${host}','Club','ABCD1234');
+insert into public.community_members(community_id,user_id,role) values('${group}','${host}','owner'),('${group}','${guest}','member');`);
+async function as(user) { await db.exec(`reset role; select set_config('request.jwt.claim.sub','${user}',false); set role authenticated;`); }
+async function call(action,args={}) { return (await db.query('select public.league_invitation_action($1,$2) as result',[action,args])).rows[0].result; }
+await as(host);
+const args={match:'test',title:'Heim gegen Gast',team:0,slot:0,user:guest};
+await assert.rejects(call('invite',{...args,user:stranger}));
+const invitation=await call('invite',args);
+assert.equal(invitation.status,'pending');
+await assert.rejects(call('respond',{id:invitation.id,accept:true}));
+await assert.rejects(call('close',{match:'test'}));
+await as(stranger);
+assert.equal((await call('inbox')).length,0);
+await assert.rejects(call('respond',{id:invitation.id,accept:true}));
+await as(guest);
+assert.equal((await call('inbox')).length,1);
+await call('respond',{id:invitation.id,accept:true});
+await assert.rejects(call('respond',{id:invitation.id,accept:false}));
+await as(host);
+assert.equal((await call('status',{match:'test'}))[0].status,'accepted');
+await call('close',{match:'test'});
+await assert.rejects(call('invite',{...args,slot:1}));
+await assert.rejects(db.query('select * from public.league_invitations'));
+await db.close();
+console.log('League invitations: acceptance, isolation, closed roster and table permissions passed.');

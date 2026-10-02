@@ -47,5 +47,6 @@ app.*.map.json
 # Android release signing: never commit private keys or passwords.
 /android/key.properties
 /.secrets/
+/android/app/google-services.json
 *.jks
 *.keystore

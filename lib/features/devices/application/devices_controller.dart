@@ -197,8 +197,14 @@ class DevicesController extends ChangeNotifier {
     await refreshAccount();
   });
   void _changed() {
+    final incoming = receiver.display;
+    if (incoming?.state == 'running' && incoming?.matchId != _lastScorerMatch) {
+      _lastScorerMatch = incoming?.matchId;
+      showDisplay = true;
+    }
     if (!_disposed) notifyListeners();
   }
+  String? _lastScorerMatch;
 
   @override
   void dispose() {

@@ -1,7 +1,18 @@
 import '../../tournaments/domain/tournament_models.dart';
 import 'tournament_simulation_engine.dart';
+import '../../league/domain/league_match.dart';
+
+/// League fixtures have team points instead of advancing players.
+/// Shared production preset for the league branch of the development matrix.
+LeagueMatch rhlDevelopmentScenario() => LeagueMatch.rhl(
+  homeTeam: 'Heim', awayTeam: 'Gast',
+  homePlayers: ['H1', 'H2', 'H3', 'H4'],
+  awayPlayers: ['G1', 'G2', 'G3', 'G4'],
+);
 
 const tournamentDevelopmentScenarios = [
+  TournamentSimulationScenario(name: 'Doppel: Gruppen und KO', playerCount: 6, teamSize: 2, stages: [SimulationGroupStageSpec(name: 'Gruppen', qualifiers: 4, groupSizes: [3, 3], fixedPerGroup: 2), SimulationEliminationStageSpec(name: 'Finale', qualifiers: 1, lossLimit: 1)]),
+  TournamentSimulationScenario(name: 'Viererteams mit Freilosen', playerCount: 5, teamSize: 4, stages: [SimulationEliminationStageSpec(name: 'KO', qualifiers: 1, lossLimit: 1)]),
   TournamentSimulationScenario(name: 'KO mit Platz 3, 5, 7, 9 und 15', playerCount: 16, stages: [SimulationEliminationStageSpec(name: 'KO', qualifiers: 1, lossLimit: 1, placementPlaces: [3, 5, 7, 9, 15])]),
   TournamentSimulationScenario(name: 'Mini-KO mit optionalen Platzierungsspielen', playerCount: 16, stages: [SimulationGroupStageSpec(name: 'Mini-KO', qualifiers: 6, groupSizes: [8, 8], playTypes: ['mini_knockout', 'mini_knockout'], fixedPerGroup: 3, placementPlaces: [5, 7]), SimulationEliminationStageSpec(name: 'Finale', qualifiers: 1, lossLimit: 1)]),
   TournamentSimulationScenario(name: 'Doppel-KO mit entscheidendem Finale', playerCount: 7, stages: [SimulationEliminationStageSpec(name: 'Doppel-KO', qualifiers: 1, lossLimit: 2, finalEndsTournament: true)]),

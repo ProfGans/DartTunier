@@ -51,7 +51,7 @@ bestätigt. Unmögliche Aufnahmesummen und Checkouts werden zurückgewiesen.
 Rückgängig nimmt eine menschliche Aufnahme samt nachfolgenden Botwürfen zurück.
 
 „Gegen Bot spielen“ wählt einen Bot als Gegner. Unter „Einstellungen → Scorer &
-Bots“ oder direkt im Scorer sind Scoring-/Checkout-Stärke, Zielstreuung,
+Bots“ sind Scoring-/Checkout-Stärke, Zielstreuung,
 Simulationsstreuung und Wurftempo einstellbar. Die Prozentumrechnung übernimmt
 die Kalibrierung der ursprünglichen App (Settings v9). Einstellungen gelten für
 neue Spiele und liegen in `scorer_bot_settings.json` mit eigener Schema-Version 2.

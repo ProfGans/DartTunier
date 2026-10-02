@@ -7,6 +7,7 @@ class Community {
     required this.ownerUserId,
     required this.createdAt,
     this.memberCount = 0,
+    this.avatarBase64,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class Community {
   final String ownerUserId;
   final DateTime createdAt;
   final int memberCount;
+  final String? avatarBase64;
 
   factory Community.fromJson(Map<String, dynamic> json) {
     return Community(
@@ -28,6 +30,7 @@ class Community {
           DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       memberCount: json['member_count'] as int? ?? 0,
+      avatarBase64: json['avatar_base64'] as String?,
     );
   }
 }

@@ -22,6 +22,15 @@ class BoardDisplayServer extends ChangeNotifier {
   bool _disposed = false;
   final _challenges = <String, DateTime>{};
   BoardDisplay? display;
+  Map<String, dynamic>? completedResult;
+  void completeMatch(Map<String, dynamic> result) {
+    if (display?.matchId != result['matchId']) {
+      throw StateError('Die Spielzuweisung wurde geändert.');
+    }
+    completedResult = result;
+    _changed();
+  }
+
   String? error;
   String? pairingName;
   String? pairingAddress;
@@ -244,6 +253,14 @@ class BoardDisplayServer extends ChangeNotifier {
       _seen = next.state == 'released' ? null : DateTime.now();
       response.write(
         jsonEncode({
+          if (completedResult != null &&
+              completedResult!['matchId'] == next.matchId) ...{
+            'result': jsonEncode(completedResult),
+            'resultProof': DeviceLinkAuth.sign(
+              _sessionKey ?? _key!,
+              'result\n$nonce\n${jsonEncode(completedResult)}',
+            ),
+          },
           'proof': DeviceLinkAuth.sign(
             _sessionKey ?? _key!,
             'accepted\n$nonce',

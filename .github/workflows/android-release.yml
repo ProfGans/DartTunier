@@ -60,6 +60,18 @@ jobs:
           values = {'storeFile': str(keyfile), 'storePassword': os.environ['STORE_PASSWORD'],
                     'keyPassword': os.environ['KEY_PASSWORD'], 'keyAlias': os.environ['KEY_ALIAS']}
           pathlib.Path('android/key.properties').write_text('\n'.join(k + '=' + escape(v) for k, v in values.items()))
+      - name: Configure Android push (optional)
+        env:
+          FIREBASE_ANDROID_CONFIG: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES_BASE64 }}
+        shell: python
+        run: |
+          import os, base64, pathlib, json
+          value = os.environ.get('FIREBASE_ANDROID_CONFIG')
+          if value:
+              raw = base64.b64decode(value, validate=True)
+              config = json.loads(raw)
+              assert config['project_info']['project_id'] == 'darttunier-6f866', 'Wrong Firebase project'
+              pathlib.Path('android/app/google-services.json').write_bytes(raw)
       - run: flutter build apk --release
       - name: Prepare APK
         run: |
@@ -108,12 +120,21 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path dist
+          $version = ([regex]::Match((Get-Content pubspec.yaml -Raw), '(?m)^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$'))
+          if (!$version.Success) { throw 'Invalid desktop version' }
+          @{schemaVersion=1; version=$version.Groups[1].Value; build=[int]$version.Groups[2].Value; platform='windows'; architecture='x64'} | ConvertTo-Json | Set-Content -Encoding utf8NoBOM build/windows/x64/runner/Release/data/update-manifest.json
           Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath dist/dart-turnier-windows-x64.zip
       - name: Package Linux bundle
         if: matrix.platform == 'linux'
         run: |
           mkdir -p dist
-          tar -czf dist/dart-turnier-linux-x64.tar.gz -C build/linux/x64/release/bundle .
+          python3 - <<'PY'
+          import json, pathlib, re
+          match = re.search(r'^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$', pathlib.Path('pubspec.yaml').read_text(), re.M)
+          assert match, 'Invalid desktop version'
+          pathlib.Path('build/linux/x64/release/bundle/data/update-manifest.json').write_text(json.dumps(dict(schemaVersion=1, version=match[1], build=int(match[2]), platform='linux', architecture='x64')))
+          PY
+          tar --dereference -czf dist/dart-turnier-linux-x64.tar.gz -C build/linux/x64/release/bundle .
       - name: Package macOS app (not notarized)
         if: matrix.platform == 'macos'
         run: |
@@ -178,6 +199,7 @@ jobs:
           macOS: App-ZIP, noch ohne Developer-ID-Signierung und Apple-Notarisierung. Gatekeeper kann den Start blockieren.
           iOS: noch kein installierbarer Download; Apple-Signierung und Vertriebsweg fehlen. Der separate Actions-Build ist nur ein unsignierter Build-Check.
 
-          Vor einem Wechsel eine Datensicherung exportieren. Automatische In-App-Updates stehen derzeit nur für Android zur Verfügung.
+          Vor einem Wechsel eine Datensicherung exportieren. In-App-Updates unterstützen Android, Windows x64 und Linux x64; Installation und Neustart werden in der App bestätigt.
           EOF
           gh release create "$RELEASE_TAG" ./* --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "Dart Turnier $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
+

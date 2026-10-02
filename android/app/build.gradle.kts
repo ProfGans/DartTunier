@@ -8,6 +8,9 @@ plugins {
 }
 
 val signingProperties = Properties()
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
 val signingFile = rootProject.file("key.properties")
 if (signingFile.exists()) signingFile.inputStream().use { signingProperties.load(it) }
 

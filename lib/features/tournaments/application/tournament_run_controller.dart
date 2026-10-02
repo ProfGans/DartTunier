@@ -1,5 +1,6 @@
 import '../data/tournament_storage.dart';
 import '../domain/tournament_models.dart';
+import 'tournament_timing.dart';
 
 class TournamentRunController {
   const TournamentRunController({TournamentStorage? storage})
@@ -12,20 +13,12 @@ class TournamentRunController {
     required int activeStageIndex,
     required Set<int> completedStageIndexes,
   }) async {
-    final wasComplete = _isComplete(tournament);
     tournament.activeStageIndex = activeStageIndex;
     tournament.completedStageIndexes
       ..clear()
       ..addAll(completedStageIndexes);
     final storage = _storage ?? TournamentStorage();
+    await TournamentTiming.prepare(tournament);
     await storage.saveTournament(tournament);
-    if (!wasComplete && _isComplete(tournament) && tournament.communityId != null) {
-      await storage.synchronize(tournamentId: tournament.id);
-    }
   }
-
-  bool _isComplete(CreatedTournament tournament) =>
-      tournament.runStages.isNotEmpty &&
-      List.generate(tournament.runStages.length, (index) => index)
-          .every(tournament.completedStageIndexes.contains);
 }

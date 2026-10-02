@@ -100,7 +100,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: ScorerPage(botStorage: storage)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Gegen Bot spielen'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('Spiel starten'),
       350,

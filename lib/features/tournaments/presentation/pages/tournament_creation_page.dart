@@ -15,6 +15,7 @@ class TournamentCreationPage extends StatefulWidget {
 }
 
 class _TournamentCreationPageState extends State<TournamentCreationPage> {
+  bool _showEntryChoices = true;
   final _tournamentNameController = TextEditingController();
   final _playerNameController = TextEditingController();
   final _playerCountController = TextEditingController(text: '8');
@@ -974,7 +975,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         builder: (context) => _PlayerProfilePickerDialog(
           profiles: profiles,
           selectedProfileIds: {
-            for (final player in _players)
+            for (final player in _players.expand((p) => p.individuals))
               if (player.profileId != null) player.profileId!,
           },
         ),
@@ -996,7 +997,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 name: profile.displayName,
                 isGenerated: false,
               ),
-            ),
+            ).where((p) => !guestPlayers.expand((t) => t.individuals).any((m) => m.profileId == p.profileId)),
           );
       });
     } catch (_) {
@@ -1017,6 +1018,25 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   void _removePlayer(int index) {
     setState(() {
       _players.removeAt(index);
+    });
+  }
+
+  void _mergePlayers(int source, int target) {
+    try {
+      final team = TournamentPlayer.team([_players[target], _players[source]]);
+      setState(() {
+        _players[target] = team;
+        _players.removeAt(source);
+      });
+    } on ArgumentError catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${e.message}')));
+    }
+  }
+
+  void _splitTeam(int index) {
+    setState(() {
+      final members = _players.removeAt(index).individuals;
+      _players.insertAll(index, members);
     });
   }
 
@@ -1070,6 +1090,20 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     }
 
     setState(() {
+      final stage = _currentStageConfiguration();
+
+      final editingIndex = _editingStageIndex;
+      if (editingIndex == null) {
+        _stages.add(stage);
+      } else {
+        _stages[editingIndex] = stage;
+      }
+
+      _resetStageForm();
+    });
+  }
+
+  TournamentStage _currentStageConfiguration() {
       final latestGroupStage = _latestGroupStage();
       final groupQualificationPlan = _selectedStageType == 'groups'
           ? _groupQualificationPlan()
@@ -1077,8 +1111,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       final inheritedQualificationPlan = _isKnockoutStageType(_selectedStageType)
           ? _storedGroupQualificationPlan(latestGroupStage)
           : null;
-      final stage = TournamentStage(
-        name: stageName,
+      return TournamentStage(
+        name: _stageNameController.text.trim(),
         type: _selectedStageType,
         placementPlaces: (_selectedStageType == 'single_knockout' || _selectedStageType == 'groups') ? (_placementPlaces.toList()..sort()) : const [],
         finalEndsTournament: _selectedStageType != 'kratzer' && _finalEndsTournament,
@@ -1151,15 +1185,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         gameFormat: _stageGameFormat,
       );
 
-      final editingIndex = _editingStageIndex;
-      if (editingIndex == null) {
-        _stages.add(stage);
-      } else {
-        _stages[editingIndex] = stage;
-      }
-
-      _resetStageForm();
-    });
   }
 
   void _resetStageForm() {
@@ -1329,8 +1354,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(_players.isEmpty
           ? 'Vorschlag übernommen. Bitte zuerst die Community-Spieler auswählen.'
-          : 'Vorschlag übernommen. Du kannst die Spieler bearbeiten oder das Turnier anlegen.'),
+          : 'Vorschlag übernommen. Du kannst Spieler, Etappen und Spielformate weiter anpassen.'),
     ));
+    setState(() => _showEntryChoices = false);
   }
 
   int _plannerNextPowerOfTwo(int value) {
@@ -1760,6 +1786,22 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
 
   @override
   Widget build(BuildContext context) {
+    return CommunityPermissionGate(communityId: widget.communityId,
+      permission: CommunityPermission.createTournaments, builder: _buildAuthorized);
+  }
+
+  Widget _buildAuthorized(BuildContext context) {
+    if (_showEntryChoices) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Turnier erstellen')),
+        body: CreationEntryChoices(
+          onLeague: () => Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+            builder: (_) => LeagueMatchPage(communityId: widget.communityId))),
+          onFind: _openFormatPlanner,
+          onExpert: () => setState(() => _showEntryChoices = false),
+        ),
+      );
+    }
     final textTheme = Theme.of(context).textTheme;
     final groupSizes = _calculateGroupSizes();
     final latestGroupStage = _latestGroupStage();
@@ -1866,10 +1908,12 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
               breakpoint: 420,
             ),
             const SizedBox(height: 24),
-            _PlayerList(
+            TeamParticipantList(
               players: _players,
-              onRenamePlayer: _renamePlayer,
-              onRemovePlayer: _removePlayer,
+              onRename: _renamePlayer,
+              onRemove: _removePlayer,
+              onMerge: _mergePlayers,
+              onSplit: _splitTeam,
             ),
             const SizedBox(height: 32),
             Text(
@@ -2112,6 +2156,18 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
               onEditStage: _editStage,
               onRemoveStage: _removeStage,
             ),
+            ConfigurationDurationBar(
+              stages: [
+                if (_stages.isEmpty) _currentStageConfiguration(),
+                for (var i = 0; i < _stages.length; i++)
+                  i == _editingStageIndex ? _currentStageConfiguration() : _stages[i],
+              ],
+              editing: _editingStageIndex != null || _stages.isEmpty,
+              boards: _plannedBoardCount,
+              onBoardsChanged: (boards) => setState(() => _plannedBoardCount = boards),
+            ),
+            const SizedBox(height: 12),
+            const TournamentDevicesSection(),
             const SizedBox(height: 24),
             if (_players.isEmpty || _stages.isEmpty)
               Padding(

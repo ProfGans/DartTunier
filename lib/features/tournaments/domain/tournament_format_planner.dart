@@ -271,6 +271,8 @@ class TournamentFormatPlanner {
   double _matchMinutes(TournamentGameFormat format) =>
       _legMinutes(format) * PlanningDuration.estimatedMatchLegs(format);
 
+  double estimatedMatchMinutes(TournamentGameFormat format) => _matchMinutes(format);
+
   bool _fits(
     TournamentFormatSuggestion suggestion,
     TournamentPlanningRequest request,

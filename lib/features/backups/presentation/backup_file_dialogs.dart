@@ -1,8 +1,17 @@
 import 'package:file_selector/file_selector.dart';
+import 'dart:io';
+import '../data/backup_service.dart';
 
 /// Native dialogs are separate from the backup UI and storage transaction.
 class BackupFileDialogs {
   const BackupFileDialogs();
+  Future<bool> export(BackupService service) async {
+    final path = await savePath();
+    if (path == null) return false;
+    await File(path).writeAsBytes(await service.exportBytes(), flush: true);
+    return true;
+  }
+
   static const type = XTypeGroup(
     label: 'Turnier-Backup',
     extensions: ['dartbackup'],

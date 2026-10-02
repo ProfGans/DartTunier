@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../../league/domain/league_match.dart';
 
 const List<String> defaultGroupTieBreakers = [
   'points',
@@ -163,6 +164,7 @@ class TournamentPlayer {
     this.profileId,
     required this.name,
     required this.isGenerated,
+    this.members = const [],
   });
 
   factory TournamentPlayer.fromJson(Map<String, dynamic> json) {
@@ -170,6 +172,7 @@ class TournamentPlayer {
       profileId: json['profileId'] as String?,
       name: json['name'] as String? ?? '',
       isGenerated: json['isGenerated'] as bool? ?? false,
+      members: (json['members'] as List? ?? const []).map((e) => TournamentPlayer.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
     );
   }
 
@@ -180,6 +183,20 @@ class TournamentPlayer {
   final String? profileId;
   final String name;
   final bool isGenerated;
+  final List<TournamentPlayer> members;
+  bool get isTeam => members.isNotEmpty;
+  List<TournamentPlayer> get individuals => isTeam
+      ? members.expand((p) => p.individuals).toList()
+      : [this];
+
+  factory TournamentPlayer.team(Iterable<TournamentPlayer> players) {
+    final members = players.expand((p) => p.individuals).toList();
+    if (members.length < 2 || members.map((p) => p.profileId ?? p.name).toSet().length != members.length) {
+      throw ArgumentError('Ein Team benötigt mindestens zwei unterschiedliche Spieler.');
+    }
+    return TournamentPlayer(name: members.map((p) => p.name).join(' / '),
+      isGenerated: false, members: List.unmodifiable(members));
+  }
 
   TournamentPlayer copyWith({
     String? profileId,
@@ -190,6 +207,7 @@ class TournamentPlayer {
       profileId: profileId ?? this.profileId,
       name: name ?? this.name,
       isGenerated: isGenerated ?? this.isGenerated,
+      members: members,
     );
   }
 
@@ -198,6 +216,7 @@ class TournamentPlayer {
       if (profileId != null) 'profileId': profileId,
       'name': name,
       'isGenerated': isGenerated,
+      if (isTeam) 'members': members.map((p) => p.toJson()).toList(),
     };
   }
 
@@ -206,11 +225,13 @@ class TournamentPlayer {
     return other is TournamentPlayer &&
         other.profileId == profileId &&
         other.name == name &&
-        other.isGenerated == isGenerated;
+        other.isGenerated == isGenerated &&
+        other.members.length == members.length &&
+        Iterable<int>.generate(members.length).every((i) => members[i] == other.members[i]);
   }
 
   @override
-  int get hashCode => Object.hash(profileId, name, isGenerated);
+  int get hashCode => Object.hash(profileId, name, isGenerated, Object.hashAll(members));
 }
 
 class TournamentStage {
@@ -417,9 +438,15 @@ class CreatedTournament {
     required this.players,
     required this.stages,
     required this.runStages,
+    this.leagueMatch,
     this.communityId,
     this.activeStageIndex = 0,
     this.boardCount = 1,
+    this.startedAt,
+    this.finishedAt,
+    this.plannedMinutes,
+    this.plannedMatches,
+    this.plannedMatchEndSeconds = const [],
     Set<int>? completedStageIndexes,
   }) : id = id ?? _newTournamentId(),
        createdAt = createdAt ?? DateTime.now(),
@@ -435,9 +462,16 @@ class CreatedTournament {
       players: _mapListFromJson(json['players'], TournamentPlayer.fromJson),
       stages: _mapListFromJson(json['stages'], TournamentStage.fromJson),
       runStages: _runStageListFromJson(json['runStages']),
+      leagueMatch: json['leagueMatch'] == null ? null : LeagueMatch.fromJson(
+          Map<String, dynamic>.from(json['leagueMatch'] as Map)),
       communityId: json['communityId'] as String?,
       activeStageIndex: json['activeStageIndex'] as int? ?? 0,
       boardCount: (json['boardCount'] as int? ?? 1).clamp(1, 64),
+      startedAt: _dateTimeFromJson(json['startedAt']),
+      finishedAt: _dateTimeFromJson(json['finishedAt']),
+      plannedMinutes: json['plannedMinutes'] as int?,
+      plannedMatches: json['plannedMatches'] as int?,
+      plannedMatchEndSeconds: _intListFromJson(json['plannedMatchEndSeconds']),
       completedStageIndexes: _intListFromJson(
         json['completedStageIndexes'],
       ).toSet(),
@@ -451,23 +485,33 @@ class CreatedTournament {
   final List<TournamentPlayer> players;
   final List<TournamentStage> stages;
   final List<TournamentRunStage> runStages;
+  final LeagueMatch? leagueMatch;
   final String? communityId;
   int activeStageIndex;
   int boardCount;
+  DateTime? startedAt, finishedAt;
+  int? plannedMinutes, plannedMatches;
+  List<int> plannedMatchEndSeconds;
   final Set<int> completedStageIndexes;
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
+      'updatedAt': updatedAt.toUtc().toIso8601String(),
       'players': players.map((player) => player.toJson()).toList(),
       'stages': stages.map((stage) => stage.toJson()).toList(),
       'runStages': runStages.map(_runStageToJson).toList(),
+      if (leagueMatch != null) 'leagueMatch': leagueMatch!.toJson(),
       'communityId': communityId,
       'activeStageIndex': activeStageIndex,
       'boardCount': boardCount,
+      'startedAt': startedAt?.toUtc().toIso8601String(),
+      'finishedAt': finishedAt?.toUtc().toIso8601String(),
+      'plannedMinutes': plannedMinutes,
+      'plannedMatches': plannedMatches,
+      'plannedMatchEndSeconds': plannedMatchEndSeconds,
       'completedStageIndexes': completedStageIndexes.toList()..sort(),
     };
   }
@@ -620,6 +664,7 @@ class GroupMatch {
     this.startedAt,
     this.finishedAt,
     this.startedPlayers,
+    this.deviceResult,
   });
 
   factory GroupMatch.fromJson(Map<String, dynamic> json) {
@@ -641,6 +686,7 @@ class GroupMatch {
       startedAt: _dateTimeFromJson(json['startedAt']),
       finishedAt: _dateTimeFromJson(json['finishedAt']),
       startedPlayers: json['startedPlayers'] as String?,
+      deviceResult: json['deviceResult'] as Map<String, dynamic>?,
     );
   }
 
@@ -665,6 +711,7 @@ class GroupMatch {
   DateTime? startedAt;
   DateTime? finishedAt;
   String? startedPlayers;
+  Map<String, dynamic>? deviceResult;
 
   bool get hasPlayers => homePlayer != null && awayPlayer != null;
   bool get hasScore => hasPlayers && homeLegs != null && awayLegs != null;
@@ -713,9 +760,10 @@ class GroupMatch {
       'isAnnulled': isAnnulled,
       'isDecider': isDecider,
       'boardNumber': boardNumber,
-      'startedAt': startedAt?.toIso8601String(),
-      'finishedAt': finishedAt?.toIso8601String(),
+      'startedAt': startedAt?.toUtc().toIso8601String(),
+      'finishedAt': finishedAt?.toUtc().toIso8601String(),
       'startedPlayers': startedPlayers,
+      'deviceResult': deviceResult,
     };
   }
 }

@@ -16,7 +16,7 @@ export 'features/tournaments/domain/tournament_models.dart'
     hide defaultGroupTieBreakers, groupLabel;
 export 'tournament_workspace.dart';
 
-Future<void> main() async {
-  final startupError = await AppBootstrap.initialize();
+Future<void> main(List<String> args) async {
+  final startupError = await AppBootstrap.initialize(args: args);
   runApp(StorageSessionRoot(startupError: startupError));
 }

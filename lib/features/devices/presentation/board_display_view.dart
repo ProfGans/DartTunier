@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../application/devices_controller.dart';
+import '../application/device_scorer_settings.dart';
+import 'device_scorer_session.dart';
 
 class BoardDisplayView extends StatelessWidget {
   const BoardDisplayView({super.key, required this.controller});
@@ -7,6 +9,24 @@ class BoardDisplayView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final display = controller.receiver.display;
+    String? scorerError;
+    if (display?.state == 'running' && display?.matchId != null && display?.gameFormat != null) {
+      try {
+        deviceScorerSettings(display!);
+        return Navigator(
+          key: ValueKey(display.matchId),
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (_) => DeviceScorerSession(
+              display: display,
+              receiver: controller.receiver,
+              onExit: () => controller.setShowDisplay(false),
+            ),
+          ),
+        );
+      } catch (error) {
+        scorerError = error.toString();
+      }
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -33,6 +53,7 @@ class BoardDisplayView extends StatelessWidget {
               if (display == null)
                 const Text('Warte auf Spielzuweisung …')
               else ...[
+                if (scorerError != null) Text(scorerError),
                 Text(
                   display.tournamentName,
                   style: Theme.of(context).textTheme.headlineSmall,

@@ -8,10 +8,12 @@ class TournamentSimulationScenario {
     required this.name,
     required this.playerCount,
     required this.stages,
+    this.teamSize = 1,
   });
 
   final String name;
   final int playerCount;
+  final int teamSize;
   final List<SimulationStageSpec> stages;
 }
 
@@ -144,7 +146,10 @@ class TournamentSimulationEngine {
     }
     final players = [
       for (var i = 1; i <= scenario.playerCount; i++)
-        TournamentPlayer.generated(i),
+        scenario.teamSize <= 1 ? TournamentPlayer.generated(i) : TournamentPlayer.team([
+          for (var member = 0; member < scenario.teamSize; member++)
+            TournamentPlayer.generated((i - 1) * scenario.teamSize + member + 1),
+        ]),
     ];
     final strength = [...players];
     if (seed != null) strength.shuffle(Random(seed));

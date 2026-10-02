@@ -1,3 +1,5 @@
+import 'update_platform.dart';
+
 class AndroidRelease {
   const AndroidRelease({
     required this.version,
@@ -6,6 +8,8 @@ class AndroidRelease {
     required this.sha256,
     required this.size,
     required this.notes,
+    this.isPrerelease = false,
+    this.platform = UpdatePlatform.android,
   });
   static const repository = 'ProfGans/DartTunier';
   final String version;
@@ -14,9 +18,19 @@ class AndroidRelease {
   final String sha256;
   final int size;
   final String notes;
+  final bool isPrerelease;
+  final UpdatePlatform platform;
 
-  static AndroidRelease? fromGitHub(Map<String, dynamic> json) {
-    if (json['draft'] != false || json['prerelease'] != false) return null;
+  static AndroidRelease? fromGitHub(
+    Map<String, dynamic> json, {
+    bool includePrereleases = false,
+    UpdatePlatform platform = UpdatePlatform.android,
+  }) {
+    if (json['draft'] != false ||
+        (json['prerelease'] != false &&
+            !(includePrereleases && json['prerelease'] == true))) {
+      return null;
+    }
     final tag = RegExp(
       r'^v(\d+\.\d+\.\d+)\+(\d+)$',
     ).firstMatch(json['tag_name'] as String? ?? '');
@@ -27,7 +41,7 @@ class AndroidRelease {
         .whereType<Map>()
         .where(
           (asset) =>
-              asset['name'] == 'dart-turnier-android.apk' &&
+              asset['name'] == platform.assetName &&
               asset['state'] == 'uploaded',
         )
         .toList();
@@ -47,7 +61,7 @@ class AndroidRelease {
         !RegExp(r'^sha256:[a-f0-9]{64}$').hasMatch(digest) ||
         size is! int ||
         size < 1 ||
-        size > 300 * 1024 * 1024) {
+        size > (platform == UpdatePlatform.android ? 300 : 800) * 1024 * 1024) {
       return null;
     }
     return AndroidRelease(
@@ -57,14 +71,27 @@ class AndroidRelease {
       sha256: digest.substring(7),
       size: size,
       notes: json['body'] as String? ?? '',
+      isPrerelease: json['prerelease'] == true,
+      platform: platform,
     );
   }
 
-  static AndroidRelease? newest(List<dynamic> releases, int installedBuild) {
+  static AndroidRelease? newest(
+    List<dynamic> releases,
+    int installedBuild, {
+    bool includePrereleases = false,
+    UpdatePlatform platform = UpdatePlatform.android,
+  }) {
     final candidates =
         releases
             .whereType<Map<String, dynamic>>()
-            .map(fromGitHub)
+            .map(
+              (json) => fromGitHub(
+                json,
+                includePrereleases: includePrereleases,
+                platform: platform,
+              ),
+            )
             .whereType<AndroidRelease>()
             .where((r) => r.build > installedBuild)
             .toList()
