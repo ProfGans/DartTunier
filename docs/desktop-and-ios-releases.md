@@ -1,7 +1,7 @@
 # Releases für weitere Plattformen
 
 Der Workflow `.github/workflows/android-release.yml` heißt nun **App Release**.
-Ein neuer Tag passend zu `pubspec.yaml` baut Android, Windows, Linux und macOS.
+Ein neuer Tag passend zu `pubspec.yaml` baut Android, Windows und Linux.
 Erst nach erfolgreichen Android-Prüfungen und allen Desktop-Builds wird ein
 gemeinsamer Release-Entwurf mit SHA256SUMS angelegt. Manuelle Workflow-Starts
 erzeugen ausschließlich Actions-Artefakte. Bestehende Releases werden nicht verändert.
@@ -11,10 +11,8 @@ erzeugen ausschließlich Actions-Artefakte. Bestehende Releases werden nicht ver
   Visual C++ Redistributable x64 Laufzeit.
 - Linux: x64 tar.gz, gebaut auf Ubuntu 22.04. GTK 3 und kompatible Systembibliotheken
   erforderlich; kein universelles Paket für alle Distributionen.
-- macOS: App-ZIP mit den vom Flutter-Build erzeugten Architekturen, ohne
-  Developer-ID-Zertifikat und Notarisierung. Gatekeeper kann den Start blockieren.
-- iOS: separater unsignierter Release-Build als Actions-Artefakt zur Build-Prüfung.
-  **Keine installierbare IPA und kein GitHub-Release-Asset.** Für TestFlight/App Store
+- macOS und iOS: Builds und Release-Pakete sind vorerst deaktiviert. Die Plattform-
+  Projekte bleiben für eine spätere Wiederaufnahme erhalten. Für TestFlight/App Store
   müssen Apple-Developer-Mitgliedschaft, registrierte Bundle-ID, Signierungszertifikat,
   Provisioning und App-Store-Connect-Zugang eingerichtet werden. Diese Daten gehören
   ausschließlich in GitHub Secrets, niemals in das Repository.

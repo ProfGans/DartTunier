@@ -96,8 +96,6 @@ jobs:
             runner: windows-2022
           - platform: linux
             runner: ubuntu-22.04
-          - platform: macos
-            runner: macos-14
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     permissions:
@@ -135,38 +133,9 @@ jobs:
           pathlib.Path('build/linux/x64/release/bundle/data/update-manifest.json').write_text(json.dumps(dict(schemaVersion=1, version=match[1], build=int(match[2]), platform='linux', architecture='x64')))
           PY
           tar --dereference -czf dist/dart-turnier-linux-x64.tar.gz -C build/linux/x64/release/bundle .
-      - name: Package macOS app (not notarized)
-        if: matrix.platform == 'macos'
-        run: |
-          mkdir -p dist
-          ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/dart_tournament_manager.app dist/dart-turnier-macos-unnotarized.zip
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.platform }}
-          path: dist/*
-          if-no-files-found: error
-
-  ios-check:
-    runs-on: macos-14
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.41.4'
-          channel: stable
-          cache: true
-      - run: flutter pub get --enforce-lockfile
-      - run: flutter build ios --release --no-codesign
-      - name: Package unsigned build for developers only
-        run: |
-          mkdir -p dist
-          ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app dist/ios-unsigned-build-check.zip
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ios-unsigned-build-check-NOT-INSTALLABLE
           path: dist/*
           if-no-files-found: error
 
@@ -196,8 +165,6 @@ jobs:
           Android: signierte APK.
           Windows x64: ZIP vollständig entpacken und dart_tournament_manager.exe starten. Nicht Authenticode-signiert.
           Linux x64: vollständiges Archiv entpacken, dart_tournament_manager starten. Benötigt GTK 3 und eine mit Ubuntu 22.04 kompatible Laufzeit.
-          macOS: App-ZIP, noch ohne Developer-ID-Signierung und Apple-Notarisierung. Gatekeeper kann den Start blockieren.
-          iOS: noch kein installierbarer Download; Apple-Signierung und Vertriebsweg fehlen. Der separate Actions-Build ist nur ein unsignierter Build-Check.
 
           Vor einem Wechsel eine Datensicherung exportieren. In-App-Updates unterstützen Android, Windows x64 und Linux x64; Installation und Neustart werden in der App bestätigt.
           EOF
