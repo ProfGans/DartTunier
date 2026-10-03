@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'linux_push_device_menu.dart';
 import '../application/push_reception_controller.dart';
 
 class PushDeviceMenu extends StatefulWidget {
@@ -64,7 +66,7 @@ class _PushDeviceMenuState extends State<PushDeviceMenu>
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Empfange App-Nachrichten von ProfGans, auch wenn die App geschlossen ist.',
+              'Empfange App-Nachrichten und deine aktivierten Turniererinnerungen, auch wenn die App geschlossen ist.',
             ),
             TextField(
               controller: input,
@@ -94,6 +96,7 @@ class _PushDeviceMenuState extends State<PushDeviceMenu>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (Platform.isLinux) return const LinuxPushDeviceMenu();
     return !PushReceptionController.supported
         ? const SizedBox.shrink()
         : AnimatedBuilder(

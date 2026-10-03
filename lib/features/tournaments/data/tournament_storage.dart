@@ -4,7 +4,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 
-import 'package:path_provider/path_provider.dart';
+import '../../../shared/persistence/app_data_directory.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/tournament_models.dart';
@@ -113,7 +113,8 @@ class TournamentStorage {
   // v11 adds league board/scorer progress. Old leagues start without assignments.
   // v12 adds optional tournament timing and the original planning baseline.
   // v13 stores the original board-scheduled match completion timeline.
-  static const _schemaVersion = 13;
+  // v16 adds resolved bot profiles. Missing profiles remain human participants.
+  static const _schemaVersion = 16;
 
   Future<Map<String, dynamic>> readPlayerStatistics(String accountId) =>
       _locked(() async {
@@ -335,24 +336,7 @@ class TournamentStorage {
 
   Future<File> _storageFile() async {
     if (_file != null) return _file;
-    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
-      final directory = await _applicationSupportDirectory();
-      return File('${directory.path}${Platform.pathSeparator}tournaments.json');
-    }
-
-    final appData = Platform.environment['APPDATA'];
-    final basePath = appData == null || appData.isEmpty
-        ? (throw StateError(
-            'APPDATA fehlt; Speicherort kann nicht sicher bestimmt werden.',
-          ))
-        : appData;
-    return File(
-      '$basePath${Platform.pathSeparator}DartTournamentManager'
-      '${Platform.pathSeparator}tournaments.json',
-    );
-  }
-
-  Future<Directory> _applicationSupportDirectory() async {
-    return getApplicationSupportDirectory();
+    final directory = await appDataDirectory();
+    return File('${directory.path}${Platform.pathSeparator}tournaments.json');
   }
 }

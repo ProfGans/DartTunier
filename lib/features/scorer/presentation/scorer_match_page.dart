@@ -1,5 +1,7 @@
 import 'dart:async';
-import '../../autoscoring/presentation/autoscoring_page.dart';
+import 'package:camera_platform_interface/camera_platform_interface.dart';
+import '../../autoscoring/data/autoscoring_preferences.dart';
+import '../../autoscoring/presentation/widgets/scorer_camera_panel.dart';
 import 'dart:math';
 import '../../statistics/data/player_statistics_repository.dart';
 import '../../statistics/domain/saved_scorer_match.dart';
@@ -63,7 +65,10 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     if (id == null || index == null) return;
     final settings = widget.settings;
     // Team totals must not be saved as an individual's personal statistics.
-    if (settings.participants[index].isTeam) return;
+    if (settings.participants[index].isTeam ||
+        settings.participants[index].bot != null) {
+      return;
+    }
     final snapshot = SavedScorerMatch(
       id: _sessionId,
       accountId: id,
@@ -78,7 +83,9 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
           settings.startRequirement == StartRequirement.straightIn &&
           settings.checkoutRequirement == CheckoutRequirement.doubleOut,
       doubleOut: settings.checkoutRequirement == CheckoutRequirement.doubleOut,
-      visits: controller.statisticsVisits,
+      visits: controller.statisticsVisits
+          .where((v) => settings.participants[v.player].bot == null)
+          .toList(),
       winner: controller.winner,
       isDraw: controller.isDraw,
     );
@@ -204,32 +211,51 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     if (mounted) _scheduleBot();
   }
 
-  Future<void> _openAutoscoring() async {
-    if (controller.isBotTurn || controller.isComplete) return;
-    timer?.cancel();
-    var blocked = false;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AutoscoringPage(
-          matchStatus: () =>
-              '${widget.settings.participants[controller.activePlayer].name}: ${controller.remaining} Rest',
-          onThrow: (dart) {
-            if (blocked || controller.isBotTurn || controller.isComplete) {
-              return false;
-            }
-            final player = controller.activePlayer;
-            controller.throwDart(dart);
-            timer?.cancel();
-            blocked =
-                controller.activePlayer != player ||
-                controller.visit.isEmpty ||
-                controller.isComplete;
-            return !blocked;
-          },
-        ),
-      ),
-    );
-    if (mounted) _scheduleBot();
+  bool _automaticCameraPending = false;
+  bool _cameraOpen = false;
+
+  Future<void> _checkAutomaticCamera() async {
+    try {
+      final enabled = await AutoscoringPreferences().load();
+      if (!enabled || !mounted || controller.isComplete) return;
+      final cameras = await CameraPlatform.instance.availableCameras();
+      if (!mounted || cameras.length < 3) return;
+      _automaticCameraPending = true;
+      _tryAutomaticCamera();
+    } catch (_) {
+      // Unavailable camera plugins or permissions leave manual scoring usable.
+    }
+  }
+
+  void _tryAutomaticCamera() {
+    if (!_automaticCameraPending ||
+        _cameraOpen ||
+        _leaving ||
+        controller.isBotTurn ||
+        controller.isComplete) {
+      return;
+    }
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    _automaticCameraPending = false;
+    unawaited(_openAutoscoring(autoConnect: true));
+  }
+
+  Future<void> _openAutoscoring({bool autoConnect = false}) async {
+    if (controller.isBotTurn || controller.isComplete || _cameraOpen) return;
+    setState(() => _cameraOpen = true);
+  }
+
+  void _acceptCameraVisit(List<DartThrowResult> darts) {
+    if (_leaving || controller.isBotTurn || controller.isComplete) return;
+    final player = controller.activePlayer;
+    for (final dart in darts) {
+      controller.throwDart(dart);
+      if (controller.isComplete ||
+          controller.activePlayer != player ||
+          controller.visit.isEmpty) {
+        break;
+      }
+    }
   }
 
   Future<void> _submitBust() async {
@@ -266,12 +292,18 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     }
     controller.addListener(_changed);
     _scheduleBot();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_checkAutomaticCamera());
+    });
   }
 
   void _changed() {
     setState(() {});
     _persistStatistics();
     _scheduleBot();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _tryAutomaticCamera();
+    });
     if (controller.isComplete) widget.onCompleted?.call(controller);
   }
 
@@ -465,8 +497,24 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     );
     final pad = Column(
       children: [
+        if (!c.isComplete && !_cameraOpen)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: OutlinedButton.icon(
+              onPressed: _leaving || c.isBotTurn ? null : _openAutoscoring,
+              icon: const Icon(Icons.videocam_outlined),
+              label: const Text('Autoscoring starten'),
+            ),
+          ),
+        if (_cameraOpen)
+          ScorerCameraPanel(
+            dartsLeft: c.dartsLeft,
+            enabled: !_leaving && !c.isBotTurn && !c.isComplete,
+            onAccept: _acceptCameraVisit,
+            onClose: () => setState(() => _cameraOpen = false),
+          ),
         ScoreKeypad(
-          enabled: !_leaving && !c.isComplete && !c.isBotTurn,
+          enabled: !_cameraOpen && !_leaving && !c.isComplete && !c.isBotTurn,
           remaining: c.remaining,
           onSubmit: _submit,
           onBust: _submitBust,

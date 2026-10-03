@@ -1,3 +1,4 @@
+import 'dart_setup.dart';
 import 'dart:convert';
 
 class PersonalProfile {
@@ -9,9 +10,11 @@ class PersonalProfile {
     this.favoritePlayer = '',
     this.favoriteDouble = '',
     this.picture,
+    this.dartSetup = const DartSetup(),
   });
   final String name, nationality, song, spotify, favoritePlayer, favoriteDouble;
   final String? picture;
+  final DartSetup dartSetup;
   Map<String, dynamic> toJson() => {
     'version': 1,
     'name': name,
@@ -21,6 +24,7 @@ class PersonalProfile {
     'favoritePlayer': favoritePlayer,
     'favoriteDouble': favoriteDouble,
     'picture': picture,
+    'dartSetup': dartSetup.toJson(),
   };
   factory PersonalProfile.fromJson(Map<String, dynamic> json) {
     if (json['version'] != 1) {
@@ -34,6 +38,11 @@ class PersonalProfile {
       favoritePlayer: json['favoritePlayer'] as String? ?? '',
       favoriteDouble: json['favoriteDouble'] as String? ?? '',
       picture: json['picture'] as String?,
+      dartSetup: json['dartSetup'] == null
+          ? const DartSetup()
+          : DartSetup.fromJson(
+              Map<String, dynamic>.from(json['dartSetup'] as Map),
+            ),
     );
   }
   static bool validSpotify(String value) {

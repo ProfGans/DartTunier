@@ -11,6 +11,11 @@ LeagueMatch rhlDevelopmentScenario() => LeagueMatch.rhl(
 );
 
 const tournamentDevelopmentScenarios = [
+  TournamentSimulationScenario(name: 'Finder: KO-Vorrunde, Mini-KO-Gruppen und Triple-KO', playerCount: 12, stages: [
+    SimulationEliminationStageSpec(name: 'Vorrunde', qualifiers: 6, lossLimit: 1),
+    SimulationGroupStageSpec(name: 'Mini-KO-Gruppen', qualifiers: 4, groupSizes: [3,3], playTypes: ['mini_knockout','mini_knockout'], fixedPerGroup: 2),
+    SimulationEliminationStageSpec(name: 'Triple-KO-Finale', qualifiers: 1, lossLimit: 3, finalEndsTournament: true),
+  ]),
   TournamentSimulationScenario(name: 'Doppel: Gruppen und KO', playerCount: 6, teamSize: 2, stages: [SimulationGroupStageSpec(name: 'Gruppen', qualifiers: 4, groupSizes: [3, 3], fixedPerGroup: 2), SimulationEliminationStageSpec(name: 'Finale', qualifiers: 1, lossLimit: 1)]),
   TournamentSimulationScenario(name: 'Viererteams mit Freilosen', playerCount: 5, teamSize: 4, stages: [SimulationEliminationStageSpec(name: 'KO', qualifiers: 1, lossLimit: 1)]),
   TournamentSimulationScenario(name: 'KO mit Platz 3, 5, 7, 9 und 15', playerCount: 16, stages: [SimulationEliminationStageSpec(name: 'KO', qualifiers: 1, lossLimit: 1, placementPlaces: [3, 5, 7, 9, 15])]),

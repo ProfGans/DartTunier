@@ -25,6 +25,7 @@ class ProfileRepository extends SupabaseCommunityRepository {
     required String name,
     required String bio,
     required String? avatarBase64,
+    bool? rankingEnabled,
   }) async {
     return saved = Community(
       id: community.id,
@@ -34,6 +35,7 @@ class ProfileRepository extends SupabaseCommunityRepository {
       ownerUserId: 'owner',
       createdAt: community.createdAt,
       avatarBase64: avatarBase64,
+      rankingEnabled: rankingEnabled ?? community.rankingEnabled,
     );
   }
 }
@@ -88,12 +90,22 @@ void main() {
           ),
         ),
       );
-      await tester.enterText(
-        find.byType(TextFormField).first,
-        'Neuer Dartclub',
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('community-name')),
+        150,
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.enterText(
-        find.byType(TextFormField).last,
+        find.byKey(const ValueKey('community-name')),
+        'Neuer Dartclub',
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('community-bio')),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('community-bio')),
         'Unsere neue Community-Bio',
       );
       for (final size in [
@@ -103,10 +115,23 @@ void main() {
       ]) {
         tester.view.physicalSize = size;
         await tester.pumpAndSettle();
+        tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('community-name')),
+          150,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         expect(find.text('Neuer Dartclub'), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
-      await tester.ensureVisible(find.text('Änderungen speichern'));
+      await tester.scrollUntilVisible(
+        find.text('Änderungen speichern'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Änderungen speichern'));
       await tester.pumpAndSettle();
       expect(repository.saved!.name, 'Neuer Dartclub');

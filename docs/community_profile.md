@@ -29,3 +29,9 @@ Storage-Bucket benötigt.
 Tests: Bildverarbeitung, ungültige Dateien, Formularzustand bei 360×800,
 800×600 und 1440×900 mit doppelter Schriftgröße; zusätzliche Seitenmatrix.
 Eine physische Android-Dateiauswahl wurde nicht geprüft.
+
+## Optionale Rangliste
+
+Bei der Erstellung und unter **Community bearbeiten** lässt sich **Rangliste aktivieren** umschalten. Ohne Rangliste fehlt der Ranglisten-Menüpunkt; Turnierergebnisse und Statistiken bleiben erhalten. Späteres Aktivieren berechnet die Elo-Wertung auch aus vorhandenen ranglistenrelevanten Spielen. Bestehende Communities und alte Cacheeinträge behalten standardmäßig ihre aktive Rangliste.
+
+`ranking_enabled` wird online und im vorhandenen Community-Cache gespeichert. Änderungen erfordern `edit_community`. Migration `202610030001_community_ranking_setting.sql` wurde am 03.10.2026 eingespielt. Die bisherige Profil-RPC bleibt für ältere Clients erhalten; die neue Settings-RPC prüft über diese dieselben Rechte und ändert die Ranglistenoption in derselben Transaktion.

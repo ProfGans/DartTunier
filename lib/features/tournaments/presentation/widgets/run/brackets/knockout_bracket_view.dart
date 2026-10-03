@@ -1931,6 +1931,7 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
           const SizedBox(height: 8),
           _BracketPlayerSlot(
             player: match.homePlayer,
+            average: MatchScorerSummary.fromMatch(match)?.players[0].average,
             score: match.homePlayer == null ? null : match.homeScore,
             isWinner:
                 match.hasResult &&
@@ -1944,6 +1945,7 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
           const SizedBox(height: 6),
           _BracketPlayerSlot(
             player: match.awayPlayer,
+            average: MatchScorerSummary.fromMatch(match)?.players[1].average,
             score: match.awayPlayer == null ? null : match.awayScore,
             isWinner:
                 match.hasResult &&
@@ -2040,6 +2042,7 @@ class _BracketPlayerSlot extends StatelessWidget {
     required this.player,
     required this.score,
     required this.isWinner,
+    this.average,
     this.label,
     this.slotIndex,
     this.isEditable = false,
@@ -2049,6 +2052,7 @@ class _BracketPlayerSlot extends StatelessWidget {
   final TournamentPlayer? player;
   final int? score;
   final bool isWinner;
+  final double? average;
   final String? label;
   final int? slotIndex;
   final bool isEditable;
@@ -2097,6 +2101,12 @@ class _BracketPlayerSlot extends StatelessWidget {
               color: isOpen ? colorScheme.onSurfaceVariant : null,
               fontWeight: FontWeight.bold,
             ),
+          ),
+          if (average != null) Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Tooltip(message: '3-Dart-Average',
+              child: Text('Avg ${average!.toStringAsFixed(2)}',
+                style: Theme.of(context).textTheme.labelSmall)),
           ),
         ],
       ),

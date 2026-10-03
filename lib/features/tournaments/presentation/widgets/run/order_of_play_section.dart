@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../application/order_of_play/order_of_play_controller.dart';
 import '../../../domain/tournament_models.dart';
+import '../../../../statistics/domain/match_scorer_summary.dart';
 
 class OrderOfPlaySection extends StatelessWidget {
   const OrderOfPlaySection({
@@ -30,7 +31,7 @@ class OrderOfPlaySection extends StatelessWidget {
     Widget row(PlayEntry entry, String detail, {Widget? action}) => Card(
       child: ListTile(
         title: Text(players(entry)),
-        subtitle: Text('${entry.origin}\n$detail'),
+        subtitle: Text('${entry.origin}\n$detail${MatchScorerSummary.fromMatch(entry.match) == null ? '' : '\n${MatchScorerSummary.fromMatch(entry.match)!.averageLabel}'}'),
         isThreeLine: true,
         trailing: action,
       ),

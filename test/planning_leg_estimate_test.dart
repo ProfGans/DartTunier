@@ -5,9 +5,18 @@ import 'package:dart_tournament_manager/features/tournaments/domain/tournament_f
 void main() {
   test('automatic finder includes Bo101 for a matching time window', () {
     final suggestions = const TournamentFormatPlanner().suggestFormats(
-      const TournamentPlanningRequest(players: 3, boards: 1,
-        minimumMatchesPerPlayer: 1, minimumMinutes: 2280, maximumMinutes: 2280,
-        x01Selection: '501', checkoutType: 'double_out', maximumGroups: 1));
+      const TournamentPlanningRequest(
+        requireGroupPhase: true,
+        players: 3,
+        boards: 1,
+        minimumMatchesPerPlayer: 1,
+        minimumMinutes: 2280,
+        maximumMinutes: 2280,
+        x01Selection: '501',
+        checkoutType: 'double_out',
+        maximumGroups: 1,
+      ),
+    );
     expect(suggestions.single.format.bestOfLegs, 101);
     expect(suggestions.single.estimatedMinutes, 2280);
     expect(PlanningDuration.estimatedLegs(101), 76);
@@ -25,6 +34,7 @@ void main() {
         final suggestion = const TournamentFormatPlanner()
             .suggest(
               TournamentPlanningRequest(
+                requireGroupPhase: true,
                 players: 3,
                 boards: 1,
                 minimumMatchesPerPlayer: 0,
@@ -38,7 +48,10 @@ void main() {
             )
             .single;
         expect(suggestion.format.bestOfLegs, bestOf);
-        expect(suggestion.estimatedMinutes, (30 * ((bestOf ~/ 2 + 1 + bestOf) / 2)).ceil());
+        expect(
+          suggestion.estimatedMinutes,
+          (30 * ((bestOf ~/ 2 + 1 + bestOf) / 2)).ceil(),
+        );
       }
     },
   );

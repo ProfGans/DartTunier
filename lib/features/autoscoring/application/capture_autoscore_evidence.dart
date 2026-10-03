@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import '../data/autoscore_diagnostic_export.dart';
 import 'autoscoring_controller.dart';
+import '../domain/frame_detector.dart';
 
 AutoscoreEvidence? captureAutoscoreEvidence(
   AutoscoringController controller, {
@@ -34,13 +35,31 @@ AutoscoreEvidence? captureAutoscoreEvidence(
                       'b': axis.b,
                       'c': axis.c,
                       'confidence': axis.confidence,
+                      'outerRimOnly': axis.outerRimOnly,
                     },
               'changedFraction': c.changeFraction,
+              'referenceChangedFraction':
+                  c.reference == null || c.previous == null
+                  ? null
+                  : const FrameDetector().changedFraction(
+                      c.reference!,
+                      c.previous!,
+                    ),
+              'lastReferenceChangedFraction':
+                  c.lastReference == null || c.previous == null
+                  ? null
+                  : const FrameDetector().changedFraction(
+                      c.lastReference!,
+                      c.previous!,
+                    ),
+              'stableSamples': c.stable,
             },
+            lastCountedBefore: c.lastReference,
           );
         })(),
     ],
     {
+      'manualMissingReport': missed,
       if (hit != null) ...{
         'xMillimetres': hit.point.x,
         'yMillimetres': hit.point.y,

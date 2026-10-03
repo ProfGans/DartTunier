@@ -30,3 +30,12 @@ Die App uebergibt ausschliesslich Geraete-IDs; Tokens bleiben serverseitig. Nur 
 ## Pruefung
 
 `flutter test test/app_push_test.dart` prueft Sichtbarkeit, grosse Schrift, mobile/Tablet/Desktop-Breiten und Wiederholungen. `node tool/test_app_push.mjs` prueft die SQL-Migration mit lokalem PGlite einschliesslich Privilegien, gleichnamigem Fremdaccount und Token-Zugriff. Ein echter Firebase/Supabase-Zustelltest ist nach der Einrichtung erforderlich.
+
+## Linux-Empfang
+
+Der optionale Linux-Hintergrunddienst und seine Servermigration sind in
+`docs/linux.md` beschrieben. Er verwendet eine getrennte Empfangswarteschlange
+mit gerätegebundenen, widerrufbaren Schlüsseln und benötigt keinen Konto-Refresh-
+Token. Migration `202610030007_linux_notifications.sql` und die geänderte
+`send-app-push`-Funktion sind noch nicht live veröffentlicht. Bestehende Android-
+Empfänger bleiben auf FCM; Linux-only-Versand benötigt kein Firebase-Dienstkonto.

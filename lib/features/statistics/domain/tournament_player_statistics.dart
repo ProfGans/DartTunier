@@ -97,6 +97,7 @@ class TournamentStatisticsCalculator {
           final players = [match.homePlayer!, match.awayPlayer!];
           for (var i = 0; i < 2; i++) {
             final player = players[i];
+            if (player.bot != null) continue;
             // Names alone must never attach results to an authenticated profile.
             final rawId =
                 player.profileId ?? 'unlinked:${tournament.id}:${player.name}';

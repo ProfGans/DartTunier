@@ -32,6 +32,8 @@ class TournamentCreationController {
     required List<TournamentStage> stages,
     required List<TournamentRunStage> runStages,
     required String communityId,
+    bool countsForRanking = true,
+    List<String> communityRankingIds = const ['default'],
   }) async {
     final tournament = _buildTournament(
       name: name,
@@ -39,6 +41,8 @@ class TournamentCreationController {
       stages: stages,
       runStages: runStages,
       communityId: communityId,
+      countsForRanking: countsForRanking,
+      communityRankingIds: communityRankingIds,
       boardCount: boardCount,
     );
     await (_storage ?? TournamentStorage()).saveTournament(tournament);
@@ -52,6 +56,8 @@ class TournamentCreationController {
     required List<TournamentStage> stages,
     required List<TournamentRunStage> runStages,
     String? communityId,
+    bool countsForRanking = true,
+    List<String> communityRankingIds = const ['default'],
   }) {
     return CreatedTournament(
       boardCount: boardCount.clamp(1, 64),
@@ -60,6 +66,8 @@ class TournamentCreationController {
       stages: List.unmodifiable(stages),
       runStages: runStages,
       communityId: communityId,
+      countsForRanking: countsForRanking,
+      communityRankingIds: List.unmodifiable(communityRankingIds),
     );
   }
 }

@@ -9,3 +9,7 @@ Der persönliche Profilname ist unabhängig vom Anmeldenamen und bereits gespeic
 Migration: `supabase/migrations/202610020004_personal_profiles.sql`. Am 02.10.2026 im bestehenden App-Supabase-Projekt erfolgreich ausgeführt. Es wurden keine echten Nutzerprofile als Testdaten verändert.
 
 Prüfung: `flutter test test/personal_profile_sync_test.dart test/personal_profile_test.dart test/adaptive_layout_test.dart test/responsive_pages_test.dart` und `node tool/test_personal_profiles.mjs`. Der SQL-Test prüft die Migration und den Schutz gegen kontofremden und anonymen Zugriff. Ein Durchlauf mit zwei echten angemeldeten Geräten steht noch aus.
+
+## Dart-Setup
+
+Das persönliche Profil enthält optional Darts/Barrel, Gewicht, Shafts, Flights, Spitzen und weitere Angaben. Das Setup wird im bestehenden privaten Online-Profil mitgespeichert. Es verwendet ein eigenes versioniertes JSON-Objekt `dartSetup` (Version 1). Bestehende Profile ohne dieses Objekt werden beim Lesen auf ein leeres Setup migriert; die Profilversion und bestehenden Datenbank-Zugriffsregeln bleiben kompatibel. Dafür ist keine zusätzliche Servermigration erforderlich.

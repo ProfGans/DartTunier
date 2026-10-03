@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/tournament_models.dart';
 import '../../models/match_result.dart';
 import 'set_result_dialog.dart';
+import '../../../../statistics/domain/match_scorer_summary.dart';
 
 class MatchResultTile extends StatelessWidget {
   const MatchResultTile({
@@ -25,6 +26,12 @@ class MatchResultTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final canEdit = canEditResult && match.hasPlayers;
     final roundLabel = leadingLabel ?? 'Runde ${match.round}';
+    final scorer = MatchScorerSummary.fromMatch(match);
+    String playerLabel(bool home) {
+      final name = (home ? match.homePlayer : match.awayPlayer)?.name ?? 'offen';
+      final average = scorer?.players[home ? 0 : 1].average;
+      return average == null ? name : '$name · Avg ${average.toStringAsFixed(2)}';
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -54,9 +61,9 @@ class MatchResultTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(match.homePlayer?.name ?? 'offen'),
+                Text(playerLabel(true)),
                 const SizedBox(height: 4),
-                Text(match.awayPlayer?.name ?? 'offen'),
+                Text(playerLabel(false)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -90,14 +97,14 @@ class MatchResultTile extends StatelessWidget {
                 _MatchOriginChip(label: originLabel!),
                 const SizedBox(width: 8),
               ],
-              Expanded(child: Text(match.homePlayer?.name ?? 'offen')),
+              Expanded(child: Text(playerLabel(true))),
               _ScoreBadge(
                 match: match,
                 onTap: canEdit ? () => onEditResult(match) : null,
               ),
               Expanded(
                 child: Text(
-                  match.awayPlayer?.name ?? 'offen',
+                  playerLabel(false),
                   textAlign: TextAlign.right,
                 ),
               ),

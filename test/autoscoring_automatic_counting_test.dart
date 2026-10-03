@@ -75,6 +75,75 @@ void observe(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
+    'Background motion does not lock the next visit after pulling darts',
+    () {
+      final counted = <DartThrowResult>[];
+      final c = createController(counted);
+      addTearDown(c.dispose);
+      var clears = 0;
+      c.onAutomaticVisitCleared = () => clears++;
+      observe(c, frames(1));
+      expect(counted.length, 1);
+      List<GrayFrame> background(int darts) => [
+        for (final original in frames(darts))
+          GrayFrame(
+            original.width,
+            original.height,
+            Uint8List.fromList([
+              for (var p = 0; p < original.pixels.length; p++)
+                p % 320 < 30 && p ~/ 320 < 30 ? 220 : original.pixels[p],
+            ]),
+          ),
+      ];
+      observe(c, background(0), 8);
+      expect(clears, 1);
+      expect(c.throws, isEmpty);
+      expect(c.waitingForEmpty, isFalse);
+      observe(c, background(1));
+      expect(counted.length, 2);
+    },
+  );
+
+  test(
+    'Removal with changed exposure and background noise resets and accepts the next dart',
+    () {
+      final counted = <DartThrowResult>[];
+      final c = createController(counted);
+      addTearDown(c.dispose);
+      var clears = 0;
+      c.onAutomaticVisitCleared = () {
+        clears++;
+      };
+      observe(c, frames(1));
+      expect(counted.length, 1);
+      List<GrayFrame> shifted(int darts) => [
+        for (final original in frames(darts))
+          GrayFrame(
+            original.width,
+            original.height,
+            Uint8List.fromList([
+              for (var i = 0; i < original.pixels.length; i++)
+                i < 100 ? 220 : original.pixels[i] + 30,
+            ]),
+          ),
+      ];
+      observe(c, shifted(0), 8);
+      expect(c.throws, isEmpty);
+      expect(c.waitingForEmpty, isFalse);
+      expect(clears, 1);
+      expect(
+        c.cameras.every(
+          (camera) =>
+              camera.lastAcceptedAxis == null && camera.detectedAxis == null,
+        ),
+        isTrue,
+      );
+      observe(c, shifted(1));
+      expect(counted.length, 2);
+      expect(c.throws.length, 1);
+    },
+  );
+  test(
     'Bouncer counts zero once, survives an empty board, and the next dart is recognized',
     () async {
       final counted = <DartThrowResult>[];
@@ -260,6 +329,38 @@ void main() {
       c.dispose();
     },
   );
+  for (final darts in [1, 2]) {
+    test(
+      'Removal after $darts counted darts waits for a moving third view and resets',
+      () async {
+        final counted = <DartThrowResult>[];
+        final c = createController(counted);
+        addTearDown(c.dispose);
+        var clears = 0;
+        c.onAutomaticVisitCleared = () => clears++;
+        for (var dart = 1; dart <= darts; dart++) {
+          observe(c, frames(dart));
+        }
+        expect(counted.length, darts);
+        // Two cameras already see empty; the third still sees a hand or shaft.
+        c.processFrames([frames(0)[0], frames(0)[1], frames(1, hand: true)[2]]);
+        expect(c.waitingForEmpty, isTrue);
+        expect(c.pending, isNull);
+        expect(counted.length, darts);
+        expect(clears, 0);
+        observe(c, frames(0), 8);
+        expect(clears, 1);
+        expect(c.throws, isEmpty);
+        expect(c.waitingForEmpty, isFalse);
+        expect(c.pending, isNull);
+        expect(c.lastHit, isNull);
+        observe(c, frames(1));
+        expect(counted.length, darts + 1);
+        await c.stop();
+      },
+    );
+  }
+
   test('Manual scoring still pauses for confirmation', () async {
     final counted = <DartThrowResult>[];
     final c = createController(counted)..automaticCounting = false;

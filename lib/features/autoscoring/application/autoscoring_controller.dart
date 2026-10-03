@@ -61,6 +61,7 @@ class AutoscoringController extends ChangeNotifier {
   bool busy = false, running = false, disposed = false;
   bool automaticCounting = false;
   int _unresolvedSamples = 0;
+  int _boundaryWaitSamples = 0;
   static const unresolvedThrow = DartThrowResult(
     label: 'Nicht erkannt',
     baseValue: 0,
@@ -82,6 +83,9 @@ class AutoscoringController extends ChangeNotifier {
     isMiss: true,
   );
   bool get waitingForEmpty => _visitReset.waitingForEmpty;
+  List<Map<String, Object>> get removalMetrics => _visitReset.cameraMetrics
+      .map((metrics) => Map<String, Object>.of(metrics))
+      .toList();
   Timer? _timer;
   Future<void> _queue = Future.value();
   int _generation = 0;
@@ -103,7 +107,7 @@ class AutoscoringController extends ChangeNotifier {
           : 'Drei unterschiedliche Kameras auswählen.';
     } catch (_) {
       status =
-          'Kameras können auf diesem Gerät nicht gelesen werden. Der Prototyp benötigt Windows.';
+          'Kameras können auf diesem Gerät nicht gelesen werden. Unter Linux FFmpeg und v4l2-ctl installieren und Kamerazugriff prüfen.';
     }
     _notify();
   }
@@ -358,7 +362,11 @@ class AutoscoringController extends ChangeNotifier {
 
   Future<void> arm() => _serial(() => _arm(_generation));
 
-  Future<void> _arm(int generation) async {
+  /// Capture the user's now-empty board before replacing the old references.
+  Future<void> confirmDartsRemoved({required VoidCallback beforeReset}) =>
+      _serial(() => _arm(_generation, beforeReset: beforeReset));
+
+  Future<void> _arm(int generation, {VoidCallback? beforeReset}) async {
     if (disposed ||
         generation != _generation ||
         cameras.length != 3 ||
@@ -372,6 +380,7 @@ class AutoscoringController extends ChangeNotifier {
     try {
       final frames = await _capture();
       if (disposed || generation != _generation) return;
+      beforeReset?.call();
       for (var i = 0; i < 3; i++) {
         cameras[i].reference = frames[i];
         cameras[i].emptyReference = frames[i];
@@ -379,14 +388,18 @@ class AutoscoringController extends ChangeNotifier {
         cameras[i].stable = 0;
         cameras[i].detectedAxis = null;
         cameras[i].lastAcceptedAxis = null;
+        cameras[i].lastReference = null;
         cameras[i].changedPixels = const [];
+        cameras[i].changeFraction = 0;
       }
       throws.clear();
       _visitReset.reset();
       _bounceDetector.reset();
       _unresolvedSamples = 0;
+      _boundaryWaitSamples = 0;
       pending = null;
       lastHit = null;
+      if (beforeReset != null) onAutomaticVisitCleared?.call();
       running = true;
       status = automaticCounting
           ? 'Automatisches Zählen aktiv. Einen Dart werfen.'
@@ -449,6 +462,7 @@ class AutoscoringController extends ChangeNotifier {
         stable: stableViews == 3,
         darts: throws.length,
         dartLimit: automaticVisitDartLimit,
+        calibrations: cameras.map((c) => c.calibration!).toList(),
       );
       if (state == VisitResetState.cleared) {
         for (var i = 0; i < 3; i++) {
@@ -464,6 +478,7 @@ class AutoscoringController extends ChangeNotifier {
         throws.clear();
         pending = null;
         _unresolvedSamples = 0;
+        _boundaryWaitSamples = 0;
         _bounceDetector.reset();
         _visitReset.reset();
         lastHit = null;
@@ -475,6 +490,7 @@ class AutoscoringController extends ChangeNotifier {
       if (state == VisitResetState.waitingForEmpty) {
         _bounceDetector.reset();
         _unresolvedSamples = 0;
+        _boundaryWaitSamples = 0;
         pending = null;
         lastHit = null;
         for (final camera in cameras) {
@@ -508,6 +524,7 @@ class AutoscoringController extends ChangeNotifier {
     }
     if (stableViews < 2) {
       _unresolvedSamples = 0;
+      _boundaryWaitSamples = 0;
       return;
     }
     final axes = <DartAxis>[];
@@ -547,12 +564,28 @@ class AutoscoringController extends ChangeNotifier {
     }
     final hit = pending;
     if (hit == null) {
+      _boundaryWaitSamples = 0;
       status = cameras.every((camera) => camera.changedPixels.isEmpty)
           ? 'Bereit. Nächsten Dart werfen.'
           : axes.length < 2
           ? 'Neuer Pfeil noch nicht eindeutig sichtbar: ${axes.length} brauchbare Kameraachsen.'
           : 'Kameraachsen widersprechen sich. Bitte Diagnose über „Nicht erkannten Pfeil melden“ sichern.';
       return;
+    }
+    // Two-camera decisions can flip even away from a wire when the third
+    // already sees a shaft but has not settled yet.
+    // Give its already visible axis a bounded chance to join the consensus.
+    if (automaticCounting &&
+        hit.views == 2 &&
+        cameras.any(
+          (camera) => camera.stable < 2 && camera.detectedAxis != null,
+        )) {
+      if (++_boundaryWaitSamples < 3) {
+        status = 'Dritte Kamera kurz abgleichen …';
+        return;
+      }
+    } else {
+      _boundaryWaitSamples = 0;
     }
     if (automaticCounting) {
       final result = BoardGeometry.score(hit.point);
@@ -562,12 +595,12 @@ class AutoscoringController extends ChangeNotifier {
         _timer?.cancel();
         status = 'Automatisches Zählen angehalten.';
       } else if (hit.needsReview && throws.length < 3) {
-        status = '${result.label} automatisch gezählt · Treffer unsicher.';
+        status = '${result.label} automatisch gezählt · Schätzung, bitte prüfen.';
       }
     } else {
       running = false;
       status = hit.needsReview
-          ? 'Treffer unsicher oder nahe am Draht. Bitte prüfen.'
+          ? 'Schätzung: ${BoardGeometry.score(hit.point).label}. Bitte prüfen.'
           : 'Treffer erkannt. Prüfen und übernehmen.';
     }
   }
@@ -577,6 +610,7 @@ class AutoscoringController extends ChangeNotifier {
     lastHit = pending;
     _bounceDetector.reset();
     _unresolvedSamples = 0;
+    _boundaryWaitSamples = 0;
     throws.add(result);
     pending = null;
     for (final c in cameras) {
@@ -611,13 +645,16 @@ class AutoscoringController extends ChangeNotifier {
     }
     throws.add(result);
     _unresolvedSamples = 0;
+    _boundaryWaitSamples = 0;
     _bounceDetector.reset();
     pending = null;
     lastHit = null;
     for (final camera in cameras) {
       camera.lastReference = camera.reference;
       camera.reference = camera.previous;
-      camera.lastAcceptedAxis = null;
+      camera.lastAcceptedAxis = identical(result, unresolvedThrow)
+          ? camera.detectedAxis
+          : null;
       camera.stable = 0;
     }
     status = 'Übersehener Pfeil nachgetragen. Nächsten Dart werfen.';
@@ -659,3 +696,4 @@ class AutoscoringController extends ChangeNotifier {
     super.dispose();
   }
 }
+

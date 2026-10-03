@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/supabase_community_repository.dart';
 import '../../domain/community.dart';
 import '../../domain/community_permissions.dart';
+import '../community_member_profile_page.dart';
 
 class CommunityMembersSection extends StatefulWidget {
   const CommunityMembersSection({
@@ -207,6 +208,16 @@ class _CommunityMembersSectionState extends State<CommunityMembersSection> {
         if (_busy) const LinearProgressIndicator(),
         for (final member in widget.members)
           ListTile(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => CommunityMemberProfilePage(
+                  community: widget.community,
+                  member: member,
+                  members: widget.members,
+                  repository: widget.repository,
+                ),
+              ),
+            ),
             leading: Icon(
               member.isManual ? Icons.person_outline : Icons.person,
             ),
@@ -249,7 +260,7 @@ class _CommunityMembersSectionState extends State<CommunityMembersSection> {
                         ),
                     ],
                   )
-                : null,
+                : const Icon(Icons.chevron_right),
           ),
       ],
     );

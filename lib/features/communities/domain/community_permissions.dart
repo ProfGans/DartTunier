@@ -7,7 +7,9 @@ enum CommunityPermission {
   removeMembers('remove_members', 'Mitglieder entfernen'),
   assignDevices('assign_devices', 'Geräte zuteilen'),
   leadTournaments('lead_tournaments', 'Turniere leiten'),
-  editCommunity('edit_community', 'Community bearbeiten');
+  editCommunity('edit_community', 'Community bearbeiten'),
+  manageRankings('manage_rankings', 'Ranglisten verwalten'),
+  manageHighlights('manage_highlights', 'Highlights verwalten');
 
   const CommunityPermission(this.key, this.label);
   final String key;

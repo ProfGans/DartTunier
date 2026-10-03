@@ -3,7 +3,7 @@ import 'dart:math';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import '../../../shared/persistence/app_data_directory.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import '../../accounts/domain/account_user.dart';
@@ -771,21 +771,7 @@ class LocalAppDatabase {
     return File(path.join(directory.path, 'app_database.sqlite'));
   }
 
-  Future<Directory> _defaultBaseDirectory() async {
-    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
-      return _applicationSupportDirectory();
-    }
-
-    final appData = Platform.environment['APPDATA'];
-    final basePath = appData == null || appData.isEmpty
-        ? (throw StateError('APPDATA fehlt; kein sicherer Speicherort.'))
-        : appData;
-    return Directory(path.join(basePath, 'DartTournamentManager'));
-  }
-
-  Future<Directory> _applicationSupportDirectory() async {
-    return getApplicationSupportDirectory();
-  }
+  Future<Directory> _defaultBaseDirectory() => appDataDirectory();
 
   String _newId() {
     final timestamp = DateTime.now().microsecondsSinceEpoch;

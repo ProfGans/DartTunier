@@ -18,6 +18,33 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   bool _isApplyingStartDraw = false;
   final Set<int> _completedStageIndexes = {};
   final _runController = const TournamentRunController();
+  final _botSimulator = TournamentBotRoundSimulator();
+
+  Future<void> _simulateReadyBots() async {
+    final index = _activeStageIndex;
+    if (!mounted || _isApplyingStartDraw ||
+        index >= widget.tournament.runStages.length ||
+        _completedStageIndexes.contains(index) ||
+        _stageNeedsStartDraw(widget.tournament.stages[index])) { return; }
+    List<GroupMatch> botRoundMatches() => const OrderOfPlayController()
+        .entries(widget.tournament).where((e) => e.stageIndex == index)
+        .map((e) => e.match).toList();
+    if (!botRoundMatches().any((m) =>
+        !m.isResolved && m.homePlayer?.bot != null && m.awayPlayer?.bot != null)) {
+      return;
+    }
+    if (widget.tournament.communityId != null) {
+      await CommunityAccessRepository().requireCached(
+        widget.tournament.communityId!, CommunityPermission.leadTournaments);
+    }
+    await _botSimulator.run(
+      matches: botRoundMatches,
+      format: widget.tournament.stages[index].gameFormat,
+      advance: () { _advanceKnockoutWinners(); _ensureGroupDeciders(); },
+      isActive: () => mounted && _activeStageIndex == index,
+    );
+    if (mounted) setState(() {});
+  }
   BoardDeviceDispatcher? _deviceDispatcher;
   Future<void> _deviceResults = Future.value();
   Future<void> _acceptDeviceResult(Map<String, dynamic> result) {
@@ -43,6 +70,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       }
       if (!mounted) return;
       setState(() { _advanceKnockoutWinners(); _ensureGroupDeciders(); });
+      await _simulateReadyBots();
       await _runController.saveProgress(tournament: widget.tournament,
         activeStageIndex: _activeStageIndex, completedStageIndexes: _completedStageIndexes);
     });
@@ -99,14 +127,17 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
     _completedStageIndexes.addAll(widget.tournament.completedStageIndexes);
     _advanceKnockoutWinners();
     _ensureGroupDeciders();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _applyPendingStartDrawForActiveStage();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _applyPendingStartDrawForActiveStage();
+      if (!mounted) return;
+      await _saveTournamentProgress();
       if (widget.openDevicesOnStart) _openBoardDevices();
     });
   }
 
   Future<void> _saveTournamentProgress() async {
     try {
+      await _simulateReadyBots();
       await _runController.saveProgress(
         tournament: widget.tournament,
         activeStageIndex: _activeStageIndex,
@@ -2117,6 +2148,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       return;
     }
     await _applyPendingStartDrawForActiveStage();
+    await _saveTournamentProgress();
   }
 
   void _finishCurrentStageEarly() {
@@ -2185,6 +2217,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 rethrow;
               }
             }),
+            TournamentHighlightsButton(tournament: widget.tournament),
             StageProgressBar(
               stages: widget.tournament.runStages,
               activeStageIndex: _viewStageIndex,
@@ -2219,16 +2252,27 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 key: ValueKey('stage-$_viewStageIndex-$_stageViewMode'),
                 padding: const EdgeInsets.all(16),
                 children: [
+                  if (widget.tournament.communityId != null &&
+                      widget.tournament.countsForRanking &&
+                      widget.tournament.communityRankingIds.isNotEmpty)
+                    CommunityTournamentEloPanel(
+                      key: ValueKey('elo-${widget.tournament.id}'),
+                      tournament: widget.tournament,
+                      activeStage: _activeStageIndex,
+                    ),
                   if (!isViewingActiveStage &&
                       _viewStageIndex > _activeStageIndex &&
-                      _stageViewMode != StageViewMode.orderOfPlay)
+                      _stageViewMode != StageViewMode.orderOfPlay &&
+                      _stageViewMode != StageViewMode.statistics)
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: Text(
                         'Vorschau: Teilnehmer und Setzung stehen erst nach Abschluss der vorherigen Etappe fest.',
                       ),
                     ),
-                  if (_stageViewMode == StageViewMode.overview) ...[
+                  if (_stageViewMode == StageViewMode.statistics)
+                    LiveTournamentStatisticsSection(tournament: widget.tournament)
+                  else if (_stageViewMode == StageViewMode.overview) ...[
                     if (activeStage is GroupTournamentRunStage)
                       GroupStageRunSection(
                         stage: activeStage,

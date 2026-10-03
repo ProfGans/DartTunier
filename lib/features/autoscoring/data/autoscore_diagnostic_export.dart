@@ -13,10 +13,12 @@ class AutoscoreCameraEvidence {
     this.image,
     this.before,
     this.empty,
-    this.metadata,
-  );
+    this.metadata, {
+    this.lastCountedBefore,
+  });
   final Uint8List image;
   final GrayFrame? before, empty;
+  final GrayFrame? lastCountedBefore;
   final Map<String, Object?> metadata;
 }
 
@@ -61,6 +63,7 @@ class AutoscoreDiagnosticExport {
       previews.add(img.copyResize(image, width: 480));
       gray('kamera_${i + 1}_vorher.png', camera.before);
       gray('kamera_${i + 1}_leer.png', camera.empty);
+      gray('kamera_${i + 1}_letzter_vorher.png', camera.lastCountedBefore);
     }
     if (previews.isNotEmpty) {
       final height = previews
@@ -105,8 +108,8 @@ class AutoscoreDiagnosticExport {
         if (x is! num || y is! num) return;
         img.drawCircle(
           flat,
-          x: ((x / 380 + .5) * 479).round(),
-          y: ((y / 380 + .5) * 479).round(),
+          x: ((x / BoardGeometry.flatViewDiameter + .5) * 479).round(),
+          y: ((y / BoardGeometry.flatViewDiameter + .5) * 479).round(),
           radius: 5,
           color: color,
         );
@@ -122,11 +125,13 @@ class AutoscoreDiagnosticExport {
       'bericht.json',
       utf8.encode(
         const JsonEncoder.withIndent('  ').convert({
-          'schemaVersion': 2,
+          'schemaVersion': evidence.hit['eventType'] == 'manualRemoval' ? 4 : 3,
           'capturedAtUtc': evidence.capturedAt.toIso8601String(),
           'detected': detected,
           'corrected': corrected,
-          'correctDetection': false,
+          'correctDetection': evidence.hit['eventType'] == 'manualRemoval'
+              ? null
+              : false,
           'hit': evidence.hit,
           'correctionPosition': correctionPosition,
           'cameras': evidence.cameras.map((camera) => camera.metadata).toList(),
@@ -136,7 +141,9 @@ class AutoscoreDiagnosticExport {
     add(
       'LESEN.txt',
       utf8.encode(
-        'Kamerabilder stammen vom Zeitpunkt der automatischen Treffererkennung, nicht vom spaeteren Korrigieren. Trefferbilder sind Originalaufnahmen. Vorher- und Leerbilder sind die tatsaechlichen Graustufen-Referenzen der Erkennung. bericht.json enthaelt Kalibrierung, Achsen, berechnete Position und Korrektur.',
+        evidence.hit['eventType'] == 'manualRemoval'
+            ? 'Manuell bestaetigtes Herausziehen: Kamerabilder zeigen das Board unmittelbar vor dem Reset. Vorherbilder zeigen die belegte Referenz, Leerbilder die bisherige leere Referenz. bericht.json enthaelt den blockierten Zustand und die Aufnahme. Dies ist keine Trefferkorrektur.'
+            : 'Kamerabilder stammen vom Zeitpunkt der automatischen Treffererkennung, nicht vom spaeteren Korrigieren. Trefferbilder sind Originalaufnahmen. Vorher- und Leerbilder sind die tatsaechlichen Graustufen-Referenzen der Erkennung. bericht.json enthaelt Kalibrierung, Achsen, berechnete Position und Korrektur.',
       ),
     );
     return Uint8List.fromList(ZipEncoder().encode(archive));
@@ -156,7 +163,7 @@ class AutoscoreDiagnosticExport {
         );
     await target.create(recursive: true);
     final file = File(
-      '${target.path}/korrektur_${DateTime.now().microsecondsSinceEpoch}.zip',
+      '${target.path}/${evidence.hit['eventType'] == 'manualRemoval' ? 'herausziehen' : 'korrektur'}_${DateTime.now().microsecondsSinceEpoch}.zip',
     );
     await file.writeAsBytes(
       await compute(encodeAutoscoreDiagnostic, (

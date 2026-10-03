@@ -94,8 +94,13 @@ jobs:
         include:
           - platform: windows
             runner: windows-2022
+            architecture: x64
           - platform: linux
             runner: ubuntu-22.04
+            architecture: x64
+          - platform: linux
+            runner: ubuntu-22.04-arm
+            architecture: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     permissions:
@@ -103,14 +108,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
+        if: matrix.architecture == 'x64'
         with:
           flutter-version: '3.41.4'
           channel: stable
           cache: true
       - name: Linux dependencies
         if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good libsecret-1-dev libstdc++-12-dev curl git unzip xz-utils ffmpeg v4l-utils tesseract-ocr tesseract-ocr-eng espeak-ng libnotify-bin python3 xdg-utils
+      - name: Bootstrap pinned Flutter on ARM64
+        if: matrix.architecture == 'arm64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = aarch64
+          git clone --depth 1 --branch 3.41.4 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter-arm64"
+          echo "$RUNNER_TEMP/flutter-arm64/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter-arm64/bin/flutter" config --enable-linux-desktop
+          "$RUNNER_TEMP/flutter-arm64/bin/flutter" precache --linux
       - run: flutter pub get --enforce-lockfile
+      - name: Verify update logic on Linux architectures
+        if: matrix.platform == 'linux'
+        run: flutter test test/android_release_test.dart test/desktop_update_test.dart test/linux_platform_test.dart
       - name: Build desktop app
         run: flutter build ${{ matrix.platform }} --release
       - name: Package Windows bundle
@@ -124,18 +143,30 @@ jobs:
           Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath dist/dart-turnier-windows-x64.zip
       - name: Package Linux bundle
         if: matrix.platform == 'linux'
+        env:
+          PACKAGE_ARCH: ${{ matrix.architecture }}
         run: |
           mkdir -p dist
           python3 - <<'PY'
-          import json, pathlib, re
+          import json, os, pathlib, re
           match = re.search(r'^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$', pathlib.Path('pubspec.yaml').read_text(), re.M)
           assert match, 'Invalid desktop version'
-          pathlib.Path('build/linux/x64/release/bundle/data/update-manifest.json').write_text(json.dumps(dict(schemaVersion=1, version=match[1], build=int(match[2]), platform='linux', architecture='x64')))
+          arch = os.environ['PACKAGE_ARCH']
+          bundle = pathlib.Path(f'build/linux/{arch}/release/bundle')
+          expected_machine = {'x64': 62, 'arm64': 183}[arch]
+          for binary in [bundle / 'dart_tournament_manager', *bundle.glob('lib/**/*.so*')]:
+              with binary.open('rb') as stream:
+                  header = stream.read(20)
+              assert header[:6] == b'\x7fELF\x02\x01', f'Not a little-endian ELF64 binary: {binary}'
+              assert int.from_bytes(header[18:20], 'little') == expected_machine, f'Wrong architecture: {binary}'
+          (bundle / 'data/update-manifest.json').write_text(json.dumps(dict(schemaVersion=1, version=match[1], build=int(match[2]), platform='linux', architecture=arch)))
+          import shutil
+          shutil.copyfile('linux/install-desktop.py', bundle / 'install-desktop.py')
           PY
-          tar --dereference -czf dist/dart-turnier-linux-x64.tar.gz -C build/linux/x64/release/bundle .
+          tar --dereference -czf "dist/dart-turnier-linux-$PACKAGE_ARCH.tar.gz" -C "build/linux/$PACKAGE_ARCH/release/bundle" .
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-${{ matrix.platform }}
+          name: desktop-${{ matrix.platform }}-${{ matrix.architecture }}
           path: dist/*
           if-no-files-found: error
 
@@ -165,8 +196,9 @@ jobs:
           Android: signierte APK.
           Windows x64: ZIP vollständig entpacken und dart_tournament_manager.exe starten. Nicht Authenticode-signiert.
           Linux x64: vollständiges Archiv entpacken, dart_tournament_manager starten. Benötigt GTK 3 und eine mit Ubuntu 22.04 kompatible Laufzeit.
+          Linux ARM64: eigenes Paket für 64-Bit-ARM-Systeme, einschließlich Raspberry Pi mit kompatiblem 64-Bit-Desktop-Linux. Benötigt GTK 3 und GStreamer; kein 32-Bit-Paket.
 
-          Vor einem Wechsel eine Datensicherung exportieren. In-App-Updates unterstützen Android, Windows x64 und Linux x64; Installation und Neustart werden in der App bestätigt.
+          Vor einem Wechsel eine Datensicherung exportieren. In-App-Updates unterstützen Android, Windows x64 und Linux x64/ARM64; Installation und Neustart werden in der App bestätigt.
           EOF
           gh release create "$RELEASE_TAG" ./* --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "Dart Turnier $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
 

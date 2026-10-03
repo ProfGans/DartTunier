@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ffi';
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -28,8 +29,28 @@ void main() {
   );
   tearDown(() async => temp.delete(recursive: true));
 
-  for (final platform in [UpdatePlatform.windows, UpdatePlatform.linux]) {
-    Archive bundle({int build = 12}) {
+  test(
+    'desktop ABI selects the native package and excludes unsupported CPUs',
+    () {
+      expect(
+        UpdatePlatform.forDesktopAbi(Abi.linuxArm64),
+        UpdatePlatform.linuxArm64,
+      );
+      expect(UpdatePlatform.forDesktopAbi(Abi.linuxX64), UpdatePlatform.linux);
+      expect(
+        UpdatePlatform.forDesktopAbi(Abi.windowsX64),
+        UpdatePlatform.windows,
+      );
+      expect(UpdatePlatform.forDesktopAbi(Abi.linuxArm), isNull);
+      expect(UpdatePlatform.forDesktopAbi(Abi.windowsArm64), isNull);
+    },
+  );
+  for (final platform in [
+    UpdatePlatform.windows,
+    UpdatePlatform.linux,
+    UpdatePlatform.linuxArm64,
+  ]) {
+    Archive bundle({int build = 12, String? architecture}) {
       final archive = Archive();
       void add(String name, List<int> bytes) =>
           archive.addFile(ArchiveFile(name, bytes.length, bytes));
@@ -40,8 +61,8 @@ void main() {
             'schemaVersion': 1,
             'version': '1.0.0',
             'build': build,
-            'platform': platform.name,
-            'architecture': 'x64',
+            'platform': platform.manifestPlatform,
+            'architecture': architecture ?? platform.architecture,
           }),
         ),
       );
@@ -90,6 +111,20 @@ void main() {
       await expectLater(
         DesktopBundle.extract(
           await write(bundle(build: 11)),
+          Directory(p.join(temp.path, 'bundle')),
+          release(platform),
+        ),
+        throwsFormatException,
+      );
+    });
+    test('${platform.name}: rejects a package for a different CPU', () async {
+      await expectLater(
+        DesktopBundle.extract(
+          await write(
+            bundle(
+              architecture: platform.architecture == 'x64' ? 'arm64' : 'x64',
+            ),
+          ),
           Directory(p.join(temp.path, 'bundle')),
           release(platform),
         ),
@@ -158,6 +193,13 @@ void main() {
           json(10, platform),
           json(12, platform, beta: true),
           json(99, UpdatePlatform.android),
+          if (platform.isLinux)
+            json(
+              100,
+              platform == UpdatePlatform.linux
+                  ? UpdatePlatform.linuxArm64
+                  : UpdatePlatform.linux,
+            ),
         ];
         expect(
           AndroidRelease.newest(releases, 9, platform: platform)!.build,

@@ -14,10 +14,10 @@ import 'github_release_client.dart';
 
 class DesktopUpdateService extends AppUpdateService {
   UpdatePlatform get platform =>
-      Platform.isWindows ? UpdatePlatform.windows : UpdatePlatform.linux;
+      UpdatePlatform.forDesktopAbi(Abi.current()) ??
+      (throw UnsupportedError('Nicht unterstützte Desktop-Architektur.'));
   @override
-  bool get supported =>
-      Abi.current() == Abi.windowsX64 || Abi.current() == Abi.linuxX64;
+  bool get supported => UpdatePlatform.forDesktopAbi(Abi.current()) != null;
   @override
   bool get isDesktop => true;
   @override
@@ -78,7 +78,7 @@ class DesktopUpdateService extends AppUpdateService {
         release,
       ),
     );
-    if (platform == UpdatePlatform.linux) {
+    if (platform.isLinux) {
       final result = await Process.run('/bin/chmod', [
         'u+x',
         p.join(directory.path, 'bundle', 'dart_tournament_manager'),

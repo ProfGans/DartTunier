@@ -1,4 +1,5 @@
 import '../../statistics/domain/saved_scorer_match.dart';
+import '../../statistics/domain/bot_statistics_privacy.dart';
 import '../../tournaments/application/order_of_play/order_of_play_controller.dart';
 import '../../tournaments/domain/tournament_models.dart';
 import 'board_display_projector.dart';
@@ -71,6 +72,7 @@ class DeviceResultImporter {
       throw const FormatException('Ergebnis passt nicht zum Spielformat');
     }
     for (var i = 0; i < 2; i++) {
+      if ([match.homePlayer, match.awayPlayer][i]?.bot != null) continue;
       final calculated = SavedScorerMatch.fromJson({...stats.toJson(), 'playerIndex': i}).statistics;
       if (calculated.legsWon != legs[i]) {
         throw const FormatException('Statistik passt nicht zum Ergebnis');
@@ -92,7 +94,10 @@ class DeviceResultImporter {
     match.awaySets = format.bestOfSets > 1
         ? (result['sets'] as List)[1] as int
         : null;
-    match.deviceResult = result;
+    match.deviceResult = withoutBotStatistics(result, {
+      if (match.homePlayer?.bot != null) 0,
+      if (match.awayPlayer?.bot != null) 1,
+    });
     const OrderOfPlayController().resultRecorded(match);
   }
 }

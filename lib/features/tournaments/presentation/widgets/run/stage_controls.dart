@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
 
-enum StageViewMode { overview, playOrder, orderOfPlay }
+enum StageViewMode { overview, playOrder, orderOfPlay, statistics }
 
 class StageProgressBar extends StatelessWidget {
   const StageProgressBar({
@@ -126,7 +126,7 @@ class StageViewModeSwitch extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          if (constraints.maxWidth < 560 ||
+          if (constraints.maxWidth < 760 ||
               MediaQuery.textScalerOf(context).scale(16) > 24) {
             return DropdownButtonFormField<StageViewMode>(
               isDense: false,
@@ -148,6 +148,7 @@ class StageViewModeSwitch extends StatelessWidget {
                   value: StageViewMode.orderOfPlay,
                   child: Text('Order of Play'),
                 ),
+                DropdownMenuItem(value: StageViewMode.statistics, child: Text('Statistik')),
               ],
               onChanged: (value) {
                 if (value != null) onModeChanged(value);
@@ -171,6 +172,7 @@ class StageViewModeSwitch extends StatelessWidget {
                 icon: Icon(Icons.view_week_outlined),
                 label: Text('Order of Play'),
               ),
+              ButtonSegment(value: StageViewMode.statistics, icon: Icon(Icons.bar_chart), label: Text('Statistik')),
             ],
             selected: {selectedMode},
             onSelectionChanged: (selection) => onModeChanged(selection.first),

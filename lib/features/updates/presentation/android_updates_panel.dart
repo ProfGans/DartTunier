@@ -153,7 +153,7 @@ class _AndroidUpdatesPanelState extends State<AndroidUpdatesPanel> {
         const SizedBox(height: 12),
         if (!_service.supported)
           const Text(
-            'In-App-Updates unterstützen Android, Windows x64 und Linux x64.',
+            'In-App-Updates unterstützen Android, Windows x64 sowie Linux x64 und ARM64.',
           )
         else ...[
           SwitchListTile(

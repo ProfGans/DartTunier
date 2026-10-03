@@ -5,7 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../tournaments/domain/tournament_models.dart';
 import '../../tournaments/data/tournament_storage.dart';
 import '../domain/community.dart';
+import '../domain/community_ranking.dart';
 import 'community_access_repository.dart';
+import 'community_ranking_admin_repository.dart';
+import '../domain/community_ranking_action.dart';
 import '../domain/community_permissions.dart';
 
 class SupabaseCommunityRepository {
@@ -14,16 +17,23 @@ class SupabaseCommunityRepository {
 
   final SupabaseClient _client;
   final TournamentStorage _storage = TournamentStorage();
+  Future<List<CommunityRankingAction>> loadRankingActions(String communityId) =>
+    CommunityRankingAdminRepository(_client, storage: _storage).load(communityId);
+  Future<CommunityRankingAction> manageRankingPlayer(String communityId,
+      String rankingId, String playerKey, RankingPlayerAction action) =>
+    CommunityRankingAdminRepository(_client, storage: _storage)
+      .apply(communityId, rankingId, playerKey, action);
   CommunityAccessRepository get access =>
       CommunityAccessRepository(client: _client);
   static const communityColumns =
-      'id,owner_user_id,name,description,avatar_base64,created_at,updated_at';
+      'id,owner_user_id,name,description,avatar_base64,ranking_enabled,created_at,updated_at';
 
   Future<Community> updateProfile(
     Community community, {
     required String name,
     required String bio,
     required String? avatarBase64,
+    bool? rankingEnabled,
   }) async {
     final accountId = currentUserId;
     await access.require(community.id, CommunityPermission.editCommunity);
@@ -35,12 +45,13 @@ class SupabaseCommunityRepository {
     }
     final row = Map<String, dynamic>.from(
       await _client.rpc(
-            'update_community_profile',
+            'update_community_settings',
             params: {
               'requested_community_id': community.id,
               'profile_name': name.trim(),
               'profile_bio': bio.trim(),
               'profile_avatar': avatarBase64,
+              'enable_ranking': rankingEnabled ?? community.rankingEnabled,
             },
           )
           as Map,
@@ -111,9 +122,43 @@ class SupabaseCommunityRepository {
     ]..sort((a, b) => a.name.compareTo(b.name));
   }
 
+  Future<List<CommunityRanking>> loadRankings(String communityId) async {
+    final rows = await _cachedRows(
+      'rankings-v1:$communityId',
+      () async => await _client.from('community_rankings')
+          .select('id,name').eq('community_id', communityId).order('created_at'),
+    );
+    return [CommunityRanking.standard,
+      for (final row in rows) CommunityRanking.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
+  }
+
+  Future<CommunityRanking> createRanking(String communityId, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed.length > 80) {
+      throw const FormatException('Bitte einen Namen mit 1 bis 80 Zeichen eingeben.');
+    }
+    final accountId = currentUserId;
+    await access.require(communityId, CommunityPermission.editCommunity);
+    final row = await _client.from('community_rankings').insert({
+      'community_id': communityId, 'name': trimmed,
+    }).select('id,name').single();
+    if (currentUserId != accountId) throw StateError('Account wurde gewechselt.');
+    try {
+      final key = 'rankings-v1:$communityId';
+      final cached = await _storage.readCache(key);
+      // Only extend a complete cache; never replace unknown rankings with a partial list.
+      if (cached != null) await _storage.writeCache(key, [...cached, row]);
+    } catch (_) {
+      // The ranking has already been created on the server.
+    }
+    return CommunityRanking.fromJson(row);
+  }
+
   Future<Community> createCommunity({
     required String name,
     required String description,
+    bool rankingEnabled = true,
   }) async {
     await _ensureCurrentPlayerProfile();
     final userId = currentUserId;
@@ -124,6 +169,7 @@ class SupabaseCommunityRepository {
           'name': name.trim(),
           'description': description.trim(),
           'invite_code': _createInviteCode(),
+          'ranking_enabled': rankingEnabled,
         })
         .select(communityColumns)
         .single();
@@ -238,14 +284,21 @@ class SupabaseCommunityRepository {
   }
 
   Future<void> addManualMember(String communityId, String name) async {
+    await createManualMember(communityId, name);
+  }
+
+  Future<CommunityMember> createManualMember(String communityId, String name) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty || trimmed.length > 80) {
       throw ArgumentError('Bitte einen Namen mit 1 bis 80 Zeichen eingeben.');
     }
-    await _client.from('community_guest_members').insert({
+    final row = await _client.from('community_guest_members').insert({
       'community_id': communityId,
       'display_name': trimmed,
-    });
+    }).select('id,display_name,joined_at').single();
+    return CommunityMember(userId: null, playerProfileId: row['id'] as String,
+      displayName: row['display_name'] as String, role: 'member',
+      joinedAt: DateTime.parse(row['joined_at'] as String));
   }
 
   Future<void> assignManualMember({

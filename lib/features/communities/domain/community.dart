@@ -8,6 +8,7 @@ class Community {
     required this.createdAt,
     this.memberCount = 0,
     this.avatarBase64,
+    this.rankingEnabled = true,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class Community {
   final DateTime createdAt;
   final int memberCount;
   final String? avatarBase64;
+  final bool rankingEnabled;
 
   factory Community.fromJson(Map<String, dynamic> json) {
     return Community(
@@ -31,6 +33,7 @@ class Community {
           DateTime.fromMillisecondsSinceEpoch(0),
       memberCount: json['member_count'] as int? ?? 0,
       avatarBase64: json['avatar_base64'] as String?,
+      rankingEnabled: json['ranking_enabled'] as bool? ?? true,
     );
   }
 }

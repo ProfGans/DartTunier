@@ -71,6 +71,79 @@ Kalibrier-Regression 02.10.2026: Drei neue Kameraansichten aus dem gemeldeten Sc
 
 ## Sichtbare Erkennungsdiagnose
 
+### Caller und Treffer-Sounds
+
+Die Autoscore-Seite enthält den aufklappbaren Bereich „Caller und Sounds“.
+Caller und Sounds sind zunächst aktiviert, Lautstärke 70 Prozent. Nach je
+drei gezählten Würfen wird die Summe auf Deutsch angesagt. Bouncer zählen
+als Wurf mit null Punkten und spielen einen eigenen metallischen Sound;
+normale erkannte Treffer spielen einen kurzen Auftreff-Sound. Die synthetisch
+erzeugten WAV-Dateien liegen lokal unter `assets/autoscoring/audio`.
+Neue Kamerabilder ohne neuen Wurf lösen keine weiteren Sounds aus.
+
+Die Demo berücksichtigt Korrekturen, die vor dem dritten Wurf übernommen
+wurden. Bei noch unbestimmbaren Treffern lautet die Ansage „Treffer bitte
+korrigieren“. Nach dem Herausziehen beginnt die nächste Dreiergruppe; im
+unbegrenzten Tester erfolgen Ansagen auch nach Wurf sechs, neun usw.
+Sounds und Ansagen haben getrennte Warteschlangen, damit ein laufender
+Caller neue Treffergeräusche nicht verzögert. Beim Verlassen werden die
+Audioplayer freigegeben. Audiofehler stoppen die Treffererkennung nicht.
+
+„Caller testen“, „Treffer testen“ und „Bouncer testen“ erlauben einen Test
+ohne Kameras. Die Ansage nutzt die installierte deutsche Systemstimme;
+kein Sprachdienst im Internet ist erforderlich. Schalter und Lautstärke
+gelten für die aktuelle Seite. Ein Sound wird bei der bestätigten
+Kamera-Erkennung ausgelöst, nicht durch einen zusätzlichen Aufprallsensor.
+Nicht von den Kameras erfasste Bouncer können daher keinen Bouncer-Sound
+auslösen. `test/autoscore_audio_test.dart` prüft Dreiergruppen, Nullwürfe,
+Doppelzählung, Stummschalten, gleichzeitige Ansage/Effects, Fehler und
+Layouts bei 360x800, 800x600 und 1440x900 mit 200 Prozent Textskalierung.
+
+### Neue Korrekturfälle 40, 43, 46 und 59
+
+Fall 46: Das damals verwendete Paar Kamera 2/3 ergibt 7; alle drei
+aufgezeichneten Achsen ergeben die korrigierte 19. Die dritte Achse ist
+brauchbar, wurde aber beim damaligen Zählen nicht berücksichtigt. Nahe am
+Draht erhält eine bereits sichtbare, noch nicht ruhige dritte Achse jetzt
+bis zu zwei weitere Aufnahmezyklen, bevor eine Zwei-Kamera-Entscheidung
+übernommen wird. Der Ablauf ist mit den Originalbildern im Controller-Test
+abgesichert; eine dauerhaft unruhige Kamera blockiert nicht unbegrenzt.
+
+Fälle 43 (Ziel 20) und 59 (Ziel 3): Die gelieferten Vorher-Bilder enthalten
+bereits die Pfeile, die Bilddifferenz beträgt unter 0,03 Prozent je Kamera.
+Der ursprüngliche Wurf lässt sich daraus nicht zuverlässig wiederholen.
+Die fehlenden Erkennungen bleiben offen. Fall 40 besitzt kein korrigiertes
+Zielfeld und liefert mit der bestehenden Filterung nur eine brauchbare
+Achse. Eine lockerere Achsenfilterung lieferte keinen belastbaren Schnittpunkt
+und wurde nicht übernommen.
+
+Diagnoseversion 3 ergänzt `kamera_N_letzter_vorher.png`, die Referenz vor
+dem zuletzt gezählten Pfeil, `stableSamples`, `referenceChangedFraction`,
+`lastReferenceChangedFraction` und `manualMissingReport`. Bei automatisch
+unbestimmbaren Treffern bleiben vorhandene Achsen für den Export erhalten.
+Versionen 1/2 bleiben lesbar; fehlende neue Felder/Bilder bedeuten, dass diese
+Beobachtungen nicht vorliegen. Die ursprüngliche Vorher-Referenz wird nicht
+ersetzt. Die vier Fälle liegen unter `test/fixtures/autoscoring/corrections`;
+`test/autoscore_new_diagnostics_test.dart` dokumentiert die Grenzen und den
+verbesserten Kamerabgleich. Ein erneuter Live-Wurftest steht aus.
+
+### Robustere Leer-Erkennung nach dem Herausziehen
+
+Die Leer-Prüfung gleicht begrenzte globale Helligkeitsänderungen je Kamera
+über die mediane Differenz aus. Zusätzlich prüft sie, ob die zuvor sichtbaren
+Pfeilpixel verschwunden sind; geringe neue Bildreste außerhalb dieser Bereiche
+blockieren das Zurücksetzen nicht mehr. Eine noch sichtbare Achse in einer
+Kamera verhindert weiterhin das Leeren. Für den Wiederanlauf sind drei
+ruhige Leer-Beobachtungen nötig. Die Ruheprüfung kann Belichtungswechsel
+ebenfalls ausgleichen und läuft unabhängig von der Trefferentscheidung.
+Die Trefferberechnung wird durch diesen Helligkeitsausgleich nicht verändert.
+
+`test/automatic_visit_reset_test.dart` prüft Belichtungswechsel, kleine
+Bildreste, verbleibende Pfeile und große Verdeckungen. Der Controller-Test
+prüft zusätzlich Herausziehen, vollständigen Referenz-/Markierungsreset und
+das Erkennen des nächsten Wurfs mit der neuen Leer-Referenz. Die Prüfung ist
+synthetisch; ein neuer Live-Durchlauf am physischen Board steht aus.
+
 ### Flache Boardansicht und Positionskorrektur
 
 Der Autoscore-Tester zeigt eine flache Ansicht aus den drei kalibrierten
@@ -178,3 +251,29 @@ Die Trefferfusion braucht jetzt zwei stabile Kameras; eine unruhige dritte Kamer
 Die automatische Entscheidungsphase ist begrenzt: Nach drei erfolglosen Auswertungen mit ruhigem Bild und lokalen Aenderungen in mindestens zwei Ansichten wird eine gewichtete, berechenbare Position fest uebernommen und als unsicher markiert. Wenn keine geometrische Position bestimmbar ist, wird einmal Nicht erkannt mit null vorlaeufigen Punkten registriert und als Erkennungsfehler in der Statistik gefuehrt. Der Boardzustand wird in beiden Faellen zur Referenz fuer den naechsten Pfeil. Breite Handbewegungen loesen diesen Abschluss nicht aus. Diagnoseberichte enthalten forcedDecision. Unklares Ergebnis kann nachtraeglich korrigiert werden.
 
 Beim automatisch erkannten leeren Board werden jetzt auch pending, vorherige Achsenreferenzen, Entscheidungszaehler, Aenderungspixel, Bouncer-Zwischenspeicher und Entfernungserkennung vollstaendig zurueckgesetzt. Bouncer werden heuristisch anhand einer kurzen, geometrisch passenden Schaftbeobachtung in mindestens zwei Kameras erkannt, die innerhalb von 900 ms wieder zur belegten Referenz zurueckkehrt. Nach stabiler Rueckkehr werden einmal Bouncer und 0 Punkte gezählt. Bouncer allein loesen auf einem ohnehin leeren Board keinen Herauszieh-Reset aus. Breitflaechige Bewegung oder Entfernung eines bereits gezaehlten Pfeils gilt nicht als Bouncer. Grenzen: Ein zwischen Snapshot-Aufnahmen vollstaendig erfolgender Abpraller ist damit nicht erkennbar; zuverlaessige Erkennung aller Bouncer benoetigt kontinuierliche Hochfrequenzbilder oder einen zusaetzlichen Sensor.
+
+### Leer-Erkennung im kalibrierten Boardbereich
+Die automatische Herauszieh-Pruefung betrachtet den kalibrierten Boardbereich bis 210 mm Radius und ignoriert Bewegungen ausserhalb davon. Pro Kamera werden Helligkeit und Kontrast anhand robuster Medianwerte in Intensitaetsbaendern abgeglichen. Kleine verbleibende Differenzpixel (bis 8 Prozent der vorherigen Pfeilpixel) duerfen den Reset nicht dauerhaft blockieren; ein verbleibender Schaft und grosse Verdeckungen verhindern weiterhin die Freigabe. Alle drei Ansichten muessen mehrfach ruhig und leer sein. Nach dem Reset werden Referenzen und Erkennungszustand erneuert. Regressionen pruefen Hintergrundbewegung, Kontrastaenderung, Restpixel, verbleibende Pfeile und den ersten Wurf der naechsten Aufnahme. Ein Live-Test des gemeldeten Haengers steht aus.
+
+### Manueller Herauszieh-Reset mit Diagnose
+Der Button Pfeile herausgezogen · Reset + Diagnose ist bei drei kalibrierten Kameras verfuegbar. Nur bei tatsaechlich leerem Board verwenden. Er nimmt frische Bilder auf, sichert die belegte und leere Referenz sowie Aufnahme und Wartezustand vor dem Reset, setzt alle Erkennungszustaende zurueck und startet die Erkennung erneut. In der Demo wird die Aufnahme wie beim automatisch erkannten Herausziehen abgeschlossen; Statistik und bisherige Korrekturen bleiben erhalten. Die Diagnose wird im Hintergrund unter Dokumente/Autoscore-Diagnosen/herausziehen_*.zip gespeichert. Herauszieh-Diagnose speichern erstellt eine Kopie an einem waehlbaren Ort. Herauszieh-Berichte verwenden Schema 4 mit eventType manualRemoval und correctDetection null, weil sie keinen Trefferfehler bewerten; Trefferkorrekturen behalten Schema 3. Bei fehlgeschlagener Bildaufnahme bleiben die bisherigen Wuerfe erhalten. Ein Speicherfehler verhindert den bereits erfolgten Reset nicht und wird angezeigt.
+
+### Schwarzer Aussenrand und steckende Fehlwuerfe
+Der Erkennungsbereich reicht bis 230 mm Radius vom Bull. Die Score-Grenze bleibt bei 170 mm: erkannte steckende Pfeile ausserhalb des Double-Rings zaehlen als Fehlwurf mit 0 Punkten. Zuerst wird die bisherige innere Achse gesucht; nur bei fehlender innerer Achse wird der erweiterte Bereich genutzt. Solche zusaetzlichen Aussenrandachsen duerfen keine Punkte innerhalb der Score-Flaeche autorisieren. Die Kameraansicht zeigt die aus der Kalibrierung abgeleitete Erkennungsgrenze hellblau gestrichelt; sie ist keine separat visuell erkannte schwarze Aussenkante. Die flache Ansicht zeigt den Bereich bis 230 mm in einem Koordinatenfenster von ±240 mm. Marker, Ziehkorrekturen und ZIP-Bilder verwenden dieselbe Skalierung. Der Herauszieh-Abgleich umfasst denselben Bereich. Sichtbare Schaefte in mindestens zwei Kameras sind weiterhin erforderlich; vollstaendig ausserhalb des Kamerabildes liegende Pfeile bleiben unerkennbar.
+
+### Herausziehen nach unvollstaendiger Aufnahme
+Das automatische Leeren gilt unabhaengig von der Anzahl bereits gezaehlter Wuerfe, auch nach einem oder zwei Pfeilen. Sobald zwei Kameras die Entfernung gegenueber der belegten Referenz sehen, wird der Herauszieh-Modus vor weiterer Trefferfusion aktiviert. Eine noch bewegte dritte Kamera blockiert diesen Wechsel nicht mehr. Die endgueltige Freigabe erfordert weiterhin drei mehrfach ruhige und leere Ansichten. Regressionen pruefen einen und zwei gezaehlte Pfeile, eine noch verdeckte dritte Ansicht, keine zusaetzliche Trefferzaehlung beim Herausziehen und den ersten Wurf der naechsten Aufnahme.
+
+### Fehlenden Einschlagpunkt als Referenz setzen
+Im Trefferverlauf bietet jeder Eintrag ohne Position die Aktion Fehlenden Punkt setzen. Der Dialog zeigt die eingefrorenen Diagnosebilder dieses Wurfs in der flachen Boardansicht; Tippen setzt den tatsaechlichen Einschlagpunkt, Ziehen und Pfeilbuttons ermoeglichen Feinkorrekturen. Punkt in der Mitte setzen bietet einen Tastatureinstieg. Position speichern uebernimmt Millimeterkoordinaten und den geometrisch berechneten Score als manuelle Korrektur, auch bei Nicht erkannt. Das urspruengliche Erkennungsergebnis bleibt erhalten, die Genauigkeitsstatistik wertet die Korrektur als Fehler. Die ZIP wird automatisch neu gespeichert, correctionPosition.source ist bei fehlender erkannter Position manualMissingPoint. Die Referenz bleibt nach Herausziehen im Verlauf erhalten. Im aktuellen Board erscheint der neue Marker. Abbrechen aendert nichts. Bei einer fehlenden Diagnoseaufnahme kann eine Position gespeichert werden, Kamerabilder lassen sich dann jedoch nicht rueckwirkend wiederherstellen. Die Daten werden gespeichert; ein automatisches Modelltraining wird damit nicht gestartet.
+
+### Auswertung neuer Diagnosefaelle
+Die Faelle 3, 38, 51 und 91 sind in docs/autoscore_diagnostics_2026_10_03.md ausgewertet. Eine bereits sichtbare, noch unruhige dritte Achse erhaelt auch abseits des Drahts einen begrenzten Abgleich vor der Score-Festlegung. Zusaetzliche Aussenbereichsachsen duerfen einen Score innerhalb des Boards nur mit zwei inneren Achsen und gueltiger gemeinsamer Geometrie unterstuetzen; der Treffer bleibt unsicher markiert. Fall 3 wird damit als 20 statt 1 rekonstruiert. Faelle 38 und 51 bleiben offen; Fall 91 laesst sich nur gegen die aeltere Referenz rekonstruieren.
+
+### Neue Replay-Verbesserungen (Korrekturen 1, 8, 61, 73, 76)
+Die Auswertung steht in docs/autoscore_diagnostics_batch2_2026_10_03.md. Eine im erweiterten Bereich gefundene Achse darf zusammen mit einer inneren Achse einen unsicheren Score liefern, wenn beide Linienqualitaeten mindestens 0,85 erreichen und die geometrischen Pruefungen bestehen. Alternativ bleibt die zuvor erlaubte Dreierbestaetigung mit zwei inneren Achsen moeglich. Zwei nur im erweiterten Bereich gefundene Achsen bleiben innerhalb der Score-Flaeche unzulaessig. Die fuenf neuen Beispiele werden damit im Controller-Replay als 20 gezaehlt.
+Bei zwei klar leeren Kameras darf eine dritte nach sechs ruhigen Beobachtungen kleine verbleibende Boardtextur freigeben: weniger als 30 Prozent der vorher belegten Pixel, maximal 0,5 Prozent der Boardregion, sehr wenig neu hinzugekommene Differenz und kein erkannter Schaft. Ein deutlich belegtes drittes Bild blockiert weiter. Manuelle Herauszieh-Berichte speichern removalMetrics zur Nachvollziehbarkeit.
+
+### Diagnose-Serie 75, 63, 9_2 und Herausziehen 2
+Die Auswertung steht in docs/autoscore_diagnostics_batch3_2026_10_03.md. Die begrenzte Entscheidungsphase darf bei genau zwei Achsen ab Qualität 0,7 auch einen etwas flacheren Schnittwinkel verwenden. Die normale Erkennung bleibt strenger; die Schätzung ist immer unsicher markiert. Fall 63 liefert dadurch die korrigierte 4.
+Die Herauszieh-Prüfung kann nach sechs ruhigen Beobachtungen zusätzlich neue Resttextur einer Kamera tolerieren, wenn zwei andere Ansichten leer sind, mindestens 97 Prozent der alten Änderungspixel verschwunden sind, die gesamte verbleibende Änderung unter 1,5 Prozent der Boardregion und unter 70 Prozent der vorherigen Änderung liegt und keine Achse erkannt wird. Die tatsächlich belegte dritte Ansicht blockiert weiterhin. Fälle 75 und 9_2 bleiben ungelöste Positions-/Rand-Erkennungsfehler.

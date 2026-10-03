@@ -6,16 +6,18 @@ class TournamentStatisticsView extends StatelessWidget {
   const TournamentStatisticsView({
     super.key,
     required this.rows,
+    this.title = 'Spielerstatistiken',
     this.description =
         'Aus gespeicherten Turnierergebnissen dieser Community. Neue Ergebnisse erscheinen nach der Turniersynchronisierung. Korrekturen werden neu berechnet.',
   });
   final List<TournamentPlayerStatistics> rows;
   final String description;
+  final String title;
   @override
   Widget build(BuildContext context) => AdaptiveContentList(
     children: [
       Text(
-        'Spielerstatistiken',
+        title,
         style: Theme.of(context).textTheme.headlineSmall,
       ),
       Text(description),
@@ -34,8 +36,9 @@ class TournamentStatisticsView extends StatelessWidget {
 }
 
 class TournamentStatisticsCard extends StatelessWidget {
-  const TournamentStatisticsCard({super.key, required this.row});
+  const TournamentStatisticsCard({super.key, required this.row, this.playerName});
   final TournamentPlayerStatistics row;
+  final String? playerName;
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
@@ -43,7 +46,7 @@ class TournamentStatisticsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(row.name, style: Theme.of(context).textTheme.titleLarge),
+          Text(playerName ?? row.name, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Text('${row.tournaments.length} Turniere · ${row.matches} Spiele'),
           Text(

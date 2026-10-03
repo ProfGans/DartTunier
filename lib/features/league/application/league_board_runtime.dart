@@ -35,6 +35,8 @@ class LeagueBoardRuntime {
       id: source.id,
       name: source.name,
       communityId: source.communityId,
+      countsForRanking: source.countsForRanking,
+      communityRankingIds: source.communityRankingIds,
       boardCount: source.boardCount,
       players: source.players,
       stages: const [

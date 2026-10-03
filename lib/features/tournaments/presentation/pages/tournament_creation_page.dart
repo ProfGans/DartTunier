@@ -5,10 +5,14 @@ class TournamentCreationPage extends StatefulWidget {
     super.key,
     this.communityId,
     this.communityName,
+    this.preset,
+    this.presetTitle,
   });
 
   final String? communityId;
   final String? communityName;
+  final CommunityTournamentPreset? preset;
+  final String? presetTitle;
 
   @override
   State<TournamentCreationPage> createState() => _TournamentCreationPageState();
@@ -16,6 +20,8 @@ class TournamentCreationPage extends StatefulWidget {
 
 class _TournamentCreationPageState extends State<TournamentCreationPage> {
   bool _showEntryChoices = true;
+  bool _countsForRanking = true;
+  List<String> _communityRankingIds = ['default'];
   final _tournamentNameController = TextEditingController();
   final _playerNameController = TextEditingController();
   final _playerCountController = TextEditingController(text: '8');
@@ -55,6 +61,16 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.preset case final preset?) {
+      _showEntryChoices = false;
+      _plannedBoardCount = preset.boardCount;
+      _playerCountController.text = '${preset.playerCount}';
+      _selectedStageType = preset.stageType;
+      _stageGameFormat = preset.gameFormat;
+      _countsForRanking = preset.countsForRanking;
+      _communityRankingIds = [...preset.rankingIds];
+      _tournamentNameController.text = widget.presetTitle ?? '';
+    }
     _stageNameController.text = _defaultStageName();
   }
 
@@ -927,6 +943,13 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     });
   }
 
+  Future<void> _configureBots([int? index]) async {
+    final bots=await showDialog<List<TournamentPlayer>>(context:context,
+      builder:(_)=>TournamentBotDialog(players:_players,editPlayer:index==null?null:_players[index]));
+    if(bots==null || !mounted) return;
+    setState(() { if(index==null) { _players.addAll(bots); } else { _players[index]=bots.single; } });
+  }
+
   void _generatePlayers() {
     final requestedCount = int.tryParse(_playerCountController.text);
     if (requestedCount == null || requestedCount < 1) {
@@ -955,6 +978,13 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     });
 
     try {
+      final communityRepository = widget.communityId == null ? null : SupabaseCommunityRepository();
+      var canCreateCommunityPlayer = false;
+      if (widget.communityId != null) {
+        final communities = await communityRepository!.loadMyCommunities();
+        canCreateCommunityPlayer = communities.any((c) => c.id == widget.communityId &&
+          c.ownerUserId == communityRepository.currentUserId);
+      }
       final profiles = widget.communityId == null
           ? await _database.loadPlayerProfiles()
           : [for (final member in effectiveCommunityMembers(
@@ -972,15 +1002,21 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       });
       final selectedProfiles = await showDialog<List<PlayerProfile>>(
         context: context,
-        builder: (context) => _PlayerProfilePickerDialog(
+        builder: (context) => PlayerProfilePickerDialog(
           profiles: profiles,
+          createPlayer: !canCreateCommunityPlayer ? null : (name) async {
+            final member = await communityRepository!.createManualMember(widget.communityId!, name);
+            return PlayerProfile(id: member.playerProfileId!, userId: null,
+              displayName: member.displayName, country: '', city: '', dartsSetupJson: '',
+              createdAt: member.joinedAt, isActive: true);
+          },
           selectedProfileIds: {
             for (final player in _players.expand((p) => p.individuals))
               if (player.profileId != null) player.profileId!,
           },
         ),
       );
-      if (selectedProfiles == null) {
+      if (selectedProfiles == null || !mounted) {
         return;
       }
       setState(() {
@@ -1301,13 +1337,31 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       builder: (_) => const TournamentFormatPlannerDialog(),
     );
     if (suggestion == null || !mounted) return;
+    if (suggestion.configurations.isNotEmpty) {
+      if (_players.isNotEmpty && _players.length != suggestion.participantCount) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Die Spielerzahl im Finder muss zu den ausgewählten Spielern passen.')));
+        return;
+      }
+      setState(() {
+        if (_players.isEmpty && widget.communityId == null) {
+          _players.addAll(List.generate(suggestion.participantCount, (i)=>TournamentPlayer.generated(i+1)));
+        }
+        _stages..clear()..addAll(suggestion.configurations);
+        _plannedBoardCount = suggestion.boardCount.clamp(1,64);
+        _playerCountController.text = '${suggestion.participantCount}';
+        _resetStageForm();
+        _showEntryChoices = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vorschlag übernommen. Spieler, Etappen und Spielformate bleiben bearbeitbar.')));
+      return;
+    }
     // Preserve selected players; local drafts can start with named placeholders.
     final inferredPlayerCount = _players.isNotEmpty
         ? _players.length
         : suggestion.participantCount;
     final groups = suggestion.stages.first.groupCount;
     final sizes = List.generate(groups, (index) => inferredPlayerCount ~/ groups + (index < inferredPlayerCount % groups ? 1 : 0));
-    if (!hasValidGroupSizes(sizes)) {
+    if (groups > 0 && !hasValidGroupSizes(sizes)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Der Vorschlag passt nicht zur aktuellen Spielerzahl: mindestens 3 Spieler je Gruppe erforderlich.')));
       return;
     }
@@ -1326,7 +1380,13 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       _groupCountController.text = '$groups';
       _stages
         ..clear()
-        ..add(TournamentStage(
+        ..add(groups == 0 ? TournamentStage(
+          name: 'K.-o.-Finale', type: 'single_knockout',
+          knockoutParticipantCount: inferredPlayerCount,
+          knockoutBracketSize: _plannerNextPowerOfTwo(inferredPlayerCount),
+          knockoutByeCount: _plannerNextPowerOfTwo(inferredPlayerCount) - inferredPlayerCount,
+          gameFormat: suggestion.stages.first.format,
+        ) : TournamentStage(
           name: groups == 1 ? 'Ligaphase' : 'Gruppenphase',
           type: 'groups',
           groupCount: groups,
@@ -1390,6 +1450,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
           stages: _stages,
           runStages: runStages,
           communityId: communityId,
+          countsForRanking: _countsForRanking,
+          communityRankingIds: _communityRankingIds,
           boardCount: _plannedBoardCount,
         );
       } else {
@@ -1847,6 +1909,18 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
               ),
             ),
             const SizedBox(height: 32),
+            if (widget.communityId != null)
+              SwitchListTile(
+                title: const Text('Zählt zur Community-Rangliste'),
+                subtitle: const Text('Ausgeschaltete Turniere beeinflussen weder Elo noch den Ranglistenverlauf.'),
+                value: _countsForRanking,
+                onChanged: (value) => setState(() => _countsForRanking = value),
+              ),
+            if (widget.communityId != null && _countsForRanking)
+              CommunityRankingPicker(
+                communityId: widget.communityId!, selectedIds: _communityRankingIds,
+                onChanged: (ids) => setState(() => _communityRankingIds = ids),
+              ),
             Text(
               'Spieler',
               style: textTheme.titleLarge?.copyWith(
@@ -1875,6 +1949,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                     icon: const Icon(Icons.add),
                     tooltip: 'Spieler hinzufuegen',
                   ),
+                  OutlinedButton.icon(onPressed:()=>_configureBots(),
+                    icon:const Icon(Icons.smart_toy_outlined),label:const Text('Bots hinzufügen')),
                   OutlinedButton.icon(
                     onPressed: _isOpeningPlayerPicker
                         ? null
@@ -1914,6 +1990,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
               onRemove: _removePlayer,
               onMerge: _mergePlayers,
               onSplit: _splitTeam,
+              onEditBot: (index)=>_configureBots(index),
             ),
             const SizedBox(height: 32),
             Text(
@@ -2187,106 +2264,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         ),
       ),
     );
-  }
-}
-
-class _PlayerProfilePickerDialog extends StatefulWidget {
-  const _PlayerProfilePickerDialog({
-    required this.profiles,
-    required this.selectedProfileIds,
-  });
-
-  final List<PlayerProfile> profiles;
-  final Set<String> selectedProfileIds;
-
-  @override
-  State<_PlayerProfilePickerDialog> createState() =>
-      _PlayerProfilePickerDialogState();
-}
-
-class _PlayerProfilePickerDialogState
-    extends State<_PlayerProfilePickerDialog> {
-  late final Set<String> _selectedProfileIds = {
-    ...widget.selectedProfileIds,
-  };
-
-  void _toggleProfile(String profileId, bool selected) {
-    setState(() {
-      if (selected) {
-        _selectedProfileIds.add(profileId);
-      } else {
-        _selectedProfileIds.remove(profileId);
-      }
-    });
-  }
-
-  void _submit() {
-    Navigator.of(context).pop([
-      for (final profile in widget.profiles)
-        if (_selectedProfileIds.contains(profile.id)) profile,
-    ]);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Spieler auswaehlen'),
-      content: SizedBox(
-        width: 460,
-        child: widget.profiles.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text('Noch keine Spielerprofile angelegt.'),
-              )
-            : ListView.separated(
-                shrinkWrap: true,
-                itemCount: widget.profiles.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final profile = widget.profiles[index];
-                  final selected = _selectedProfileIds.contains(profile.id);
-                  final subtitle = [
-                    if (profile.city.isNotEmpty) profile.city,
-                    if (profile.country.isNotEmpty) profile.country,
-                  ].join(', ');
-                  return CheckboxListTile(
-                    value: selected,
-                    onChanged: (value) =>
-                        _toggleProfile(profile.id, value ?? false),
-                    title: Text(profile.displayName),
-                    subtitle: subtitle.isEmpty ? null : Text(subtitle),
-                    secondary: CircleAvatar(
-                      child: Text(_initialsForProfile(profile.displayName)),
-                    ),
-                    controlAffinity: ListTileControlAffinity.leading,
-                  );
-                },
-              ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Abbrechen'),
-        ),
-        FilledButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.check),
-          label: Text('${_selectedProfileIds.length} uebernehmen'),
-        ),
-      ],
-    );
-  }
-
-  String _initialsForProfile(String name) {
-    final parts = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) {
-      return '?';
-    }
-    return parts.take(2).map((part) => part[0].toUpperCase()).join();
   }
 }
 

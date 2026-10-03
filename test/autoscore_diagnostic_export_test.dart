@@ -15,6 +15,37 @@ import 'package:dart_tournament_manager/features/autoscoring/domain/board_geomet
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
+    'Removal report preserves event state without marking a scoring error',
+    () {
+      final evidence = AutoscoreEvidence([], {
+        'eventType': 'manualRemoval',
+        'statusBeforeReset': 'Pfeile herausziehen',
+        'waitingForEmpty': true,
+        'throws': [
+          {'label': 'T20', 'points': 60},
+        ],
+      });
+      final archive = ZipDecoder().decodeBytes(
+        const AutoscoreDiagnosticExport().encode(
+          evidence,
+          'Blockiert',
+          'Board leer',
+        ),
+      );
+      final report = jsonDecode(
+        utf8.decode(archive.findFile('bericht.json')!.content as List<int>),
+      );
+      expect(report['schemaVersion'], 4);
+      expect(report['correctDetection'], isNull);
+      expect(report['hit']['eventType'], 'manualRemoval');
+      expect(report['hit']['throws'].first['points'], 60);
+      expect(
+        utf8.decode(archive.findFile('LESEN.txt')!.content as List<int>),
+        contains('vor dem Reset'),
+      );
+    },
+  );
+  test(
     'Correction ZIP keeps original three-camera observations and geometry after board removal',
     () async {
       final c = AutoscoringController();
@@ -80,12 +111,37 @@ void main() {
                 ),
               )
               as Map<String, dynamic>;
-      expect(report['schemaVersion'], 2);
+      expect(report['schemaVersion'], 3);
       expect(report['correctionPosition']['xMillimetres'], 12.0);
       expect(report['detected'], 'T20');
       expect(report['corrected'], 'S20');
       expect(report['correctDetection'], isFalse);
       expect(report['hit']['yMillimetres'], -103);
+      final missingArchive = ZipDecoder().decodeBytes(
+        const AutoscoreDiagnosticExport().encode(
+          AutoscoreEvidence(evidence.cameras, {'manualMissingReport': true}),
+          'Nicht erkannt',
+          'T20',
+          correctionPosition: {
+            'xMillimetres': 0.0,
+            'yMillimetres': -103.0,
+            'source': 'manualMissingPoint',
+          },
+        ),
+      );
+      final missingReport = jsonDecode(
+        utf8.decode(
+          missingArchive.findFile('bericht.json')!.content as List<int>,
+        ),
+      );
+      expect(missingReport['detected'], 'Nicht erkannt');
+      expect(missingReport['hit']['xMillimetres'], isNull);
+      expect(missingReport['correctionPosition']['yMillimetres'], -103);
+      expect(
+        missingReport['correctionPosition']['source'],
+        'manualMissingPoint',
+      );
+      expect(missingArchive.findFile('board_flach.png'), isNotNull);
       expect(archive.findFile('board_flach.png'), isNotNull);
       final overview = img.decodePng(
         Uint8List.fromList(
@@ -102,6 +158,7 @@ void main() {
         expect(picture.getPixel(0, 0).r, i * 40);
         expect(archive.findFile('kamera_${i}_vorher.png'), isNotNull);
         expect(archive.findFile('kamera_${i}_leer.png'), isNotNull);
+        expect(archive.findFile('kamera_${i}_letzter_vorher.png'), isNotNull);
         expect(report['cameras'][i - 1]['axis']['confidence'], .8);
       }
     },

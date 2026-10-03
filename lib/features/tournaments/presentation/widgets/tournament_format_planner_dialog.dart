@@ -26,6 +26,26 @@ class _TournamentFormatPlannerDialogState
   bool _calculating = false;
   bool _allowSets = false;
   bool _allowDraws = false;
+  bool _requireGroupPhase = false;
+  int _maximumStages = 3;
+  int _maximumLives = 5;
+  int _suggestionPageSize = 3;
+  final Set<String> _enabledModes = TournamentPlanningRequest.modeLabels.keys.toSet();
+
+  @override
+  void initState() {
+    super.initState();
+    for (final controller in [_players, _boards, _maximumGroups, _minimumMatches, _minHours, _maxHours, _targetHours]) {
+      controller.addListener(() { if (mounted && _suggestions != null) setState(() => _suggestions = null); });
+    }
+  }
+
+  String get _inputSignature => [
+    _players.text, _boards.text, _maximumGroups.text, _minimumMatches.text,
+    _minHours.text, _maxHours.text, _targetHours.text, _useTargetDuration,
+    _checkoutType, _x01Selection, _allowSets, _allowDraws, _requireGroupPhase,
+    _maximumStages, _maximumLives, (_enabledModes.toList()..sort()).join(','),
+  ].join('|');
 
   @override
   void dispose() {
@@ -62,16 +82,20 @@ class _TournamentFormatPlannerDialogState
     }
     setState(() => _maximumGroupsError = null);
     setState(() => _calculating = true);
+    final inputSignature = _inputSignature;
     try {
       final parameters = await PlanningSettingsStorage().load();
       if (!mounted) return;
-      setState(() {
-        _suggestions = TournamentFormatPlanner(parameters: parameters)
-            .suggestFormats(
+      final suggestions = await ExpandedFormatPlanner(parameters: parameters)
+            .suggest(
               TournamentPlanningRequest(
                 players: int.tryParse(_players.text) ?? 0,
                 boards: int.tryParse(_boards.text) ?? 0,
                 maximumGroups: groupLimit,
+                requireGroupPhase: _requireGroupPhase,
+                maximumStages: _maximumStages,
+                maximumLives: _maximumLives,
+                enabledModes: Set.unmodifiable(_enabledModes),
 
                 minimumMatchesPerPlayer:
                     int.tryParse(_minimumMatches.text) ?? 1,
@@ -83,8 +107,11 @@ class _TournamentFormatPlannerDialogState
                 allowSets: _allowSets,
                 allowDraws: _allowDraws,
               ),
+              allResults: true,
             );
-      });
+      if (!mounted) return;
+      if (_inputSignature != inputSignature) return;
+      setState(() { _suggestions = suggestions; _suggestionPageSize = parameters.maximumSuggestions; });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -112,6 +139,29 @@ class _TournamentFormatPlannerDialogState
             const Text(
               'Die Schätzung berücksichtigt Runden, begrenzt nutzbare Boards und Wartezeiten zwischen KO-Runden.',
             ),
+            const SizedBox(height: 16),
+            const Text('Berücksichtigte Turnierformen'),
+            const Text('Die Auswahl gilt für jede Etappe. Gruppen-Spielarten können unabhängig von den KO-Etappen gewählt werden.'),
+            for (final mode in TournamentPlanningRequest.modeLabels.entries)
+              CheckboxListTile(
+                key: ValueKey('planner-mode-${mode.key}'),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text(mode.value),
+                value: _enabledModes.contains(mode.key),
+                onChanged: _calculating ? null : (selected) => setState(() {
+                  if (selected == true) {
+                    _enabledModes.add(mode.key);
+                  } else {
+                    _enabledModes.remove(mode.key);
+                  }
+                  _suggestions = null;
+                }),
+              ),
+            if (_enabledModes.isEmpty)
+              const Text('Bitte mindestens eine Turnierform auswählen.'),
+            if (_requireGroupPhase && !_enabledModes.any((m) => m.startsWith('groups:')))
+              const Text('Für die erforderliche Gruppenphase bitte eine Gruppen-Spielart auswählen.'),
             const SizedBox(height: 16),
             Wrap(
               spacing: 12,
@@ -161,11 +211,37 @@ class _TournamentFormatPlannerDialogState
               decoration: InputDecoration(
                 labelText: 'Maximale Gruppenzahl',
                 helperText:
-                    'Leer: gespeicherten Einstellungswert verwenden. Mindestens 3 Spieler je Gruppe.',
+                    'Obergrenze je Gruppenphase, keine Pflicht für Gruppen. Leer: gespeicherter Wert. Mindestens 3 Spieler je Gruppe.',
                 helperMaxLines: 3,
                 errorText: _maximumGroupsError,
                 border: const OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              key: const ValueKey('planner-require-groups'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Gruppenphase erforderlich'),
+              value: _requireGroupPhase,
+              onChanged: _calculating ? null : (value) => setState(() {
+                _requireGroupPhase = value;
+                _suggestions = null;
+              }),
+            ),
+            const Text('Nur Vorschläge mit Gruppenphase. Weitere Etappen bleiben möglich.'),
+            DropdownButtonFormField<int>(
+              initialValue: _maximumStages,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Maximale Etappen', helperText: 'Suche nach Kombinationen aller Turniermodi.', helperMaxLines: 3),
+              items: [for (var n=1;n<=4;n++) DropdownMenuItem(value:n,child:Text('$n'))],
+              onChanged: _calculating ? null : (n) => setState(() { _maximumStages=n!; _suggestions=null; }),
+            ),
+            DropdownButtonFormField<int>(
+              initialValue: _maximumLives,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Maximale Leben im Kratzer-Modus'),
+              items: [for (var n=2;n<=10;n++) DropdownMenuItem(value:n,child:Text('$n'))],
+              onChanged: _calculating ? null : (n) => setState(() { _maximumLives=n!; _suggestions=null; }),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -189,7 +265,7 @@ class _TournamentFormatPlannerDialogState
                   child: Text('Variabel (301 oder 501)'),
                 ),
               ],
-              onChanged: (value) => setState(() => _x01Selection = value!),
+              onChanged: (value) => setState(() { _x01Selection = value!; _suggestions = null; }),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -217,7 +293,7 @@ class _TournamentFormatPlannerDialogState
                   child: Text('Double In / Double Out'),
                 ),
               ],
-              onChanged: (value) => setState(() => _checkoutType = value!),
+              onChanged: (value) => setState(() { _checkoutType = value!; _suggestions = null; }),
             ),
             const SizedBox(height: 16),
             const Padding(
@@ -256,7 +332,9 @@ class _TournamentFormatPlannerDialogState
                     }),
             ),
             FilledButton.icon(
-              onPressed: _calculating ? null : _calculate,
+              onPressed: _calculating || _enabledModes.isEmpty ||
+                  (_requireGroupPhase && !_enabledModes.any((m) => m.startsWith('groups:')))
+                  ? null : _calculate,
               icon: const Icon(Icons.search),
               label: Text(
                 _calculating ? 'Berechnet …' : 'Vorschläge berechnen',
@@ -268,13 +346,9 @@ class _TournamentFormatPlannerDialogState
                 'Mehr Boards ändern bei gleichem Turnieraufbau nur die Dauer, nicht die Spielanzahl. Dadurch können andere Gruppenaufteilungen ins Zeitfenster passen und die Vorschläge anders sortiert werden. Bei variabler Punktzahl kann sich auch 301/501 ändern.',
               ),
               const SizedBox(height: 12),
-              if (_suggestions!.isEmpty) const Text('Keine Gruppenaufteilung möglich: Jede Gruppe benötigt mindestens 3 Spieler.'),
-            ..._suggestions!.map(
-                (suggestion) => PlanningSuggestionCard(
-                  suggestion: suggestion,
-                  onSelected: () => Navigator.of(context).pop(suggestion),
-                ),
-              ),
+              if (_suggestions!.isEmpty) Text(_requireGroupPhase ? 'Keine Gruppenaufteilung möglich: Jede Gruppe benötigt mindestens 3 Spieler.' : 'Keine Turnierform für diese Eingaben gefunden.'),
+              PlanningSuggestionList(suggestions: _suggestions!, pageSize: _suggestionPageSize,
+                onSelected: (suggestion) => Navigator.of(context).pop(suggestion)),
             ],
           ],
         ),

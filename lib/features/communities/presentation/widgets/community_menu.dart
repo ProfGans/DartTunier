@@ -13,6 +13,11 @@ enum CommunityArea {
     'Rollen erstellen, Berechtigungen festlegen und Mitgliedern zuweisen.',
     Icons.admin_panel_settings_outlined,
   ),
+  calendar(
+    'Kalender',
+    'Turniertermine, Vorlagen und persönliche Erinnerungen.',
+    Icons.calendar_month_outlined,
+  ),
   members(
     'Mitglieder',
     'Mitglieder verwalten und manuelle Spieler zuordnen.',
@@ -56,9 +61,11 @@ class CommunityMenu extends StatelessWidget {
     required this.description,
     required this.onSelected,
     this.avatarBase64,
+    this.rankingEnabled = true,
   });
   final String description;
   final String? avatarBase64;
+  final bool rankingEnabled;
   final ValueChanged<CommunityArea> onSelected;
 
   @override
@@ -81,7 +88,9 @@ class CommunityMenu extends StatelessWidget {
         textAlign: TextAlign.center,
       ),
       const SizedBox(height: 24),
-      for (final area in CommunityArea.values)
+      for (final area in CommunityArea.values.where(
+        (area) => rankingEnabled || area != CommunityArea.ranking,
+      ))
         Card(
           child: ListTile(
             leading: Icon(area.icon),

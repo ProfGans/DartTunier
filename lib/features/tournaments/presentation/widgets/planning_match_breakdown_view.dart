@@ -15,7 +15,8 @@ class PlanningMatchBreakdownView extends StatelessWidget {
           'So entstehen die ${breakdown.total} Spiele',
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        const Text('Jeder gegen jeden: n × (n − 1) ÷ 2'),
+        if (breakdown.groupSizes.isNotEmpty)
+          const Text('Jeder gegen jeden: n × (n − 1) ÷ 2'),
         for (var index = 0; index < breakdown.groupSizes.length; index++)
           Text(
             'Gruppe ${index + 1}: ${breakdown.groupSizes[index]} Spieler → '
@@ -23,7 +24,7 @@ class PlanningMatchBreakdownView extends StatelessWidget {
           ),
         if (breakdown.knockoutParticipants > 1) ...[
           Text(
-            'K.-o.: ${breakdown.knockoutParticipants} Qualifikanten (bis zu ${breakdown.qualifiersPerGroup} je Gruppe) → '
+            'K.-o.: ${breakdown.knockoutParticipants} ${breakdown.groupSizes.isEmpty ? 'Teilnehmer' : 'Qualifikanten (bis zu ${breakdown.qualifiersPerGroup} je Gruppe)'} → '
             '${breakdown.knockoutParticipants} − 1 = ${breakdown.knockoutMatches} Spiele',
           ),
           if (breakdown.byes > 0)

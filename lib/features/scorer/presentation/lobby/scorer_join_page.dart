@@ -92,7 +92,8 @@ class _ScorerJoinPageState extends State<ScorerJoinPage> {
               defaultTargetPlatform == TargetPlatform.android ||
               defaultTargetPlatform == TargetPlatform.iOS ||
               defaultTargetPlatform == TargetPlatform.macOS ||
-              defaultTargetPlatform == TargetPlatform.windows)
+              defaultTargetPlatform == TargetPlatform.windows ||
+              defaultTargetPlatform == TargetPlatform.linux)
             OutlinedButton.icon(
               onPressed: busy ? null : _scan,
               icon: const Icon(Icons.qr_code_scanner),

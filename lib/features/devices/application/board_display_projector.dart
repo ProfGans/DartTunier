@@ -53,6 +53,8 @@ class BoardDisplayProjector {
       board: board,
       state: state,
       home: entry?.match.homePlayer?.name ?? '',
+      homeBot: entry?.match.homePlayer?.bot,
+      awayBot: entry?.match.awayPlayer?.bot,
       away: entry?.match.awayPlayer?.name ?? '',
       homeMembers: entry?.match.homePlayer?.members.map((p) => p.name).toList() ?? const [],
       awayMembers: entry?.match.awayPlayer?.members.map((p) => p.name).toList() ?? const [],

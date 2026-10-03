@@ -11,8 +11,8 @@ ScorerSettings deviceScorerSettings(BoardDisplay display) {
   }
   return ScorerSettings(
     participants: [
-      ScorerParticipant(display.home, members: display.homeMembers),
-      ScorerParticipant(display.away, members: display.awayMembers),
+      ScorerParticipant(display.home, members: display.homeMembers, bot: display.homeBot?.profile),
+      ScorerParticipant(display.away, members: display.awayMembers, bot: display.awayBot?.profile),
     ],
     startScore: format.x01Score,
     bestOfLegs: format.bestOfLegs,

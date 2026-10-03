@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'dart:io';
+import '../../../shared/platform/linux_ocr.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
@@ -47,6 +49,10 @@ class WindowsAutomaticCalibrationService
   final void Function(List<BoardNumber>)? onNumbers;
   final void Function(int, List<dynamic>)? onWords;
   final bool useReferenceCache;
+  Future<List<dynamic>?> _recognize(String method, Map<String, Object> input) =>
+      Platform.isLinux
+      ? LinuxOcr.recognize(input)
+      : channel.invokeMethod<List<dynamic>>(method, input);
   Future<AutomaticCalibrationResult> _remember(
     AutomaticCalibrationResult result,
     Uint8List image,
@@ -116,7 +122,7 @@ class WindowsAutomaticCalibrationService
       late List<dynamic> words;
       try {
         words =
-            await channel.invokeMethod<List<dynamic>>('recognize', {
+            await _recognize('recognize', {
               'width': rotated.width,
               'height': rotated.height,
               'pixels': pixels,
@@ -178,7 +184,7 @@ class WindowsAutomaticCalibrationService
           pixels[offset + 3] = 255;
         }
         final words =
-            await channel.invokeMethod<List<dynamic>>('recognize', {
+            await _recognize('recognize', {
               'width': rotated.width,
               'height': rotated.height,
               'pixels': pixels,
@@ -224,7 +230,7 @@ class WindowsAutomaticCalibrationService
         pixels[offset + 3] = 255;
       }
       final words = List<dynamic>.of(
-        await channel.invokeMethod<List<dynamic>>('recognize', {
+        await _recognize('recognize', {
               'width': sheet.width,
               'height': sheet.height,
               'pixels': pixels,
@@ -239,7 +245,7 @@ class WindowsAutomaticCalibrationService
         reversedPixels.setRange(i, i + 4, pixels, j);
       }
       final reversedWords =
-          await channel.invokeMethod<List<dynamic>>('recognize', {
+          await _recognize('recognize', {
             'width': sheet.width,
             'height': sheet.height,
             'pixels': reversedPixels,
@@ -305,7 +311,7 @@ class WindowsAutomaticCalibrationService
               }
             }
             final tileWords =
-                await channel.invokeMethod<List<dynamic>>('recognize', {
+                await _recognize('recognize', {
                   'width': tile,
                   'height': tile,
                   'pixels': tilePixels,

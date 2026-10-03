@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/features/personal_profile/domain/dart_setup.dart';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,6 +6,14 @@ import 'package:dart_tournament_manager/features/personal_profile/data/personal_
 import 'package:dart_tournament_manager/features/personal_profile/domain/personal_profile.dart';
 
 void main() {
+  test('older profiles migrate to empty setup without losing fields', () {
+    final old = const PersonalProfile(name: 'Anna').toJson()
+      ..remove('dartSetup');
+    final restored = PersonalProfile.fromJson(old);
+    expect(restored.name, 'Anna');
+    expect(restored.dartSetup.isEmpty, isTrue);
+    expect(restored.toJson()['dartSetup']['version'], 1);
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test('online profile including image loads on another device', () async {
     Map<String, dynamic>? remote;
@@ -21,6 +30,14 @@ void main() {
       spotify: 'https://open.spotify.com/track/123',
       favoritePlayer: 'Spieler',
       favoriteDouble: 'D20',
+      dartSetup: DartSetup(
+        barrel: 'Target',
+        weight: '23 g',
+        shaft: 'Short',
+        flights: 'No. 2',
+        points: 'Steel 35 mm',
+        notes: 'Ringe',
+      ),
     );
     final first = device();
     await first.save('a', profile);

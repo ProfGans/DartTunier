@@ -25,9 +25,12 @@ insert into public.community_members(community_id,user_id,role) values('${group}
 await db.exec(await readFile('supabase/migrations/202610020001_community_permissions.sql','utf8'));
 await db.exec(await readFile('supabase/migrations/202610020003_community_profile.sql','utf8'));
 await db.exec(await readFile('supabase/migrations/202610020006_community_edit_permission.sql','utf8'));
+await db.exec(await readFile('supabase/migrations/202610030001_community_ranking_setting.sql','utf8'));
+await db.exec(await readFile('supabase/migrations/202610030002_community_rankings.sql','utf8'));
 async function as(user) { await db.exec(`reset role; select set_config('request.jwt.claim.sub','${user}',false); set role authenticated;`); }
 async function fails(sql,params=[]) { await assert.rejects(db.query(sql,params)); }
 await as(reader);
+await fails(`insert into public.community_rankings(community_id,name) values('${group}','Denied')`);
 assert.equal((await db.query(`update public.communities set name='Unauthorized' where id='${group}' returning id`)).rows.length,0);
 assert.deepEqual((await db.query(`select public.community_permissions('${group}') as p`)).rows[0].p,[]);
 await fails(`select invite_code from public.communities where id='${group}'`);
@@ -46,6 +49,7 @@ const payload={id:'rbac-test',name:'Test',communityId:group,players:[],stages:[]
 await db.query('select public.save_community_tournament($1)',[payload]);
 await db.query('select public.save_community_tournament($1)',[{...payload,activeStageIndex:1}]);
 await fails('select public.save_community_tournament($1)',[{...payload,name:'Changed'}]);
+await fails('select public.save_community_tournament($1)',[{...payload,communityRankingIds:['training']}]);
 await fails(`update public.tournaments set is_deleted=true where client_tournament_id='rbac-test'`);
 await fails(`update public.tournaments set community_id=null where client_tournament_id='rbac-test'`);
 await as(owner);
@@ -76,7 +80,14 @@ const editor = (await db.query(`insert into public.community_roles(community_id,
 await db.query('select public.assign_community_role($1,$2,$3)',[group,reader,editor]);
 await as(reader);
 const edited = (await db.query('select public.update_community_profile($1,$2,$3,$4) as profile',[group,'Edited','New bio','image'])).rows[0].profile;
+await db.query(`insert into public.community_rankings(community_id,name) values($1,'Training'),($1,'Vereinsmeisterschaft')`,[group]);
+assert.equal((await db.query('select * from public.community_rankings where community_id=$1',[group])).rows.length,2);
+await fails(`insert into public.community_rankings(community_id,name) values($1,' training ')`,[group]);
+await fails(`insert into public.community_rankings(community_id,name) values($1,'Standard-Rangliste')`,[group]);
+await fails(`insert into public.community_rankings(community_id,name) values($1,' ')`,[group]);
 assert.equal(edited.name,'Edited');
+assert.equal((await db.query('select public.update_community_settings($1,$2,$3,$4,$5) as settings',[group,'Edited','Bio',null,false])).rows[0].settings.ranking_enabled,false);
+assert.equal((await db.query('select public.update_community_settings($1,$2,$3,$4,$5) as settings',[group,'Edited','Bio',null,true])).rows[0].settings.ranking_enabled,true);
 assert.equal(edited.owner_user_id,owner);
 assert.equal('invite_code' in edited,false);
 await fails('select public.update_community_profile($1,$2,$3,$4)',[group,'','Bio',null]);
@@ -85,5 +96,10 @@ await as(owner);
 await db.query('select public.assign_community_role($1,$2,$3)',[group,reader,null]);
 await as(reader);
 await fails('select public.update_community_profile($1,$2,$3,$4)',[group,'Revoked','Bio',null]);
+await fails('select public.update_community_settings($1,$2,$3,$4,$5)',[group,'Revoked','Bio',null,false]);
+await fails(`insert into public.community_rankings(community_id,name) values($1,'Revoked')`,[group]);
+assert.equal((await db.query('select * from public.community_rankings where community_id=$1',[group])).rows.length,2);
+await as(member);
+assert.equal((await db.query('select * from public.community_rankings where community_id=$1',[group])).rows.length,0);
 console.log('PASS: nine rights, delegated profile editing, validation, revocation, ownership and invitation protection, existing role and tournament checks.');
 await db.close();

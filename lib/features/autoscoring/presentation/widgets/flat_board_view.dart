@@ -17,10 +17,12 @@ class FlatBoardView extends StatefulWidget {
     required this.cameras,
     required this.markers,
     required this.onMoved,
+    this.onPlaced,
   });
   final List<FlatBoardCamera> cameras;
   final List<FlatBoardMarker> markers;
   final void Function(int, BoardPoint) onMoved;
+  final void Function(BoardPoint)? onPlaced;
   @override
   State<FlatBoardView> createState() => _FlatBoardViewState();
 }
@@ -85,11 +87,18 @@ class _FlatBoardViewState extends State<FlatBoardView> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final size = min(560.0, constraints.maxWidth);
-      Offset position(BoardPoint p) =>
-          Offset((p.x / 380 + .5) * size, (p.y / 380 + .5) * size);
+      Offset position(BoardPoint p) => Offset(
+        (p.x / BoardGeometry.flatViewDiameter + .5) * size,
+        (p.y / BoardGeometry.flatViewDiameter + .5) * size,
+      );
       BoardPoint point(Offset p) {
-        var q = Point((p.dx / size - .5) * 380, (p.dy / size - .5) * 380);
-        if (q.magnitude > 190) q *= 190 / q.magnitude;
+        var q = Point(
+          (p.dx / size - .5) * BoardGeometry.flatViewDiameter,
+          (p.dy / size - .5) * BoardGeometry.flatViewDiameter,
+        );
+        if (q.magnitude > BoardGeometry.detectionRadius) {
+          q *= BoardGeometry.detectionRadius / q.magnitude;
+        }
         return q;
       }
 
@@ -123,86 +132,95 @@ class _FlatBoardViewState extends State<FlatBoardView> {
               height: size,
               child: Padding(
                 padding: EdgeInsets.zero,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: ColoredBox(
-                        color: const Color(0xff232323),
-                        child: image == null
-                            ? const Center(
-                                child: Text(
-                                  'Nach der Kalibrierung erscheint die Kameraansicht.',
-                                  style: TextStyle(color: Colors.white),
+                child: GestureDetector(
+                  key: const ValueKey('flat-board-surface'),
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: widget.onPlaced == null
+                      ? null
+                      : (details) =>
+                            widget.onPlaced!(point(details.localPosition)),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: ColoredBox(
+                          color: const Color(0xff232323),
+                          child: image == null
+                              ? const Center(
+                                  child: Text(
+                                    'Nach der Kalibrierung erscheint die Kameraansicht.',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                )
+                              : Image.memory(
+                                  image!,
+                                  fit: BoxFit.fill,
+                                  gaplessPlayback: true,
                                 ),
-                              )
-                            : Image.memory(
-                                image!,
-                                fit: BoxFit.fill,
-                                gaplessPlayback: true,
-                              ),
+                        ),
                       ),
-                    ),
-                    for (final marker in widget.markers)
-                      Positioned(
-                        left:
-                            (selected == marker.index && drag != null
-                                    ? drag!
-                                    : position(marker.point))
-                                .dx -
-                            24,
-                        top:
-                            (selected == marker.index && drag != null
-                                    ? drag!
-                                    : position(marker.point))
-                                .dy -
-                            24,
-                        child: Semantics(
-                          label: 'Treffer ${marker.index + 1}: ${marker.label}',
-                          child: SizedBox(
-                            width: 48,
-                            height: 48,
-                            child: GestureDetector(
-                              onPanStart: (details) => setState(() {
-                                selected = marker.index;
-                                drag =
-                                    position(marker.point) +
-                                    details.localPosition -
-                                    const Offset(24, 24);
-                              }),
-                              onPanUpdate: (details) => setState(() {
-                                drag =
-                                    (drag ?? position(marker.point)) +
-                                    details.delta;
-                              }),
-                              onPanCancel: () => setState(() {
-                                drag = null;
-                              }),
-                              onPanEnd: (_) {
-                                if (drag != null) {
-                                  widget.onMoved(marker.index, point(drag!));
-                                }
-                                setState(() {
-                                  drag = null;
-                                });
-                              },
-                              child: IconButton(
-                                tooltip:
-                                    'Treffer ${marker.index + 1} auswählen',
-                                onPressed: () => setState(() {
+                      for (final marker in widget.markers)
+                        Positioned(
+                          left:
+                              (selected == marker.index && drag != null
+                                      ? drag!
+                                      : position(marker.point))
+                                  .dx -
+                              24,
+                          top:
+                              (selected == marker.index && drag != null
+                                      ? drag!
+                                      : position(marker.point))
+                                  .dy -
+                              24,
+                          child: Semantics(
+                            label:
+                                'Treffer ${marker.index + 1}: ${marker.label}',
+                            child: SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: GestureDetector(
+                                onPanStart: (details) => setState(() {
                                   selected = marker.index;
+                                  drag =
+                                      position(marker.point) +
+                                      details.localPosition -
+                                      const Offset(24, 24);
                                 }),
-                                icon: Icon(
-                                  Icons.adjust,
-                                  color: selected == marker.index
-                                      ? Colors.yellow
-                                      : Colors.pinkAccent,
+                                onPanUpdate: (details) => setState(() {
+                                  drag =
+                                      (drag ?? position(marker.point)) +
+                                      details.delta;
+                                }),
+                                onPanCancel: () => setState(() {
+                                  drag = null;
+                                }),
+                                onPanEnd: (_) {
+                                  if (drag != null) {
+                                    widget.onMoved(marker.index, point(drag!));
+                                  }
+                                  setState(() {
+                                    drag = null;
+                                  });
+                                },
+                                child: IconButton(
+                                  tooltip:
+                                      'Treffer ${marker.index + 1} auswählen',
+                                  onPressed: () => setState(() {
+                                    selected = marker.index;
+                                  }),
+                                  icon: Icon(
+                                    Icons.adjust,
+                                    color: selected == marker.index
+                                        ? Colors.yellow
+                                        : Colors.pinkAccent,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

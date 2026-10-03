@@ -8,6 +8,16 @@ import 'planning_match_breakdown.dart';
 import 'tournament_planning_parameters.dart';
 
 class TournamentPlanningRequest {
+  static const modeLabels = <String, String>{
+    'single_knockout': 'Einfaches KO',
+    'double_knockout': 'Doppel-KO',
+    'triple_knockout': 'Triple-KO',
+    'kratzer': 'Kratzer',
+    'groups:round_robin': 'Gruppen: Jeder gegen jeden',
+    'groups:mini_knockout': 'Gruppen: Mini-KO',
+    'groups:double_knockout': 'Gruppen: Mini-Doppel-KO',
+    'groups:triple_knockout': 'Gruppen: Mini-Triple-KO',
+  };
   const TournamentPlanningRequest({
     required this.players,
     required this.boards,
@@ -17,10 +27,14 @@ class TournamentPlanningRequest {
     required this.x01Selection,
     required this.checkoutType,
     this.maximumGroups,
+    this.requireGroupPhase = false,
     this.bestOfLegs = 3,
     this.allowSets = false,
     this.allowDraws = false,
     this.targetMinutes,
+    this.maximumStages = 3,
+    this.maximumLives = 5,
+    this.enabledModes,
   });
 
   final int players;
@@ -28,6 +42,11 @@ class TournamentPlanningRequest {
   final int bestOfLegs;
   final bool allowSets;
   final bool allowDraws;
+  final bool requireGroupPhase;
+  final int maximumStages;
+  final int maximumLives;
+  /// Null enables all modes; an empty set deliberately allows no suggestions.
+  final Set<String>? enabledModes;
 
   /// Null uses the saved planner setting; a value overrides it for this search.
   final int? maximumGroups;
@@ -56,6 +75,9 @@ class TournamentFormatSuggestion {
     this.qualifiersPerGroup = 2,
     this.duration,
     this.boardCount = 1,
+    this.configurations = const [],
+    this.stageMatchCounts = const [],
+    this.variableMatches = false,
   });
 
   final String title;
@@ -69,6 +91,9 @@ class TournamentFormatSuggestion {
   final int qualifiersPerGroup;
   final PlanningDuration? duration;
   final int boardCount;
+  final List<TournamentStage> configurations;
+  final List<int> stageMatchCounts;
+  final bool variableMatches;
   TournamentGameFormat get format => stages.first.format;
   PlanningMatchBreakdown get matchBreakdown {
     final groups = stages.first.groupCount;
@@ -80,6 +105,7 @@ class TournamentFormatSuggestion {
             (index < participantCount % groups ? 1 : 0),
       ),
       qualifiersPerGroup: qualifiersPerGroup,
+      directKnockoutParticipants: groups == 0 ? participantCount : null,
     );
   }
 }
@@ -245,6 +271,44 @@ class TournamentFormatPlanner {
         }
       }
     }
+    if (!request.requireGroupPhase) {
+      final formats = automatic
+          ? options
+          : [_formatFor(request, const [], request.players)];
+      for (final format in formats.where((f) => !f.allowsDraws)) {
+        final duration = PlanningDuration.calculate(
+          groupSizes: const [],
+          qualifiers: request.players,
+          boards: request.boards,
+          matchMinutes: _matchMinutes(format),
+        );
+        final fits =
+            request.minimumMatchesPerPlayer <= 1 &&
+            (request.targetMinutes != null ||
+                (duration.totalMinutes >= request.minimumMinutes &&
+                    duration.totalMinutes <= request.maximumMinutes));
+        candidates.add(
+          TournamentFormatSuggestion(
+            title: 'Einfaches K.-o.',
+            stages: [
+              PlannedStage(
+                type: 'single_knockout',
+                groupCount: 0,
+                format: format,
+              ),
+            ],
+            minimumMatchesPerPlayer: 1,
+            totalMatches: request.players - 1,
+            estimatedMinutes: duration.totalMinutes,
+            duration: duration,
+            effectiveBoards: min(request.boards, request.players ~/ 2),
+            boardCount: request.boards,
+            participantCount: request.players,
+            isClosestAlternative: !fits,
+          ),
+        );
+      }
+    }
     final fitting = candidates.where((c) => _fits(c, request)).toList();
     final ranked = fitting.isEmpty ? candidates : fitting;
     ranked.sort((a, b) {
@@ -271,7 +335,8 @@ class TournamentFormatPlanner {
   double _matchMinutes(TournamentGameFormat format) =>
       _legMinutes(format) * PlanningDuration.estimatedMatchLegs(format);
 
-  double estimatedMatchMinutes(TournamentGameFormat format) => _matchMinutes(format);
+  double estimatedMatchMinutes(TournamentGameFormat format) =>
+      _matchMinutes(format);
 
   bool _fits(
     TournamentFormatSuggestion suggestion,

@@ -52,7 +52,9 @@ class FrameDetector {
         final i = y * current.width + x;
         if ((reference.pixels[i] - current.pixels[i]).abs() < 30) continue;
         final p = Point(x / (current.width - 1), y / (current.height - 1));
-        if (calibration.project(p).magnitude <= 190) points.add(p);
+        if (calibration.project(p).magnitude <= BoardGeometry.detectionRadius) {
+          points.add(p);
+        }
       }
     }
     final stride = max(1, (points.length / 600).ceil());
@@ -72,7 +74,23 @@ class FrameDetector {
     GrayFrame reference,
     GrayFrame current,
     BoardCalibration calibration,
-  ) {
+  ) =>
+      _axis(reference, current, calibration, 190) ??
+      _axis(
+        reference,
+        current,
+        calibration,
+        BoardGeometry.detectionRadius,
+        outerRimOnly: true,
+      );
+
+  DartAxis? _axis(
+    GrayFrame reference,
+    GrayFrame current,
+    BoardCalibration calibration,
+    double radius, {
+    bool outerRimOnly = false,
+  }) {
     if (reference.width != current.width ||
         reference.height != current.height) {
       return null;
@@ -85,7 +103,7 @@ class FrameDetector {
         if ((reference.pixels[i] - current.pixels[i]).abs() < 30) continue;
         final p = Point(x / (current.width - 1), y / (current.height - 1));
         final board = calibration.project(p);
-        if (board.magnitude > 190) continue;
+        if (board.magnitude > radius) continue;
         var neighbours = 0;
         for (var dy = -1; dy <= 1; dy++) {
           for (var dx = -1; dx <= 1; dx++) {
@@ -147,6 +165,7 @@ class FrameDetector {
     return DartAxis(
       calibration.project(mean - direction),
       calibration.project(mean + direction),
+      outerRimOnly: outerRimOnly,
       confidence: (best.length / sample.length * (1 - minor / max(major, 1e-9)))
           .clamp(.1, 1),
     );

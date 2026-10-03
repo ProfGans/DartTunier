@@ -158,6 +158,21 @@ class RecognitionOverlayPainter extends CustomPainter {
             ..strokeWidth = 1.4,
         );
       }
+      if (calibration != null) {
+        // This is the calibrated detection limit, not a detected physical edge.
+        final rimPaint = Paint()
+          ..color = Colors.lightBlueAccent
+          ..strokeWidth = 1.6;
+        for (var i = 0; i < 96; i += 2) {
+          BoardPoint rim(int step) => map(
+            Point(
+              sin(step * pi / 48) * BoardGeometry.detectionRadius,
+              -cos(step * pi / 48) * BoardGeometry.detectionRadius,
+            ),
+          );
+          canvas.drawLine(at(rim(i)), at(rim(i + 1)), rimPaint);
+        }
+      }
       final bull = at(
         transform != null ? map(const Point(0, 0)) : outline!.bull,
       );
@@ -221,6 +236,7 @@ class RecognitionLegend extends StatelessWidget {
         (Colors.red, 'Bull-Kandidat'),
         (Colors.blue, 'Bildänderung / Dartachse'),
         (Colors.pink, 'Erkannter Treffer'),
+        (Colors.lightBlueAccent, 'Außenrand · 0 Punkte (Kalibrierung)'),
         (Colors.amber, 'Farbpixel (optional)'),
       ])
         Row(

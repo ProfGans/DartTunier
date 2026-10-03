@@ -102,7 +102,9 @@ void main() {
     addTearDown(sender.close);
     final found = Completer<void>();
     discovery.addListener(() {
-      if (discovery.peers.isNotEmpty && !found.isCompleted) found.complete();
+      if (discovery.peers.any((peer) => peer.device.id == target) && !found.isCompleted) {
+        found.complete();
+      }
     });
     sender.send(
       const DeviceDiscoveryMessage(
@@ -115,7 +117,7 @@ void main() {
     await found.future.timeout(const Duration(seconds: 2));
     await Future<void>.delayed(const Duration(milliseconds: 350));
     expect(discovery.localPort, isNotNull);
-    expect(discovery.peers.single.device.id, target);
+    expect(discovery.peers.where((peer) => peer.device.id == target).single.device.name, 'Handy');
     await discovery.configure(settings, scanning: false);
     await Future<void>.delayed(const Duration(milliseconds: 150));
     expect(discovery.localPort, isNull);

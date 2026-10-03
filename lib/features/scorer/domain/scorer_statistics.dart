@@ -1,3 +1,5 @@
+import 'scorer_highlight_rules.dart';
+
 /// One completed visit. Non-finishing visits, including busts, count as three
 /// darts for averages; finishes use the entered/observed number of darts.
 class ScorerVisit {
@@ -18,6 +20,7 @@ class ScorerVisit {
 }
 
 class ScorerPlayerStatistics {
+  final Map<int, int> maxima = {}, shortLegs = {};
   int points = 0, darts = 0, visits = 0, busts = 0;
   int firstNinePoints = 0, firstNineDarts = 0;
   int scores60 = 0, scores100 = 0, scores140 = 0, scores180 = 0;
@@ -80,6 +83,9 @@ class ScorerStatistics {
       if (visit.points >= 100) p.scores100++;
       if (visit.points >= 140) p.scores140++;
       if (visit.points == 180) p.scores180++;
+      if (!visit.bust && highlightMaximumScores.contains(visit.points)) {
+        p.maxima.update(visit.points, (count) => count + 1, ifAbsent: () => 1);
+      }
       if (visit.points > p.highestScore) p.highestScore = visit.points;
       if (visit.checkoutAttempts == null) {
         p.unknownCheckoutVisits++;
@@ -92,6 +98,9 @@ class ScorerStatistics {
       }
       p.legsWon++;
       final darts = legDarts[key]!;
+      if (darts > 0 && darts <= highlightShortLegDarts) {
+        p.shortLegs.update(darts, (count) => count + 1, ifAbsent: () => 1);
+      }
       p.wonLegDarts += darts;
       if (p.bestLeg == null || darts < p.bestLeg!) p.bestLeg = darts;
       if (visit.points > p.highestFinish) p.highestFinish = visit.points;

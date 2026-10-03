@@ -36,7 +36,6 @@ class ScorerSettings {
         participants.isEmpty ||
         startingPlayer < 0 ||
         startingPlayer >= participants.length ||
-        participants.every((p) => p.bot != null) ||
         participants.any(
           (p) =>
               p.name.trim().isEmpty ||

@@ -63,7 +63,19 @@ class ScorerController extends ChangeNotifier {
         case 'bust':
           submitBust(checkoutAttempts: a['attempts'] as int?);
         case 'dart':
-          final dart = throws[a['label']];
+          final dart =
+              throws[a['label']] ??
+              switch (a['label']) {
+                'Bouncer' || 'Nicht erkannt' => DartThrowResult(
+                  label: a['label'] as String,
+                  baseValue: 0,
+                  scoredPoints: 0,
+                  isDouble: false,
+                  isTriple: false,
+                  isMiss: a['label'] == 'Bouncer',
+                ),
+                _ => null,
+              };
           if (dart == null) throw const FormatException('Ungültiger Dart');
           throwDart(dart, checkoutAttempt: a['attempt'] as bool?);
         case 'undo':

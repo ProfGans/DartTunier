@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dart_tournament_manager/features/autoscoring/application/capture_autoscore_evidence.dart';
 import 'dart:io';
 import 'dart:math';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
@@ -251,6 +252,57 @@ void main() {
       await platform.events.close();
     },
   );
+  test(
+    'Manual removal captures old references before reset and resumes counting',
+    () async {
+      final platform = _Cameras(directory)..dart = true;
+      final c = AutoscoringController(
+        platform: platform,
+        calibrationService: _AutomaticCalibration(),
+      );
+      await c.discover();
+      await c.connect([0, 1, 2]);
+      await c.arm();
+      final oldReference = c.cameras.first.reference;
+      c.throws.add(AutoscoringController.unresolvedThrow);
+      c.pending = const FusedHit(Point(0, -103), 1, 3);
+      var cleared = 0;
+      c.onAutomaticVisitCleared = () => cleared++;
+      platform.dart = false;
+      var captured = false;
+      await c.confirmDartsRemoved(
+        beforeReset: () {
+          final evidence = captureAutoscoreEvidence(c, missed: true)!;
+          expect(
+            identical(evidence.cameras.first.before, oldReference),
+            isTrue,
+          );
+          expect(c.throws.length, 1);
+          expect(evidence.cameras.length, 3);
+          captured = true;
+        },
+      );
+      expect(captured, isTrue);
+      expect(cleared, 1);
+      expect(c.throws, isEmpty);
+      expect(c.pending, isNull);
+      expect(c.lastHit, isNull);
+      expect(c.running, isTrue);
+      expect(c.waitingForEmpty, isFalse);
+      expect(identical(c.cameras.first.reference, oldReference), isFalse);
+      c.throws.add(AutoscoringController.unresolvedThrow);
+      platform.corruptCamera = 1;
+      await c.confirmDartsRemoved(
+        beforeReset: () => fail('Invalid image must not reset'),
+      );
+      expect(c.throws.length, 1);
+      expect(cleared, 1);
+      await c.stop();
+      c.dispose();
+      await platform.events.close();
+    },
+  );
+
   test(
     'Three-camera synthetic capture detects T20 once and releases snapshots',
     () async {

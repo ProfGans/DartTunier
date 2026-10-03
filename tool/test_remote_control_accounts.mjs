@@ -1,0 +1,24 @@
+import { PGlite } from '../build/rbac_sql_tests/node_modules/@electric-sql/pglite/dist/index.js';
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db = new PGlite();
+const a = '11111111-1111-1111-1111-111111111111', b = '22222222-2222-2222-2222-222222222222';
+await db.exec(`create role authenticated; create role anon; create schema auth; create table auth.users(id uuid primary key); create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$; grant usage on schema public,auth to authenticated,anon; insert into auth.users values('${a}'),('${b}');`);
+const sql = await readFile('supabase/migrations/202610030006_account_remote_control.sql', 'utf8');
+await db.exec(sql); await db.exec(sql);
+async function as(id) { await db.exec(`reset role; select set_config('request.jwt.claim.sub','${id}',false); set role authenticated;`); }
+await as(a);
+await db.query('insert into account_remote_devices values($1,$2,$3,$4,$5,$6)', [a, 'a'.repeat(32), 'Hauptgerät', 'windows', ['192.168.1.2'], 'a'.repeat(64)]);
+await assert.rejects(db.query('insert into account_remote_devices values($1,$2,$3,$4,$5,$6)', [b, 'b'.repeat(32), 'Fremd', 'android', ['192.168.1.3'], 'b'.repeat(64)]));
+await as(b);
+assert.equal((await db.query('select session_key from account_remote_devices')).rows.length, 0);
+assert.equal((await db.query("update account_remote_devices set session_key=repeat('b',64) returning *")).rows.length, 0);
+assert.equal((await db.query('delete from account_remote_devices returning *')).rows.length, 0);
+await as(a);
+assert.equal((await db.query('select session_key from account_remote_devices')).rows[0].session_key, 'a'.repeat(64));
+await assert.rejects(db.query("update account_remote_devices set session_key='kurz'"));
+await assert.rejects(db.query("update account_remote_devices set addresses='{}'::text[]"));
+await db.exec('reset role; set role anon');
+await assert.rejects(db.query('select * from account_remote_devices'));
+await db.close();
+console.log('PASS: schema idempotence, owner-only secret access, foreign writes and anonymous access denied, invalid keys rejected.');

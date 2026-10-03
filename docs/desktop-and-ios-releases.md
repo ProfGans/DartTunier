@@ -9,7 +9,8 @@ erzeugen ausschließlich Actions-Artefakte. Bestehende Releases werden nicht ver
 - Windows: x64 ZIP mit EXE, DLLs und Datenverzeichnis. Vollständig entpacken.
   Noch keine Authenticode-Signatur. Eventuell benötigt der Rechner die Microsoft
   Visual C++ Redistributable x64 Laufzeit.
-- Linux: x64 tar.gz, gebaut auf Ubuntu 22.04. GTK 3 und kompatible Systembibliotheken
+- Linux: getrennte x64- und ARM64-tar.gz, nativ gebaut auf Ubuntu 22.04.
+  GTK 3, GStreamer und kompatible Systembibliotheken
   erforderlich; kein universelles Paket für alle Distributionen.
 - macOS und iOS: Builds und Release-Pakete sind vorerst deaktiviert. Die Plattform-
   Projekte bleiben für eine spätere Wiederaufnahme erhalten. Für TestFlight/App Store
@@ -23,7 +24,7 @@ damit sich bisherige Speicherorte nicht durch Umbenennung ändern.
 
 Desktop-Pakete ersetzen keine Benutzerdaten und enthalten keine lokalen Speicherstände.
 Vor dem manuellen App-Wechsel Backup exportieren und App schließen. Die automatische
-Update-Suche innerhalb der App unterstützt Android, Windows x64 und Linux x64,
+Update-Suche innerhalb der App unterstützt Android, Windows x64 und Linux x64/ARM64,
 einschließlich optionaler GitHub-Vorabversionen. Desktop-Updates werden nach Klick
 auf „Update installieren und neu starten“ heruntergeladen, geprüft, mit interner
 Datensicherung installiert und gestartet. Es gibt keine unbeaufsichtigte Installation.
@@ -60,3 +61,44 @@ Referenzen:
 - https://docs.flutter.dev/deployment/ios
 - https://docs.flutter.dev/deployment/macos
 - https://docs.flutter.dev/platform-integration/linux/setup
+
+## Raspberry Pi und Linux ARM64
+
+Das neue Asset heißt `dart-turnier-linux-arm64.tar.gz`. Der native ARM64-Job
+läuft auf `ubuntu-22.04-arm` und bootstrapped den festgelegten Flutter-Tag 3.41.4
+per Git; er setzt kein herunterladbares Linux-ARM64-SDK-Archiv voraus.
+Vor dem Packen prüft er die ELF-Architektur der Anwendung und ihrer Bibliotheken.
+Die App wählt nach Prozess-ABI das passende Asset aus und prüft im Manifest
+`platform: linux` sowie `architecture: arm64` beziehungsweise `x64`.
+Schema 1 bleibt kompatibel; bestehende x64-Pakete ändern ihr Format nicht.
+
+Ziel sind Raspberry Pis mit ARM64-Prozessor und **64-Bit-Desktop-Betriebssystem**
+mit kompatibler Laufzeit (glibc mindestens 2.35, z. B. Raspberry Pi OS Bookworm
+64-Bit oder neuer). Ein 64-Bit-Prozessor mit 32-Bit-Betriebssystem reicht nicht.
+Headless-/Lite-Systeme benötigen zusätzlich eine grafische Sitzung.
+
+Auf Debian-basierten Systemen werden typischerweise diese Laufzeitpakete benötigt:
+
+```sh
+sudo apt-get update
+sudo apt-get install libgtk-3-0 libstdc++6 libsecret-1-0 libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+uname -m  # muss aarch64 ausgeben
+```
+
+Das gesamte ARM64-Archiv in einen eigenen Ordner entpacken und darin
+`./dart_tournament_manager` starten. Die erste ARM64-Version wird manuell
+installiert, spätere stabile und optionale Beta-Updates kommen über Einstellungen
+→ Updates. Keine x64-Dateien in den ARM64-Ordner kopieren.
+
+Validierungsgrenze: Architektur-Auswahl und Archivprüfung werden lokal getestet;
+Linux-Build und dieselben Update-Tests laufen nach einem Versionstag-Push oder manuellem Workflow-Start im jeweiligen CI-Job.
+Ein realer Raspberry-Pi-Test ist weiterhin nötig: Start, lokale Speicherung,
+Backup/Wiederherstellung, Online-Anmeldung, Audio und Update mit Neustart.
+Linux-Kamera, Audio, Links und Benachrichtigungsdienst sind inzwischen implementiert;
+Einrichtung und noch ausstehende Linux-/Serverprüfungen stehen in `docs/linux.md`.
+Windows ARM64, 32-Bit-Linux sowie Apple-Builds bleiben außerhalb dieses
+Schritts. Es wurde im Rahmen dieser Änderung kein Release veröffentlicht.
+
+Runner-Referenz: https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+
+

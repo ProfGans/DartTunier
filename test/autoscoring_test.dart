@@ -5,6 +5,50 @@ import 'package:dart_tournament_manager/features/autoscoring/domain/board_geomet
 import 'package:dart_tournament_manager/features/autoscoring/domain/frame_detector.dart';
 
 void main() {
+  test('A stuck dart on the black outer rim is detected and scores zero', () {
+    final calibration = BoardCalibration(const [
+      Point(.5, .2),
+      Point(.8, .5),
+      Point(.5, .8),
+      Point(.2, .5),
+    ]);
+    final empty = GrayFrame(480, 480, Uint8List(480 * 480));
+    GrayFrame shaft(Point<double> a, Point<double> b) {
+      final pixels = Uint8List(480 * 480);
+      for (var step = 0; step <= 800; step++) {
+        final q = calibration.unproject(a + (b - a) * (step / 800));
+        final x = (q.x * 479).round(), y = (q.y * 479).round();
+        for (var dy = -1; dy <= 1; dy++) {
+          for (var dx = -1; dx <= 1; dx++) {
+            if (x + dx >= 0 && x + dx < 480 && y + dy >= 0 && y + dy < 480) {
+              pixels[(y + dy) * 480 + x + dx] = 180;
+            }
+          }
+        }
+      }
+      return GrayFrame(480, 480, pixels);
+    }
+
+    final first = shaft(const Point(-45, -215), const Point(45, -215));
+    final second = shaft(const Point(0, -230), const Point(0, -180));
+    final detector = FrameDetector();
+    final a = detector.axis(empty, first, calibration);
+    final b = detector.axis(empty, second, calibration);
+    expect(a, isNotNull);
+    expect(b, isNotNull);
+    expect(detector.changeSamples(empty, first, calibration), isNotEmpty);
+    final hit = fuseAxes([a!, b!])!;
+    expect(hit.point.distanceTo(const Point(0, -215)), lessThan(2));
+    expect(BoardGeometry.score(hit.point).scoredPoints, 0);
+    expect(
+      fuseAxes([
+        DartAxis(const Point(-50, -245), const Point(50, -245)),
+        DartAxis(const Point(0, -260), const Point(0, -180)),
+      ]),
+      isNull,
+    );
+  });
+
   test(
     'Decision fallback fixes one bounded position and marks it uncertain',
     () {

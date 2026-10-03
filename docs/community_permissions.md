@@ -4,7 +4,7 @@ Unter **Community → Rollen & Rechte** lassen sich benannte Rollen erstellen,
 bearbeiten und angemeldeten Mitgliedern zuweisen. Pro Mitglied gilt eine Rolle.
 Manuell angelegte Teilnehmer ohne Account erhalten keine Verwaltungsrechte.
 
-Die acht getrennten Rechte sind:
+Die getrennten Rechte sind:
 
 - Rollen erstellen und zuweisen
 - Turniere erstellen
@@ -14,6 +14,11 @@ Die acht getrennten Rechte sind:
 - Mitglieder entfernen
 - Geräte zuteilen
 - Turniere leiten
+- Community bearbeiten
+- Ranglisten verwalten
+- Highlights verwalten
+
+„Highlights verwalten“ (`manage_highlights`) erlaubt Hinzufügen, Bearbeiten und Löschen in **Statistik → Highlight-Liste**. Das Recht wird bei jeder Speicherung serverseitig geprüft. Community-Inhaber besitzen es automatisch; bestehende benutzerdefinierte Rollen erhalten es erst durch ausdrückliche Zuweisung. Die Migration `202610030005_community_highlights.sql` wurde am 03.10.2026 in Supabase eingespielt; die bestehenden Rechte bleiben erhalten.
 
 Der Inhaber besitzt immer alle Rechte und kann nicht entfernt oder einer anderen
 Rolle zugeordnet werden. Ohne Rolle ist ein Mitglied lesend berechtigt.

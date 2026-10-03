@@ -63,7 +63,8 @@ class _DeviceScorerSessionState extends State<DeviceScorerSession> {
           widget.display.gameFormat!.doubleIn == false &&
           widget.display.gameFormat!.checkoutType == 'double_out',
       doubleOut: widget.display.gameFormat!.checkoutType == 'double_out',
-      visits: controller.statisticsVisits,
+      visits: controller.statisticsVisits.where((v) =>
+        _settings.participants[v.player].bot == null).toList(),
       winner: controller.winner,
       isDraw: controller.isDraw,
     );

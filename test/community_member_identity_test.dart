@@ -112,8 +112,7 @@ void main() {
         tournaments: [tournament],
         currentYearOnly: false,
       );
-      expect(self.entries.single.rating, 1000);
-      expect(self.entries.single.matches, 0);
+      expect(self.entries, isEmpty);
     },
   );
 }

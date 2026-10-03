@@ -1,3 +1,4 @@
+import 'dart_setup_widgets.dart';
 import '../../../shared/images/profile_avatar.dart';
 import '../../../shared/images/profile_image_picker.dart';
 import 'package:flutter/material.dart';
@@ -102,6 +103,9 @@ class _PersonalProfileSectionState extends State<PersonalProfileSection> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            DartSetupSummary(setup: value.dartSetup),
+            const SizedBox(height: 16),
             Text(repository.status),
             TextButton.icon(
               onPressed: load,
@@ -170,6 +174,7 @@ class _PersonalProfileEditorState extends State<PersonalProfileEditor> {
     widget.profile.favoriteDouble,
   ].map((v) => TextEditingController(text: v)).toList();
   late String? picture = widget.profile.picture;
+  late var dartSetup = widget.profile.dartSetup;
   bool busy = false;
   String? error;
   @override
@@ -224,6 +229,7 @@ class _PersonalProfileEditorState extends State<PersonalProfileEditor> {
         favoritePlayer: v[4],
         favoriteDouble: v[5],
         picture: picture,
+        dartSetup: dartSetup,
       );
       await widget.onSave(result);
       if (mounted) Navigator.pop(context, result);
@@ -305,6 +311,13 @@ class _PersonalProfileEditorState extends State<PersonalProfileEditor> {
                   ),
               ],
             ),
+            const SizedBox(height: 24),
+            DartSetupFields(
+              initialValue: dartSetup,
+              enabled: !busy,
+              onChanged: (value) => dartSetup = value,
+            ),
+            const SizedBox(height: 16),
             if (error != null)
               Text(
                 error!,

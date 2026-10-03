@@ -7,6 +7,7 @@ import 'package:dart_tournament_manager/features/tournaments/domain/tournament_f
 
 void main() {
   const request = TournamentPlanningRequest(
+    requireGroupPhase: true,
     players: 8,
     boards: 2,
     minimumMatchesPerPlayer: 0,

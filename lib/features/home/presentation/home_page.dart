@@ -39,10 +39,11 @@ class _HomePageState extends State<HomePage> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => CommunityPage(
-          createTournamentBuilder: (communityId, communityName) =>
+          createTournamentBuilder: (communityId, communityName, {preset, title}) =>
               TournamentCreationPage(
                 communityId: communityId,
                 communityName: communityName,
+                preset: preset, presetTitle: title,
               ),
           runTournamentBuilder: (tournament) =>
               TournamentRunPage(tournament: tournament),

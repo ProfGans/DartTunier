@@ -6,6 +6,10 @@ import '../../scorer/domain/x01/x01_rules.dart';
 typedef BoardPoint = Point<double>;
 
 class BoardGeometry {
+  /// Scoring ends at 170 mm; include the black outer rim for stuck misses.
+  static const detectionRadius = 230.0;
+  static const flatViewExtent = 240.0;
+  static const flatViewDiameter = flatViewExtent * 2;
   static DartThrowResult score(BoardPoint point) {
     final r = point.magnitude;
     const rules = X01Rules();
@@ -150,7 +154,12 @@ class BoardCalibration {
 }
 
 class DartAxis {
-  DartAxis(BoardPoint start, BoardPoint end, {this.confidence = 1}) {
+  DartAxis(
+    BoardPoint start,
+    BoardPoint end, {
+    this.confidence = 1,
+    this.outerRimOnly = false,
+  }) {
     if (!confidence.isFinite || confidence <= 0 || confidence > 1) {
       throw ArgumentError('Ungültige Achsenqualität.');
     }
@@ -162,6 +171,7 @@ class DartAxis {
   }
   late final double a, b, c;
   final double confidence;
+  final bool outerRimOnly;
   double distance(BoardPoint p) => (a * p.x + b * p.y + c).abs();
 }
 
@@ -217,16 +227,33 @@ FusedHit? _fuseAxes(List<DartAxis> axes, {bool relaxed = false}) {
   }
   final det = aa * bb - ab * ab;
   // Nearly parallel views amplify tiny pixel errors into large position errors.
-  if (det / ((aa + bb) * (aa + bb)) < (relaxed ? .005 : .02)) return null;
+  final minimumSeparation = relaxed
+      ? (axes.length == 2 && axes.every((axis) => axis.confidence >= .7)
+            ? .0025
+            : .005)
+      : .02;
+  if (det / ((aa + bb) * (aa + bb)) < minimumSeparation) return null;
   final p = Point((ab * bc - bb * ac) / det, (ab * ac - aa * bc) / det);
   final residual = sqrt(
     axes.fold<double>(0, (sum, l) => sum + pow(l.distance(p), 2)) / axes.length,
   );
   if (!p.x.isFinite ||
       !p.y.isFinite ||
-      p.magnitude > 200 ||
+      p.magnitude > BoardGeometry.detectionRadius ||
+      (!relaxed &&
+          p.magnitude <= 170 &&
+          axes.any((axis) => axis.outerRimOnly) &&
+          axes.where((axis) => !axis.outerRimOnly).length < 2 &&
+          !(axes.length == 2 &&
+              axes.any((axis) => !axis.outerRimOnly) &&
+              axes.every((axis) => axis.confidence >= .85))) ||
       (!relaxed && residual > 8)) {
     return null;
   }
-  return FusedHit(p, residual, axes.length);
+  return FusedHit(
+    p,
+    residual,
+    axes.length,
+    forcedDecision: p.magnitude <= 170 && axes.any((axis) => axis.outerRimOnly),
+  );
 }

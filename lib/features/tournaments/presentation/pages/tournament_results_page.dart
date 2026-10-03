@@ -4,6 +4,8 @@ import '../../domain/knockout_round_names.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/tournament_models.dart';
+import '../../../statistics/presentation/tournament_highlights_page.dart';
+import '../widgets/results/tournament_results_statistics.dart';
 
 class TournamentResultsPage extends StatelessWidget {
   const TournamentResultsPage({super.key, required this.tournament});
@@ -68,6 +70,7 @@ class TournamentResultsPage extends StatelessWidget {
                 ),
               ),
             ),
+            TournamentHighlightsButton(tournament: tournament),
             const SizedBox(height: 20),
             Text(
               'Podium',
@@ -101,6 +104,8 @@ class TournamentResultsPage extends StatelessWidget {
               onPlayersTap: () => _openPlayerList(context, summary),
               onMatchesTap: () => _openMatches(context),
             ),
+            const SizedBox(height: 24),
+            TournamentResultsStatistics(tournament: tournament),
             const SizedBox(height: 24),
             Text(
               'Gesamtwertung',

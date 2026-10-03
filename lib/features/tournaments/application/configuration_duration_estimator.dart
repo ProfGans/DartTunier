@@ -30,13 +30,22 @@ class ConfigurationDurationEstimator {
   ConfigurationEstimate? preview(
     List<TournamentStage> stages,
     int boards,
-    TournamentPlanningParameters parameters,
-  ) {
+    TournamentPlanningParameters parameters, {
+    int? finalQualifiers,
+  }) {
     if (stages.isEmpty || boards < 1) return null;
     final tournament = CreatedTournament(
       name: 'Zeitvorschau',
       players: [],
-      stages: stages,
+      stages: [
+        ...stages,
+        if (finalQualifiers != null && finalQualifiers > 1)
+          TournamentStage(
+            name: 'Folgeetappe',
+            type: 'single_knockout',
+            knockoutParticipantCount: finalQualifiers,
+          ),
+      ],
       runStages: [],
     );
     final runtime = ProductionTournamentRuntime(tournament);
@@ -185,8 +194,11 @@ class ConfigurationDurationEstimator {
                   .fold<int>(1 << 30, (a, b) => a < b ? a : b)
             : _eliminationMinimum(
                 group.players.length,
-                i < config.qualifiersByGroup.length
-                    ? config.qualifiersByGroup[i].clamp(1, group.players.length)
+                i < config.fixedQualifiersByGroup.length
+                    ? config.fixedQualifiersByGroup[i].clamp(
+                        1,
+                        group.players.length,
+                      )
                     : 1,
                 group.eliminationLossLimit,
                 group.finalEndsTournament,

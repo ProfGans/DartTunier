@@ -141,6 +141,19 @@ void main() {
           );
           await tester.pumpAndSettle();
           if (connected) {
+            await tester.scrollUntilVisible(
+              find.text('Pfeile herausgezogen · Reset + Diagnose'),
+              200,
+            );
+            await tester.pumpAndSettle();
+            final button = tester.widget<OutlinedButton>(
+              find.widgetWithText(
+                OutlinedButton,
+                'Pfeile herausgezogen · Reset + Diagnose',
+              ),
+            );
+            expect(button.onPressed, isNotNull);
+            expect(tester.takeException(), isNull);
             await tester.runAsync(() async {
               for (final camera in controller.cameras) {
                 await precacheImage(

@@ -5,6 +5,8 @@ import '../application/devices_controller.dart';
 import '../domain/app_device.dart';
 import 'devices_scope.dart';
 import 'device_community_section.dart';
+import '../../remote_control/presentation/remote_device_section.dart';
+import '../../remote_control/presentation/remote_host_surface.dart';
 
 class DevicesPage extends StatefulWidget {
   const DevicesPage({super.key});
@@ -142,6 +144,9 @@ class _DevicesPageState extends State<DevicesPage> {
           : AdaptiveContentList(
               padding: const EdgeInsets.all(24),
               children: [
+                if (context.getInheritedWidgetOfExactType<RemoteHostScope>() !=
+                    null)
+                  RemoteDeviceSection(peers: controller.discovery.peers),
                 Text(
                   'Dieser Computer',
                   style: Theme.of(context).textTheme.titleLarge,
@@ -184,7 +189,7 @@ class _DevicesPageState extends State<DevicesPage> {
                       OutlinedButton.icon(
                         onPressed: () => _showPairing(controller),
                         icon: const Icon(Icons.key),
-                      label: const Text('Code für ältere App-Versionen'),
+                        label: const Text('Code für ältere App-Versionen'),
                       ),
                       TextButton(
                         onPressed: controller.busy
@@ -199,7 +204,9 @@ class _DevicesPageState extends State<DevicesPage> {
                         ),
                     ],
                   ),
-                  const Text('Neue Kopplungen hier per Anfrage bestätigen. Zurücksetzen trennt bisherige Kopplungen.'),
+                  const Text(
+                    'Neue Kopplungen hier per Anfrage bestätigen. Zurücksetzen trennt bisherige Kopplungen.',
+                  ),
                   if (controller.receiver.error != null)
                     _notice(controller.receiver.error!),
                 ],

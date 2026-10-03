@@ -1,4 +1,6 @@
 import 'dart:math';
+import '../../statistics/domain/bot_statistics_privacy.dart';
+import 'tournament_bot.dart';
 import '../../league/domain/league_match.dart';
 
 const List<String> defaultGroupTieBreakers = [
@@ -165,11 +167,13 @@ class TournamentPlayer {
     required this.name,
     required this.isGenerated,
     this.members = const [],
+    this.bot,
   });
 
   factory TournamentPlayer.fromJson(Map<String, dynamic> json) {
     return TournamentPlayer(
-      profileId: json['profileId'] as String?,
+      profileId: json['bot'] == null ? json['profileId'] as String? : null,
+      bot: json['bot'] is Map ? TournamentBot.fromJson(Map<String,dynamic>.from(json['bot'] as Map)) : null,
       name: json['name'] as String? ?? '',
       isGenerated: json['isGenerated'] as bool? ?? false,
       members: (json['members'] as List? ?? const []).map((e) => TournamentPlayer.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
@@ -181,6 +185,7 @@ class TournamentPlayer {
   }
 
   final String? profileId;
+  final TournamentBot? bot;
   final String name;
   final bool isGenerated;
   final List<TournamentPlayer> members;
@@ -191,6 +196,7 @@ class TournamentPlayer {
 
   factory TournamentPlayer.team(Iterable<TournamentPlayer> players) {
     final members = players.expand((p) => p.individuals).toList();
+    if (members.any((p)=>p.bot!=null)) throw ArgumentError('Bots nehmen einzeln am Turnier teil.');
     if (members.length < 2 || members.map((p) => p.profileId ?? p.name).toSet().length != members.length) {
       throw ArgumentError('Ein Team benötigt mindestens zwei unterschiedliche Spieler.');
     }
@@ -202,20 +208,23 @@ class TournamentPlayer {
     String? profileId,
     String? name,
     bool? isGenerated,
+    TournamentBot? bot,
   }) {
     return TournamentPlayer(
-      profileId: profileId ?? this.profileId,
+      profileId: (bot ?? this.bot) == null ? profileId ?? this.profileId : null,
       name: name ?? this.name,
       isGenerated: isGenerated ?? this.isGenerated,
       members: members,
+      bot: bot ?? this.bot,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      if (profileId != null) 'profileId': profileId,
+      if (profileId != null && bot == null) 'profileId': profileId,
       'name': name,
       'isGenerated': isGenerated,
+      if (bot != null) 'bot': bot!.toJson(),
       if (isTeam) 'members': members.map((p) => p.toJson()).toList(),
     };
   }
@@ -226,12 +235,13 @@ class TournamentPlayer {
         other.profileId == profileId &&
         other.name == name &&
         other.isGenerated == isGenerated &&
+        other.bot == bot &&
         other.members.length == members.length &&
         Iterable<int>.generate(members.length).every((i) => members[i] == other.members[i]);
   }
 
   @override
-  int get hashCode => Object.hash(profileId, name, isGenerated, Object.hashAll(members));
+  int get hashCode => Object.hash(profileId, name, isGenerated, bot, Object.hashAll(members));
 }
 
 class TournamentStage {
@@ -440,6 +450,8 @@ class CreatedTournament {
     required this.runStages,
     this.leagueMatch,
     this.communityId,
+    this.countsForRanking = true,
+    this.communityRankingIds = const ['default'],
     this.activeStageIndex = 0,
     this.boardCount = 1,
     this.startedAt,
@@ -465,6 +477,10 @@ class CreatedTournament {
       leagueMatch: json['leagueMatch'] == null ? null : LeagueMatch.fromJson(
           Map<String, dynamic>.from(json['leagueMatch'] as Map)),
       communityId: json['communityId'] as String?,
+      countsForRanking: json['countsForRanking'] as bool? ?? true,
+      communityRankingIds: json['communityRankingIds'] == null
+          ? const ['default']
+          : List<String>.unmodifiable((json['communityRankingIds'] as List).cast<String>()),
       activeStageIndex: json['activeStageIndex'] as int? ?? 0,
       boardCount: (json['boardCount'] as int? ?? 1).clamp(1, 64),
       startedAt: _dateTimeFromJson(json['startedAt']),
@@ -487,6 +503,8 @@ class CreatedTournament {
   final List<TournamentRunStage> runStages;
   final LeagueMatch? leagueMatch;
   final String? communityId;
+  final bool countsForRanking;
+  final List<String> communityRankingIds;
   int activeStageIndex;
   int boardCount;
   DateTime? startedAt, finishedAt;
@@ -505,6 +523,9 @@ class CreatedTournament {
       'runStages': runStages.map(_runStageToJson).toList(),
       if (leagueMatch != null) 'leagueMatch': leagueMatch!.toJson(),
       'communityId': communityId,
+      if (!countsForRanking) 'countsForRanking': false,
+      if (communityRankingIds.length != 1 || communityRankingIds.single != 'default')
+        'communityRankingIds': communityRankingIds,
       'activeStageIndex': activeStageIndex,
       'boardCount': boardCount,
       'startedAt': startedAt?.toUtc().toIso8601String(),
@@ -686,7 +707,10 @@ class GroupMatch {
       startedAt: _dateTimeFromJson(json['startedAt']),
       finishedAt: _dateTimeFromJson(json['finishedAt']),
       startedPlayers: json['startedPlayers'] as String?,
-      deviceResult: json['deviceResult'] as Map<String, dynamic>?,
+      deviceResult: withoutBotStatistics(json['deviceResult'] as Map<String, dynamic>?, {
+        if (_playerFromJson(json['homePlayer'])?.bot != null) 0,
+        if (_playerFromJson(json['awayPlayer'])?.bot != null) 1,
+      }),
     );
   }
 
@@ -763,7 +787,10 @@ class GroupMatch {
       'startedAt': startedAt?.toUtc().toIso8601String(),
       'finishedAt': finishedAt?.toUtc().toIso8601String(),
       'startedPlayers': startedPlayers,
-      'deviceResult': deviceResult,
+      'deviceResult': withoutBotStatistics(deviceResult, {
+        if (homePlayer?.bot != null) 0,
+        if (awayPlayer?.bot != null) 1,
+      }),
     };
   }
 }

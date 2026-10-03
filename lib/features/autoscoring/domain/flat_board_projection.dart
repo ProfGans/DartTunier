@@ -13,7 +13,7 @@ class FlatBoardCamera {
 /// Projects the board plane from each calibrated view into a shared mm space.
 /// Darts extend out of this plane, so their shafts can appear in several places.
 Uint8List projectFlatBoard(List<FlatBoardCamera> cameras) {
-  const size = 480, extent = 190.0;
+  const size = 480, extent = BoardGeometry.flatViewExtent;
   final views = [
     for (final camera in cameras)
       (img.decodeImage(camera.image), camera.calibration),
@@ -26,7 +26,7 @@ Uint8List projectFlatBoard(List<FlatBoardCamera> cameras) {
         (x / (size - 1) * 2 - 1) * extent,
         (y / (size - 1) * 2 - 1) * extent,
       );
-      if (q.magnitude > 180) continue;
+      if (q.magnitude > BoardGeometry.detectionRadius) continue;
       var r = 0.0, g = 0.0, b = 0.0, count = 0;
       for (final view in views) {
         final image = view.$1;
@@ -60,9 +60,16 @@ Uint8List projectFlatBoard(List<FlatBoardCamera> cameras) {
       output,
       label,
       font: img.arial14,
-      x: ((.5 + sin(angle) * 183 / 380) * (size - 1) - label.length * 4)
-          .round(),
-      y: ((.5 - cos(angle) * 183 / 380) * (size - 1) - 7).round(),
+      x:
+          ((.5 + sin(angle) * 200 / BoardGeometry.flatViewDiameter) *
+                      (size - 1) -
+                  label.length * 4)
+              .round(),
+      y:
+          ((.5 - cos(angle) * 200 / BoardGeometry.flatViewDiameter) *
+                      (size - 1) -
+                  7)
+              .round(),
       color: img.ColorRgb8(255, 255, 255),
     );
   }

@@ -11,6 +11,7 @@ import '../data/autoscore_diagnostic_export.dart';
 import '../domain/board_geometry.dart';
 import '../domain/flat_board_projection.dart';
 import 'widgets/flat_board_view.dart';
+import 'widgets/dart_position_dialog.dart';
 
 class AutoscoreDemoPage extends StatefulWidget {
   const AutoscoreDemoPage({super.key, this.controller, this.cameraController});
@@ -40,6 +41,22 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
     );
     if (!mounted || result == null) return;
     controller.review(index, result);
+    await _saveDiagnostic(index);
+  }
+
+  Future<void> _setPosition(int index) async {
+    final entry = controller.history[index];
+    final point = await showDialog<BoardPoint>(
+      context: context,
+      builder: (_) => DartPositionDialog(
+        cameras: entry.evidence == null
+            ? _flatCameras(controller, cameras)
+            : _evidenceCameras(entry.evidence!),
+        initialPoint: entry.point,
+      ),
+    );
+    if (!mounted || point == null) return;
+    controller.movePoint(index, point);
     await _saveDiagnostic(index);
   }
 
@@ -87,7 +104,9 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
             : {
                 'xMillimetres': entry.correctedPoint!.x,
                 'yMillimetres': entry.correctedPoint!.y,
-                'source': 'flatBoard',
+                'source': entry.detectedPoint == null
+                    ? 'manualMissingPoint'
+                    : 'flatBoard',
               },
       );
       if (!mounted || !identical(entry.actual, result)) return;
@@ -162,6 +181,7 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
     controller: cameras,
     automaticCounting: true,
     automaticVisitDartLimit: null,
+    audioThrows: () => controller.throws,
     onBoardCleared: controller.reset,
     acceptLabel: 'Treffer bestätigen',
     onThrow: (result) {
@@ -198,7 +218,7 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
                     FlatBoardMarker(
                       i,
                       controller.history[i].point!,
-                      controller.history[i].result.label,
+                      '${controller.history[i].result.label}${controller.history[i].estimated ? ' · Schätzung' : ''}',
                     ),
               ],
               onMoved: (index, point) async {
@@ -253,7 +273,7 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${controller.history[i].result.label} · ${controller.history[i].result.scoredPoints} Punkte',
+                      '${controller.history[i].result.label} · ${controller.history[i].result.scoredPoints} Punkte${controller.history[i].estimated ? ' · Schätzung' : ''}',
                     ),
                     Text(
                       controller.history[i].actual == null
@@ -273,6 +293,18 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
                             icon: const Icon(Icons.check),
                             label: const Text('Richtig erkannt'),
                           ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                          ),
+                          onPressed: () => _setPosition(i),
+                          icon: const Icon(Icons.add_location_alt_outlined),
+                          label: Text(
+                            controller.history[i].point == null
+                                ? 'Fehlenden Punkt setzen'
+                                : 'Position setzen',
+                          ),
+                        ),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(48, 48),
@@ -311,20 +343,7 @@ List<FlatBoardCamera> _flatCameras(
       ? controller.history.last.evidence
       : null;
   if (evidence != null) {
-    return [
-      for (final camera in evidence.cameras)
-        if (camera.metadata['calibration'] is List)
-          FlatBoardCamera(
-            camera.image,
-            BoardCalibration([
-              for (final p in camera.metadata['calibration'] as List)
-                BoardPoint(
-                  (p['x'] as num).toDouble(),
-                  (p['y'] as num).toDouble(),
-                ),
-            ]),
-          ),
-    ];
+    return _evidenceCameras(evidence);
   }
   return [
     for (final camera in cameras.cameras)
@@ -332,6 +351,18 @@ List<FlatBoardCamera> _flatCameras(
         FlatBoardCamera(camera.snapshot!, camera.calibration!),
   ];
 }
+
+List<FlatBoardCamera> _evidenceCameras(AutoscoreEvidence evidence) => [
+  for (final camera in evidence.cameras)
+    if (camera.metadata['calibration'] is List)
+      FlatBoardCamera(
+        camera.image,
+        BoardCalibration([
+          for (final p in camera.metadata['calibration'] as List)
+            BoardPoint((p['x'] as num).toDouble(), (p['y'] as num).toDouble()),
+        ]),
+      ),
+];
 
 class AutoscoreTesterMenuCard extends StatelessWidget {
   const AutoscoreTesterMenuCard({super.key});

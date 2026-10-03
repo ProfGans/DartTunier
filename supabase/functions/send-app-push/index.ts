@@ -26,9 +26,7 @@ Deno.serve(async (request: Request) => {
         deviceIds.some(id=>typeof id!=='string'||!uuid.test(id))) return reply({error:'invalid_input'},400);
     // Secrets stay on the server; never trust service-account material from a client.
     const raw = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON');
-    if (!raw) return reply({error:'push_not_configured'},503);
-    const service = JSON.parse(raw);
-    if (service.project_id !== 'darttunier-6f866') return reply({error:'wrong_firebase_project'},503);
+    let service: {project_id:string;client_email:string;private_key:string} | null = null;
     const {data:previous,error:previousError} = await db.from('app_push_dispatches').select('sender_id,result').eq('id',requestId).maybeSingle();
     if (previousError) throw previousError;
     if(previous) return previous.sender_id===user.id ? reply(previous.result) : reply({error:'conflict'},409);
@@ -38,15 +36,24 @@ Deno.serve(async (request: Request) => {
     const {data:devices,error:deviceError} = await db.from('app_push_devices').select('id,token,platform').in('id',[...new Set(deviceIds)]).gt('updated_at',new Date(Date.now()-90*86400000).toISOString());
     if (deviceError) throw deviceError;
     if (!devices?.length) return reply({error:'no_devices'},400);
+    let access_token: string | undefined;
+    if (devices.some(device=>['android','ios','web'].includes(device.platform))) {
+      try {
+        service = raw ? JSON.parse(raw) : null;
+        if (service?.project_id !== 'darttunier-6f866') throw new Error('push_not_configured');
     const assertion = await new SignJWT({scope:'https://www.googleapis.com/auth/firebase.messaging'})
       .setProtectedHeader({alg:'RS256'}).setIssuer(service.client_email)
       .setAudience('https://oauth2.googleapis.com/token').setIssuedAt().setExpirationTime('1h')
       .sign(await importPKCS8(service.private_key,'RS256'));
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {method:'POST',
       body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion}),signal:AbortSignal.timeout(10000)});
-    if (!tokenResponse.ok) return reply({error:'provider_auth_failed'},502);
-    const {access_token} = await tokenResponse.json();
+    if (!tokenResponse.ok) throw new Error('provider_auth_failed');
+    access_token = (await tokenResponse.json()).access_token;
     if (!access_token) throw new Error('No access token');
+      } catch {
+        if (!devices.some(device=>device.platform==='linux')) return reply({error:'provider_auth_failed'},502);
+      }
+    }
     // Atomic insert prevents duplicate sends when clients retry an uncertain request.
     const {error:insertError} = await db.from('app_push_dispatches').insert({id:requestId,sender_id:user.id});
     if (insertError?.code==='23505') return reply({status:'processing'});
@@ -55,7 +62,15 @@ Deno.serve(async (request: Request) => {
     for(let offset=0;offset<devices.length;offset+=10) {
       await Promise.all(devices.slice(offset,offset+10).map(async device=>{
         try {
+          if(device.platform==='linux') {
+            const {error:queueError}=await db.from('linux_notification_queue').insert({
+              device_id:device.id,dedupe_key:`dispatch:${requestId}`,title:title.trim(),body:body.trim(),
+            });
+            if(queueError) {failed++;} else {accepted++;}
+            return;
+          }
           if(device.platform==='windows') {failed++;return;}
+          if(!access_token) {failed++;return;}
           const response = await fetch(`https://fcm.googleapis.com/v1/projects/${service.project_id}/messages:send`,{
             method:'POST', headers:{Authorization:`Bearer ${access_token}`,'Content-Type':'application/json'},
             body:JSON.stringify({message:{token:device.token,notification:{title:title.trim(),body:body.trim()},

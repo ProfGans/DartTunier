@@ -47,6 +47,10 @@ class DesktopUpdateLauncher {
       if (installed == null || saved['build'] <= installed) return;
       final exe = await target(base, saved['id'] as String);
       if (exe == null || p.equals(exe, Platform.resolvedExecutable)) return;
+      if (Platform.isLinux) {
+        await restart(saved['id'] as String, forwardedArgs: args);
+        exit(0);
+      }
       await Process.start(
         exe,
         args,
@@ -117,7 +121,12 @@ Start-Process -FilePath ${quote(exe)} -WorkingDirectory ${quote(p.dirname(exe))}
 ''';
   }
 
-  static String linuxScript(String exe, String id, int parentPid) {
+  static String linuxScript(
+    String exe,
+    String id,
+    int parentPid, {
+    List<String> forwardedArgs = const [],
+  }) {
     String quote(String value) => "'${value.replaceAll("'", "'\\''")}'";
     return '''#!/bin/sh
 set -eu
@@ -128,11 +137,14 @@ while kill -0 $parentPid 2>/dev/null; do
   sleep 1
 done
 cd ${quote(p.dirname(exe))}
-exec ${quote(exe)} '--desktop-update-activate=$id'
+exec ${quote(exe)} ${forwardedArgs.map(quote).join(' ')} '--desktop-update-activate=$id'
 ''';
   }
 
-  static Future<void> restart(String id) async {
+  static Future<void> restart(
+    String id, {
+    List<String> forwardedArgs = const [],
+  }) async {
     final base = await root();
     final exe = await target(base, id);
     if (exe == null) throw const FileSystemException('Update-Dateien fehlen.');
@@ -142,7 +154,7 @@ exec ${quote(exe)} '--desktop-update-activate=$id'
     await script.writeAsString(
       Platform.isWindows
           ? windowsScript(exe, id, pid)
-          : linuxScript(exe, id, pid),
+          : linuxScript(exe, id, pid, forwardedArgs: forwardedArgs),
       flush: true,
     );
     if (Platform.isWindows) {

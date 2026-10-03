@@ -4,9 +4,11 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
+  audioplayers_windows
   camera_windows
   file_selector_windows
   firebase_core
+  flutter_tts
   url_launcher_windows
 )
 

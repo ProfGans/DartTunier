@@ -33,8 +33,11 @@ class _ScorerScannerPageState extends State<ScorerScannerPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('QR-Code scannen')),
-    body: !kIsWeb && defaultTargetPlatform == TargetPlatform.windows
-        ? _WindowsScanner(
+    body:
+        !kIsWeb &&
+            (defaultTargetPlatform == TargetPlatform.windows ||
+                defaultTargetPlatform == TargetPlatform.linux)
+        ? DesktopQrScanner(
             controller: widget.windowsController,
             onDetected: _detected,
             scanError: error,
@@ -85,8 +88,9 @@ class _ScorerScannerPageState extends State<ScorerScannerPage> {
   );
 }
 
-class _WindowsScanner extends StatefulWidget {
-  const _WindowsScanner({
+class DesktopQrScanner extends StatefulWidget {
+  const DesktopQrScanner({
+    super.key,
     this.controller,
     required this.onDetected,
     this.scanError,
@@ -95,10 +99,10 @@ class _WindowsScanner extends StatefulWidget {
   final ValueChanged<String> onDetected;
   final String? scanError;
   @override
-  State<_WindowsScanner> createState() => _WindowsScannerState();
+  State<DesktopQrScanner> createState() => DesktopQrScannerState();
 }
 
-class _WindowsScannerState extends State<_WindowsScanner>
+class DesktopQrScannerState extends State<DesktopQrScanner>
     with WidgetsBindingObserver {
   late final controller = widget.controller ?? WindowsQrController();
   @override

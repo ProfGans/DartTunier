@@ -24,6 +24,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
   late final _name = TextEditingController(text: widget.community.name);
   late final _bio = TextEditingController(text: widget.community.description);
   late String? _avatar = widget.community.avatarBase64;
+  late bool _rankingEnabled = widget.community.rankingEnabled;
   bool _busy = false;
   String? _error;
   @override
@@ -68,6 +69,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
         name: _name.text,
         bio: _bio.text,
         avatarBase64: _avatar,
+        rankingEnabled: _rankingEnabled,
       );
       if (mounted) Navigator.of(context).pop(updated);
     } catch (_) {
@@ -111,7 +113,19 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
             ],
           ),
           const SizedBox(height: 24),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Rangliste aktivieren'),
+            subtitle: const Text(
+              'Elo-Rangliste anzeigen. Beim Aktivieren zählen auch bereits gespeicherte, ranglistenrelevante Spiele. Ergebnisse bleiben beim Ausschalten erhalten.',
+            ),
+            value: _rankingEnabled,
+            onChanged: _busy
+                ? null
+                : (value) => setState(() => _rankingEnabled = value),
+          ),
           TextFormField(
+            key: const ValueKey('community-name'),
             controller: _name,
             enabled: !_busy,
             maxLength: 80,
@@ -122,6 +136,7 @@ class _CommunityProfilePageState extends State<CommunityProfilePage> {
           ),
           const SizedBox(height: 16),
           TextFormField(
+            key: const ValueKey('community-bio'),
             controller: _bio,
             enabled: !_busy,
             maxLength: 1000,

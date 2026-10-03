@@ -76,6 +76,18 @@ void main() {
           find.byKey(const ValueKey('personal-profile-field-0')),
           'Neuer Name',
         );
+        final setupField = find.byKey(const ValueKey('dart-setup-field-0'));
+        await tester.scrollUntilVisible(
+          setupField,
+          250,
+          scrollable: find
+              .descendant(
+                of: find.byType(ListView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        await tester.enterText(setupField, 'Meine Darts');
         await tester.scrollUntilVisible(
           find.text('Profil speichern'),
           300,
@@ -103,6 +115,7 @@ void main() {
         await tester.tap(find.text('Profil speichern'));
         await tester.pumpAndSettle();
         expect(saved?.name, 'Neuer Name');
+        expect(saved?.dartSetup.barrel, 'Meine Darts');
         expect(tester.takeException(), isNull);
       });
     }

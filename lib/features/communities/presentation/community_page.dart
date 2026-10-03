@@ -1,7 +1,12 @@
+import 'community_rankings_page.dart';
+import '../../community_calendar/domain/community_calendar.dart';
+import '../../community_calendar/presentation/community_calendar_page.dart';
+export 'community_ranking_page.dart';
+export 'community_ranking_history_page.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
-import '../../statistics/presentation/tournament_statistics_view.dart';
-import '../../statistics/domain/tournament_player_statistics.dart';
+import '../domain/community_statistics.dart';
+import 'community_statistics_page.dart';
 
 import '../../accounts/application/account_session_store.dart';
 import '../../accounts/data/supabase_account_config.dart';
@@ -12,13 +17,14 @@ import '../../tournaments/data/tournament_storage.dart';
 import '../../tournaments/domain/tournament_models.dart';
 import '../data/supabase_community_repository.dart';
 import '../domain/community.dart';
-import '../domain/community_elo.dart';
+
 import '../domain/community_invitation.dart';
 import 'widgets/community_invitation_section.dart';
 import 'community_roles_page.dart';
 import 'community_profile_page.dart';
 import 'widgets/community_avatar.dart';
 import 'widgets/community_tournament_actions.dart';
+import 'community_tournament_import_page.dart';
 import '../domain/community_permissions.dart';
 import 'widgets/community_members_section.dart';
 import 'widgets/community_menu.dart';
@@ -26,7 +32,7 @@ import 'widgets/community_permission_gate.dart';
 import '../../devices/presentation/community_devices_section.dart';
 
 typedef CommunityTournamentCreationBuilder =
-    Widget Function(String communityId, String communityName);
+    Widget Function(String communityId, String communityName, {CommunityTournamentPreset? preset, String? title});
 typedef CommunityTournamentRunBuilder =
     Widget Function(CreatedTournament tournament);
 
@@ -155,6 +161,7 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
       () => widget.repository.createCommunity(
         name: result.name,
         description: result.description,
+        rankingEnabled: result.rankingEnabled,
       ),
     );
   }
@@ -342,6 +349,7 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
       backgroundColor: Theme.of(context).colorScheme.primaryContainer,
     ),
     body: CommunityMenu(
+      rankingEnabled: community.rankingEnabled,
       description: community.description,
       avatarBase64: community.avatarBase64,
       onSelected: (area) {
@@ -392,6 +400,7 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
   void initState() {
     super.initState();
     if (widget.area != CommunityArea.devices &&
+        widget.area != CommunityArea.calendar &&
         widget.area != CommunityArea.invitations &&
         widget.area != CommunityArea.roles) {
       _reload();
@@ -431,6 +440,14 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
   @override
   Widget build(BuildContext context) {
     final title = '${widget.area.title} · ${widget.community.name}';
+    if (widget.area == CommunityArea.calendar) {
+      return CommunityCalendarPage(
+        communityId: widget.community.id, communityName: widget.community.name,
+        loadPermissions: () => widget.repository.access.permissions(widget.community.id),
+        createTournament: widget.createTournamentBuilder == null ? null : (preset, title) =>
+          widget.createTournamentBuilder!(widget.community.id,widget.community.name,preset: preset,title: title),
+      );
+    }
     if (widget.area == CommunityArea.roles) {
       return CommunityRolesPage(
         community: widget.community,
@@ -471,26 +488,19 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
           }
           final (members, tournaments) = snapshot.data!;
           if (widget.area == CommunityArea.statistics) {
-            final aliases = <String, String>{};
-            for (final member in members) {
-              if (member.linkedUserId != null &&
-                  member.playerProfileId != null) {
-                aliases[member.playerProfileId!] = member.linkedUserId!;
-              }
-            }
-            return TournamentStatisticsView(
-              rows: const TournamentStatisticsCalculator().calculate(
-                tournaments,
-                aliases: aliases,
-              ),
+            return CommunityStatisticsMenu(
+              communityName: widget.community.name,
+              data: CommunityStatistics(communityId: widget.community.id,
+                members: members, tournaments: tournaments),
             );
           }
           if (widget.area == CommunityArea.ranking) {
-            return CommunityRankingPage(
-              communityName: widget.community.name,
+            return CommunityRankingsPage(
+              community: widget.community,
+              repository: widget.repository,
+              permissions: _rights,
               members: members,
               tournaments: tournaments,
-              showAppBar: false,
             );
           }
           if (widget.area == CommunityArea.members) {
@@ -518,6 +528,16 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
                 icon: const Icon(Icons.emoji_events_outlined),
                 label: const Text('Community-Turnier erstellen'),
               ),
+              if (_rights.allows(CommunityPermission.createTournaments))
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.file_download_outlined),
+                  label: const Text('Lokales Turnier importieren'),
+                  onPressed: () async {
+                    await Navigator.of(context).push(MaterialPageRoute<bool>(builder: (_) => CommunityTournamentImportPage(
+                      community: widget.community, repository: widget.repository)));
+                    if (mounted) setState(_reload);
+                  },
+                ),
               const SizedBox(height: 20),
               ValueListenableBuilder<String>(
                 valueListenable: TournamentStorage.syncStatus,
@@ -549,6 +569,7 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
                       title: Text(tournament.name),
                       subtitle: Text('${tournament.players.length} Spieler'),
                       trailing:
+                          _rights.allows(CommunityPermission.createTournaments) ||
                           _rights.allows(CommunityPermission.assignDevices) ||
                               _rights.allows(
                                 CommunityPermission.editTournaments,
@@ -587,157 +608,6 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
   }
 }
 
-class CommunityRankingPage extends StatefulWidget {
-  const CommunityRankingPage({
-    super.key,
-    required this.communityName,
-    required this.members,
-    required this.tournaments,
-    this.showAppBar = true,
-  });
-
-  final String communityName;
-  final List<CommunityMember> members;
-  final List<CreatedTournament> tournaments;
-  final bool showAppBar;
-
-  @override
-  State<CommunityRankingPage> createState() => _CommunityRankingPageState();
-}
-
-class _CommunityRankingPageState extends State<CommunityRankingPage> {
-  bool _currentYearOnly = true;
-
-  @override
-  Widget build(BuildContext context) {
-    final snapshot = const CommunityEloCalculator().calculate(
-      members: widget.members,
-      tournaments: widget.tournaments,
-      currentYearOnly: _currentYearOnly,
-    );
-    return Scaffold(
-      appBar: widget.showAppBar
-          ? AppBar(title: Text('Rangliste · ${widget.communityName}'))
-          : null,
-      body: AdaptiveContentList(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: true, label: Text('Dieses Jahr')),
-              ButtonSegment(value: false, label: Text('Gesamt')),
-            ],
-            selected: {_currentYearOnly},
-            onSelectionChanged: (value) =>
-                setState(() => _currentYearOnly = value.first),
-          ),
-          const SizedBox(height: 16),
-          const Text('Startwert: 1000 Elo · Standard-Elo-Formel · K-Faktor 32'),
-          const SizedBox(height: 12),
-          if (snapshot.entries.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('Noch keine Community-Mitglieder vorhanden.'),
-              ),
-            )
-          else
-            Card(
-              child: Column(
-                children: [
-                  for (var index = 0; index < snapshot.entries.length; index++)
-                    ListTile(
-                      leading: CircleAvatar(child: Text('${index + 1}')),
-                      title: Text(snapshot.entries[index].player.displayName),
-                      subtitle: Text(
-                        '${snapshot.entries[index].wins} Siege · ${snapshot.entries[index].draws} Unentschieden · ${snapshot.entries[index].losses} Niederlagen · ${snapshot.entries[index].matches} Spiele',
-                      ),
-                      trailing: Text(
-                        '${snapshot.entries[index].rating}',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => CommunityRankingHistoryPage(
-                            entry: snapshot.entries[index],
-                            history:
-                                snapshot.history[snapshot
-                                        .entries[index]
-                                        .player
-                                        .playerProfileId ??
-                                    snapshot
-                                        .entries[index]
-                                        .player
-                                        .displayName] ??
-                                const [],
-                            currentYearOnly: _currentYearOnly,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class CommunityRankingHistoryPage extends StatelessWidget {
-  const CommunityRankingHistoryPage({
-    super.key,
-    required this.entry,
-    required this.history,
-    required this.currentYearOnly,
-  });
-  final CommunityEloEntry entry;
-  final List<CommunityEloHistoryItem> history;
-  final bool currentYearOnly;
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(entry.player.displayName)),
-    body: AdaptiveContentList(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(
-          '${currentYearOnly ? 'Jahreswertung' : 'Gesamtwertung'} · Aktuell ${entry.rating} Elo',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 12),
-        if (history.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Noch keine ranglistenrelevanten Begegnungen.'),
-            ),
-          )
-        else
-          ...history.reversed.map(
-            (item) => Card(
-              child: ListTile(
-                title: Text('${item.opponentName} · ${item.score}'),
-                subtitle: Text(
-                  '${item.tournamentName} · ${item.playedAt.day.toString().padLeft(2, '0')}.${item.playedAt.month.toString().padLeft(2, '0')}.${item.playedAt.year}',
-                ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('${item.delta >= 0 ? '+' : ''}${item.delta}'),
-                    Text('${item.ratingAfter} Elo'),
-                  ],
-                ),
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
-}
-
 class _CreateCommunityDialog extends StatefulWidget {
   const _CreateCommunityDialog();
   @override
@@ -745,6 +615,7 @@ class _CreateCommunityDialog extends StatefulWidget {
 }
 
 class _CreateCommunityDialogState extends State<_CreateCommunityDialog> {
+  bool _rankingEnabled = true;
   final _name = TextEditingController();
   final _description = TextEditingController();
   @override
@@ -757,6 +628,7 @@ class _CreateCommunityDialogState extends State<_CreateCommunityDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Community erstellen'),
+    scrollable: true,
     content: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -777,6 +649,13 @@ class _CreateCommunityDialogState extends State<_CreateCommunityDialog> {
             border: OutlineInputBorder(),
           ),
         ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Rangliste aktivieren'),
+          subtitle: const Text('Mit Elo-Rangliste spielen. Später in den Community-Einstellungen änderbar.'),
+          value: _rankingEnabled,
+          onChanged: (value) => setState(() => _rankingEnabled = value),
+        ),
       ],
     ),
     actions: [
@@ -789,7 +668,7 @@ class _CreateCommunityDialogState extends State<_CreateCommunityDialog> {
           if (_name.text.trim().isNotEmpty) {
             Navigator.pop(
               context,
-              _CommunityFormResult(_name.text, _description.text),
+              _CommunityFormResult(_name.text, _description.text, _rankingEnabled),
             );
           }
         },
@@ -851,9 +730,10 @@ class _JoinCommunityDialogState extends State<_JoinCommunityDialog> {
 }
 
 class _CommunityFormResult {
-  const _CommunityFormResult(this.name, this.description);
+  const _CommunityFormResult(this.name, this.description, this.rankingEnabled);
   final String name;
   final String description;
+  final bool rankingEnabled;
 }
 
 class _SignInNotice extends StatelessWidget {
@@ -896,3 +776,4 @@ class _ErrorView extends StatelessWidget {
     ),
   );
 }
+

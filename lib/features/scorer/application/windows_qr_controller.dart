@@ -94,7 +94,7 @@ class WindowsQrController extends ChangeNotifier {
       } catch (e) {
         error = cameras.isEmpty && e is StateError
             ? e.message.toString()
-            : 'Kamera nicht verfügbar. Bitte unter Windows → Datenschutz und Sicherheit → Kamera den Zugriff für Desktop-Apps erlauben und andere Kamera-Apps schließen.';
+            : 'Kamera nicht verfügbar. Kamerazugriff erlauben und andere Kamera-Apps schließen. Unter Linux FFmpeg, v4l2-ctl und die Berechtigung für /dev/video prüfen.';
         await _release();
       } finally {
         await initializing?.cancel();
@@ -183,3 +183,4 @@ class WindowsQrController extends ChangeNotifier {
     super.dispose();
   }
 }
+

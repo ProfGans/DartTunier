@@ -1,4 +1,16 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'community_rankings_test.dart' show rankingFixture;
+import 'community_calendar_test.dart' show CalendarPreview, AppointmentEditorPreview;
+import 'community_tournament_elo_test.dart' show TournamentEloPreview;
+import 'community_ranking_admin_test.dart' show RankingAdminPreview;
+import 'community_live_ranking_test.dart' show LiveRankingPreview;
+import 'community_member_profile_test.dart' show MemberProfilePreview;
+import 'community_tournament_import_test.dart' show TournamentImportPreview;
+import 'player_profile_picker_creation_test.dart' show PlayerPickerCreationPreview;
+import 'community_trends_test.dart' show CommunityTrendsPreview;
+import 'tournament_results_statistics_test.dart' show ResultsStatisticsPreview;
+import 'community_highlights_test.dart' show CommunityHighlightsPreview, HighlightEditorPreview;
+import 'community_statistics_navigation_test.dart' show CommunityStatisticsPreview, CommunityPlayerStatisticsPreview;
 import 'package:dart_tournament_manager/features/statistics/presentation/statistics_date_dialog.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -21,6 +33,7 @@ import 'package:dart_tournament_manager/features/communities/presentation/commun
 import 'package:dart_tournament_manager/features/communities/presentation/community_profile_page.dart';
 import 'package:dart_tournament_manager/features/communities/domain/community_permissions.dart';
 import 'package:dart_tournament_manager/features/communities/domain/community.dart';
+import 'package:dart_tournament_manager/features/communities/domain/community_elo.dart';
 import 'support/community_role_fakes.dart';
 import 'package:dart_tournament_manager/features/players/presentation/players_page.dart';
 import 'package:dart_tournament_manager/features/dev_tools/presentation/dev_tools_page.dart';
@@ -118,6 +131,21 @@ void main() {
           ),
         );
         for (final page in <Widget>[
+          rankingFixture(),
+          const CalendarPreview(),
+          const AppointmentEditorPreview(),
+          const TournamentEloPreview(),
+          const RankingAdminPreview(),
+          const LiveRankingPreview(),
+          const MemberProfilePreview(),
+          const TournamentImportPreview(),
+          const PlayerPickerCreationPreview(),
+          const CommunityTrendsPreview(),
+          const ResultsStatisticsPreview(),
+          const CommunityHighlightsPreview(),
+          const HighlightEditorPreview(),
+          const CommunityStatisticsPreview(),
+          const CommunityPlayerStatisticsPreview(),
           PlayerProfilePage(
             account: AccountUser(
               id: 'test-account',
@@ -201,6 +229,11 @@ void main() {
             ),
           ),
           const SettingsPage(),
+          CommunityRankingHistoryPage(
+            entry: CommunityEloEntry(player: CommunityMember(userId: 'elo-preview', displayName: 'Anna Beispiel', role: 'member', joinedAt: DateTime(2026)), rating: 1021)..matches=3..wins=2..losses=1,
+            history: [for (final (delta,rating) in [(16,1016),(-20,996),(25,1021)]) CommunityEloHistoryItem(playedAt: DateTime(2026), tournamentName: 'Vereinsmeisterschaft', opponentName: 'Langer Name des Gegenspielers', score: '3:1', delta: delta, ratingAfter: rating)],
+            currentYearOnly: false,
+          ),
           const TournamentCreationPage(),
           const LeagueMatchPage(),
           LeagueMatchPage(tournament: CreatedTournament(name: 'Liga: Heim gegen Gast', players: [], stages: [], runStages: [], leagueMatch: LeagueMatch.rhl(homeTeam: 'Heim', awayTeam: 'Gast', homePlayers: ['Anna', 'Lena', 'Jan', 'Tom'], awayPlayers: ['Ben', 'Max', 'Lisa', 'Mia']))),

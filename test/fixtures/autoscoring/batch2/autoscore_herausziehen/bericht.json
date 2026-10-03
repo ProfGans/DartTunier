@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 4,
+  "capturedAtUtc": "2026-10-03T08:43:25.094327Z",
+  "detected": "Herausziehen nicht automatisch erkannt",
+  "corrected": "Board manuell leer bestätigt",
+  "correctDetection": null,
+  "hit": {
+    "manualMissingReport": false,
+    "eventType": "manualRemoval",
+    "statusBeforeReset": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+    "waitingForEmpty": true,
+    "throws": [
+      {
+        "label": "T5",
+        "points": 15
+      },
+      {
+        "label": "20",
+        "points": 20
+      },
+      {
+        "label": "7",
+        "points": 7
+      }
+    ]
+  },
+  "correctionPosition": null,
+  "cameras": [
+    {
+      "camera": 1,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.38685377622825423,
+          "y": 0.24149674515387626
+        },
+        {
+          "x": 0.6498292009832659,
+          "y": 0.2930112425159349
+        },
+        {
+          "x": 0.6230478922121027,
+          "y": 0.6798379622527677
+        },
+        {
+          "x": 0.23523198544550342,
+          "y": 0.5404565707729037
+        }
+      ],
+      "axis": null,
+      "changedFraction": 0.00008487654320987654,
+      "referenceChangedFraction": 0.011049382716049383,
+      "lastReferenceChangedFraction": 0.0059722222222222225,
+      "stableSamples": 67
+    },
+    {
+      "camera": 2,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3258046319076618,
+          "y": 0.6868033643730942
+        },
+        {
+          "x": 0.3303812130700802,
+          "y": 0.2922359974277538
+        },
+        {
+          "x": 0.5979093378547322,
+          "y": 0.24323395679020987
+        },
+        {
+          "x": 0.7407332029095673,
+          "y": 0.5589895939427658
+        }
+      ],
+      "axis": null,
+      "changedFraction": 0.00019290123456790122,
+      "referenceChangedFraction": 0.015601851851851851,
+      "lastReferenceChangedFraction": 0.011558641975308643,
+      "stableSamples": 68
+    },
+    {
+      "camera": 3,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.6954350031891444,
+          "y": 0.36980591525067436
+        },
+        {
+          "x": 0.45254526043861765,
+          "y": 0.6950463006275753
+        },
+        {
+          "x": 0.23039200613916097,
+          "y": 0.34603980798727757
+        },
+        {
+          "x": 0.4688335411999555,
+          "y": 0.1808458794224435
+        }
+      ],
+      "axis": null,
+      "changedFraction": 0.00008487654320987654,
+      "referenceChangedFraction": 0.009567901234567902,
+      "lastReferenceChangedFraction": 0.00621141975308642,
+      "stableSamples": 68
+    }
+  ]
+}

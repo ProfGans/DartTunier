@@ -9,6 +9,7 @@ class ReviewedAutoscoreThrow {
   final AutoscoreEvidence? evidence;
   String? diagnosticPath;
   bool wasCorrected = false;
+  bool get estimated => !wasCorrected && evidence?.hit['needsReview'] == true;
   DartThrowResult? actual;
   BoardPoint? correctedPoint;
   BoardPoint? get detectedPoint {
@@ -58,7 +59,11 @@ class AutoscoreDemoController extends ChangeNotifier {
   }
 
   void movePoint(int index, BoardPoint point) {
-    if (!point.x.isFinite || !point.y.isFinite || point.magnitude > 190) return;
+    if (!point.x.isFinite ||
+        !point.y.isFinite ||
+        point.magnitude > BoardGeometry.detectionRadius) {
+      return;
+    }
     review(index, BoardGeometry.score(point));
     _history[index].correctedPoint = point;
     notifyListeners();

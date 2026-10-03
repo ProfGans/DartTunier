@@ -29,17 +29,24 @@ class PlanningSuggestionCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 6),
+                  for (final stage in suggestion.configurations)
+                    Text('${stage.name}: ${stage.gameFormat.label} · ${stage.type == 'groups' ? stage.groupSizes.fold<int>(0,(a,b)=>a+b) : stage.knockoutParticipantCount} Spieler → ${stage.qualifiedParticipantCount ?? 1} weiter'),
+                  if (suggestion.configurations.isEmpty)
                   for (final stage in suggestion.stages)
                     Text('${stage.label}: ${stage.format.label}'),
                   Text(
-                    '${suggestion.totalMatches} Spiele gesamt · mind. ${suggestion.minimumMatchesPerPlayer} je Spieler',
+                    '${suggestion.variableMatches ? 'ca. ' : ''}${suggestion.totalMatches} Spiele gesamt · mind. ${suggestion.minimumMatchesPerPlayer} je Spieler',
                   ),
                   Text(
                     'ca. ${suggestion.estimatedMinutes ~/ 60} h ${suggestion.estimatedMinutes % 60} min · ${suggestion.effectiveBoards} Boards nutzbar',
                   ),
-                  PlanningMatchBreakdownView(
+                  if (suggestion.configurations.isEmpty) PlanningMatchBreakdownView(
                     breakdown: suggestion.matchBreakdown,
                   ),
+                  for (var i=0;i<suggestion.stageMatchCounts.length;i++)
+                    Text('${i+1}. ${suggestion.configurations[i].name}: ${suggestion.stageMatchCounts[i]} Spiele'),
+                  if (suggestion.configurations.isNotEmpty)
+                    const Text('Mit der Turnierlogik und Boardplanung simuliert. Freilose zählen nicht als Spiele. Bei Mehrfach-KO und Kratzer hängen Spielanzahl und Dauer vom Ergebnisverlauf ab. Zusätzliche Entscheidungsspiele und Pausen können die Dauer verlängern.'),
                   if (suggestion.duration case final duration?) ...[
                     const SizedBox(height: 12),
 

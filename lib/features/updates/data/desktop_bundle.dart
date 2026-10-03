@@ -41,7 +41,7 @@ class DesktopBundle {
     }
     await destination.create();
     File inputFile = source;
-    if (release.platform == UpdatePlatform.linux) {
+    if (release.platform.isLinux) {
       inputFile = File('${source.path}.tar');
       final output = await inputFile.open(mode: FileMode.write);
       var total = 0;
@@ -118,8 +118,8 @@ class DesktopBundle {
     if (manifest['schemaVersion'] != 1 ||
         manifest['build'] != release.build ||
         manifest['version'] != release.version ||
-        manifest['platform'] != release.platform.name ||
-        manifest['architecture'] != 'x64') {
+        manifest['platform'] != release.platform.manifestPlatform ||
+        manifest['architecture'] != release.platform.architecture) {
       throw const FormatException(
         'Version oder Plattform des Update-Pakets stimmt nicht.',
       );

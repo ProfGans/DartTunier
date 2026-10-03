@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 3,
+  "capturedAtUtc": "2026-10-03T08:18:25.627972Z",
+  "detected": "Nicht erkannt",
+  "corrected": "1",
+  "correctDetection": false,
+  "hit": {
+    "manualMissingReport": true
+  },
+  "correctionPosition": null,
+  "cameras": [
+    {
+      "camera": 1,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3874809360599601,
+          "y": 0.2456157550706215
+        },
+        {
+          "x": 0.6489751894712343,
+          "y": 0.2953283411175195
+        },
+        {
+          "x": 0.6272252834411642,
+          "y": 0.6796422965570028
+        },
+        {
+          "x": 0.23293990278425425,
+          "y": 0.5386803486055745
+        }
+      ],
+      "axis": null,
+      "changedFraction": 0.0000308641975308642,
+      "referenceChangedFraction": 0.0008024691358024691,
+      "lastReferenceChangedFraction": 0.0021219135802469135,
+      "stableSamples": 94
+    },
+    {
+      "camera": 2,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3298628553360288,
+          "y": 0.6867044275138915
+        },
+        {
+          "x": 0.3295862219940226,
+          "y": 0.28976623017601905
+        },
+        {
+          "x": 0.5978081485250942,
+          "y": 0.23889435833485004
+        },
+        {
+          "x": 0.737624026917759,
+          "y": 0.5580962699097777
+        }
+      ],
+      "axis": null,
+      "changedFraction": 0.00007716049382716049,
+      "referenceChangedFraction": 0.0002469135802469136,
+      "lastReferenceChangedFraction": 0.009212962962962963,
+      "stableSamples": 94
+    },
+    {
+      "camera": 3,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.6962584343013892,
+          "y": 0.3716492433034876
+        },
+        {
+          "x": 0.4495066753299718,
+          "y": 0.6961171434858497
+        },
+        {
+          "x": 0.23069158331871636,
+          "y": 0.344865647709174
+        },
+        {
+          "x": 0.46967303610941424,
+          "y": 0.18261159376458003
+        }
+      ],
+      "axis": null,
+      "changedFraction": 0.0000617283950617284,
+      "referenceChangedFraction": 0.00013117283950617284,
+      "lastReferenceChangedFraction": 0.006242283950617284,
+      "stableSamples": 94
+    }
+  ]
+}

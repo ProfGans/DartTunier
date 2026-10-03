@@ -1,0 +1,56 @@
+import { PGlite } from '../build/rbac_sql_tests/node_modules/@electric-sql/pglite/dist/index.js';
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db = new PGlite();
+const owner='11111111-1111-1111-1111-111111111111', manager='22222222-2222-2222-2222-222222222222', reader='33333333-3333-3333-3333-333333333333';
+const group='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', other='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+await db.exec(`create role authenticated;create role anon;create schema auth;create table auth.users(id uuid primary key);
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+grant usage on schema public,auth to authenticated,anon;
+alter default privileges in schema public grant all on tables to authenticated;`);
+for (const file of ['supabase/schema.sql','supabase/migrations/202609210001_manual_community_members.sql',
+  'supabase/migrations/202609220001_account_devices.sql','supabase/migrations/202609230001_community_devices.sql',
+  'supabase/migrations/202610020001_community_permissions.sql','supabase/migrations/202610030002_community_rankings.sql',
+  'supabase/migrations/202610030004_ranking_administration.sql']) await db.exec(await readFile(file,'utf8'));
+await db.exec(`insert into auth.users values('${owner}'),('${manager}'),('${reader}');
+insert into player_profiles(id,user_id,display_name) values('${owner}','${owner}','Owner'),('${manager}','${manager}','Manager'),('${reader}','${reader}','Reader');
+insert into communities(id,owner_user_id,name,invite_code) values('${group}','${owner}','Club','CODE123'),('${other}','${reader}','Other','OTHER12');
+insert into community_members(community_id,user_id,role) values('${group}','${owner}','owner'),('${group}','${manager}','member'),('${group}','${reader}','member'),('${other}','${reader}','owner');`);
+async function as(user) { await db.exec(`reset role;select set_config('request.jwt.claim.sub','${user}',false);set role authenticated;`); }
+const apply=(player,action,ranking='default',community=group)=>db.query('select manage_ranking_player($1,$2,$3,$4) as event',[community,ranking,player,action]);
+await as(reader);
+await assert.rejects(apply(manager,'reset'));
+await as(owner);
+assert.ok((await db.query('select community_permissions($1) as p',[group])).rows[0].p.includes('manage_rankings'));
+const role=(await db.query(`insert into community_roles(community_id,name,permissions) values($1,'Ranglistenleitung',array['manage_rankings']) returning id`,[group])).rows[0].id;
+await db.query('select assign_community_role($1,$2,$3)',[group,manager,role]);
+const custom=(await db.query(`insert into community_rankings(community_id,name) values($1,'Training') returning id`,[group])).rows[0].id;
+const guest=(await db.query(`insert into community_guest_members(community_id,display_name,linked_user_id) values($1,'Alias',$2) returning id`,[group,reader])).rows[0].id;
+await as(manager);
+const removed=(await apply(reader,'remove')).rows[0].event;
+const reset=(await apply(guest,'reset',custom)).rows[0].event;
+assert.equal(removed.action,'remove'); assert.equal(reset.player_key,reader); assert.equal(reset.ranking_id,custom);
+assert.equal(reset.created_by,manager); assert.ok(Date.parse(reset.created_at)>=Date.parse(removed.created_at));
+await assert.rejects(apply(reader,'invalid'));
+await assert.rejects(apply(reader,'reset','missing'));
+await assert.rejects(apply(reader,'reset','default',other));
+await assert.rejects(apply('44444444-4444-4444-4444-444444444444','reset'));
+await assert.rejects(db.query(`insert into community_ranking_actions(community_id,ranking_id,player_key,action,created_by) values($1,'default',$2,'reset',$2)`,[group,manager]));
+await assert.rejects(db.query(`update community_ranking_actions set action='reset'`));
+await assert.rejects(db.query('delete from community_ranking_actions'));
+await assert.rejects(db.query(`insert into community_roles(community_id,name,permissions) values($1,'Escalation',array['manage_roles','manage_rankings'])`,[group]));
+await as(reader);
+assert.equal((await db.query('select * from community_ranking_actions')).rows.length,2);
+await assert.rejects(apply(manager,'reset',custom,other));
+await as(owner);
+await db.query('select assign_community_role($1,$2,$3)',[group,manager,null]);
+await as(manager);
+await assert.rejects(apply(reader,'reset'));
+await db.exec('reset role');
+await db.query('delete from community_members where community_id=$1 and user_id=$2',[group,manager]);
+await as(manager);
+assert.equal((await db.query('select * from community_ranking_actions')).rows.length,0);
+await db.exec('reset role;set role anon');
+await assert.rejects(apply(reader,'reset'));
+await db.close();
+console.log('PASS ranking administration: dedicated permission, owner/delegate, revocation, aliases, community/ranking isolation, append-only history, RLS and anonymous rejection.');

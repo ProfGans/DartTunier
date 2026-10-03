@@ -1,5 +1,6 @@
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
+import '../../autoscoring/presentation/widgets/autoscoring_preference_tile.dart';
 import '../data/bot_settings_storage.dart';
 import '../domain/bot_settings.dart';
 import '../application/theo_average_service.dart';
@@ -154,6 +155,7 @@ class _BotSettingsPanelState extends State<BotSettingsPanel> {
       child: AdaptiveContentList(
         padding: const EdgeInsets.all(16),
         children: [
+          const AutoscoringPreferenceTile(),
           Text(
             'Bots fein abstimmen',
             style: Theme.of(context).textTheme.headlineSmall,

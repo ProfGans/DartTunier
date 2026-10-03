@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 3,
+  "capturedAtUtc": "2026-10-03T08:39:14.966311Z",
+  "detected": "Nicht erkannt",
+  "corrected": "20",
+  "correctDetection": false,
+  "hit": {
+    "manualMissingReport": false
+  },
+  "correctionPosition": {
+    "xMillimetres": -6.857142857142859,
+    "yMillimetres": -156.42857142857144,
+    "source": "manualMissingPoint"
+  },
+  "cameras": [
+    {
+      "camera": 1,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.38685377622825423,
+          "y": 0.24149674515387626
+        },
+        {
+          "x": 0.6498292009832659,
+          "y": 0.2930112425159349
+        },
+        {
+          "x": 0.6230478922121027,
+          "y": 0.6798379622527677
+        },
+        {
+          "x": 0.23523198544550342,
+          "y": 0.5404565707729037
+        }
+      ],
+      "axis": {
+        "a": -0.9628568019539289,
+        "b": -0.27001255328419904,
+        "c": -47.520023137446316,
+        "confidence": 0.9892914357189966,
+        "outerRimOnly": true
+      },
+      "changedFraction": 0.00008487654320987654,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.0024228395061728393,
+      "stableSamples": 0
+    },
+    {
+      "camera": 2,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3258046319076618,
+          "y": 0.6868033643730942
+        },
+        {
+          "x": 0.3303812130700802,
+          "y": 0.2922359974277538
+        },
+        {
+          "x": 0.5979093378547322,
+          "y": 0.24323395679020987
+        },
+        {
+          "x": 0.7407332029095673,
+          "y": 0.5589895939427658
+        }
+      ],
+      "axis": null,
+      "changedFraction": 0.00006944444444444444,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.012777777777777779,
+      "stableSamples": 0
+    },
+    {
+      "camera": 3,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.6954350031891444,
+          "y": 0.36980591525067436
+        },
+        {
+          "x": 0.45254526043861765,
+          "y": 0.6950463006275753
+        },
+        {
+          "x": 0.23039200613916097,
+          "y": 0.34603980798727757
+        },
+        {
+          "x": 0.4688335411999555,
+          "y": 0.1808458794224435
+        }
+      ],
+      "axis": {
+        "a": 0.58406362561769,
+        "b": -0.8117078792461726,
+        "c": -123.08861426601521,
+        "confidence": 0.9739748341654672,
+        "outerRimOnly": false
+      },
+      "changedFraction": 0.00008487654320987654,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.006003086419753087,
+      "stableSamples": 0
+    }
+  ]
+}

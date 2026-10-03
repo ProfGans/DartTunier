@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:file_selector/file_selector.dart';
+import '../application/capture_autoscore_evidence.dart';
+import '../data/autoscore_diagnostic_export.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../../scorer/domain/x01/x01_models.dart';
 import '../application/autoscoring_controller.dart';
@@ -6,6 +10,8 @@ import '../application/camera_selection.dart';
 import '../domain/board_geometry.dart';
 import 'widgets/camera_recognition_view.dart';
 import 'widgets/dart_correction_dialog.dart';
+import '../application/autoscore_audio_controller.dart';
+import 'widgets/autoscore_audio_controls.dart';
 
 class AutoscoringPage extends StatefulWidget {
   const AutoscoringPage({
@@ -18,7 +24,9 @@ class AutoscoringPage extends StatefulWidget {
     this.acceptLabel,
     this.summaryBuilder,
     this.automaticCounting = false,
+    this.autoConnect = false,
     this.automaticVisitDartLimit = 3,
+    this.audioThrows,
   });
   final AutoscoringController? controller;
 
@@ -30,7 +38,9 @@ class AutoscoringPage extends StatefulWidget {
   final String? acceptLabel;
   final WidgetBuilder? summaryBuilder;
   final bool automaticCounting;
+  final bool autoConnect;
   final int? automaticVisitDartLimit;
+  final List<DartThrowResult> Function()? audioThrows;
   @override
   State<AutoscoringPage> createState() => _AutoscoringPageState();
 }
@@ -38,9 +48,85 @@ class AutoscoringPage extends StatefulWidget {
 class _AutoscoringPageState extends State<AutoscoringPage>
     with WidgetsBindingObserver {
   late final c = widget.controller ?? AutoscoringController();
+  late final audio = AutoscoreAudioController();
   List<int> selected = [-1, -1, -1];
   bool visitEnded = false;
+  bool _connectionAttempted = false;
   bool showRecognition = true, showColorSamples = false;
+  bool _savingRemoval = false;
+  String? _removalDiagnostic;
+
+  Future<void> _confirmRemoval() async {
+    setState(() => _savingRemoval = true);
+    AutoscoreEvidence? evidence;
+    try {
+      await c.confirmDartsRemoved(
+        beforeReset: () {
+          evidence = captureAutoscoreEvidence(c, missed: true);
+          evidence?.hit.addAll({
+            'eventType': 'manualRemoval',
+            'manualMissingReport': false,
+            'statusBeforeReset': c.status,
+            'waitingForEmpty': c.waitingForEmpty,
+            'removalMetrics': c.removalMetrics,
+            'throws': c.throws
+                .map((d) => {'label': d.label, 'points': d.scoredPoints})
+                .toList(),
+          });
+        },
+      );
+      if (evidence == null) {
+        throw StateError(
+          'Keine vollständige Kameraaufnahme verfügbar. ${c.status}',
+        );
+      }
+      if (mounted) setState(() => visitEnded = false);
+      final path = await const AutoscoreDiagnosticExport().save(
+        evidence!,
+        'Herausziehen nicht automatisch erkannt',
+        'Board manuell leer bestätigt',
+      );
+      if (!mounted) return;
+      setState(() => _removalDiagnostic = path);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Aufnahme zurückgesetzt. Diagnose gespeichert: $path'),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Herauszieh-Diagnose: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _savingRemoval = false);
+    }
+  }
+
+  Future<void> _exportRemoval() async {
+    final path = _removalDiagnostic;
+    if (path == null) return;
+    try {
+      final target = await getSaveLocation(
+        suggestedName: 'autoscore_herausziehen.zip',
+        acceptedTypeGroups: [
+          const XTypeGroup(label: 'Diagnose-ZIP', extensions: ['zip']),
+        ],
+      );
+      if (target != null &&
+          File(path).absolute.path != File(target.path).absolute.path) {
+        await File(path).copy(target.path);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export fehlgeschlagen: $e')));
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -96,10 +182,21 @@ class _AutoscoringPageState extends State<AutoscoringPage>
       if (next[slot] >= 0) retained.add(next[slot]);
     }
     setState(() => selected = next);
+    if (widget.autoConnect &&
+        !_connectionAttempted &&
+        next.every((i) => i >= 0)) {
+      _connectionAttempted = true;
+      await c.connect(List.of(next));
+    }
   }
 
   void _changed() {
     if (mounted) setState(() {});
+    Future<void>.microtask(() {
+      if (mounted) {
+        audio.update(widget.audioThrows?.call() ?? List.of(c.throws));
+      }
+    });
   }
 
   @override
@@ -115,6 +212,7 @@ class _AutoscoringPageState extends State<AutoscoringPage>
 
   @override
   void dispose() {
+    audio.dispose();
     WidgetsBinding.instance.removeObserver(this);
     c.removeListener(_changed);
     c.onAutomaticThrow = null;
@@ -163,6 +261,7 @@ class _AutoscoringPageState extends State<AutoscoringPage>
             widget.matchStatus!(),
             style: Theme.of(context).textTheme.titleLarge,
           ),
+        AutoscoreAudioControls(controller: audio),
         if (widget.summaryBuilder != null) widget.summaryBuilder!(context),
         if (c.cameras.isEmpty) ...[
           for (var i = 0; i < 3; i++)
@@ -224,6 +323,40 @@ class _AutoscoringPageState extends State<AutoscoringPage>
           ),
         const SizedBox(height: 16),
         Text(c.status, style: Theme.of(context).textTheme.titleMedium),
+        if (c.cameras.length == 3) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              OutlinedButton.icon(
+                onPressed:
+                    c.busy ||
+                        _savingRemoval ||
+                        c.cameras.any((camera) => camera.calibration == null)
+                    ? null
+                    : _confirmRemoval,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                ),
+                icon: const Icon(Icons.restart_alt),
+                label: const Text('Pfeile herausgezogen · Reset + Diagnose'),
+              ),
+              if (_removalDiagnostic != null)
+                OutlinedButton.icon(
+                  onPressed: _exportRemoval,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                  ),
+                  icon: const Icon(Icons.save_alt),
+                  label: const Text('Herauszieh-Diagnose speichern'),
+                ),
+            ],
+          ),
+          const Text(
+            'Nur bei leerem Board drücken. Die Kamerabilder werden vor dem Reset gespeichert.',
+          ),
+        ],
         if (c.cameras.isNotEmpty) ...[
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
