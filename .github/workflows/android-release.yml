@@ -30,6 +30,8 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get --enforce-lockfile
+      - name: Verify SQLite assets for tests and Android
+        run: python3 tool/prepare_sqlite_ci.py x64.linux arm.android arm64.android x64.android
       - name: Validate release version
         shell: python
         run: |
@@ -127,6 +129,8 @@ jobs:
           "$RUNNER_TEMP/flutter-arm64/bin/flutter" config --enable-linux-desktop
           "$RUNNER_TEMP/flutter-arm64/bin/flutter" precache --linux
       - run: flutter pub get --enforce-lockfile
+      - name: Verify SQLite asset for desktop
+        run: python tool/prepare_sqlite_ci.py ${{ matrix.architecture }}.${{ matrix.platform }}
       - name: Verify update logic on Linux architectures
         if: matrix.platform == 'linux'
         run: flutter test test/android_release_test.dart test/desktop_update_test.dart test/linux_platform_test.dart
