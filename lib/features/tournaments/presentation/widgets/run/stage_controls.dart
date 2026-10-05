@@ -1,3 +1,4 @@
+import '../../../../../shared/widgets/sport_section_navigation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
@@ -22,31 +23,56 @@ class StageProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Material(
-      color: colorScheme.surfaceContainerHighest,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            for (var index = 0; index < stages.length; index++) ...[
-              _StageProgressChip(
-                label: stages[index].name,
-                number: index + 1,
-                isActive: index == activeStageIndex,
-                isComplete: completedStageIndexes.contains(index),
-                onTap: () => onStageSelected(index),
-              ),
-              if (index < stages.length - 1)
-                Container(
-                  width: 28,
-                  height: 1,
-                  color: colorScheme.outlineVariant,
-                ),
-            ],
-          ],
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 840 ||
+            MediaQuery.textScalerOf(context).scale(16) > 24) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: SportSectionNavigation<int>(
+              label: 'Etappe',
+              selected: activeStageIndex,
+              onChanged: onStageSelected,
+              sections: [
+                for (var i = 0; i < stages.length; i++)
+                  SportSection(
+                    i,
+                    '${i + 1}. ${stages[i].name}',
+                    completedStageIndexes.contains(i)
+                        ? Icons.check_circle_outline
+                        : Icons.flag_outlined,
+                  ),
+              ],
+            ),
+          );
+        }
+        return Material(
+          color: colorScheme.surface,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                for (var index = 0; index < stages.length; index++) ...[
+                  _StageProgressChip(
+                    label: stages[index].name,
+                    number: index + 1,
+                    isActive: index == activeStageIndex,
+                    isComplete: completedStageIndexes.contains(index),
+                    onTap: () => onStageSelected(index),
+                  ),
+                  if (index < stages.length - 1)
+                    Container(
+                      width: 28,
+                      height: 1,
+                      color: colorScheme.outlineVariant,
+                    ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -80,7 +106,8 @@ class _StageProgressChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: backgroundColor,
           border: Border.all(color: borderColor),
@@ -120,67 +147,32 @@ class StageViewModeSwitch extends StatelessWidget {
   final ValueChanged<StageViewMode> onModeChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 760 ||
-              MediaQuery.textScalerOf(context).scale(16) > 24) {
-            return DropdownButtonFormField<StageViewMode>(
-              isDense: false,
-              itemHeight: null,
-              key: ValueKey(selectedMode),
-              initialValue: selectedMode,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Turnieransicht'),
-              items: const [
-                DropdownMenuItem(
-                  value: StageViewMode.overview,
-                  child: Text('Uebersicht'),
-                ),
-                DropdownMenuItem(
-                  value: StageViewMode.playOrder,
-                  child: Text('Spielansicht'),
-                ),
-                DropdownMenuItem(
-                  value: StageViewMode.orderOfPlay,
-                  child: Text('Order of Play'),
-                ),
-                DropdownMenuItem(value: StageViewMode.statistics, child: Text('Statistik')),
-              ],
-              onChanged: (value) {
-                if (value != null) onModeChanged(value);
-              },
-            );
-          }
-          return SegmentedButton<StageViewMode>(
-            segments: const [
-              ButtonSegment(
-                value: StageViewMode.overview,
-                icon: Icon(Icons.view_agenda_outlined),
-                label: Text('Uebersicht'),
-              ),
-              ButtonSegment(
-                value: StageViewMode.playOrder,
-                icon: Icon(Icons.format_list_numbered),
-                label: Text('Spielansicht'),
-              ),
-              ButtonSegment(
-                value: StageViewMode.orderOfPlay,
-                icon: Icon(Icons.view_week_outlined),
-                label: Text('Order of Play'),
-              ),
-              ButtonSegment(value: StageViewMode.statistics, icon: Icon(Icons.bar_chart), label: Text('Statistik')),
-            ],
-            selected: {selectedMode},
-            onSelectionChanged: (selection) => onModeChanged(selection.first),
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+    child: SportSectionNavigation<StageViewMode>(
+      label: 'Turnieransicht',
+      selected: selectedMode,
+      onChanged: onModeChanged,
+      sections: const [
+        SportSection(
+          StageViewMode.overview,
+          'Uebersicht',
+          Icons.view_agenda_outlined,
+        ),
+        SportSection(
+          StageViewMode.playOrder,
+          'Spielansicht',
+          Icons.format_list_numbered,
+        ),
+        SportSection(
+          StageViewMode.orderOfPlay,
+          'Order of Play',
+          Icons.view_week_outlined,
+        ),
+        SportSection(StageViewMode.statistics, 'Statistik', Icons.bar_chart),
+      ],
+    ),
+  );
 }
 
 class StageFooter extends StatelessWidget {

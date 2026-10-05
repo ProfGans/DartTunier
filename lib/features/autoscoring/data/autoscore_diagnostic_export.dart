@@ -7,6 +7,9 @@ import 'package:flutter/foundation.dart';
 import '../domain/frame_detector.dart';
 import '../domain/flat_board_projection.dart';
 import '../domain/board_geometry.dart';
+import '../domain/lens_distortion.dart';
+import '../domain/correction_analysis.dart';
+import 'packed_gray_frame.dart';
 
 class AutoscoreCameraEvidence {
   const AutoscoreCameraEvidence(
@@ -15,16 +18,24 @@ class AutoscoreCameraEvidence {
     this.empty,
     this.metadata, {
     this.lastCountedBefore,
+    this.frames = const [],
+    this.beforeDetail,
+    this.emptyDetail,
+    this.lastCountedBeforeDetail,
+    this.frameDetails = const [],
   });
   final Uint8List image;
   final GrayFrame? before, empty;
   final GrayFrame? lastCountedBefore;
+  final List<GrayFrame> frames;
+  final PackedGrayFrame? beforeDetail, emptyDetail, lastCountedBeforeDetail;
+  final List<PackedGrayFrame?> frameDetails;
   final Map<String, Object?> metadata;
 }
 
 class AutoscoreEvidence {
-  AutoscoreEvidence(this.cameras, this.hit)
-    : capturedAt = DateTime.now().toUtc();
+  AutoscoreEvidence(this.cameras, this.hit, {DateTime? capturedAt})
+    : capturedAt = capturedAt ?? DateTime.now().toUtc();
   final List<AutoscoreCameraEvidence> cameras;
   final Map<String, Object?> hit;
   final DateTime capturedAt;
@@ -64,6 +75,28 @@ class AutoscoreDiagnosticExport {
       gray('kamera_${i + 1}_vorher.png', camera.before);
       gray('kamera_${i + 1}_leer.png', camera.empty);
       gray('kamera_${i + 1}_letzter_vorher.png', camera.lastCountedBefore);
+      gray(
+        'kamera_${i + 1}_vorher_detail.png',
+        camera.beforeDetail?.unpack() ?? camera.before?.detail,
+      );
+      gray(
+        'kamera_${i + 1}_leer_detail.png',
+        camera.emptyDetail?.unpack() ?? camera.empty?.detail,
+      );
+      gray(
+        'kamera_${i + 1}_letzter_vorher_detail.png',
+        camera.lastCountedBeforeDetail?.unpack() ??
+            camera.lastCountedBefore?.detail,
+      );
+      for (var f = 0; f < camera.frames.length; f++) {
+        gray('kamera_${i + 1}_sequenz_${f + 1}.png', camera.frames[f]);
+        gray(
+          'kamera_${i + 1}_sequenz_${f + 1}_detail.png',
+          f < camera.frameDetails.length
+              ? camera.frameDetails[f]?.unpack()
+              : camera.frames[f].detail,
+        );
+      }
     }
     if (previews.isNotEmpty) {
       final height = previews
@@ -92,13 +125,18 @@ class AutoscoreDiagnosticExport {
         if (camera.metadata['calibration'] is List)
           FlatBoardCamera(
             camera.image,
-            BoardCalibration([
-              for (final p in camera.metadata['calibration'] as List)
-                BoardPoint(
-                  (p['x'] as num).toDouble(),
-                  (p['y'] as num).toDouble(),
-                ),
-            ]),
+            BoardCalibration(
+              [
+                for (final p in camera.metadata['calibration'] as List)
+                  BoardPoint(
+                    (p['x'] as num).toDouble(),
+                    (p['y'] as num).toDouble(),
+                  ),
+              ],
+              lens: camera.metadata['lens'] is Map
+                  ? LensDistortion.fromJson(camera.metadata['lens'] as Map)
+                  : const LensDistortion(),
+            ),
           ),
     ];
     if (flatCameras.isNotEmpty) {
@@ -125,7 +163,7 @@ class AutoscoreDiagnosticExport {
       'bericht.json',
       utf8.encode(
         const JsonEncoder.withIndent('  ').convert({
-          'schemaVersion': evidence.hit['eventType'] == 'manualRemoval' ? 4 : 3,
+          'schemaVersion': 5,
           'capturedAtUtc': evidence.capturedAt.toIso8601String(),
           'detected': detected,
           'corrected': corrected,
@@ -135,6 +173,33 @@ class AutoscoreDiagnosticExport {
           'hit': evidence.hit,
           'correctionPosition': correctionPosition,
           'cameras': evidence.cameras.map((camera) => camera.metadata).toList(),
+        }),
+      ),
+    );
+    final x = correctionPosition?['xMillimetres'],
+        y = correctionPosition?['yMillimetres'],
+        detectedX = evidence.hit['xMillimetres'],
+        detectedY = evidence.hit['yMillimetres'];
+    final analysis = analysePositionCorrections([
+      if (x is num && y is num)
+        PositionCorrectionSample(
+          BoardPoint(x.toDouble(), y.toDouble()),
+          detectedX is num && detectedY is num
+              ? BoardPoint(detectedX.toDouble(), detectedY.toDouble())
+              : null,
+          [
+            for (final camera in evidence.cameras)
+              (camera.metadata['axis'] as Map?)?.cast<String, Object?>(),
+          ],
+        ),
+    ]);
+    add(
+      'korrektur_auswertung.json',
+      utf8.encode(
+        const JsonEncoder.withIndent('  ').convert({
+          'schemaVersion': 1,
+          'currentCorrection': analysis,
+          'session': evidence.hit['correctionHistoryAnalysis'],
         }),
       ),
     );

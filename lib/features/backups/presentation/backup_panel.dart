@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_menu.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -136,19 +137,20 @@ class _BackupPanelState extends State<BackupPanel> {
           'Gerätekopplungen. Bewahre sie an einem geschützten Ort auf, möglichst auf einem zweiten Datenträger.',
         ),
         const SizedBox(height: 24),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            FilledButton.icon(
-              onPressed: _busy ? null : _export,
-              icon: const Icon(Icons.save_alt),
-              label: const Text('Backup exportieren'),
+        SportMenuGroup(
+          title: 'Sicherung verwalten',
+          actions: [
+            SportMenuAction(
+              label: 'Backup exportieren',
+              description: 'Aktuellen Stand als Datei sichern.',
+              icon: Icons.save_alt,
+              onTap: _busy ? null : _export,
             ),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _import,
-              icon: const Icon(Icons.restore),
-              label: const Text('Backup wiederherstellen'),
+            SportMenuAction(
+              label: 'Backup wiederherstellen',
+              description: 'Gesicherte Datei prüfen und einlesen.',
+              icon: Icons.restore,
+              onTap: _busy ? null : _import,
             ),
           ],
         ),

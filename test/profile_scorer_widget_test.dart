@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dart_tournament_manager/features/statistics/data/player_statistics_repository.dart';
@@ -19,6 +20,7 @@ class _MemoryStatistics extends PlayerStatisticsRepository {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('profile scorer persists completion, undo, and waits on exit', (
     tester,
   ) async {
@@ -64,6 +66,16 @@ void main() {
     expect(repository.records.values.single.accountId, 'anna');
     expect(repository.records.values.single.winner, 0);
     expect(repository.records.values.single.statistics.highestFinish, 40);
+    await tester.scrollUntilVisible(
+      find.byTooltip('Rückgängig'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await Scrollable.ensureVisible(
+      tester.element(find.byTooltip('Rückgängig')),
+      alignment: .5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Rückgängig'));
     await tester.pumpAndSettle();
     expect(repository.records, hasLength(1));
@@ -72,10 +84,14 @@ void main() {
     repository.fail = true;
     await tester.pageBack();
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Ohne Speichern verlassen'));
+    await tester.pumpAndSettle();
     expect(find.text('Erneut speichern'), findsOneWidget);
     expect(find.byType(ScorerMatchPage), findsOneWidget);
     repository.fail = false;
     await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ohne Speichern verlassen'));
     await tester.pumpAndSettle();
     expect(find.text('Start'), findsOneWidget);
     expect(tester.takeException(), isNull);

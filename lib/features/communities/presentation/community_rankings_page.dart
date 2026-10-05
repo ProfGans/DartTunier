@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../../tournaments/domain/tournament_models.dart';
@@ -69,7 +70,9 @@ class _CommunityRankingsPageState extends State<CommunityRankingsPage> {
         rankingId: ranking.id,
         communityId: widget.community.id,
         repository: widget.repository,
-        canManage: widget.permissions.allows(CommunityPermission.manageRankings),
+        canManage: widget.permissions.allows(
+          CommunityPermission.manageRankings,
+        ),
         members: widget.members,
         tournaments: widget.tournaments,
         showAppBar: showAppBar,
@@ -116,20 +119,22 @@ class _CommunityRankingsPageState extends State<CommunityRankingsPage> {
                         'Ranglisten',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
-                      for (final ranking in rankings)
-                        Card(
-                          child: ListTile(
-                            leading: const Icon(Icons.leaderboard_outlined),
-                            title: Text(ranking.name),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    _ranking(ranking, showAppBar: true),
+                      SportMenuGroup(
+                        title: 'Ranglisten',
+                        actions: [
+                          for (final ranking in rankings)
+                            SportMenuAction(
+                              label: ranking.name,
+                              icon: Icons.leaderboard_outlined,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      _ranking(ranking, showAppBar: true),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
+                        ],
+                      ),
                     ],
                   ),
           ),

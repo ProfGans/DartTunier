@@ -681,9 +681,11 @@ class AutomaticCalibrationResult {
     this.calibration,
     this.numberCount, {
     this.diagnostics,
+    this.quality = const {},
   });
   final BoardCalibration calibration;
   final int numberCount;
+  final Map<String, Object?> quality;
   final BoardDetectionDiagnostics? diagnostics;
 }
 

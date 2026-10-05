@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_menu.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -186,16 +187,22 @@ class _DevicesPageState extends State<DevicesPage> {
                   Wrap(
                     spacing: 8,
                     children: [
-                      OutlinedButton.icon(
-                        onPressed: () => _showPairing(controller),
-                        icon: const Icon(Icons.key),
-                        label: const Text('Code für ältere App-Versionen'),
-                      ),
-                      TextButton(
-                        onPressed: controller.busy
-                            ? null
-                            : controller.resetPairing,
-                        child: const Text('Kopplungen zurücksetzen'),
+                      SportActionsMenu(
+                        label: 'Kopplung verwalten',
+                        actions: [
+                          SportMenuAction(
+                            label: 'Code für ältere App-Versionen',
+                            icon: Icons.key,
+                            onTap: () => _showPairing(controller),
+                          ),
+                          SportMenuAction(
+                            label: 'Kopplungen zurücksetzen',
+                            icon: Icons.link_off,
+                            onTap: controller.busy
+                                ? null
+                                : controller.resetPairing,
+                          ),
+                        ],
                       ),
                       if (controller.receiver.display != null)
                         FilledButton(

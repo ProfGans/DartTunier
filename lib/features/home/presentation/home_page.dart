@@ -2,64 +2,106 @@ part of '../../../tournament_workspace.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  Future<void> _openScorer() async {
-    try {
-      final account = await loadCurrentAccount();
-      if (!mounted) return;
-      await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ScorerPage(account: account)));
-    } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account konnte nicht geladen werden. Bitte erneut versuchen.')));
-    }
-  }
-  void _openSettings() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
-  }
+  List<SportDestination> get _destinations => [
+    SportDestination(
+      'Übersicht',
+      Icons.dashboard_outlined,
+      () => Navigator.of(context).popUntil((route) => route.isFirst),
+    ),
+    SportDestination(
+      'Turniere',
+      Icons.emoji_events_outlined,
+      () => _open(const TournamentHomePage(), 1),
+    ),
+    SportDestination('Scorer', Icons.sports_score, _openScorer),
+    SportDestination(
+      'Spieler',
+      Icons.groups_outlined,
+      () => _open(const PlayersPage(), 3),
+    ),
+    SportDestination('Community', Icons.hub_outlined, _openCommunity),
+    SportDestination(
+      'Geräte',
+      Icons.devices_outlined,
+      () => _open(const DevicesPage(), 5),
+    ),
+    SportDestination(
+      'Einstellungen',
+      Icons.settings_outlined,
+      () => _open(const SettingsPage(), 6),
+    ),
+  ];
 
-  Future<void> _openTournamentArea() async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const TournamentHomePage()));
-  }
-
-  Future<void> _openPlayersArea() async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const PlayersPage()));
-  }
-
-  Future<void> _openCommunityArea() async {
+  Future<void> _open(Widget page, int selected) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => CommunityPage(
-          createTournamentBuilder: (communityId, communityName, {preset, title}) =>
-              TournamentCreationPage(
-                communityId: communityId,
-                communityName: communityName,
-                preset: preset, presetTitle: title,
-              ),
-          runTournamentBuilder: (tournament) =>
-              TournamentRunPage(tournament: tournament),
+        builder: (_) => SportAppShell(
+          selected: selected,
+          destinations: _destinations,
+          child: page,
         ),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+  Future<void> _openScorer() async {
+    try {
+      final account = await loadCurrentAccount();
+      if (!mounted) return;
+      await _open(ScorerPage(account: account), 2);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Account konnte nicht geladen werden. Bitte erneut versuchen.',
+            ),
+          ),
+        );
+      }
+    }
+  }
 
-    return Scaffold(
+  void _openCommunity() => _open(
+    CommunityPage(
+      createTournamentBuilder: (id, name, {preset, title}) =>
+          TournamentCreationPage(
+            communityId: id,
+            communityName: name,
+            preset: preset,
+            presetTitle: title,
+          ),
+      runTournamentBuilder: (tournament) =>
+          TournamentRunPage(tournament: tournament),
+    ),
+    4,
+  );
+
+  void _openTournamentArea() => _open(const TournamentHomePage(), 1);
+  void _openPlayersArea() => _open(const PlayersPage(), 3);
+  void _openSettings() => _open(const SettingsPage(), 6);
+  void _openCommunityArea() => _openCommunity();
+  Widget _shell(Widget page, int selected) => SportAppShell(
+    destinations: _destinations,
+    selected: selected,
+    child: page,
+  );
+  void _createTournament() => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => _shell(const TournamentCreationPage(), 1),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => _shell(
+    Scaffold(
       appBar: AppBar(
         title: const Text('Dart Turnierverwaltung'),
-        backgroundColor: colorScheme.primaryContainer,
         actions: [
           IconButton(
             onPressed: _openSettings,
@@ -68,129 +110,66 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: AdaptiveContentList(
-          padding: const EdgeInsets.all(24),
-          children: [
-            Icon(
-              Icons.dashboard_outlined,
-              size: 64,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Hauptmenue',
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Waehle einen Bereich der Turnierverwaltung.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 24),
-            const AccountMenuCard(),
-            const PushSenderMenu(),
-            const PushDeviceMenu(),
-            const SizedBox(height: 8),
-            AdaptiveTileLayout(
+      body: AdaptiveContentList(
+        children: [
+          SportHero(onTournament: _createTournament, onScorer: _openScorer),
+          const SizedBox(height: 28),
+          SportMenuGroup(
+            title: 'Spielzentrale',
+            actions: [
+              SportMenuAction(
+                label: 'Turniere',
+                icon: Icons.emoji_events_outlined,
+                onTap: _openTournamentArea,
+              ),
+              SportMenuAction(
+                label: 'Scorer',
+                icon: Icons.sports_score,
+                onTap: _openScorer,
+              ),
+              SportMenuAction(
+                label: 'Spieler',
+                icon: Icons.groups_outlined,
+                onTap: _openPlayersArea,
+              ),
+              SportMenuAction(
+                label: 'Community',
+                icon: Icons.hub_outlined,
+                onTap: _openCommunityArea,
+              ),
+            ],
+          ),
+          Text('Dein Konto', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 10),
+          const AccountMenuCard(),
+          const SizedBox(height: 20),
+          Card(
+            child: ExpansionTile(
+              title: const Text('Werkzeuge & Verwaltung'),
+              leading: const Icon(Icons.tune),
+              maintainState: true,
+              childrenPadding: const EdgeInsets.all(16),
               children: [
+                const PushSenderMenu(),
+                const PushDeviceMenu(),
                 const AutoscoreTesterMenuCard(),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.sports_score),
-                    title: const Text('Scorer'),
-                    subtitle: const Text(
-                      'X01 spielen, gegen Bots antreten und Checkoutwege anzeigen.',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _openScorer,
-                  ),
-                ),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.emoji_events_outlined),
-                    title: const Text('Turniere'),
-                    subtitle: const Text(
-                      'Turniere erstellen, fortsetzen und verwalten.',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _openTournamentArea,
-                  ),
-                ),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.groups_outlined),
-                    title: const Text('Spieler'),
-                    subtitle: const Text(
-                      'Spielerprofile anlegen, bearbeiten und verwalten.',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _openPlayersArea,
-                  ),
-                ),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.hub_outlined),
-                    title: const Text('Community'),
-                    subtitle: const Text(
-                      'Communities, Mitglieder und gemeinsame Turniere.',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _openCommunityArea,
-                  ),
-                ),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.devices_outlined),
-                    title: const Text('Geräte'),
-                    subtitle: const Text(
-                      'Computer hinzufügen und Geräte im Netzwerk finden.',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const DevicesPage(),
-                      ),
-                    ),
-                  ),
-                ),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.settings_outlined),
-                    title: const Text('Einstellungen'),
-                    subtitle: const Text(
-                      'Parameter für die passende Turnierform anpassen.',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _openSettings,
-                  ),
-                ),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.science_outlined),
-                    title: const Text('Dev Tools'),
-                    subtitle: const Text(
-                      'Turnierformen durchspielen und Kontrollberichte anzeigen.',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const DevToolsPage(),
-                      ),
+                ListTile(
+                  leading: const Icon(Icons.science_outlined),
+                  title: const Text('Dev Tools'),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const DevToolsPage(),
                     ),
                   ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+    0,
+  );
 }
 
 class TournamentHomePage extends StatefulWidget {
@@ -240,9 +219,14 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
   }
 
   Future<void> _deleteTournament(CreatedTournament tournament) async {
-    try { await _storage.deleteTournament(tournament.id); }
-    catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Löschen nicht möglich: $error')));
+    try {
+      await _storage.deleteTournament(tournament.id);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Löschen nicht möglich: $error')),
+        );
+      }
       return;
     }
     if (!mounted) {
@@ -256,13 +240,8 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Turniere'),
-        backgroundColor: colorScheme.primaryContainer,
-      ),
+      appBar: AppBar(title: const Text('Turniere')),
       body: SafeArea(
         child: FutureBuilder<List<CreatedTournament>>(
           future: _tournamentsFuture,
@@ -272,20 +251,11 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
             return AdaptiveContentList(
               padding: const EdgeInsets.all(24),
               children: [
-                Icon(Icons.sports_score, size: 64, color: colorScheme.primary),
-                const SizedBox(height: 16),
-                Text(
-                  'Meine Turniere',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Gespeicherte Turniere fortsetzen oder ein neues Turnier anlegen.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge,
+                const SportPageHeading(
+                  title: 'Meine Turniere',
+                  subtitle:
+                      'Dein nächster Spieltag beginnt hier. Gespeicherte Turniere fortsetzen oder ein neues Turnier anlegen.',
+                  icon: Icons.emoji_events_outlined,
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(

@@ -14,7 +14,7 @@ class ScorerDraftStorage {
     );
     if (raw == null) return null;
     final data = jsonDecode(raw) as Map<String, dynamic>;
-    if (data['version'] != 1) {
+    if (data['version'] != 1 && data['version'] != 2) {
       throw const FormatException('Unbekannte Spielstand-Version');
     }
     return data;
@@ -46,7 +46,7 @@ class ScorerDraftStorage {
     required DateTime playedAt,
     int? profilePlayerIndex,
   }) => {
-    'version': 1,
+    'version': 2,
     'sessionId': sessionId,
     'playedAt': playedAt.toIso8601String(),
     'profilePlayerIndex': profilePlayerIndex,

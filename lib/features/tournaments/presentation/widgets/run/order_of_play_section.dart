@@ -1,3 +1,4 @@
+import '../../../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import '../../../application/order_of_play/order_of_play_controller.dart';
 import '../../../domain/tournament_models.dart';
@@ -31,7 +32,9 @@ class OrderOfPlaySection extends StatelessWidget {
     Widget row(PlayEntry entry, String detail, {Widget? action}) => Card(
       child: ListTile(
         title: Text(players(entry)),
-        subtitle: Text('${entry.origin}\n$detail${MatchScorerSummary.fromMatch(entry.match) == null ? '' : '\n${MatchScorerSummary.fromMatch(entry.match)!.averageLabel}'}'),
+        subtitle: Text(
+          '${entry.origin}\n$detail${MatchScorerSummary.fromMatch(entry.match) == null ? '' : '\n${MatchScorerSummary.fromMatch(entry.match)!.averageLabel}'}',
+        ),
         isThreeLine: true,
         trailing: action,
       ),
@@ -98,11 +101,17 @@ class OrderOfPlaySection extends StatelessWidget {
               itemBuilder: (_) => const [
                 PopupMenuItem(
                   value: 'result',
-                  child: Text('Ergebnis eingeben'),
+                  child: SportMenuLabel(
+                    label: 'Ergebnis eingeben',
+                    icon: Icons.arrow_forward_outlined,
+                  ),
                 ),
                 PopupMenuItem(
                   value: 'cancel',
-                  child: Text('Start zurücknehmen'),
+                  child: SportMenuLabel(
+                    label: 'Start zurücknehmen',
+                    icon: Icons.play_arrow_outlined,
+                  ),
                 ),
               ],
               onSelected: (value) async {
@@ -137,7 +146,10 @@ class OrderOfPlaySection extends StatelessWidget {
                   if (!occupied.contains(board))
                     PopupMenuItem(
                       value: board,
-                      child: Text('Auf Board $board starten'),
+                      child: SportMenuLabel(
+                        label: 'Auf Board $board starten',
+                        icon: Icons.play_arrow_outlined,
+                      ),
                     ),
               ],
               onSelected: (board) async {

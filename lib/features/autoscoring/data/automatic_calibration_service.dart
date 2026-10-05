@@ -9,16 +9,24 @@ import '../domain/ocr_board_numbers.dart';
 import '../domain/board_number_sheet.dart';
 import '../domain/board_geometry.dart';
 import '../domain/board_calibration_refinement.dart';
+import '../domain/dense_board_calibration.dart';
 import '../domain/reference_board_calibration.dart';
 import 'calibration_reference_storage.dart';
 
 AutomaticCalibrationResult _refineCalibration(
   (Uint8List, AutomaticCalibrationResult) input,
-) => AutomaticCalibrationResult(
-  refineBoardCalibration(input.$1, input.$2.calibration),
-  input.$2.numberCount,
-  diagnostics: input.$2.diagnostics,
-);
+) {
+  final refined = refineDenseBoard(
+    input.$1,
+    refineBoardCalibration(input.$1, input.$2.calibration),
+  );
+  return AutomaticCalibrationResult(
+    refined.calibration,
+    input.$2.numberCount,
+    diagnostics: input.$2.diagnostics,
+    quality: refined.metrics,
+  );
+}
 
 abstract class AutomaticCalibrationService {
   Future<AutomaticCalibrationResult> calibrate(Uint8List image);

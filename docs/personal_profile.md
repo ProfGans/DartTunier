@@ -13,3 +13,7 @@ Prüfung: `flutter test test/personal_profile_sync_test.dart test/personal_profi
 ## Dart-Setup
 
 Das persönliche Profil enthält optional Darts/Barrel, Gewicht, Shafts, Flights, Spitzen und weitere Angaben. Das Setup wird im bestehenden privaten Online-Profil mitgespeichert. Es verwendet ein eigenes versioniertes JSON-Objekt `dartSetup` (Version 1). Bestehende Profile ohne dieses Objekt werden beim Lesen auf ein leeres Setup migriert; die Profilversion und bestehenden Datenbank-Zugriffsregeln bleiben kompatibel. Dafür ist keine zusätzliche Servermigration erforderlich.
+
+## Lieblingsdoppel und Checkoutwege
+
+Der Scorer und der Checkoutrechner berücksichtigen das gespeicherte Lieblingsdoppel (D1–D20 oder Bull/D25). Ein erreichbarer Weg auf dieses Finish wird vor den Standardalternativen angezeigt, höchstens fünf eindeutige Wege insgesamt. Im Match gilt die Präferenz ausschließlich für den dem eigenen Account zugeordneten Spieler. Ohne gültige Präferenz, bei nicht erreichbarem Finish oder fehlenden Profildaten bleiben die Standardwege erhalten. Die Out-Regel und verbleibenden Darts werden weiterhin eingehalten; Bot-Strategien bleiben unabhängig davon.

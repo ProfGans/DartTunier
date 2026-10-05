@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../domain/bot/bot_engine.dart';
 import '../domain/scorer_settings.dart';
+import '../domain/scorer_hit.dart';
 import '../domain/scorer_statistics.dart';
 import '../domain/fixed_checkouts.dart';
 import '../domain/visit_score_entry.dart';
@@ -39,6 +40,8 @@ class ScorerController extends ChangeNotifier {
   List<DartThrowResult> visit = [];
   String message = '';
   final List<_Snapshot> _history = [];
+  final List<ScorerHit> _hits = [];
+  List<ScorerHit> get hits => List.unmodifiable(_hits);
   final List<Map<String, dynamic>> _actions = [];
 
   List<Map<String, dynamic>> exportActions() => [
@@ -46,6 +49,24 @@ class ScorerController extends ChangeNotifier {
   ];
 
   /// Replay actual darts (including bot hits), never roll the bot again.
+  void replaceActions(List<dynamic> actions) {
+    final rebuilt = ScorerController(settings)..restoreActions(actions);
+    _statisticsVisits.clear();
+    _statisticsVisits.addAll(rebuilt._statisticsVisits);
+    _hits
+      ..clear()
+      ..addAll(rebuilt._hits);
+    _Snapshot(rebuilt).restore(this);
+    _history
+      ..clear()
+      ..addAll(rebuilt._history);
+    _actions
+      ..clear()
+      ..addAll(rebuilt._actions);
+    rebuilt.dispose();
+    notifyListeners();
+  }
+
   void restoreActions(List<dynamic> actions) {
     if (_actions.isNotEmpty) throw StateError('Spiel ist bereits gestartet');
     final throws = {
@@ -66,6 +87,7 @@ class ScorerController extends ChangeNotifier {
           final dart =
               throws[a['label']] ??
               switch (a['label']) {
+                'MISS' => const X01Rules().createMiss(),
                 'Bouncer' || 'Nicht erkannt' => DartThrowResult(
                   label: a['label'] as String,
                   baseValue: 0,
@@ -77,7 +99,15 @@ class ScorerController extends ChangeNotifier {
                 _ => null,
               };
           if (dart == null) throw const FormatException('Ungültiger Dart');
-          throwDart(dart, checkoutAttempt: a['attempt'] as bool?);
+          throwDart(
+            dart,
+            checkoutAttempt: a['attempt'] as bool?,
+            location: a['location'] == null
+                ? null
+                : DartLocation.fromJson(
+                    Map<String, dynamic>.from(a['location'] as Map),
+                  ),
+          );
         case 'undo':
           undo();
         default:
@@ -234,12 +264,17 @@ class ScorerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void throwDart(DartThrowResult dart, {bool? checkoutAttempt}) {
+  void throwDart(
+    DartThrowResult dart, {
+    bool? checkoutAttempt,
+    DartLocation? location,
+  }) {
     if (isComplete) return;
     _actions.add({
       'type': 'dart',
       'label': dart.label,
       'attempt': checkoutAttempt,
+      if (location != null) 'location': location.toJson(),
     });
     _history.add(_Snapshot(this));
     final canFinish =
@@ -255,6 +290,19 @@ class ScorerController extends ChangeNotifier {
         dart.scoredPoints == remaining &&
         dart.matchesCheckoutRequirement(settings.checkoutRequirement) &&
         canFinish;
+    if (location != null && settings.participants[activePlayer].bot == null) {
+      _hits.add(
+        ScorerHit(
+          location: location,
+          player: activePlayer,
+          leg: _leg,
+          thrower: activeThrower,
+          label: dart.label,
+          points: dart.scoredPoints,
+          checkoutAttempt: successful ? true : checkoutAttempt,
+        ),
+      );
+    }
     if (checkoutAttempt == true || successful) {
       if (_visitCheckoutAttempts != null) {
         _visitCheckoutAttempts = _visitCheckoutAttempts! + 1;
@@ -373,8 +421,10 @@ class _Snapshot {
       message = c.message,
       leg = c._leg,
       statisticsLength = c._statisticsVisits.length,
+      hitsLength = c._hits.length,
       visitCheckoutAttempts = c._visitCheckoutAttempts;
   final int leg, statisticsLength;
+  final int hitsLength;
   final int? visitCheckoutAttempts;
   final List<int> scores, legs, sets;
   final List<bool> opened;
@@ -394,6 +444,7 @@ class _Snapshot {
     c.message = message;
     c._leg = leg;
     c._statisticsVisits.length = statisticsLength;
+    c._hits.length = hitsLength;
     c._visitCheckoutAttempts = visitCheckoutAttempts;
   }
 }

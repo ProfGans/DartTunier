@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_menu.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data/app_push_repository.dart';
@@ -38,17 +39,19 @@ class _PushSenderMenuState extends State<PushSenderMenu> {
   @override
   Widget build(BuildContext context) => !allowed
       ? const SizedBox.shrink()
-      : Card(
-          child: ListTile(
-            leading: const Icon(Icons.notifications_active_outlined),
-            title: const Text('Push-Nachricht senden'),
-            subtitle: const Text('Nachricht an andere App-Geräte'),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => PushSenderPage(repository: repository),
+      : SportMenuGroup(
+          title: 'Nachrichten',
+          actions: [
+            SportMenuAction(
+              icon: Icons.notifications_active_outlined,
+              label: 'Push-Nachricht senden',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => PushSenderPage(repository: repository),
+                ),
               ),
             ),
-          ),
+          ],
         );
 }

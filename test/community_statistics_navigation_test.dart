@@ -84,10 +84,16 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(home: CommunityStatisticsPreview()),
       );
-      expect(
-        tester.getTopLeft(find.text('Spielerstatistiken')).dy,
-        lessThan(tester.getTopLeft(find.text('Spielervergleich')).dy),
+      await tester.scrollUntilVisible(
+        find.text('Spielerstatistiken'),
+        200,
+        scrollable: find.byType(Scrollable).first,
       );
+      await Scrollable.ensureVisible(
+        tester.element(find.text('Spielerstatistiken')),
+        alignment: .5,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Spielerstatistiken'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Carla');
@@ -96,7 +102,8 @@ void main() {
       await tester.tap(find.text('Carla ohne Spiele'));
       await tester.pumpAndSettle();
       expect(find.byType(CommunityPlayerStatisticsPage), findsOneWidget);
-      expect(find.text('0 Turniere · 0 Spiele'), findsOneWidget);
+      expect(find.text('Statistik-Cockpit'), findsOneWidget);
+      expect(find.text('Ausführliches Statistik-Cockpit'), findsNothing);
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(find.text('Carla'), findsOneWidget);
@@ -106,14 +113,29 @@ void main() {
       expect(find.text('Keine Spieler gefunden.'), findsOneWidget);
     },
   );
-  testWidgets('comparison remains reachable', (tester) async {
+  testWidgets('detailed community cockpit replaces the old menu', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(home: CommunityStatisticsPreview()),
     );
-    await tester.tap(find.text('Spielervergleich'));
+    await tester.scrollUntilVisible(find.text('Kennzahl vergleichen'), 200);
+    expect(find.text('Kennzahl vergleichen'), findsOneWidget);
+    expect(find.text('Spielervergleich'), findsNothing);
+    expect(find.text('Statistik-Cockpit'), findsNothing);
+    for (
+      var i = 0;
+      i < 30 && find.text('Alle Spielerstatistiken').evaluate().isEmpty;
+      i++
+    ) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -200));
+      await tester.pumpAndSettle();
+    }
+    await tester.ensureVisible(find.text('Alle Spielerstatistiken').first);
     await tester.pumpAndSettle();
-    expect(find.text('Benjamin'), findsOneWidget);
-    expect(find.text('1 Turniere · 1 Spiele'), findsNWidgets(2));
+    await tester.tap(find.text('Alle Spielerstatistiken').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Statistik-Cockpit'), findsOneWidget);
   });
   for (final size in [
     const Size(360, 800),
@@ -136,6 +158,16 @@ void main() {
           home: const CommunityStatisticsPreview(),
         ),
       );
+      await tester.scrollUntilVisible(
+        find.text('Spielerstatistiken'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await Scrollable.ensureVisible(
+        tester.element(find.text('Spielerstatistiken')),
+        alignment: .5,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Spielerstatistiken'));
       await tester.pumpAndSettle();
       expect(find.byType(CommunityStatisticsPlayersPage), findsOneWidget);

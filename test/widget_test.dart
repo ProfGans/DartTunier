@@ -1415,7 +1415,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Account erstellen'));
+    await tester.tap(find.text('Account erstellen'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Theo');
@@ -1438,10 +1438,10 @@ void main() {
     expect(find.text('Theo'), findsOneWidget);
     expect(find.text('theo.widget@example.local'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Abmelden'));
+    await tester.tap(find.text('Abmelden'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Nicht angemeldet'), findsOneWidget);
+    expect(find.text('Anmelden'), findsOneWidget);
   });
 }
 

@@ -1,3 +1,4 @@
+import '../../../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import '../../../domain/tournament_models.dart';
 
@@ -85,11 +86,18 @@ class TeamParticipantList extends StatelessWidget {
                                   '${players[i].members.length} Spieler · ${players[i].members.map((p) => p.name).join(', ')}',
                                 ),
                               if (players[i].bot != null)
-                                Text('Bot · Ziel-Average ${players[i].bot!.targetAverage.toStringAsFixed(1)}'),
+                                Text(
+                                  'Bot · Ziel-Average ${players[i].bot!.targetAverage.toStringAsFixed(1)}',
+                                ),
                               Wrap(
                                 children: [
-                                  if(players[i].bot!=null && onEditBot!=null)
-                                    TextButton.icon(onPressed:()=>onEditBot!(i),icon:const Icon(Icons.tune),label:const Text('Bot-Stärke')),
+                                  if (players[i].bot != null &&
+                                      onEditBot != null)
+                                    TextButton.icon(
+                                      onPressed: () => onEditBot!(i),
+                                      icon: const Icon(Icons.tune),
+                                      label: const Text('Bot-Stärke'),
+                                    ),
                                   IconButton(
                                     tooltip: 'Umbenennen',
                                     onPressed: () => onRename(i),
@@ -109,14 +117,19 @@ class TeamParticipantList extends StatelessWidget {
                                       if (players.length > 1)
                                         const PopupMenuItem(
                                           value: 'merge',
-                                          child: Text(
-                                            'Mit Spieler / Team verbinden',
+                                          child: SportMenuLabel(
+                                            label:
+                                                'Mit Spieler / Team verbinden',
+                                            icon: Icons.group_add_outlined,
                                           ),
                                         ),
                                       if (players[i].isTeam)
                                         const PopupMenuItem(
                                           value: 'split',
-                                          child: Text('Team auflösen'),
+                                          child: SportMenuLabel(
+                                            label: 'Team auflösen',
+                                            icon: Icons.group_remove_outlined,
+                                          ),
                                         ),
                                     ],
                                   ),

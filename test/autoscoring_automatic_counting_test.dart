@@ -74,6 +74,25 @@ void observe(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('Pause and resume preserve occupied board and calibration', () {
+    final c = createController([]);
+    observe(c, frames(1));
+    final reference = c.cameras.first.reference;
+    final empty = c.cameras.first.emptyReference;
+    final calibration = c.cameras.first.calibration;
+    final count = c.throws.length;
+    c.pauseRecognition();
+    expect(c.running, false);
+    expect(c.cameras.length, 3);
+    expect(c.resumeRecognition(), true);
+    expect(identical(c.cameras.first.reference, reference), true);
+    expect(identical(c.cameras.first.emptyReference, empty), true);
+    expect(identical(c.cameras.first.calibration, calibration), true);
+    expect(c.throws.length, count);
+    observe(c, frames(1));
+    expect(c.throws.length, count);
+    c.dispose();
+  });
   test(
     'Background motion does not lock the next visit after pulling darts',
     () {
@@ -191,7 +210,11 @@ void main() {
           })(),
       ];
       observe(c, blocked, 8);
-      expect(counted.single, same(AutoscoringController.unresolvedThrow));
+      expect(
+        counted.single.label,
+        isNot(AutoscoringController.unresolvedThrow.label),
+      );
+      expect(c.lastHit!.forcedDecision, isTrue);
       observe(c, blocked, 8);
       expect(counted.length, 1);
       observe(c, frames(0, hand: true), 8);
@@ -206,7 +229,7 @@ void main() {
       final c = createController(counted);
       addTearDown(c.dispose);
       final dart = frames(1);
-      for (var sample = 0; sample < 3; sample++) {
+      for (var sample = 0; sample < 4; sample++) {
         c.processFrames([
           dart[0],
           dart[1],
@@ -219,6 +242,34 @@ void main() {
       }
       expect(counted.single.label, 'T20');
       expect(c.lastHit!.views, 2);
+      await c.stop();
+    },
+  );
+  test(
+    'Localized dart evidence commits despite two persistently unsettled views',
+    () async {
+      final counted = <DartThrowResult>[];
+      final c = createController(counted);
+      addTearDown(c.dispose);
+      final dart = frames(1);
+      for (var sample = 0; sample < 9 && counted.isEmpty; sample++) {
+        c.processFrames([
+          dart[0],
+          for (var camera = 1; camera < 3; camera++)
+            (() {
+              final pixels = Uint8List.fromList(dart[camera].pixels);
+              for (var y = 210; y < 240; y++) {
+                for (var x = 140; x < 170; x++) {
+                  pixels[y * 320 + x] = sample.isEven ? 180 : 0;
+                }
+              }
+              return GrayFrame(320, 320, pixels);
+            })(),
+        ]);
+      }
+      expect(counted.length, 1);
+      expect(counted.single.label, isNot('Nicht erkannt'));
+      expect(c.lastHit!.forcedDecision, isTrue);
       await c.stop();
     },
   );
@@ -255,7 +306,7 @@ void main() {
       addTearDown(c.dispose);
       for (var darts = 1; darts <= 4; darts++) {
         // Five-pixel shafts offset by just one pixel leave a narrow new edge.
-        observe(c, frames(darts, spacing: 1), 3);
+        observe(c, frames(darts, spacing: 1), 4);
         expect(counted.length, darts);
         observe(c, frames(darts, spacing: 1), 3);
         expect(counted.length, darts);

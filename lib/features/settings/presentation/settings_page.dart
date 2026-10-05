@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_section_navigation.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import '../../backups/presentation/backup_panel.dart';
 import '../../updates/presentation/android_updates_panel.dart';
@@ -29,12 +30,30 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Einstellungen')),
     body: SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact =
-              constraints.maxWidth < 840 ||
-              MediaQuery.textScalerOf(context).scale(16) > 24;
-          final content = Expanded(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SportSectionNavigation<int>(
+              label: 'Bereich',
+              selected: _selected,
+              onChanged: (value) => setState(() => _selected = value),
+              sections: [
+                for (var i = 0; i < _sections.length; i++)
+                  SportSection(
+                    i,
+                    _sections[i],
+                    [
+                      Icons.tune,
+                      Icons.backup_outlined,
+                      Icons.system_update_outlined,
+                      Icons.smart_toy_outlined,
+                    ][i],
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
             child: IndexedStack(
               key: _panelsKey,
               index: _selected,
@@ -45,60 +64,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 BotSettingsPanel(),
               ],
             ),
-          );
-          if (compact) {
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: DropdownButtonFormField<int>(
-                    isDense: false,
-                    itemHeight: null,
-                    initialValue: _selected,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Bereich'),
-                    items: [
-                      for (var i = 0; i < _sections.length; i++)
-                        DropdownMenuItem(value: i, child: Text(_sections[i])),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) setState(() => _selected = value);
-                    },
-                  ),
-                ),
-                content,
-              ],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: 240,
-                child: ListView(
-                  primary: false,
-                  padding: const EdgeInsets.all(8),
-                  children: [
-                    for (var i = 0; i < _sections.length; i++)
-                      ListTile(
-                        selected: _selected == i,
-                        selectedTileColor: Theme.of(
-                          context,
-                        ).colorScheme.secondaryContainer,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        title: Text(_sections[i]),
-                        onTap: () => setState(() => _selected = i),
-                      ),
-                  ],
-                ),
-              ),
-              const VerticalDivider(width: 1),
-              content,
-            ],
-          );
-        },
+          ),
+        ],
       ),
     ),
   );

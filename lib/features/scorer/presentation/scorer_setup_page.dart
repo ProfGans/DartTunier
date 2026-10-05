@@ -1,3 +1,4 @@
+import 'widgets/scorer_doubles_dialog.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
 import '../../accounts/domain/account_user.dart';
@@ -22,8 +23,10 @@ class ScorerSetupPage extends StatefulWidget {
     this.account,
     required this.opponents,
     this.lobbyRepository,
+    this.remoteStart,
   });
   final ScorerLobbyRepository? lobbyRepository;
+  final Future<bool> Function(ScorerSettings settings)? remoteStart;
   final AccountUser? account;
   final ScorerOpponents opponents;
   final BotSettingsStorage? botStorage;
@@ -111,6 +114,20 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
   Future<void> _start() async {
     if (loading || lobby.busy) return;
     if (!form.currentState!.validate()) return;
+    final humanNames = participants
+        .where((p) => !p.bot)
+        .expand(
+          (p) => p.teamMembers.isEmpty ? [p.name.text.trim()] : p.teamMembers,
+        )
+        .map((name) => name.toLowerCase())
+        .toList();
+    if (humanNames.toSet().length != humanNames.length) {
+      setState(
+        () => error =
+            'Ein Spieler darf nur einem Teilnehmer oder Doppelteam zugeordnet sein. Bitte doppelte Namen prüfen.',
+      );
+      return;
+    }
     // ListView can unmount fields outside its viewport; validate the full draft.
     final inputErrors = [
       _number(score.text),
@@ -182,7 +199,9 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
         }
         resolvedParticipants.add(
           ScorerParticipant(
-            p.name.text.trim(),
+            p.teamMembers.isEmpty
+                ? p.name.text.trim()
+                : p.teamMembers.join(' / '),
             accountId: p.accountId,
             startScore: int.tryParse(p.score.text),
             bot: profile,
@@ -202,6 +221,19 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
       );
       if (!mounted) return;
       final profilePlayer = widget.account == null ? null : 0;
+      if (widget.remoteStart != null) {
+        final accepted = await widget.remoteStart!(settings);
+        if (!mounted) return;
+        if (accepted) {
+          Navigator.of(context).pop();
+        } else {
+          setState(
+            () => error =
+                'Das Hauptgerät hat den Spielstart nicht bestätigt. Verbindung und laufende Partie prüfen.',
+          );
+        }
+        return;
+      }
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => ScorerMatchPage(
@@ -255,9 +287,7 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
               'X01 einrichten',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const Text(
-              'Best of 5 bedeutet: drei Siege zum Gewinn.',
-            ),
+            const Text('Best of 5 bedeutet: drei Siege zum Gewinn.'),
             TextFormField(
               controller: score,
               keyboardType: TextInputType.number,
@@ -434,12 +464,48 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
                   v == null || v.trim().isEmpty ? 'Name eingeben.' : null,
             ),
             if (p.accountId != null) const Text('Mit Konto angemeldet'),
-            if (!p.bot) TextFormField(
-              controller: p.partners,
-              decoration: const InputDecoration(labelText: 'Teammitglieder ergänzen (optional)',
-                helperText: 'Ein zusätzlicher Name pro Zeile. Gemeinsam ein Punktestand; Wurfreihenfolge: oben genannter Spieler, dann diese Mitglieder.', helperMaxLines: 5),
-              minLines: 1, maxLines: 6,
-            ),
+            if (!p.bot) ...[
+              if (p.teamMembers.isNotEmpty)
+                Text('Doppel: ${p.teamMembers.join(' / ')}'),
+              Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: loading
+                        ? null
+                        : () async {
+                            final members = await showDialog<List<String>>(
+                              context: context,
+                              builder: (_) => ScorerDoublesDialog(
+                                first: p.name.text,
+                                second: p.partners.text,
+                                lockFirst: p.accountId != null,
+                                allowCommunity: widget.account != null,
+                              ),
+                            );
+                            if (!mounted || members == null) return;
+                            setState(() {
+                              p.name.text = members[0];
+                              p.partners.text = members[1];
+                            });
+                          },
+                    icon: const Icon(Icons.group_add_outlined),
+                    label: Text(
+                      p.teamMembers.isEmpty
+                          ? 'Doppelteam erstellen'
+                          : 'Doppelteam bearbeiten',
+                    ),
+                  ),
+                  if (p.teamMembers.isNotEmpty)
+                    TextButton(
+                      onPressed: loading
+                          ? null
+                          : () => setState(p.partners.clear),
+                      child: const Text('Als Einzelspieler spielen'),
+                    ),
+                ],
+              ),
+            ],
             TextFormField(
               controller: p.score,
               keyboardType: TextInputType.number,
@@ -481,9 +547,14 @@ class _ParticipantInput {
   final TextEditingController name;
   final partners = TextEditingController();
   List<String> get teamMembers {
-    final others = partners.text.split('\n').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final others = partners.text
+        .split('\n')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
     return others.isEmpty ? const [] : [name.text.trim(), ...others];
   }
+
   final score = TextEditingController();
   final average = TextEditingController(text: '60');
   bool useTheo = true;

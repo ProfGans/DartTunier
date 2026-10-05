@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../../scorer/domain/x01/x01_models.dart';
 import '../data/autoscore_diagnostic_export.dart';
 import '../domain/board_geometry.dart';
+import '../domain/correction_analysis.dart';
 
 class ReviewedAutoscoreThrow {
   ReviewedAutoscoreThrow(this.detected, this.evidence);
@@ -36,6 +37,15 @@ class AutoscoreDemoController extends ChangeNotifier {
   double? get accuracyPercent =>
       reviewedCount == 0 ? null : 100 * correctCount / reviewedCount;
   int get totalPoints => throws.fold(0, (sum, dart) => sum + dart.scoredPoints);
+  Map<String, Object?> get correctionAnalysis => analysePositionCorrections([
+    for (final entry in _history)
+      if (entry.correctedPoint != null)
+        PositionCorrectionSample(entry.correctedPoint!, entry.detectedPoint, [
+          for (final camera
+              in entry.evidence?.cameras ?? <AutoscoreCameraEvidence>[])
+            (camera.metadata['axis'] as Map?)?.cast<String, Object?>(),
+        ]),
+  ]);
 
   void add(DartThrowResult result, {AutoscoreEvidence? evidence}) {
     _history.add(ReviewedAutoscoreThrow(result, evidence));

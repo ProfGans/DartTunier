@@ -28,7 +28,7 @@ class AccountClientPreview extends RemoteClientController {
   @override
   bool get connected => _connected;
   @override
-  Future<void> connect(String address, String key, {int port = RemoteHostController.port, String mode = 'code', String name = 'Fernbedienung'}) async {
+  Future<void> connect(String address, String key, {int port = RemoteHostController.port, String mode = 'code', String name = 'Fernbedienung', bool actions = false}) async {
     receivedKey = key; receivedMode = mode;
     image = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6nEAAAAASUVORK5CYII=');
     width = 800; height = 600; _connected = true; notifyListeners();

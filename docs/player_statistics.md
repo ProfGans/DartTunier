@@ -60,3 +60,9 @@ Die vorhandene Community-Statistik übernimmt Community-Abgrenzung, Alias-Zuordn
 - `test/responsive_pages_test.dart`: Profil und Community-Statistik in der gemeinsamen Groessen-/Schriftmatrix; optionale PNG-Vorschauen.
 
 Serverseitige Migration und RLS muessen nach der Installation zusaetzlich mit zwei echten Accounts geprueft werden. Die lokalen Synchronisierungstests verwenden simulierte Uploads/Downloads; sie ersetzen keinen Live-Test der Supabase-Konfiguration.
+
+## Statistik-Cockpit
+
+Die erweiterten Spieler- und Community-Ansichten mit 40 Kennzahlen, eigenen Detailseiten, Verlaufsgrafiken, Form, Verteilungen und Vergleichen sind in `docs/statistics_analytics.md` beschrieben. Das ausführliche Cockpit ersetzt die bisherigen kompakten Profil- und Community-Statistikseiten.
+
+Das ausführliche Statistik-Cockpit ist die Standardansicht: direkt im eigenen Profil und im Community-Statistikbereich, beim Öffnen normaler Spielerprofile sowie in Community-Spielerprofilen. Gespeicherte Scorer-Spiele öffnen ebenfalls das Cockpit. Bearbeiten bleibt über die Spieleraktionen erreichbar; Highlights und Trends bleiben erhalten.

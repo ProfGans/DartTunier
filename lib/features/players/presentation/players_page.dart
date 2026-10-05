@@ -1,3 +1,6 @@
+import '../../../shared/widgets/sport_menu.dart';
+import '../../../shared/widgets/sport_page_heading.dart';
+import '../../statistics/presentation/local_player_statistics_page.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
 
@@ -5,7 +8,7 @@ import '../../tournaments/data/app_database.dart';
 
 class PlayersPage extends StatefulWidget {
   const PlayersPage({super.key, LocalAppDatabase? database})
-      : _database = database;
+    : _database = database;
 
   final LocalAppDatabase? _database;
 
@@ -76,13 +79,8 @@ class _PlayersPageState extends State<PlayersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Spieler'),
-        backgroundColor: colorScheme.primaryContainer,
-      ),
+      appBar: AppBar(title: const Text('Spieler')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openPlayerDialog(),
         icon: const Icon(Icons.person_add_alt_1_outlined),
@@ -96,20 +94,11 @@ class _PlayersPageState extends State<PlayersPage> {
             return AdaptiveContentList(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
               children: [
-                Icon(Icons.groups_outlined, size: 64, color: colorScheme.primary),
-                const SizedBox(height: 16),
-                Text(
-                  'Spieler verwalten',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Spielerprofile anlegen und fuer Turniere vorbereiten.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge,
+                const SportPageHeading(
+                  title: 'Spieler verwalten',
+                  subtitle:
+                      'Dein Team im Blick. Spielerprofile anlegen und für Turniere vorbereiten.',
+                  icon: Icons.groups_outlined,
                 ),
                 const SizedBox(height: 24),
                 if (snapshot.connectionState == ConnectionState.waiting)
@@ -130,22 +119,64 @@ class _PlayersPageState extends State<PlayersPage> {
                         ),
                         title: Text(player.displayName),
                         subtitle: Text(_subtitleFor(player)),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              onPressed: () => _openPlayerDialog(player),
-                              icon: const Icon(Icons.edit_outlined),
-                              tooltip: 'Spieler bearbeiten',
+                        trailing: PopupMenuButton<String>(
+                          tooltip: 'Spieleraktionen',
+                          onSelected: (action) {
+                            if (action == 'edit') {
+                              _openPlayerDialog(player);
+                            }
+                            if (action == 'deactivate') {
+                              _deactivatePlayer(player);
+                            }
+                            if (action == 'statistics') {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => LocalPlayerStatisticsPage(
+                                    name: player.displayName,
+                                    profileIds: {
+                                      player.id,
+                                      if (player.userId != null) player.userId!,
+                                    },
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(
+                              value: 'statistics',
+                              child: SportMenuLabel(
+                                label: 'Profilstatistiken öffnen',
+                                icon: Icons.bar_chart_outlined,
+                              ),
                             ),
-                            IconButton(
-                              onPressed: () => _deactivatePlayer(player),
-                              icon: const Icon(Icons.person_remove_outlined),
-                              tooltip: 'Spieler deaktivieren',
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: SportMenuLabel(
+                                label: 'Spieler bearbeiten',
+                                icon: Icons.edit_outlined,
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'deactivate',
+                              child: SportMenuLabel(
+                                label: 'Spieler deaktivieren',
+                                icon: Icons.arrow_forward_outlined,
+                              ),
                             ),
                           ],
                         ),
-                        onTap: () => _openPlayerDialog(player),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => LocalPlayerStatisticsPage(
+                              name: player.displayName,
+                              profileIds: {
+                                player.id,
+                                if (player.userId != null) player.userId!,
+                              },
+                            ),
+                          ),
+                        ),
                       ),
                     ),
               ],
@@ -297,10 +328,7 @@ class _PlayerDialogState extends State<_PlayerDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Abbrechen'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Speichern'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('Speichern')),
       ],
     );
   }

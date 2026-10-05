@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/supabase_community_repository.dart';
@@ -247,7 +248,10 @@ class _CommunityMembersSectionState extends State<CommunityMembersSection> {
                       if (canManage && member.isManual)
                         const PopupMenuItem(
                           value: 'assign',
-                          child: Text('Account zuordnen'),
+                          child: SportMenuLabel(
+                            label: 'Account zuordnen',
+                            icon: Icons.arrow_forward_outlined,
+                          ),
                         ),
                       if (member.userId != widget.community.ownerUserId &&
                           widget.permissions?.allows(
@@ -256,7 +260,10 @@ class _CommunityMembersSectionState extends State<CommunityMembersSection> {
                               true)
                         const PopupMenuItem(
                           value: 'remove',
-                          child: Text('Mitglied entfernen'),
+                          child: SportMenuLabel(
+                            label: 'Mitglied entfernen',
+                            icon: Icons.person_remove_outlined,
+                          ),
                         ),
                     ],
                   )

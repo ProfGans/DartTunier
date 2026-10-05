@@ -5,8 +5,10 @@
 1. Die aktualisierte App auf Hauptgerät und Handy öffnen. Beide Geräte müssen sich im selben lokalen Netzwerk befinden.
 2. Am Hauptgerät unter **Geräte → App fernsteuern** die Freigabe aktivieren. Sie bleibt als Einstellung gespeichert und wird nach einem App-Neustart wieder gestartet. **Freigabe beenden** schaltet sie dauerhaft aus.
 3. Auf dem Handy unter **Geräte → Anderes Gerät fernsteuern** den QR-Code scannen oder IP-Adresse und vollständigen Kopplungscode eingeben. Bei mehreren Netzwerkadaptern den QR-Code der WLAN-/LAN-Adresse wählen, die das Handy erreichen kann.
-4. Die angezeigte Oberfläche bedienen: Antippen, Ziehen und Scrollen wirken auf die laufende Sitzung des Hauptgeräts. Für kleine Elemente zunächst **Zoom / Verschieben**, anschließend **Bedienen** wählen.
-5. Für Texte ein Eingabefeld am Hauptgerät antippen und **Text eingeben** öffnen. **Übernehmen** aktualisiert das Feld einschließlich seiner bestehenden Eingabeprüfung. **Eingabe bestätigen** löst die Abschlussaktion des fokussierten Feldes aus.
+4. Standardmäßig öffnet sich ein eigener Scorer auf dem Handy. Eine bereits am Hauptgerät geöffnete Partie erscheint automatisch. Alternativ auf dem Handy Spieler/Bots und Spielregeln einrichten und die Partie am Hauptgerät starten.
+5. Punkte, Überworfen und Rückgängig werden als Aktionen an das Hauptgerät übertragen. Das Hauptgerät bestätigt sie mit dem aktuellen Spielstand. Erkannte Autoscoring-Würfe, Legs, Sets, Spielerwechsel und Statistiken erscheinen auf beiden Geräten.
+
+**Bildschirmspiegelung verwenden** ist standardmäßig aus. Für andere App-Bereiche kann diese Option vor dem Verbinden eingeschaltet werden. Dann wirken Antippen, Ziehen, Scrollen, **Text eingeben**, **Eingabe bestätigen** und **Zurück am Hauptgerät** auf dessen Flutter-Oberfläche. Für kleine Elemente zunächst **Zoom / Verschieben**, anschließend **Bedienen** wählen.
 
 **Zurück am Hauptgerät** bedient dessen Navigator. Der Zurück-Pfeil in der Handy-App verlässt die Fernsteuerung. **Trennen** lässt die Sitzung auf dem Hauptgerät unverändert weiterlaufen. Eine erneute Verbindung lädt die aktuelle Oberfläche; Eingaben werden bei einem Abbruch nicht nachträglich wiederholt.
 
@@ -25,7 +27,7 @@ Ein Account-Wechsel oder Abmelden widerruft den lokalen Account-Zugang und trenn
 
 ### Einmalige Servereinrichtung
 
-Für Account-Verbindungen muss `supabase/migrations/202610030006_account_remote_control.sql` im bestehenden Supabase-Projekt eingespielt werden. Die Migration wurde lokal geprüft, aber in dieser Sitzung nicht auf dem Live-Server ausgeführt: Es steht kein verbundener Supabase-Verwaltungszugang zur Verfügung. Die lokale Bestätigungseinstellung und QR-Verbindungen funktionieren unabhängig von dieser Migration.
+Für Account-Verbindungen wird `supabase/migrations/202610030006_account_remote_control.sql` benötigt. Sie wurde am 03.10.2026 im bestehenden Supabase-Projekt `hnsyvqtqxdsbbyrayobv` über die angemeldete Dashboard-Sitzung erfolgreich ausgeführt. Die lokale Bestätigungseinstellung und QR-Verbindungen funktionieren unabhängig von dieser Migration. Der neue Aktionsmodus verwendet dieselbe Account-Freigabe und benötigt keine weitere Datenbankmigration.
 
 Die Tabelle `account_remote_devices` enthält pro Gerät einen zufälligen, aktuellen Freigabeschlüssel und dessen LAN-Adressen. Row-Level Security erlaubt ausschließlich dem angemeldeten Eigentümer das Lesen und Ändern; anonyme Nutzer und andere Accounts können weder Schlüssel lesen noch Freigaben überschreiben. Die App lädt den Account-Schlüssel über die bereits authentifizierte HTTPS-Verbindung. Login- oder Refresh-Tokens werden nicht an andere LAN-Geräte gesendet. Der Account-Schlüssel ist vom QR-Schlüssel getrennt und wird lokal beim Beenden oder Account-Wechsel ungültig. Beim regulären Beenden wird außerdem der Servereintrag gelöscht; nach einem Absturz kann ein veralteter Eintrag sichtbar bleiben, dessen Schlüssel beim nächsten Start nicht mehr akzeptiert wird.
 
@@ -33,7 +35,9 @@ Die Registrierung und das Abrufen der Account-Freigabe benötigen Internetzugrif
 
 ## Funktionsumfang und Grenzen
 
-Die Fernbedienung spiegelt die gesamte Flutter-Oberfläche, einschließlich Navigation, Turnieren, Scorer, Autoscoring, Einstellungen, App-Dialogen und Board-Anzeige. Fachlogik, Kameraverarbeitung, Kontositzung und Speicherung bleiben auf dem Hauptgerät. Es entsteht keine zweite Kopie des Turnierzustands; die Turnier-Persistenz bleibt unverändert.
+Im Standardmodus rendert das Handy den normalen responsiven Scorer aus Spielregeln und dem tatsächlichen Wurfverlauf. Es werden keine Bilder übertragen. Das Hauptgerät allein führt die Partie, spielt Bots, verarbeitet Kameras, speichert Statistiken und gibt Ergebnisse an die Turnierleitung weiter. Die Handy-Ansicht führt keine zweite Bot-Simulation aus und speichert keine doppelten Statistiken.
+
+Autoscoring am Hauptgerät mit mindestens drei verfügbaren Kameras lässt sich vom Handy starten. Erkannte Darts und vorläufiger Spielstand werden zurückgegeben; die Aufnahme kann am Handy übernommen oder das Autoscoring beendet werden. Beenden verwirft eine noch nicht übernommene Aufnahme entsprechend der bestehenden Scorer-Logik. Kamerabilder, Kalibrierung und Kamera-Auswahl bleiben am Hauptgerät. Andere App-Bereiche verwenden weiterhin die optional aktivierbare Bildschirmspiegelung.
 
 Das Hauptgerät muss geöffnet sein und seine Oberfläche rendern können. Die Verbindung ist für WLAN/LAN vorgesehen, ohne Internet-Relay. Die Firewall muss TCP-Port **45875** zulassen. Ein Gast-WLAN mit Geräteisolierung verhindert die Verbindung. Die vorhandene Geräteerkennung und Board-Übertragung behalten ihre eigenen Ports und Kopplungen.
 
@@ -43,7 +47,9 @@ Native Betriebssystemfenster, etwa der Datei-Auswahldialog, externe Browser für
 
 Eigenes Feature unter `lib/features/remote_control/`: Application-Controller für Host und Client, ein verschlüsselter Kanal unter `data/`, versionierter QR-Code unter `domain/`, getrennte Widgets unter `presentation/`. `main.dart` bleibt Bootstrap. Die App-Shell stellt den Host-Scope und eine RepaintBoundary über den vollständigen Navigator bereit.
 
-Pro Verbindung wird eine neue Zufalls-Challenge erzeugt. Der 256-Bit-Kopplungscode authentifiziert den Client mit HMAC-SHA256. Für jede Übertragungsrichtung werden eigene Sitzungsschlüssel abgeleitet. Oberflächenbilder und Bedienaktionen werden mit AES-256-GCM verschlüsselt; streng fortlaufende Sequenznummern verhindern Wiederholung. Der Client prüft den Host durch dessen erste authentifiziert verschlüsselte Antwort. Der Code wird nicht im Netzwerk übertragen oder gespeichert.
+Pro Verbindung wird eine neue Zufalls-Challenge erzeugt. Der 256-Bit-Kopplungscode authentifiziert den Client mit HMAC-SHA256. Für jede Übertragungsrichtung werden eigene Sitzungsschlüssel abgeleitet. Spielzustände, Bedienaktionen und optional Oberflächenbilder werden mit AES-256-GCM verschlüsselt; streng fortlaufende Sequenznummern verhindern Wiederholung. Der Client prüft den Host durch dessen erste authentifiziert verschlüsselte Antwort. Der Code wird nicht im Netzwerk übertragen oder gespeichert.
+
+`RemoteScorerHost` bindet sich an den bereits vorhandenen `ScorerController`; dieselbe Anbindung gilt für freie und geräteverwaltete Partien. `RemoteScorerClient` baut die lokale Präsentation aus dessen aufgezeichneten Aktionen auf. Neue Eingaben verändern diese Ansicht erst nach der Bestätigung vom Hauptgerät. Jede Aktion trägt eine eindeutige ID, Partie-ID und erwartete Revision; doppelte und veraltete Eingaben werden abgefangen. Während einer Kameraufnahme oder eines Bot-Wurfs sind manuelle Punkte gesperrt. Bei fehlender Bestätigung nach zehn Sekunden bleiben weitere Eingaben bis zur Wiederverbindung gesperrt. Es gibt keine automatische Wiederholung unbestätigter Eingaben. Eine Wiederverbindung lädt den tatsächlichen aktuellen Verlauf. Zustände werden bei Änderung mit maximal 250 ms Abfrageintervall übertragen, Bildaufnahme bleibt im Aktionsmodus ausgeschaltet.
 
 Nur ein Bild wartet gleichzeitig auf Bestätigung. Eine ausgebliebene Bildbestätigung beendet die Verbindung nach 15 Sekunden. Socket-Pings erkennen abgebrochene Verbindungen. Fensterwechsel verwerfen alte Koordinaten und brechen laufende Fernbedienungs-Gesten ab. Texteingaben sind an das tatsächlich fokussierte Eingabefeld gebunden; Passwörter werden nicht als Klartext ins Texteditor-Metadatum übernommen. Alle Texte werden über `EditableTextState` mit den vorhandenen Formatierern verarbeitet.
 
@@ -52,6 +58,7 @@ Nur ein Bild wartet gleichzeitig auf Bestätigung. Eine ausgebliebene Bildbestä
 ```powershell
 flutter analyze
 flutter test test/remote_control_test.dart test/remote_account_control_test.dart test/remote_control_widget_test.dart test/remote_settings_widget_test.dart
+flutter test test/remote_scorer_test.dart test/remote_scorer_widget_test.dart
 flutter test test/adaptive_layout_test.dart test/responsive_pages_test.dart
 flutter test test/tournament_simulation_matrix_test.dart
 ```

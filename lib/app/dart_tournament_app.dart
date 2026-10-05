@@ -13,6 +13,7 @@ import '../features/devices/presentation/board_display_view.dart';
 import '../features/devices/presentation/pairing_request_view.dart';
 import '../features/remote_control/application/remote_host_controller.dart';
 import '../features/remote_control/presentation/remote_host_surface.dart';
+import '../features/scorer/presentation/scorer_match_page.dart';
 
 class DartTournamentApp extends StatefulWidget {
   const DartTournamentApp({super.key});
@@ -34,6 +35,23 @@ class _DartTournamentAppState extends State<DartTournamentApp>
     WidgetsBinding.instance.addObserver(this);
     _tournamentSync.start();
     _devices = DevicesController();
+    _remoteHost.scorer.startMatch = (settings) async {
+      final navigator = _navigatorKey.currentState;
+      if (navigator == null) throw StateError('Navigation noch nicht bereit');
+      final profile = settings.participants.indexWhere(
+        (p) => p.accountId != null && p.accountId == _remoteHost.accountId,
+      );
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => ScorerMatchPage(
+            settings: settings,
+            accountId: profile < 0 ? null : _remoteHost.accountId,
+            profilePlayerIndex: profile < 0 ? null : profile,
+          ),
+        ),
+      );
+      await WidgetsBinding.instance.endOfFrame;
+    };
     _initializeRemote();
   }
 

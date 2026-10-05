@@ -2192,14 +2192,31 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       appBar: AppBar(
         title: Text(widget.tournament.name),
         actions: [
-          IconButton(tooltip: 'Boards auf Geräte übertragen',
-            onPressed: _openBoardDevices, icon: const Icon(Icons.connected_tv)),
-          IconButton(
-            tooltip: 'Hauptmenue',
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.home_outlined),
+          SportActionsMenu(
+            label: 'Turnier',
+            actions: [
+              SportMenuAction(
+                label: 'Statistik und Highlights',
+                icon: Icons.auto_awesome,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        TournamentHighlightsPage(tournament: widget.tournament),
+                  ),
+                ),
+              ),
+              SportMenuAction(
+                label: 'Boards auf Geräte übertragen',
+                icon: Icons.connected_tv,
+                onTap: _openBoardDevices,
+              ),
+              SportMenuAction(
+                label: 'Hauptmenue',
+                icon: Icons.home_outlined,
+                onTap: () =>
+                    Navigator.of(context).popUntil((route) => route.isFirst),
+              ),
+            ],
           ),
         ],
       ),
@@ -2217,7 +2234,6 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 rethrow;
               }
             }),
-            TournamentHighlightsButton(tournament: widget.tournament),
             StageProgressBar(
               stages: widget.tournament.runStages,
               activeStageIndex: _viewStageIndex,

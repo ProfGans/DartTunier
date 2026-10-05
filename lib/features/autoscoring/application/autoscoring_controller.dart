@@ -9,6 +9,10 @@ import '../domain/board_geometry.dart';
 import '../domain/frame_detector.dart';
 import '../domain/automatic_visit_reset.dart';
 import '../domain/automatic_bounce_detector.dart';
+import '../domain/multi_camera_consensus.dart';
+import '../domain/temporal_hit_decision.dart';
+import '../domain/detail_hit_refinement.dart';
+import '../domain/forced_hit_decision.dart';
 import '../../scorer/domain/x01/x01_models.dart';
 
 class AutoscoreCamera {
@@ -26,7 +30,11 @@ class AutoscoreCamera {
   BoardCalibration? calibration;
   BoardCalibration? candidateCalibration;
   BoardDetectionDiagnostics? diagnostics;
+  Map<String, Object?> calibrationQuality = const {};
   DartAxis? detectedAxis, lastAcceptedAxis;
+  List<DartAxis> axisCandidates = const [], lastAxisCandidates = const [];
+  final List<GrayFrame> recentFrames = [];
+  List<GrayFrame> lastDetectionFrames = const [];
   List<BoardPoint> changedPixels = const [];
   double changeFraction = 0;
   GrayFrame? reference, previous, emptyReference;
@@ -74,6 +82,12 @@ class AutoscoringController extends ChangeNotifier {
   VoidCallback? onAutomaticVisitCleared;
   final _visitReset = AutomaticVisitReset();
   final _bounceDetector = AutomaticBounceDetector();
+  final _hitDecision = TemporalHitDecision();
+  final _decisionAxisSamples = <List<DartAxis?>>[];
+  int decisionSelectedFrame = -1;
+  List<Map<String, Object>> decisionMetrics = const [];
+  bool alternativesUsed = false;
+  bool detailRefined = false;
   static const bouncerThrow = DartThrowResult(
     label: 'Bouncer',
     baseValue: 0,
@@ -97,6 +111,16 @@ class AutoscoringController extends ChangeNotifier {
 
   void _notify() {
     if (!disposed) notifyListeners();
+  }
+
+  String _qualityNote(Map<String, Object?> quality) {
+    final count = quality['observations'];
+    final error =
+        quality[quality['applied'] == true
+            ? 'validationRmsAfterMillimetres'
+            : 'validationRmsBeforeMillimetres'];
+    if (count is! num || error is! num) return '';
+    return '\nRingprüfung: $count Punkte · ${error.toStringAsFixed(1)} mm Abweichung';
   }
 
   Future<void> discover() async {
@@ -290,11 +314,14 @@ class AutoscoringController extends ChangeNotifier {
       try {
         final result = await calibrationService.calibrate(camera.snapshot!);
         camera.diagnostics = result.diagnostics;
+        camera.calibrationQuality = result.quality;
         camera.candidateCalibration = result.calibration;
         results.add(result);
         camera.calibrationMessage = result.numberCount > 0
             ? '${result.numberCount} Zahlen erkannt · Board-Geometrie geprüft'
             : 'Zahlenring mit automatisch gelernter Referenz abgeglichen · Board-Geometrie geprüft';
+        camera.calibrationMessage =
+            '${camera.calibrationMessage}${_qualityNote(result.quality)}';
       } catch (e) {
         if (e is CalibrationFailure) camera.diagnostics = e.diagnostics;
         results.add(null);
@@ -323,9 +350,12 @@ class AutoscoringController extends ChangeNotifier {
             if (disposed || generation != _generation) return;
             results[i] = result;
             cameras[i].diagnostics = result.diagnostics;
+            cameras[i].calibrationQuality = result.quality;
             cameras[i].candidateCalibration = result.calibration;
             cameras[i].calibrationMessage =
                 'Zahlenring mit Kamera ${reference + 1} abgeglichen · Board-Geometrie geprüft';
+            cameras[i].calibrationMessage =
+                '${cameras[i].calibrationMessage}${_qualityNote(result.quality)}';
             break;
           } catch (_) {
             if (disposed || generation != _generation) return;
@@ -389,16 +419,26 @@ class AutoscoringController extends ChangeNotifier {
         cameras[i].detectedAxis = null;
         cameras[i].lastAcceptedAxis = null;
         cameras[i].lastReference = null;
+        cameras[i].recentFrames.clear();
+        cameras[i].axisCandidates = const [];
+        cameras[i].lastAxisCandidates = const [];
+        cameras[i].lastDetectionFrames = const [];
         cameras[i].changedPixels = const [];
         cameras[i].changeFraction = 0;
       }
       throws.clear();
       _visitReset.reset();
       _bounceDetector.reset();
+      _hitDecision.reset();
+      _decisionAxisSamples.clear();
       _unresolvedSamples = 0;
       _boundaryWaitSamples = 0;
       pending = null;
       lastHit = null;
+      decisionMetrics = const [];
+      decisionSelectedFrame = -1;
+      detailRefined = false;
+      alternativesUsed = false;
       if (beforeReset != null) onAutomaticVisitCleared?.call();
       running = true;
       status = automaticCounting
@@ -446,6 +486,9 @@ class AutoscoringController extends ChangeNotifier {
       c.changeFraction = detector.changedFraction(c.previous!, frames[i]);
       c.stable = c.changeFraction < .002 ? c.stable + 1 : 0;
       c.previous = frames[i];
+      c.axisCandidates = const [];
+      c.recentFrames.add(frames[i]);
+      if (c.recentFrames.length > 3) c.recentFrames.removeAt(0);
       c.detectedAxis = detector.axis(c.reference!, frames[i], c.calibration!);
       c.changedPixels = detector.changeSamples(
         c.reference!,
@@ -471,6 +514,10 @@ class AutoscoringController extends ChangeNotifier {
           cameras[i].stable = 0;
           cameras[i].lastAcceptedAxis = null;
           cameras[i].lastReference = null;
+          cameras[i].recentFrames.clear();
+          cameras[i].axisCandidates = const [];
+          cameras[i].lastAxisCandidates = const [];
+          cameras[i].lastDetectionFrames = const [];
           cameras[i].detectedAxis = null;
           cameras[i].changedPixels = const [];
           cameras[i].changeFraction = 0;
@@ -480,8 +527,14 @@ class AutoscoringController extends ChangeNotifier {
         _unresolvedSamples = 0;
         _boundaryWaitSamples = 0;
         _bounceDetector.reset();
+        _hitDecision.reset();
+        _decisionAxisSamples.clear();
         _visitReset.reset();
         lastHit = null;
+        decisionMetrics = const [];
+        decisionSelectedFrame = -1;
+        detailRefined = false;
+        alternativesUsed = false;
         status = 'Board leer erkannt. Nächste Aufnahme bereit.';
         onAutomaticVisitCleared?.call();
         _notify();
@@ -489,6 +542,8 @@ class AutoscoringController extends ChangeNotifier {
       }
       if (state == VisitResetState.waitingForEmpty) {
         _bounceDetector.reset();
+        _hitDecision.reset();
+        _decisionAxisSamples.clear();
         _unresolvedSamples = 0;
         _boundaryWaitSamples = 0;
         pending = null;
@@ -522,20 +577,75 @@ class AutoscoringController extends ChangeNotifier {
       }
       return;
     }
-    if (stableViews < 2) {
+    final localizedViews = cameras
+        .where(
+          (c) =>
+              c.changedPixels.length >= 4 &&
+              detector.changedFraction(c.reference!, c.previous!) < .06,
+        )
+        .length;
+    if (automaticCounting &&
+        localizedViews >= 2 &&
+        (stableViews >= 1 || _unresolvedSamples > 0)) {
+      _unresolvedSamples++;
+    } else if (localizedViews < 2) {
       _unresolvedSamples = 0;
-      _boundaryWaitSamples = 0;
+      if (cameras.every(
+        (camera) => camera.changedPixels.isEmpty && camera.detectedAxis == null,
+      )) {
+        _hitDecision.reset();
+        _decisionAxisSamples.clear();
+      }
+    }
+    final deadlineReached = automaticCounting && _unresolvedSamples >= 6;
+    if (stableViews < 2 && !deadlineReached) {
       return;
     }
     final axes = <DartAxis>[];
     for (var i = 0; i < 3; i++) {
       final c = cameras[i];
-      if (c.stable < 2) continue;
+      if (c.stable < 2 && !deadlineReached) continue;
       final axis = c.detectedAxis;
       c.detectedAxis = axis;
       if (axis != null) axes.add(axis);
     }
+    alternativesUsed = false;
     pending = fuseAxes(axes);
+    if (pending == null || pending!.needsReview) {
+      for (final camera in cameras) {
+        camera.axisCandidates = camera.stable < 2
+            ? const []
+            : detector.candidates(
+                camera.reference!,
+                camera.previous!,
+                camera.calibration!,
+                primary: camera.detectedAxis,
+              );
+      }
+      final consensus = chooseCameraConsensus(
+        cameras.map((c) => c.axisCandidates).toList(),
+      );
+      if (consensus.hit != null) {
+        pending = consensus.hit;
+        alternativesUsed =
+            consensus.alternativesUsed ||
+            List.generate(
+              3,
+              (i) => consensus.axes[i] != cameras[i].detectedAxis,
+            ).any((v) => v);
+        if (alternativesUsed) {
+          pending = FusedHit(
+            pending!.point,
+            pending!.residual,
+            pending!.views,
+            forcedDecision: true,
+          );
+        }
+        for (var i = 0; i < 3; i++) {
+          cameras[i].detectedAxis = consensus.axes[i];
+        }
+      }
+    }
     if (pending == null &&
         automaticCounting &&
         cameras
@@ -547,19 +657,44 @@ class AutoscoringController extends ChangeNotifier {
                 )
                 .length >=
             2) {
-      _unresolvedSamples++;
       if (_unresolvedSamples >= 3) {
-        pending = decideAxes(axes);
-        if (pending == null) {
-          recordMissedThrow(unresolvedThrow);
-          status =
-              'Pfeil erkannt, Feld nicht bestimmbar. Bitte korrigieren; nächster Pfeil ist bereit.';
-          if (onAutomaticThrow?.call(unresolvedThrow) == false) {
-            running = false;
-            _timer?.cancel();
-          }
-          return;
-        }
+        pending = forceHitDecision(
+          axes,
+          cameras
+              .map(
+                (camera) => camera.changedPixels
+                    .map((p) => camera.calibration!.project(p))
+                    .toList(),
+              )
+              .toList(),
+        );
+      }
+    }
+    if (deadlineReached && pending == null) {
+      pending = forceHitDecision(
+        axes,
+        cameras
+            .map(
+              (camera) => camera.changedPixels
+                  .map((p) => camera.calibration!.project(p))
+                  .toList(),
+            )
+            .toList(),
+      );
+    }
+    detailRefined = false;
+    if (pending != null) {
+      final refined = refineHitDetail(
+        pending!,
+        cameras.map((c) => c.reference!).toList(),
+        frames,
+        cameras.map((c) => c.calibration!).toList(),
+        cameras.map((c) => c.stable < 2 ? null : c.detectedAxis).toList(),
+      );
+      pending = refined.hit;
+      detailRefined = refined.applied;
+      for (var i = 0; i < 3; i++) {
+        cameras[i].detectedAxis = refined.axes[i];
       }
     }
     final hit = pending;
@@ -576,6 +711,7 @@ class AutoscoringController extends ChangeNotifier {
     // already sees a shaft but has not settled yet.
     // Give its already visible axis a bounded chance to join the consensus.
     if (automaticCounting &&
+        !deadlineReached &&
         hit.views == 2 &&
         cameras.any(
           (camera) => camera.stable < 2 && camera.detectedAxis != null,
@@ -588,14 +724,56 @@ class AutoscoringController extends ChangeNotifier {
       _boundaryWaitSamples = 0;
     }
     if (automaticCounting) {
-      final result = BoardGeometry.score(hit.point);
+      _decisionAxisSamples.add(cameras.map((c) => c.detectedAxis).toList());
+      final observed = _hitDecision.observe(hit);
+      final decision =
+          observed ??
+          (deadlineReached
+              ? FusedHit(
+                  hit.point,
+                  hit.residual,
+                  hit.views,
+                  forcedDecision: true,
+                )
+              : null);
+      decisionMetrics = [
+        for (var i = 0; i < _hitDecision.metrics.length; i++)
+          {
+            ..._hitDecision.metrics[i],
+            'axes': [
+              for (final a in _decisionAxisSamples[i])
+                a == null
+                    ? null
+                    : {
+                        'a': a.a,
+                        'b': a.b,
+                        'c': a.c,
+                        'confidence': a.confidence,
+                      },
+            ],
+          },
+      ];
+      if (decision == null) {
+        status = 'Treffer kurz über mehrere Bilder abgleichen …';
+        return;
+      }
+      pending = decision;
+      decisionSelectedFrame = observed == null
+          ? _decisionAxisSamples.length - 1
+          : _hitDecision.selectedIndex;
+      for (var i = 0; i < 3; i++) {
+        cameras[i].detectedAxis =
+            _decisionAxisSamples[decisionSelectedFrame][i];
+      }
+      final result = BoardGeometry.score(decision.point);
       accept(result);
       if (onAutomaticThrow?.call(result) == false) {
         running = false;
         _timer?.cancel();
         status = 'Automatisches Zählen angehalten.';
-      } else if (hit.needsReview && throws.length < 3) {
-        status = '${result.label} automatisch gezählt · Schätzung, bitte prüfen.';
+      } else if (decision.needsReview && throws.length < 3) {
+        status =
+            '${result.label} automatisch gezählt · Schätzung, bitte prüfen.';
       }
     } else {
       running = false;
@@ -609,12 +787,17 @@ class AutoscoringController extends ChangeNotifier {
     if (pending == null) return;
     lastHit = pending;
     _bounceDetector.reset();
+    _hitDecision.reset();
+    _decisionAxisSamples.clear();
     _unresolvedSamples = 0;
     _boundaryWaitSamples = 0;
     throws.add(result);
     pending = null;
     for (final c in cameras) {
       c.lastAcceptedAxis = c.detectedAxis;
+      c.lastAxisCandidates = List.of(c.axisCandidates);
+      c.lastDetectionFrames = List.of(c.recentFrames);
+      c.recentFrames.clear();
       c.lastReference = c.reference;
       c.reference = c.previous;
       c.stable = 0;
@@ -647,9 +830,17 @@ class AutoscoringController extends ChangeNotifier {
     _unresolvedSamples = 0;
     _boundaryWaitSamples = 0;
     _bounceDetector.reset();
+    _hitDecision.reset();
+    _decisionAxisSamples.clear();
     pending = null;
     lastHit = null;
+    decisionMetrics = const [];
+    decisionSelectedFrame = -1;
+    detailRefined = false;
     for (final camera in cameras) {
+      camera.lastAxisCandidates = List.of(camera.axisCandidates);
+      camera.lastDetectionFrames = List.of(camera.recentFrames);
+      camera.recentFrames.clear();
       camera.lastReference = camera.reference;
       camera.reference = camera.previous;
       camera.lastAcceptedAxis = identical(result, unresolvedThrow)
@@ -659,6 +850,31 @@ class AutoscoringController extends ChangeNotifier {
     }
     status = 'Übersehener Pfeil nachgetragen. Nächsten Dart werfen.';
     _notify();
+    return true;
+  }
+
+  /// Pause polling without discarding calibration, references or pending darts.
+  void pauseRecognition() {
+    running = false;
+    _timer?.cancel();
+  }
+
+  /// Resume the same board state. Never take a new empty-board reference here:
+  /// darts may still be on the board after a focus change or bot turn.
+  bool resumeRecognition() {
+    if (disposed ||
+        busy ||
+        cameras.length != 3 ||
+        cameras.any(
+          (c) =>
+              c.calibration == null ||
+              c.reference == null ||
+              c.emptyReference == null,
+        )) {
+      return false;
+    }
+    running = true;
+    _schedule(_generation);
     return true;
   }
 
@@ -696,4 +912,3 @@ class AutoscoringController extends ChangeNotifier {
     super.dispose();
   }
 }
-

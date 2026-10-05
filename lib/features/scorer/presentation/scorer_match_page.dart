@@ -1,3 +1,8 @@
+import 'checkout_page.dart' show checkoutLabel;
+import '../../autoscoring/application/autoscore_audio_controller.dart';
+import '../../autoscoring/presentation/widgets/autoscore_audio_controls.dart';
+import '../application/scorer_audio_controller.dart';
+import 'widgets/personalized_checkout_routes.dart';
 import 'dart:async';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import '../../autoscoring/data/autoscoring_preferences.dart';
@@ -5,18 +10,23 @@ import '../../autoscoring/presentation/widgets/scorer_camera_panel.dart';
 import 'dart:math';
 import '../../statistics/data/player_statistics_repository.dart';
 import '../../statistics/domain/saved_scorer_match.dart';
+import '../../statistics/data/scorer_heatmap_repository.dart';
+import '../../statistics/presentation/heatmap/scorer_heatmap_page.dart';
 import 'package:flutter/material.dart';
 import '../application/scorer_controller.dart';
 import '../data/scorer_draft_storage.dart';
 import '../domain/scorer_settings.dart';
+import '../domain/scorer_hit.dart';
 import '../domain/visit_score_entry.dart';
 import '../domain/x01/x01_models.dart';
-import 'checkout_page.dart';
 import 'widgets/score_keypad.dart';
 import 'widgets/scorer_statistics_view.dart';
 import 'widgets/scorer_leg_sheet.dart';
 import 'widgets/scorer_result_view.dart';
 import 'widgets/checkout_attempt_dialog.dart';
+import '../../remote_control/application/remote_scorer_client.dart';
+import '../../remote_control/application/remote_scorer_host.dart';
+import '../../remote_control/presentation/remote_host_surface.dart';
 
 class ScorerMatchPage extends StatefulWidget {
   const ScorerMatchPage({
@@ -28,6 +38,7 @@ class ScorerMatchPage extends StatefulWidget {
     this.onCompleted,
     this.onExit,
     this.draft,
+    this.remote,
   });
   final ScorerSettings settings;
   final String? accountId;
@@ -36,12 +47,76 @@ class ScorerMatchPage extends StatefulWidget {
   final void Function(ScorerController controller)? onCompleted;
   final VoidCallback? onExit;
   final Map<String, dynamic>? draft;
+  final RemoteScorerClient? remote;
   @override
   State<ScorerMatchPage> createState() => _ScorerMatchPageState();
 }
 
 class _ScorerMatchPageState extends State<ScorerMatchPage> {
   late final ScorerController controller;
+  final _cameraPanelKey = GlobalKey();
+  final _audio = AutoscoreAudioController();
+  late final ScorerAudioController _scorerAudio;
+  RemoteScorerHost? _remoteHost;
+  bool get _isRemote => widget.remote != null;
+  bool get _inputReady =>
+      !_isRemote ||
+      (widget.remote!.ready &&
+          widget.remote!.state?['resultFinalized'] != true);
+  bool _cameraAvailable = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isRemote || _remoteHost != null) return;
+    _remoteHost = context
+        .getInheritedWidgetOfExactType<RemoteHostScope>()
+        ?.controller
+        .scorer;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _remoteHost == null) return;
+      _remoteHost!.attach(controller, _sessionId);
+      _remoteHost!.cameraAction = (action) async {
+        if (!mounted) return;
+        switch (action) {
+          case 'cameraOpen':
+            await _openAutoscoring();
+          case 'cameraClose':
+            _closeCamera();
+          case 'cameraConfirm':
+            _confirmCameraVisit(const []);
+        }
+      };
+      _publishCamera();
+    });
+  }
+
+  void _publishCamera() {
+    if (_remoteHost?.owns(controller) != true) return;
+    _remoteHost?.cameraState(
+      available: _cameraAvailable,
+      open: _cameraOpen,
+      pending: _cameraPending,
+      darts: _cameraBase == null
+          ? const []
+          : [
+              for (final action in controller.exportActions().skip(
+                _cameraBase!.length,
+              ))
+                if (action['type'] == 'dart') action['label'] as String,
+            ],
+    );
+  }
+
+  void _undo() {
+    if (!_inputReady) return;
+    if (_isRemote) {
+      unawaited(widget.remote!.command('undo'));
+    } else {
+      controller.undo();
+    }
+  }
+
   Timer? timer;
   bool _bustPending = false;
   late final _statisticsRepository =
@@ -55,11 +130,41 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
   final _draftStorage = ScorerDraftStorage();
   Future<void> _saving = Future.value();
   String? _saveError;
+  String? _heatmapError;
+  bool _hadHeatmap = false;
+
+  void _persistHeatmap() {
+    if (controller.hits.isEmpty && !_hadHeatmap) return;
+    _hadHeatmap = true;
+    final session = ScorerHeatmapSession(
+      id: _sessionId,
+      date: _playedAt,
+      names: [for (final p in widget.settings.participants) p.name],
+      hits: controller.hits,
+      complete: controller.isComplete,
+    );
+    _saving = _saving.then((_) async {
+      try {
+        await ScorerHeatmapRepository().save(session);
+        if (mounted) setState(() => _heatmapError = null);
+      } catch (_) {
+        if (mounted) {
+          setState(
+            () => _heatmapError =
+                'Heatmap konnte nicht gespeichert werden. Bitte erneut versuchen.',
+          );
+        }
+      }
+    });
+  }
+
   bool _hadWinner = false;
   bool _mayLeave = false;
   bool _leaving = false;
 
   void _persistStatistics() {
+    if (_isRemote) return;
+    _persistHeatmap();
     final id = widget.accountId;
     final index = widget.profilePlayerIndex;
     if (id == null || index == null) return;
@@ -108,6 +213,10 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
   }
 
   Future<void> _leave() async {
+    if (_isRemote) {
+      widget.onExit?.call();
+      return;
+    }
     if (_leaving) return;
     setState(() => _leaving = true);
     timer?.cancel();
@@ -178,7 +287,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     _persistStatistics();
     await _saving;
     if (!mounted) return;
-    if (_saveError != null) {
+    if (_saveError != null || _heatmapError != null) {
       setState(() => _leaving = false);
       _scheduleBot();
       return;
@@ -211,15 +320,33 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     if (mounted) _scheduleBot();
   }
 
+  Future<void> _showAudio() => showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: SingleChildScrollView(
+        child: AutoscoreAudioControls(controller: _audio, matchScorer: true),
+      ),
+    ),
+  );
+
   bool _automaticCameraPending = false;
-  bool _cameraOpen = false;
+  bool _localCameraOpen = false;
+  bool get _cameraOpen => _isRemote
+      ? (widget.remote!.state?['cameraOpen'] == true)
+      : _localCameraOpen;
 
   Future<void> _checkAutomaticCamera() async {
+    if (_isRemote) return;
     try {
       final enabled = await AutoscoringPreferences().load();
-      if (!enabled || !mounted || controller.isComplete) return;
+      if (!mounted || controller.isComplete) return;
       final cameras = await CameraPlatform.instance.availableCameras();
-      if (!mounted || cameras.length < 3) return;
+      if (!mounted) return;
+      _cameraAvailable = cameras.length >= 3;
+      _publishCamera();
+      if (!enabled || !_cameraAvailable) return;
       _automaticCameraPending = true;
       _tryAutomaticCamera();
     } catch (_) {
@@ -241,24 +368,81 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
   }
 
   Future<void> _openAutoscoring({bool autoConnect = false}) async {
+    if (_isRemote) {
+      await widget.remote!.command('cameraOpen');
+      return;
+    }
     if (controller.isBotTurn || controller.isComplete || _cameraOpen) return;
-    setState(() => _cameraOpen = true);
+    setState(() => _localCameraOpen = true);
+    _publishCamera();
   }
 
-  void _acceptCameraVisit(List<DartThrowResult> darts) {
-    if (_leaving || controller.isBotTurn || controller.isComplete) return;
-    final player = controller.activePlayer;
-    for (final dart in darts) {
-      controller.throwDart(dart);
-      if (controller.isComplete ||
-          controller.activePlayer != player ||
-          controller.visit.isEmpty) {
+  List<Map<String, dynamic>>? _cameraBase;
+  List<bool> _cameraAttempts = [];
+  List<DartLocation?> _cameraLocations = [];
+  bool get _cameraPending => _cameraBase != null;
+
+  bool _previewCameraVisit(List<DartThrowResult> darts, List<bool?> overrides) {
+    if (_leaving ||
+        (!_cameraPending && (controller.isBotTurn || controller.isComplete))) {
+      return false;
+    }
+    _cameraBase ??= controller.exportActions();
+    final preview = ScorerController(widget.settings)
+      ..restoreActions(_cameraBase!);
+    final player = preview.activePlayer;
+    _cameraAttempts = [];
+    for (var i = 0; i < darts.length; i++) {
+      final attempt =
+          overrides[i] ??
+          (widget.settings.checkoutRequirement ==
+                  CheckoutRequirement.doubleOut &&
+              preview.maxCheckoutAttempts(darts: 1) > 0 &&
+              (widget.settings.startRequirement ==
+                      StartRequirement.straightIn ||
+                  preview.progress.openedLeg));
+      _cameraAttempts.add(attempt);
+      preview.throwDart(
+        darts[i],
+        checkoutAttempt: attempt,
+        location: i < _cameraLocations.length ? _cameraLocations[i] : null,
+      );
+      if (preview.isComplete ||
+          preview.activePlayer != player ||
+          preview.visit.isEmpty) {
         break;
       }
     }
+    final ended =
+        preview.isComplete ||
+        preview.activePlayer != player ||
+        preview.visit.isEmpty;
+    controller.replaceActions(preview.exportActions());
+    preview.dispose();
+    return ended;
+  }
+
+  void _confirmCameraVisit(List<DartThrowResult> _) {
+    if (!_cameraPending) return;
+    _cameraBase = null;
+    _cameraAttempts = [];
+    _changed();
+    _publishCamera();
+  }
+
+  void _closeCamera() {
+    final previous = _cameraBase;
+    if (previous != null) controller.replaceActions(previous);
+    _cameraBase = null;
+    _cameraAttempts = [];
+    setState(() => _localCameraOpen = false);
+    _publishCamera();
+    _scheduleBot();
   }
 
   Future<void> _submitBust() async {
+    if (!_inputReady) return;
+    final expectedRevision = widget.remote?.revision;
     if (_bustPending || controller.isBotTurn || controller.isComplete) {
       return;
     }
@@ -277,7 +461,15 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
         if (!mounted || answer == null) return;
         attempts = answer.$1;
       }
-      controller.submitBust(checkoutAttempts: attempts);
+      if (_isRemote) {
+        await widget.remote!.command(
+          'bust',
+          expectedRevision: expectedRevision,
+          values: {'attempts': attempts},
+        );
+      } else {
+        controller.submitBust(checkoutAttempts: attempts);
+      }
     } finally {
       _bustPending = false;
     }
@@ -286,10 +478,12 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
   @override
   void initState() {
     super.initState();
-    controller = ScorerController(widget.settings);
+    controller = widget.remote?.controller ?? ScorerController(widget.settings);
     if (widget.draft != null) {
       controller.restoreActions(widget.draft!['actions'] as List);
+      _hadHeatmap = controller.hits.isNotEmpty;
     }
+    _scorerAudio = ScorerAudioController(_audio, controller);
     controller.addListener(_changed);
     _scheduleBot();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -299,30 +493,40 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
 
   void _changed() {
     setState(() {});
-    _persistStatistics();
+    if (_isRemote) return;
+    _scorerAudio.update(controller, provisional: _cameraPending);
+    _publishCamera();
+    if (!_cameraPending) _persistStatistics();
     _scheduleBot();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _tryAutomaticCamera();
     });
-    if (controller.isComplete) widget.onCompleted?.call(controller);
+    if (!_cameraPending && controller.isComplete) {
+      widget.onCompleted?.call(controller);
+    }
   }
 
   void _scheduleBot() {
     timer?.cancel();
-    if (!_leaving && controller.isBotTurn) {
+    if (_isRemote) return;
+    if (!_leaving && !_cameraPending && controller.isBotTurn) {
       timer = Timer(widget.settings.botThrowDelay, controller.playBotDart);
     }
   }
 
   @override
   void dispose() {
+    _audio.dispose();
     timer?.cancel();
     controller.removeListener(_changed);
-    controller.dispose();
+    _remoteHost?.detach(controller);
+    if (!_isRemote) controller.dispose();
     super.dispose();
   }
 
   Future<bool> _submit(int points) async {
+    if (!_inputReady) return false;
+    final expectedRevision = widget.remote?.revision;
     final c = controller;
     if (c.isBotTurn || c.isComplete) return false;
     int? darts;
@@ -419,6 +623,13 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
         if (!mounted || answer == null) return false;
         attempts = answer.$1;
       }
+      if (_isRemote) {
+        return widget.remote!.command(
+          'score',
+          expectedRevision: expectedRevision,
+          values: {'points': points, 'darts': darts, 'attempts': attempts},
+        );
+      }
       c.submitScore(points, checkoutDarts: darts, checkoutAttempts: attempts);
       return true;
     } on ArgumentError catch (e) {
@@ -488,7 +699,9 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
         ),
         const SizedBox(height: 12),
         if (!c.isComplete)
-          CheckoutRoutes(
+          PersonalizedCheckoutRoutes(
+            accountId: widget.accountId,
+            enabled: c.activePlayer == widget.profilePlayerIndex,
             score: c.remaining,
             dartsLeft: c.dartsLeft,
             requirement: widget.settings.checkoutRequirement,
@@ -497,36 +710,93 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     );
     final pad = Column(
       children: [
-        if (!c.isComplete && !_cameraOpen)
+        if (!c.isComplete &&
+            !_cameraOpen &&
+            (!_isRemote || widget.remote!.state?['cameraAvailable'] == true))
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: OutlinedButton.icon(
-              onPressed: _leaving || c.isBotTurn ? null : _openAutoscoring,
+              onPressed: !_inputReady || _leaving || c.isBotTurn
+                  ? null
+                  : _openAutoscoring,
               icon: const Icon(Icons.videocam_outlined),
-              label: const Text('Autoscoring starten'),
+              label: Text(
+                _isRemote
+                    ? 'Autoscoring am Hauptgerät starten'
+                    : 'Autoscoring starten',
+              ),
             ),
           ),
-        if (_cameraOpen)
+        if (_cameraOpen && !_isRemote)
           ScorerCameraPanel(
+            key: _cameraPanelKey,
             dartsLeft: c.dartsLeft,
-            enabled: !_leaving && !c.isBotTurn && !c.isComplete,
-            onAccept: _acceptCameraVisit,
-            onClose: () => setState(() => _cameraOpen = false),
+            enabled:
+                !_leaving &&
+                (_cameraPending || (!c.isBotTurn && !c.isComplete)),
+            onAccept: _confirmCameraVisit,
+            onPreview: _previewCameraVisit,
+            onLocations: (locations) => _cameraLocations = locations,
+            attempts: _cameraAttempts,
+            onClose: _closeCamera,
           ),
+        if (_cameraOpen && _isRemote) ...[
+          const Text(
+            'Autoscoring läuft am Hauptgerät. Erkannte Würfe werden hier angezeigt.',
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final dart
+                  in (widget.remote!.state?['cameraDarts'] as List? ??
+                      const []))
+                Chip(label: Text(dart as String)),
+            ],
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (widget.remote!.state?['cameraPending'] == true)
+                FilledButton(
+                  onPressed: _inputReady
+                      ? () => widget.remote!.command('cameraConfirm')
+                      : null,
+                  child: const Text('Aufnahme übernehmen'),
+                ),
+              OutlinedButton(
+                onPressed: _inputReady
+                    ? () => widget.remote!.command('cameraClose')
+                    : null,
+                child: const Text('Autoscoring beenden'),
+              ),
+            ],
+          ),
+        ],
         ScoreKeypad(
-          enabled: !_cameraOpen && !_leaving && !c.isComplete && !c.isBotTurn,
+          enabled:
+              _inputReady &&
+              !_cameraOpen &&
+              !_leaving &&
+              !c.isComplete &&
+              !c.isBotTurn,
           remaining: c.remaining,
           onSubmit: _submit,
           onBust: _submitBust,
-          onUndo: !_leaving && c.canUndo ? c.undo : null,
+          onUndo: _inputReady && !_cameraOpen && !_leaving && c.canUndo
+              ? _undo
+              : null,
         ),
         const Text(
           'Summe der Aufnahme eingeben und mit OK bestätigen.\nTastatur: Ziffern, Enter, Rücktaste, Esc.',
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
-        const Text(
-          'Beim Verlassen kannst du die Partie zwischenspeichern.',
+        Text(
+          _isRemote
+              ? 'Die Partie und ihre Statistiken werden am Hauptgerät geführt.'
+              : 'Beim Verlassen kannst du die Partie zwischenspeichern.',
           textAlign: TextAlign.center,
         ),
         if (widget.accountId != null)
@@ -546,15 +816,49 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
           leading: widget.onExit == null
               ? null
               : IconButton(
-                  tooltip: 'Zur Geräteverwaltung',
+                  tooltip: _isRemote
+                      ? 'Fernsteuerung trennen'
+                      : 'Zur Geräteverwaltung',
                   onPressed: widget.onExit,
                   icon: const Icon(Icons.arrow_back),
                 ),
           title: Text(c.isComplete ? 'Spielauswertung' : 'X01 Scorer'),
           actions: [
+            if (!_isRemote)
+              IconButton(
+                tooltip: 'Caller und Sounds',
+                onPressed: _showAudio,
+                icon: const Icon(Icons.volume_up_outlined),
+              ),
+            IconButton(
+              tooltip: 'Heatmap dieses Spiels',
+              icon: const Icon(Icons.blur_on),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ScorerHeatmapPage(
+                    sessions: [
+                      ScorerHeatmapSession(
+                        id: _sessionId,
+                        date: _playedAt,
+                        names: [
+                          for (final p in widget.settings.participants) p.name,
+                        ],
+                        hits: controller.hits,
+                        complete: controller.isComplete,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             IconButton(
               tooltip: 'Autoscorer · drei Kameras',
-              onPressed: controller.isBotTurn || controller.isComplete
+              onPressed:
+                  !_inputReady ||
+                      (_isRemote &&
+                          widget.remote!.state?['cameraAvailable'] != true) ||
+                      controller.isBotTurn ||
+                      controller.isComplete
                   ? null
                   : _openAutoscoring,
               icon: const Icon(Icons.videocam_outlined),
@@ -566,7 +870,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
             ),
           ],
         ),
-        bottomNavigationBar: _saveError == null
+        bottomNavigationBar: _saveError == null && _heatmapError == null
             ? null
             : SafeArea(
                 child: Padding(
@@ -574,7 +878,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
                   child: Wrap(
                     spacing: 8,
                     children: [
-                      Text(_saveError!),
+                      Text(_heatmapError ?? _saveError!),
                       TextButton(
                         onPressed: _persistStatistics,
                         child: const Text('Erneut speichern'),
@@ -583,7 +887,10 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
                   ),
                 ),
               ),
-        body: c.isComplete
+        body:
+            c.isComplete &&
+                !_cameraPending &&
+                (!_isRemote || widget.remote!.state?['cameraPending'] != true)
             ? ScorerResultView(
                 settings: widget.settings,
                 statistics: statistics,
@@ -591,7 +898,9 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
                 winner: c.winner,
                 onStatistics: _showStatistics,
                 onClose: _leaving ? null : widget.onExit ?? _leave,
-                onUndo: !_leaving && c.canUndo ? c.undo : null,
+                onUndo: _inputReady && !_cameraOpen && !_leaving && c.canUndo
+                    ? _undo
+                    : null,
               )
             : SafeArea(
                 child: LayoutBuilder(

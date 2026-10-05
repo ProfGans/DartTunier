@@ -1,3 +1,8 @@
+import '../../../shared/widgets/sport_menu.dart';
+import '../data/scorer_heatmap_repository.dart';
+import '../domain/cockpit_heatmap_selection.dart';
+import '../domain/analytics/statistics_report.dart';
+import 'analytics/player_analytics_page.dart';
 import '../../personal_profile/presentation/personal_profile_section.dart';
 import 'package:flutter/material.dart';
 import '../../scorer/presentation/scorer_page.dart';
@@ -10,10 +15,6 @@ import '../../tournaments/data/app_database.dart';
 import '../../tournaments/domain/tournament_models.dart';
 import '../data/player_statistics_repository.dart';
 import '../domain/saved_scorer_match.dart';
-import '../domain/tournament_player_statistics.dart';
-import 'tournament_statistics_view.dart';
-import '../domain/statistics_period.dart';
-import 'statistics_period_filter.dart';
 
 class PlayerProfilePage extends StatefulWidget {
   const PlayerProfilePage({super.key, required this.account, this.repository});
@@ -25,10 +26,15 @@ class PlayerProfilePage extends StatefulWidget {
 
 class _PlayerProfilePageState extends State<PlayerProfilePage> {
   late final repository = widget.repository ?? PlayerStatisticsRepository();
-  late Future<(List<SavedScorerMatch>, List<CreatedTournament>)> content;
+  late Future<
+    (
+      List<SavedScorerMatch>,
+      List<CreatedTournament>,
+      List<ScorerHeatmapSession>,
+    )
+  >
+  content;
   String? notice;
-  StatisticsPeriod? period;
-  String periodLabel = 'Gesamt';
   final ownIds = <String>{};
   final aliases = <String, String>{};
   @override
@@ -37,7 +43,14 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
     content = _load();
   }
 
-  Future<(List<SavedScorerMatch>, List<CreatedTournament>)> _load() async {
+  Future<
+    (
+      List<SavedScorerMatch>,
+      List<CreatedTournament>,
+      List<ScorerHeatmapSession>,
+    )
+  >
+  _load() async {
     notice = null;
     await repository.synchronize(widget.account.id);
     final history = await repository.load(widget.account.id);
@@ -80,7 +93,17 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
       notice =
           'Turnierdaten möglicherweise unvollständig. Gespeicherte Daten bleiben sichtbar.';
     }
-    return (history, tournaments.values.toList());
+    var heatmaps = <ScorerHeatmapSession>[];
+    try {
+      heatmaps = selectProfileHeatmaps(
+        await ScorerHeatmapRepository().load(),
+        history,
+      );
+    } catch (_) {
+      notice =
+          '${notice == null ? '' : '$notice\n'}Lokale Heatmap-Daten konnten nicht geladen werden.';
+    }
+    return (history, tournaments.values.toList(), heatmaps);
   }
 
   @override
@@ -95,156 +118,122 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
         ),
       ],
     ),
-    body: FutureBuilder<(List<SavedScorerMatch>, List<CreatedTournament>)>(
-      future: content,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return AdaptiveContentList(
-            children: [
-              PersonalProfileSection(
-                accountId: widget.account.id,
-                defaultName: widget.account.displayName,
-              ),
-              const Text('Profilstatistiken konnten nicht geladen werden.'),
-              FilledButton(
-                onPressed: () => setState(() => content = _load()),
-                child: const Text('Erneut versuchen'),
-              ),
-            ],
-          );
-        }
-        final (allHistory, tournaments) = snapshot.data!;
-        final history = allHistory
-            .where((m) => period == null || period!.contains(m.playedAt))
-            .toList();
-        final rows = const TournamentStatisticsCalculator()
-            .calculate(tournaments, aliases: aliases, period: period)
-            .where((row) => ownIds.contains(row.id))
-            .toList();
-        final totals = PersonalScorerTotals(history);
-        String number(double? value) => value?.toStringAsFixed(2) ?? '—';
-        return AdaptiveContentList(
-          children: [
-            PersonalProfileSection(
-              accountId: widget.account.id,
-              defaultName: widget.account.displayName,
-            ),
-            Text(widget.account.email),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ScorerPage(account: widget.account),
+    body:
+        FutureBuilder<
+          (
+            List<SavedScorerMatch>,
+            List<CreatedTournament>,
+            List<ScorerHeatmapSession>,
+          )
+        >(
+          future: content,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return AdaptiveContentList(
+                children: [
+                  PersonalProfileSection(
+                    accountId: widget.account.id,
+                    defaultName: widget.account.displayName,
                   ),
-                );
-                if (mounted) {
-                  setState(() => content = _load());
-                }
-              },
-              icon: const Icon(Icons.sports_score),
-              label: const Text('Scorer mit meinem Profil starten'),
-            ),
-            Text(repository.status),
-            StatisticsPeriodFilter(
-              selected: periodLabel,
-              period: period,
-              onChanged: (label, value) => setState(() {
-                period = value;
-                periodLabel = label;
-              }),
-            ),
-            if (notice != null) Text(notice!),
-            const SizedBox(height: 24),
-            Text(
-              'Scorer-Statistiken',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const Text(
-              'Nur Spiele, bei denen du dich deinem Profil zugeordnet hast. Auch erfasste Aufnahmen nicht beendeter Spiele bleiben erhalten.',
-            ),
-            if (totals.sessions == 0)
-              const Text('Keine Aufnahmen im gewählten Zeitraum.'),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  '${totals.sessions} Sitzungen · ${totals.completed} beendete Spiele · ${totals.wins} Siege\n'
-                  '3-Dart-Average: ${number(totals.average)}\n'
-                  '180er: ${totals.scores180} · Höchstes Finish: ${totals.highestFinish}\n'
-                  'Gewonnene Legs: ${totals.legsWon} / ${totals.legs}\n'
-                  'Checkoutquote (Double Out): ${number(totals.checkoutPercent)}${totals.checkoutPercent == null ? '' : ' %'}'
-                  '${totals.unknownAttempts > 0 ? '\nCheckoutversuche unvollständig erfasst.' : ''}',
+                  const Text('Profilstatistiken konnten nicht geladen werden.'),
+                  FilledButton(
+                    onPressed: () => setState(() => content = _load()),
+                    child: const Text('Erneut versuchen'),
+                  ),
+                ],
+              );
+            }
+            final (allHistory, tournaments, heatmaps) = snapshot.data!;
+            String number(double? value) => value?.toStringAsFixed(2) ?? '—';
+            return PlayerAnalyticsPage(
+              embedded: true,
+              name: widget.account.displayName,
+              scorer: const StatisticsAnalytics().scorer(allHistory),
+              heatmapSessions: heatmaps,
+              tournaments: const StatisticsAnalytics()
+                  .tournaments(tournaments, aliases: aliases)
+                  .filtered(players: ownIds),
+              header: [
+                PersonalProfileSection(
+                  accountId: widget.account.id,
+                  defaultName: widget.account.displayName,
                 ),
-              ),
-            ),
-            Text(
-              'Gespeicherte Spiele',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            for (final match in history.where((m) => m.visits.isNotEmpty))
-              Card(
-                child: ListTile(
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    final p = match.statistics;
-                    showDialog<void>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Meine Spielstatistik'),
-                        scrollable: true,
-                        content: Text(
-                          '${match.names.join(' · ')}\n\n'
-                          '3-Dart-Average: ${number(p.average)}\nFirst-9-Average: ${number(p.firstNineAverage)}\n'
-                          'Punkte: ${p.points} · Darts: ${p.darts} · Aufnahmen: ${p.visits}\n'
-                          '60+: ${p.scores60} · 100+: ${p.scores100} · 140+: ${p.scores140} · 180: ${p.scores180}\n'
-                          'Höchste Aufnahme: ${p.highestScore} · Höchstes Finish: ${p.highestFinish}\n'
-                          'Gewonnene Legs: ${p.legsWon}/${p.legsPlayed} · Bestes Leg: ${p.bestLeg ?? '—'} Darts\n'
-                          'Überworfen: ${p.busts} · Breaks: ${p.breaks} · Holds: ${p.holds}\n'
-                          '${match.doubleOut ? 'Checkoutquote: ${number(p.checkoutPercent)}${p.checkoutPercent == null ? '' : ' %'}\nUnbekannte Checkout-Aufnahmen: ${p.unknownCheckoutVisits}' : ''}',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Schließen'),
+                Text(widget.account.email),
+                const SizedBox(height: 16),
+                SportMenuGroup(
+                  title: 'Mit meinem Profil',
+                  actions: [
+                    SportMenuAction(
+                      label: 'Scorer mit meinem Profil starten',
+                      icon: Icons.sports_score,
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => ScorerPage(account: widget.account),
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                  title: Text(match.names.join(' · ')),
-                  subtitle: Text(
-                    '${match.playedAt.toLocal().toString().substring(0, 16)}\n'
-                    '${match.isDraw
-                        ? 'Unentschieden'
-                        : match.winner == null
-                        ? 'Nicht beendet'
-                        : match.winner == match.playerIndex
-                        ? 'Gewonnen'
-                        : 'Verloren'} · '
-                    'Average: ${number(match.statistics.average)} · 180er: ${match.statistics.scores180}',
-                  ),
+                        );
+                        if (mounted) setState(() => content = _load());
+                      },
+                    ),
+                  ],
                 ),
-              ),
-            const SizedBox(height: 24),
-            Text(
-              'Turnierstatistiken',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const Text(
-              'Zuordnung über Spielerprofile; reine Namensgleichheit genügt nicht.',
-            ),
-            if (rows.isEmpty)
-              const Text(
-                'Keine deinem Profil zugeordneten Turnierergebnisse im gewählten Zeitraum.',
-              ),
-            for (final row in rows) TournamentStatisticsCard(row: row),
-          ],
-        );
-      },
-    ),
+                Text(repository.status),
+                if (notice != null) Text(notice!),
+              ],
+              footerBuilder: (period) {
+                final history = allHistory
+                    .where((m) => period == null || period.contains(m.playedAt))
+                    .toList();
+                return [
+                  const SizedBox(height: 24),
+                  if (history.every((m) => m.visits.isEmpty))
+                    const Text('Keine Aufnahmen im gewählten Zeitraum.'),
+                  Text(
+                    'Gespeicherte Spiele',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  for (final match in history.where((m) => m.visits.isNotEmpty))
+                    Card(
+                      child: ListTile(
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => PlayerAnalyticsPage(
+                                name: match.names.join(' · '),
+                                scorer: const StatisticsAnalytics().scorer([
+                                  match,
+                                ]),
+                                heatmapSessions: heatmaps
+                                    .where((s) => s.id == match.id)
+                                    .toList(),
+                                tournaments: const StatisticsAnalytics()
+                                    .tournaments([]),
+                              ),
+                            ),
+                          );
+                        },
+                        title: Text(match.names.join(' · ')),
+                        subtitle: Text(
+                          '${match.playedAt.toLocal().toString().substring(0, 16)}\n'
+                          '${match.isDraw
+                              ? 'Unentschieden'
+                              : match.winner == null
+                              ? 'Nicht beendet'
+                              : match.winner == match.playerIndex
+                              ? 'Gewonnen'
+                              : 'Verloren'} · '
+                          'Average: ${number(match.statistics.average)} · 180er: ${match.statistics.scores180}',
+                        ),
+                      ),
+                    ),
+                ];
+              },
+            );
+          },
+        ),
   );
 }

@@ -197,10 +197,15 @@ class RecognitionOverlayPainter extends CustomPainter {
       if (axis != null) {
         final segment = calibration!.imageAxis(axis!);
         if (segment.length >= 2) {
-          canvas.drawLine(
-            at(segment.first),
-            at(segment.last),
+          final path = Path()
+            ..moveTo(at(segment.first).dx, at(segment.first).dy);
+          for (final point in segment.skip(1)) {
+            path.lineTo(at(point).dx, at(point).dy);
+          }
+          canvas.drawPath(
+            path,
             Paint()
+              ..style = PaintingStyle.stroke
               ..color = Colors.cyanAccent
               ..strokeWidth = 2.5,
           );

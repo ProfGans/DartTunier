@@ -78,7 +78,6 @@ class _CommunityPageState extends State<CommunityPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Communities'),
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       ),
       body: SafeArea(
         child: FutureBuilder<AccountUser?>(
@@ -346,7 +345,6 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(community.name),
-      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
     ),
     body: CommunityMenu(
       rankingEnabled: community.rankingEnabled,

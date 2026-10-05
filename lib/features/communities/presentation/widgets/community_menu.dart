@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/adaptive_content.dart';
 import 'community_avatar.dart';
@@ -71,35 +72,67 @@ class CommunityMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AdaptiveContentList(
     children: [
-      Center(child: CommunityAvatar(base64Image: avatarBase64, radius: 40)),
-      const SizedBox(height: 16),
-      Text(
-        'Community-Menü',
-        textAlign: TextAlign.center,
-        style: Theme.of(
-          context,
-        ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 8),
-      Text(
-        description.isEmpty
-            ? 'Wähle einen Bereich deiner Community.'
-            : description,
-        textAlign: TextAlign.center,
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CommunityAvatar(base64Image: avatarBase64, radius: 28),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Community-Menü',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(description),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
       const SizedBox(height: 24),
-      for (final area in CommunityArea.values.where(
-        (area) => rankingEnabled || area != CommunityArea.ranking,
-      ))
-        Card(
-          child: ListTile(
-            leading: Icon(area.icon),
-            title: Text(area.title),
-            subtitle: Text(area.description),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => onSelected(area),
-          ),
-        ),
+      SportMenuGroup(
+        title: 'Spieltag',
+        actions: [
+          for (final area in [
+            CommunityArea.tournaments,
+            CommunityArea.calendar,
+          ])
+            _action(area),
+        ],
+      ),
+      SportMenuGroup(
+        title: 'Team & Leistung',
+        actions: [
+          _action(CommunityArea.members),
+          if (rankingEnabled) _action(CommunityArea.ranking),
+          _action(CommunityArea.statistics),
+        ],
+      ),
+      SportMenuGroup(
+        title: 'Community verwalten',
+        collapsible: true,
+        icon: Icons.admin_panel_settings_outlined,
+        actions: [
+          for (final area in [
+            CommunityArea.invitations,
+            CommunityArea.devices,
+            CommunityArea.roles,
+            CommunityArea.profile,
+          ])
+            _action(area),
+        ],
+      ),
     ],
+  );
+
+  SportMenuAction _action(CommunityArea area) => SportMenuAction(
+    label: area.title,
+    icon: area.icon,
+    onTap: () => onSelected(area),
   );
 }

@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/services.dart' show rootBundle;
+import 'embedded_bot_routes.dart';
 
 import '../../domain/x01/checkout_planner.dart';
 import '../../domain/x01/x01_models.dart';
@@ -11,7 +11,6 @@ class CheckoutRouteRepository {
 
   static final CheckoutRouteRepository instance = CheckoutRouteRepository._();
 
-  static const String _assetPath = 'assets/scorer/bot_routes_v2.json';
   static const int _supportedVersion = 2;
 
   final Map<String, DartThrowResult> _throwsByLabel = <String, DartThrowResult>{
@@ -28,8 +27,9 @@ class CheckoutRouteRepository {
     if (_initialized) {
       return;
     }
-    final rawJson = await rootBundle.loadString(_assetPath);
-    final decoded = jsonDecode(rawJson);
+    // Fixed routes ship with the program, including when the asset bundle of
+    // an already-running installation is stale or unavailable.
+    final decoded = jsonDecode(embeddedBotRoutesJson);
     if (decoded is! Map) {
       throw StateError('Checkout-Routen-Asset hat ein ungueltiges Format.');
     }

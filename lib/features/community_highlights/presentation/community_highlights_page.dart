@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../../statistics/domain/statistics_period.dart';
@@ -315,11 +316,17 @@ class _HighlightsState extends State<CommunityHighlightsPage> {
                               itemBuilder: (_) => const [
                                 PopupMenuItem(
                                   value: 'edit',
-                                  child: Text('Bearbeiten'),
+                                  child: SportMenuLabel(
+                                    label: 'Bearbeiten',
+                                    icon: Icons.edit_outlined,
+                                  ),
                                 ),
                                 PopupMenuItem(
                                   value: 'delete',
-                                  child: Text('Löschen'),
+                                  child: SportMenuLabel(
+                                    label: 'Löschen',
+                                    icon: Icons.delete_outline,
+                                  ),
                                 ),
                               ],
                             ),

@@ -85,6 +85,8 @@ void main() {
     c.processFrames(frames);
     expect(counted, isEmpty);
     c.processFrames(frames);
+    expect(counted, isEmpty);
+    c.processFrames(frames);
     expect(counted.single.label, '19');
     expect(c.lastHit!.views, 3);
   });

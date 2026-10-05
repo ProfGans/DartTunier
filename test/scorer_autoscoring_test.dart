@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dart_tournament_manager/features/scorer/domain/scorer_hit.dart';
+import 'package:dart_tournament_manager/features/statistics/data/scorer_heatmap_repository.dart';
 import 'package:dart_tournament_manager/features/autoscoring/presentation/widgets/scorer_camera_panel.dart';
 import 'package:dart_tournament_manager/features/autoscoring/application/autoscoring_controller.dart';
 import 'package:dart_tournament_manager/features/scorer/application/scorer_controller.dart';
@@ -9,6 +12,95 @@ import 'package:dart_tournament_manager/features/scorer/domain/x01/x01_models.da
 import 'package:dart_tournament_manager/features/scorer/presentation/scorer_match_page.dart';
 
 void main() {
+  testWidgets('Camera panel survives desktop to phone layout changes', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1440, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ScorerMatchPage(
+          settings: ScorerSettings(
+            participants: const [
+              ScorerParticipant('A'),
+              ScorerParticipant('B'),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Autoscorer · drei Kameras'));
+    await tester.pumpAndSettle();
+    final original = tester.state(find.byType(ScorerCameraPanel));
+    tester.view.physicalSize = const Size(360, 800);
+    await tester.pumpAndSettle();
+    expect(
+      identical(tester.state(find.byType(ScorerCameraPanel)), original),
+      true,
+    );
+    tester.view.physicalSize = const Size(1440, 900);
+    await tester.pumpAndSettle();
+    expect(
+      identical(tester.state(find.byType(ScorerCameraPanel)), original),
+      true,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('Live rest and inferred checkout attempts commit on removal', (
+    tester,
+  ) async {
+    ScorerController? finished;
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ScorerMatchPage(
+          settings: ScorerSettings(
+            startScore: 40,
+            bestOfLegs: 1,
+            participants: const [
+              ScorerParticipant('A'),
+              ScorerParticipant('B'),
+            ],
+          ),
+          onCompleted: (c) => finished = c,
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Autoscorer · drei Kameras'));
+    await tester.pumpAndSettle();
+    final first = const X01Rules().createSingle(20);
+    final last = const X01Rules().createDouble(10);
+    var panel = tester.widget<ScorerCameraPanel>(
+      find.byType(ScorerCameraPanel),
+    );
+    panel.onLocations!([const DartLocation(0, -120)]);
+    panel.onPreview!([first], [null]);
+    await tester.pump();
+    expect(find.text('20'), findsWidgets);
+    panel = tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel));
+    expect(panel.attempts, [true]);
+    panel.onLocations!([
+      const DartLocation(0, -120),
+      const DartLocation(166, 0, corrected: true),
+    ]);
+    panel.onPreview!([first, last], [null, null]);
+    await tester.pump();
+    expect(finished, isNull);
+    expect(await ScorerHeatmapRepository().load(), isEmpty);
+    panel = tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel));
+    expect(panel.attempts, [true, true]);
+    panel.onAccept([]);
+    await tester.pump();
+    expect(finished!.statistics.players.first.checkoutPercent, 50);
+    expect(find.text('A gewinnt!'), findsOneWidget);
+    final saved = await ScorerHeatmapRepository().load();
+    expect(saved.single.hits.length, 2);
+    expect(saved.single.hits.last.location.corrected, true);
+    expect(saved.single.complete, true);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets('Bots finish their turns without any camera confirmation', (
     tester,
   ) async {
@@ -34,11 +126,17 @@ void main() {
     );
     await tester.tap(find.byTooltip('Autoscorer · drei Kameras'));
     await tester.pumpAndSettle();
-    tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel)).onAccept([
-      const X01Rules().createSingle(20),
-      const X01Rules().createSingle(20),
-      const X01Rules().createSingle(20),
-    ]);
+    tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel)).onPreview!(
+      [
+        const X01Rules().createSingle(20),
+        const X01Rules().createSingle(20),
+        const X01Rules().createSingle(20),
+      ],
+      [null, null, null],
+    );
+    tester
+        .widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel))
+        .onAccept([]);
     await tester.pump();
     expect(
       tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel)).enabled,
@@ -84,7 +182,9 @@ void main() {
           find.byType(ScorerCameraPanel),
         );
         expect(camera.dartsLeft, 3);
-        camera.onAccept([const X01Rules().createDouble(20)]);
+        camera.onPreview!([const X01Rules().createDouble(20)], [null]);
+        expect(completed, isFalse);
+        camera.onAccept([]);
         expect(completed, isTrue);
         camera.onAccept([const X01Rules().createSingle(20)]);
         await tester.pumpAndSettle();

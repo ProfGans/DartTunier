@@ -11,6 +11,7 @@ import 'remote_pairing_scanner.dart';
 import '../domain/account_remote_device.dart';
 import '../data/remote_account_repository.dart';
 import '../../devices/presentation/devices_scope.dart';
+import 'remote_scorer_view.dart';
 
 class RemoteControlPage extends StatefulWidget {
   const RemoteControlPage({
@@ -35,6 +36,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   final _form = GlobalKey<FormState>();
   final _transform = TransformationController();
   bool _zoom = false;
+  bool _screenMode = false;
   final _pointers = <int, int>{};
   RemoteAccountRepository? _accountRepository;
   StreamSubscription<String?>? _accountSubscription;
@@ -165,7 +167,13 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
 
       _client.addListener(changed);
       try {
-        await _client.connect(address, device.key, mode: 'account', name: name);
+        await _client.connect(
+          address,
+          device.key,
+          mode: 'account',
+          name: name,
+          actions: !_screenMode,
+        );
       } finally {
         _client.removeListener(changed);
       }
@@ -186,7 +194,13 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     _transform.value = Matrix4.identity();
     _pointers.clear();
     setState(() => _zoom = false);
-    unawaited(_client.connect(_address.text.trim(), _key.text.trim()));
+    unawaited(
+      _client.connect(
+        _address.text.trim(),
+        _key.text.trim(),
+        actions: !_screenMode,
+      ),
+    );
   }
 
   Future<void> _scan() async {
@@ -340,6 +354,17 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
       body: !_client.connected
           ? AdaptiveContentList(
               children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Bildschirmspiegelung verwenden'),
+                  subtitle: const Text(
+                    'Aus: eigener Scorer mit synchronisierten Eingaben und Autoscoring-Ergebnissen. Ein: bisherige Bildübertragung für andere App-Bereiche.',
+                  ),
+                  value: _screenMode,
+                  onChanged: _client.connecting || _lookup
+                      ? null
+                      : (value) => setState(() => _screenMode = value),
+                ),
                 if (widget.accountDevice != null) ...[
                   Text(
                     'Mit ${widget.accountDevice!.device.name} über deinen Account verbinden.',
@@ -428,6 +453,8 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                 if (_client.error != null) Text(_client.error!),
               ],
             )
+          : _client.actionsMode
+          ? RemoteScorerView(client: _client)
           : SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) => Column(

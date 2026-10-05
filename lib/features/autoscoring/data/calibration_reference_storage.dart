@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:math';
+import 'calibration_codec.dart';
 import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/board_geometry.dart';
@@ -19,15 +19,15 @@ class CalibrationReferenceStorage {
     final raw = (await SharedPreferences.getInstance()).getString(key);
     if (raw == null) return [];
     final json = jsonDecode(raw) as Map<String, dynamic>;
-    if (json['version'] != 1 || json['geometryRevision'] != 1) return [];
+    if ((json['version'] != 1 && json['version'] != 2) ||
+        json['geometryRevision'] != 1) {
+      return [];
+    }
     return [
       for (final r in json['references'] as List)
         CalibrationReference(
           base64Decode(r['image'] as String),
-          BoardCalibration([
-            for (final p in r['points'] as List)
-              Point((p[0] as num).toDouble(), (p[1] as num).toDouble()),
-          ]),
+          decodeCalibration(r['calibration'] ?? r['points']),
         ),
     ];
   }
@@ -41,15 +41,13 @@ class CalibrationReferenceStorage {
     await (await SharedPreferences.getInstance()).setString(
       key,
       jsonEncode({
-        'version': 1,
+        'version': 2,
         'geometryRevision': 1,
         'references': [
           for (final r in references)
             {
               'image': base64Encode(r.image),
-              'points': [
-                for (final p in r.calibration.points) [p.x, p.y],
-              ],
+              'calibration': encodeCalibration(r.calibration),
             },
         ],
       }),

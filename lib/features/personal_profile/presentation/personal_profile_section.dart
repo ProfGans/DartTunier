@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_menu.dart';
 import 'dart_setup_widgets.dart';
 import '../../../shared/images/profile_avatar.dart';
 import '../../../shared/images/profile_image_picker.dart';
@@ -18,7 +19,10 @@ class PersonalProfileSection extends StatefulWidget {
   State<PersonalProfileSection> createState() => _PersonalProfileSectionState();
 }
 
-class _PersonalProfileSectionState extends State<PersonalProfileSection> {
+class _PersonalProfileSectionState extends State<PersonalProfileSection>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final repository = PersonalProfileRepository();
   PersonalProfile? profile;
   String? error;
@@ -66,6 +70,7 @@ class _PersonalProfileSectionState extends State<PersonalProfileSection> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final value = profile;
     if (value == null) {
       return error == null
@@ -96,21 +101,27 @@ class _PersonalProfileSectionState extends State<PersonalProfileSection> {
                   value.name,
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                OutlinedButton.icon(
-                  onPressed: edit,
-                  icon: const Icon(Icons.edit),
-                  label: const Text('Profil bearbeiten'),
-                ),
               ],
             ),
             const SizedBox(height: 16),
             DartSetupSummary(setup: value.dartSetup),
             const SizedBox(height: 16),
             Text(repository.status),
-            TextButton.icon(
-              onPressed: load,
-              icon: const Icon(Icons.sync),
-              label: const Text('Profil synchronisieren'),
+            const SizedBox(height: 12),
+            SportMenuGroup(
+              title: 'Profil verwalten',
+              actions: [
+                SportMenuAction(
+                  label: 'Profil bearbeiten',
+                  icon: Icons.edit_outlined,
+                  onTap: edit,
+                ),
+                SportMenuAction(
+                  label: 'Profil synchronisieren',
+                  icon: Icons.sync,
+                  onTap: load,
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Text(

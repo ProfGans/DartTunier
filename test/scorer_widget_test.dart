@@ -70,6 +70,16 @@ void main() {
         MaterialApp(home: ScorerPage(botStorage: _BotStorage())),
       );
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Gegen Bot spielen'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await Scrollable.ensureVisible(
+        tester.element(find.text('Gegen Bot spielen')),
+        alignment: .5,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Gegen Bot spielen'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
@@ -88,7 +98,6 @@ void main() {
       expect(page.settings.botThrowDelay, const Duration(milliseconds: 250));
       await tester.tap(find.text('100'));
       await tester.pump();
-      await tester.tap(find.text('OK'));
       await tester.pump(const Duration(milliseconds: 1));
       expect(
         tester.widget<ScoreKeypad>(find.byType(ScoreKeypad)).enabled,

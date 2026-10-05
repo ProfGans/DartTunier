@@ -84,6 +84,8 @@ void main() {
       c.processFrames(data.current);
       expect(counted, isEmpty);
       c.processFrames(data.current);
+      expect(counted, isEmpty);
+      c.processFrames(data.current);
       expect(counted.single.label, '20');
       expect(c.lastHit!.views, 3);
       c.processFrames(data.current);

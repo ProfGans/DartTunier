@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import '../../application/autoscore_audio_controller.dart';
 
 class AutoscoreAudioControls extends StatelessWidget {
-  const AutoscoreAudioControls({super.key, required this.controller});
+  const AutoscoreAudioControls({
+    super.key,
+    required this.controller,
+    this.matchScorer = false,
+  });
   final AutoscoreAudioController controller;
+  final bool matchScorer;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
@@ -18,9 +23,15 @@ class AutoscoreAudioControls extends StatelessWidget {
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Score nach drei Würfen ansagen'),
-                  subtitle: const Text(
-                    'Deutsch · Bouncer zählen als Wurf mit 0 Punkten.',
+                  title: Text(
+                    matchScorer
+                        ? 'Aufnahmen und Checkout ansagen'
+                        : 'Score nach drei Würfen ansagen',
+                  ),
+                  subtitle: Text(
+                    matchScorer
+                        ? 'Deutsch · Autoscoring-Ansagen nach Bestätigung durch Herausziehen.'
+                        : 'Deutsch · Bouncer zählen als Wurf mit 0 Punkten.',
                   ),
                   value: controller.caller,
                   onChanged: controller.setCaller,

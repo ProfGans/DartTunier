@@ -157,7 +157,7 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
                   button(
                     '${[26, 41, 60][row]}',
                     enabled
-                        ? () => setState(() => input = '${[26, 41, 60][row]}')
+                        ? () => submit([26, 41, 60][row])
                         : null,
                   ),
                   for (var col = 1; col <= 3; col++)
@@ -168,7 +168,7 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
                   button(
                     '${[81, 100, 140][row]}',
                     enabled
-                        ? () => setState(() => input = '${[81, 100, 140][row]}')
+                        ? () => submit([81, 100, 140][row])
                         : null,
                   ),
                 ],
@@ -192,7 +192,7 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
                   enabled
                       ? () {
                           if (input.isEmpty) {
-                            setState(() => input = '180');
+                            submit(180);
                           } else {
                             submit();
                           }

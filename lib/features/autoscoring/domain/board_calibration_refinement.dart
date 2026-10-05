@@ -99,5 +99,5 @@ BoardCalibration refineBoardCalibration(
           (q.x * sine + q.y * cosine) * factor,
         ),
       ),
-  ]);
+  ], lens: initial.lens);
 }

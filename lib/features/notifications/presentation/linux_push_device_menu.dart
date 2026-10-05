@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import '../data/app_push_repository.dart';
 import '../data/linux_notification_service.dart';
@@ -104,20 +105,20 @@ class _LinuxPushDeviceMenuState extends State<LinuxPushDeviceMenu>
             maxLength: 80,
             decoration: const InputDecoration(labelText: 'Gerätename'),
           ),
-          Wrap(
-            spacing: 8,
-            children: [
-              TextButton(
-                onPressed: busy ? null : () => _configure(true),
-                child: Text(
-                  enabled
-                      ? 'Einrichtung aktualisieren'
-                      : 'Hintergrundempfang aktivieren',
-                ),
+          SportMenuGroup(
+            title: 'Empfang verwalten',
+            actions: [
+              SportMenuAction(
+                label: enabled
+                    ? 'Einrichtung aktualisieren'
+                    : 'Hintergrundempfang aktivieren',
+                icon: Icons.notifications_outlined,
+                onTap: busy ? null : () => _configure(true),
               ),
-              TextButton(
-                onPressed: busy ? null : () => _configure(false),
-                child: const Text('Deaktivieren'),
+              SportMenuAction(
+                label: 'Deaktivieren',
+                icon: Icons.notifications_off_outlined,
+                onTap: busy ? null : () => _configure(false),
               ),
             ],
           ),

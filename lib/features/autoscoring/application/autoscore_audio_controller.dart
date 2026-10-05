@@ -76,6 +76,22 @@ class AutoscoreAudioController extends ChangeNotifier {
   }
 
   void testCaller() => _send(() => output.speak('180 Punkte', volume));
+  void playHit({bool bounce = false}) {
+    if (sounds) {
+      _effect(() async {
+        if (sounds) await output.effect(bounce, volume);
+      });
+    }
+  }
+
+  void announce(String text) {
+    if (caller) {
+      _send(() async {
+        if (caller) await output.speak(text, volume);
+      });
+    }
+  }
+
   void _send(Future<void> Function() action) {
     _queue = _queue.then((_) async {
       if (_disposed) return;

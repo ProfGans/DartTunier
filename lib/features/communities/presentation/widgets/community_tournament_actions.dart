@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import '../../../community_calendar/presentation/save_calendar_preset_dialog.dart';
 import 'community_ranking_picker.dart';
@@ -20,7 +21,10 @@ class CommunityTournamentActions extends StatelessWidget {
   Future<void> _act(BuildContext context, String action) async {
     try {
       if (action == 'preset') {
-        await showDialog<void>(context: context, builder: (_) => SaveCalendarPresetDialog(tournament: tournament));
+        await showDialog<void>(
+          context: context,
+          builder: (_) => SaveCalendarPresetDialog(tournament: tournament),
+        );
         return;
       }
       if (action == 'devices') {
@@ -79,13 +83,37 @@ class CommunityTournamentActions extends StatelessWidget {
     onSelected: (action) => _act(context, action),
     itemBuilder: (_) => [
       if (permissions.allows(CommunityPermission.createTournaments))
-        const PopupMenuItem(value: 'preset', child: Text('Als Kalender-Vorlage speichern')),
+        const PopupMenuItem(
+          value: 'preset',
+          child: SportMenuLabel(
+            label: 'Als Kalender-Vorlage speichern',
+            icon: Icons.arrow_forward_outlined,
+          ),
+        ),
       if (permissions.allows(CommunityPermission.assignDevices))
-        const PopupMenuItem(value: 'devices', child: Text('Geräte zuteilen')),
+        const PopupMenuItem(
+          value: 'devices',
+          child: SportMenuLabel(
+            label: 'Geräte zuteilen',
+            icon: Icons.arrow_forward_outlined,
+          ),
+        ),
       if (permissions.allows(CommunityPermission.editTournaments))
-        const PopupMenuItem(value: 'edit', child: Text('Turnier bearbeiten')),
+        const PopupMenuItem(
+          value: 'edit',
+          child: SportMenuLabel(
+            label: 'Turnier bearbeiten',
+            icon: Icons.edit_outlined,
+          ),
+        ),
       if (permissions.allows(CommunityPermission.deleteTournaments))
-        const PopupMenuItem(value: 'delete', child: Text('Turnier löschen')),
+        const PopupMenuItem(
+          value: 'delete',
+          child: SportMenuLabel(
+            label: 'Turnier löschen',
+            icon: Icons.delete_outline,
+          ),
+        ),
     ],
   );
 }
@@ -99,7 +127,9 @@ class _TournamentSettings extends StatefulWidget {
 
 class _TournamentSettingsState extends State<_TournamentSettings> {
   late bool _countsForRanking = widget.tournament.countsForRanking;
-  late List<String> _communityRankingIds = [...widget.tournament.communityRankingIds];
+  late List<String> _communityRankingIds = [
+    ...widget.tournament.communityRankingIds,
+  ];
   late final _name = TextEditingController(text: widget.tournament.name);
   late final _boards = TextEditingController(
     text: '${widget.tournament.boardCount}',
@@ -141,13 +171,16 @@ class _TournamentSettingsState extends State<_TournamentSettings> {
           const SizedBox(height: 16),
           SwitchListTile(
             title: const Text('Zählt zur Community-Rangliste'),
-            subtitle: const Text('Gilt auch für bereits gespielte Spiele dieses Turniers.'),
+            subtitle: const Text(
+              'Gilt auch für bereits gespielte Spiele dieses Turniers.',
+            ),
             value: _countsForRanking,
             onChanged: (value) => setState(() => _countsForRanking = value),
           ),
           if (_countsForRanking && widget.tournament.communityId != null)
             CommunityRankingPicker(
-              communityId: widget.tournament.communityId!, selectedIds: _communityRankingIds,
+              communityId: widget.tournament.communityId!,
+              selectedIds: _communityRankingIds,
               onChanged: (ids) => setState(() => _communityRankingIds = ids),
             ),
           FilledButton(

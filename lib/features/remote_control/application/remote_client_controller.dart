@@ -5,8 +5,11 @@ import 'package:flutter/foundation.dart';
 import '../../devices/data/device_link_auth.dart';
 import '../data/remote_channel.dart';
 import 'remote_host_controller.dart';
+import 'remote_scorer_client.dart';
 
 class RemoteClientController extends ChangeNotifier {
+  final scorer = RemoteScorerClient();
+  bool actionsMode = false;
   WebSocket? _socket;
   RemoteChannel? _channel;
   bool connecting = false, _disposed = false;
@@ -27,10 +30,14 @@ class RemoteClientController extends ChangeNotifier {
     int port = RemoteHostController.port,
     String mode = 'code',
     String name = 'Fernbedienung',
+    bool actions = false,
   }) async {
     await disconnect();
     final generation = ++_generation;
     connecting = true;
+    actionsMode = actions;
+    scorer.beginConnection();
+    scorer.send = send;
     error = null;
     _changed();
     WebSocket? socket;
@@ -69,6 +76,7 @@ class RemoteClientController extends ChangeNotifier {
           'signature': DeviceLinkAuth.sign(key, 'remote-v1:$challenge:auth'),
           'mode': mode,
           'name': name,
+          'interaction': actions ? 'actions' : 'screen',
         }),
       );
       if (!await stream.moveNext().timeout(const Duration(seconds: 8))) {
@@ -91,6 +99,11 @@ class RemoteClientController extends ChangeNotifier {
         return;
       }
       if (response['type'] != 'ready') throw const FormatException('Kopplung');
+      if (actions && response['actionsVersion'] != 1) {
+        error =
+            'Bitte die App am Hauptgerät aktualisieren: Aktions-Fernsteuerung wird noch nicht unterstützt.';
+        return;
+      }
       if (generation != _generation) return;
       _channel = channel;
       connecting = false;
@@ -100,6 +113,11 @@ class RemoteClientController extends ChangeNotifier {
         if (generation != _generation || _disposed) break;
         final message = await channel.decode(stream.current);
         if (generation != _generation || _disposed) break;
+        if (actions && message['type'] == 'scorerState') {
+          scorer.receive(message);
+          _changed();
+          continue;
+        }
         if (message['type'] != 'frame') {
           throw const FormatException('Nachricht');
         }
@@ -139,6 +157,7 @@ class RemoteClientController extends ChangeNotifier {
         connecting = false;
         awaitingConfirmation = false;
         image = null;
+        scorer.disconnect();
         _changed();
       }
     }
@@ -169,6 +188,7 @@ class RemoteClientController extends ChangeNotifier {
     editingText = null;
     connecting = false;
     awaitingConfirmation = false;
+    scorer.disconnect();
     await socket?.close();
     _changed();
   }
@@ -181,6 +201,7 @@ class RemoteClientController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     unawaited(disconnect());
+    scorer.dispose();
     super.dispose();
   }
 }

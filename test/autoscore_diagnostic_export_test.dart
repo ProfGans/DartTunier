@@ -35,7 +35,7 @@ void main() {
       final report = jsonDecode(
         utf8.decode(archive.findFile('bericht.json')!.content as List<int>),
       );
-      expect(report['schemaVersion'], 4);
+      expect(report['schemaVersion'], 5);
       expect(report['correctDetection'], isNull);
       expect(report['hit']['eventType'], 'manualRemoval');
       expect(report['hit']['throws'].first['points'], 60);
@@ -111,7 +111,7 @@ void main() {
                 ),
               )
               as Map<String, dynamic>;
-      expect(report['schemaVersion'], 3);
+      expect(report['schemaVersion'], 5);
       expect(report['correctionPosition']['xMillimetres'], 12.0);
       expect(report['detected'], 'T20');
       expect(report['corrected'], 'S20');

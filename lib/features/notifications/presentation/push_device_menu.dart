@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'linux_push_device_menu.dart';
@@ -101,43 +102,26 @@ class _PushDeviceMenuState extends State<PushDeviceMenu>
         ? const SizedBox.shrink()
         : AnimatedBuilder(
             animation: controller,
-            builder: (context, _) => Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Benachrichtigungen',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    Text(controller.status),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        TextButton(
-                          onPressed: controller.busy ? null : configure,
-                          child: Text(
-                            controller.enabled
-                                ? 'Push-Empfang einrichten'
-                                : 'Push-Empfang aktivieren',
-                          ),
-                        ),
-                        if (controller.enabled)
-                          TextButton(
-                            onPressed: controller.busy
-                                ? null
-                                : () => controller.configure(
-                                    false,
-                                    controller.name,
-                                  ),
-                            child: const Text('Deaktivieren'),
-                          ),
-                      ],
-                    ),
-                  ],
+            builder: (context, _) => SportMenuGroup(
+              title: 'Benachrichtigungen',
+              actions: [
+                SportMenuAction(
+                  label: controller.enabled
+                      ? 'Push-Empfang einrichten'
+                      : 'Push-Empfang aktivieren',
+                  description: controller.status,
+                  icon: Icons.notifications_outlined,
+                  onTap: controller.busy ? null : configure,
                 ),
-              ),
+                if (controller.enabled)
+                  SportMenuAction(
+                    label: 'Deaktivieren',
+                    icon: Icons.notifications_off_outlined,
+                    onTap: controller.busy
+                        ? null
+                        : () => controller.configure(false, controller.name),
+                  ),
+              ],
             ),
           );
   }

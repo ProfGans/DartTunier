@@ -1,3 +1,5 @@
+import '../../../shared/widgets/sport_menu.dart';
+import '../../../shared/widgets/sport_page_heading.dart';
 import 'package:flutter/material.dart';
 import '../../autoscoring/presentation/autoscoring_page.dart';
 import '../../../shared/widgets/adaptive_content.dart';
@@ -11,6 +13,7 @@ import '../domain/scorer_opponents.dart';
 import 'scorer_setup_page.dart';
 import 'checkout_page.dart';
 import 'lobby/scorer_join_page.dart';
+import '../../statistics/presentation/heatmap/scorer_heatmap_page.dart';
 
 class ScorerPage extends StatelessWidget {
   const ScorerPage({super.key, this.botStorage, this.account});
@@ -71,105 +74,80 @@ class ScorerPage extends StatelessWidget {
     appBar: AppBar(title: const Text('Scorer')),
     body: AdaptiveContentList(
       children: [
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.restore),
-            title: const Text('Gespeichertes Spiel fortsetzen'),
-            subtitle: const Text(
-              'Den zuletzt zwischengespeicherten Spielstand öffnen',
-            ),
-            onTap: () => _resume(context),
-          ),
+        const SportPageHeading(
+          title: 'Game on.',
+          subtitle:
+              'Starte dein nächstes Match, trainiere gegen Bots oder setze dein Spiel fort.',
+          icon: Icons.sports_score,
         ),
-        const SizedBox(height: 16),
-        Text(
-          'Gegen wen möchtest du spielen?',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 16),
-        AdaptiveTileLayout(
-          children: [
+        const SizedBox(height: 20),
+        SportMenuGroup(
+          title: 'Spielen',
+          actions: [
             for (final mode in ScorerOpponents.values)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(switch (mode) {
-                        ScorerOpponents.players => Icons.people_outline,
-                        ScorerOpponents.bots => Icons.smart_toy_outlined,
-                        ScorerOpponents.mixed => Icons.groups_outlined,
-                      }),
-                      const SizedBox(height: 12),
-                      Text(
-                        mode.label,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(switch (mode) {
-                        ScorerOpponents.players =>
-                          'Zwei oder mehr Spieler, mit Gastnamen oder eigenen Konten.',
-                        ScorerOpponents.bots =>
-                          'Spiele gegen einen oder mehrere Bots.',
-                        ScorerOpponents.mixed =>
-                          'Gemeinsam mit weiteren Spielern und Bots spielen.',
-                      }),
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => ScorerSetupPage(
-                              opponents: mode,
-                              account: account,
-                              botStorage: botStorage,
-                            ),
-                          ),
-                        ),
-                        child: Text(switch (mode) {
-                          ScorerOpponents.players => 'Gegen Spieler spielen',
-                          ScorerOpponents.bots => 'Gegen Bot spielen',
-                          ScorerOpponents.mixed => 'Gemischtes Spiel',
-                        }),
-                      ),
-                    ],
+              SportMenuAction(
+                label: switch (mode) {
+                  ScorerOpponents.players => 'Gegen Spieler spielen',
+                  ScorerOpponents.bots => 'Gegen Bot spielen',
+                  ScorerOpponents.mixed => 'Gemischtes Spiel',
+                },
+                icon: switch (mode) {
+                  ScorerOpponents.players => Icons.people_outline,
+                  ScorerOpponents.bots => Icons.smart_toy_outlined,
+                  ScorerOpponents.mixed => Icons.groups_outlined,
+                },
+                onTap: () => _open(
+                  context,
+                  ScorerSetupPage(
+                    opponents: mode,
+                    account: account,
+                    botStorage: botStorage,
                   ),
                 ),
               ),
+            SportMenuAction(
+              label: 'Spiel beitreten · QR-Code / Code',
+              icon: Icons.qr_code_scanner,
+              onTap: () => _open(context, const ScorerJoinPage()),
+            ),
+            SportMenuAction(
+              label: 'Gespeichertes Spiel fortsetzen',
+              icon: Icons.restore,
+              onTap: () => _resume(context),
+            ),
           ],
         ),
-        const SizedBox(height: 24),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.videocam_outlined),
-            title: const Text('Autoscorer · drei Kameras'),
-            subtitle: const Text(
-              'Windows-Prototyp: Kalibrierung und Treffererkennung',
+        SportMenuGroup(
+          title: 'Training & Analyse',
+          actions: [
+            SportMenuAction(
+              label: 'Checkoutrechner',
+              icon: Icons.calculate_outlined,
+              onTap: () => _open(context, CheckoutPage(accountId: account?.id)),
             ),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const AutoscoringPage()),
+            SportMenuAction(
+              label: 'Autoscoring-Heatmaps',
+              icon: Icons.blur_on,
+              onTap: () => _open(context, const ScorerHeatmapPage()),
             ),
-          ),
+          ],
         ),
-        OutlinedButton.icon(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const ScorerJoinPage()),
-          ),
-          icon: const Icon(Icons.qr_code_scanner),
-          label: const Text('Spiel beitreten · QR-Code / Code'),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.calculate_outlined),
-            title: const Text('Checkoutrechner'),
-            subtitle: const Text('Feste Checkoutwege nach Out-Regel'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const CheckoutPage()),
+        SportMenuGroup(
+          title: 'Kamera & Erkennung',
+          collapsible: true,
+          icon: Icons.videocam_outlined,
+          actions: [
+            SportMenuAction(
+              label: 'Autoscorer · drei Kameras',
+              icon: Icons.videocam_outlined,
+              onTap: () => _open(context, const AutoscoringPage()),
             ),
-          ),
+          ],
         ),
       ],
     ),
   );
+
+  void _open(BuildContext context, Widget page) =>
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
 }

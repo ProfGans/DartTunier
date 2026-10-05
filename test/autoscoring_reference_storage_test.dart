@@ -29,7 +29,7 @@ void main() {
       expect(
         (jsonDecode(prefs.getString(CalibrationReferenceStorage.key)!)
             as Map)['version'],
-        1,
+        2,
       );
     },
   );

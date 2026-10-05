@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import '../../domain/community_ranking_action.dart';
 
@@ -72,16 +73,20 @@ class RankingPlayerMenu extends StatelessWidget {
     itemBuilder: (_) => [
       PopupMenuItem(
         value: RankingPlayerAction.reset,
-        child: Text(
-          excluded
+        child: SportMenuLabel(
+          label: excluded
               ? 'Mit 1000 Elo wieder aufnehmen'
               : 'Spielerwertung zurücksetzen',
+          icon: Icons.restart_alt,
         ),
       ),
       if (!excluded)
         const PopupMenuItem(
           value: RankingPlayerAction.remove,
-          child: Text('Aus Rangliste entfernen'),
+          child: SportMenuLabel(
+            label: 'Aus Rangliste entfernen',
+            icon: Icons.person_remove_outlined,
+          ),
         ),
     ],
   );

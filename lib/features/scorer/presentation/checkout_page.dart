@@ -1,6 +1,7 @@
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
-import '../domain/fixed_checkouts.dart';
+import '../domain/preferred_checkouts.dart';
+import 'widgets/personalized_checkout_routes.dart';
 import '../domain/x01/x01_models.dart';
 
 String checkoutLabel(CheckoutRequirement value) => switch (value) {
@@ -14,14 +15,17 @@ class CheckoutRoutes extends StatelessWidget {
     super.key,
     required this.score,
     this.dartsLeft = 3,
+    this.favoriteDouble = '',
     this.requirement = CheckoutRequirement.doubleOut,
   });
   final int score, dartsLeft;
+  final String favoriteDouble;
   final CheckoutRequirement requirement;
   @override
   Widget build(BuildContext context) {
-    final routes = FixedCheckouts.routes(
+    final routes = PreferredCheckouts.routes(
       score,
+      favoriteDouble: favoriteDouble,
       dartsLeft: dartsLeft,
       requirement: requirement,
     );
@@ -32,6 +36,10 @@ class CheckoutRoutes extends StatelessWidget {
           'Checkout · $score Rest · $dartsLeft Darts',
           style: Theme.of(context).textTheme.titleMedium,
         ),
+        if (routes.isNotEmpty &&
+            PreferredCheckouts.normalizeDouble(favoriteDouble) ==
+                routes.first.last.label)
+          Text('Bevorzugtes Finish: ${routes.first.last.label}'),
         if (routes.isEmpty)
           const Text('Kein Checkout mit den verbleibenden Darts möglich.'),
         for (var i = 0; i < routes.length; i++)
@@ -47,7 +55,8 @@ class CheckoutRoutes extends StatelessWidget {
 }
 
 class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({super.key});
+  const CheckoutPage({super.key, this.accountId});
+  final String? accountId;
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
 }
@@ -63,7 +72,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       padding: const EdgeInsets.all(24),
       children: [
         const Text(
-          'Bis zu fünf feste Wege pro Restpunktzahl und Out-Regel. '
+          'Bis zu fünf Wege pro Restpunktzahl und Out-Regel. Dein Lieblingsdoppel wird bevorzugt, wenn es erreichbar ist. '
           'Existieren weniger gültige Wege, werden nur diese angezeigt. Bull zählt 50, 25 zählt Outer Bull.',
         ),
         const SizedBox(height: 16),
@@ -79,7 +88,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
           onChanged: (value) => setState(() => score = int.tryParse(value)),
         ),
         DropdownButtonFormField<CheckoutRequirement>(
-          isExpanded: true, isDense: false,
+          isExpanded: true,
+          isDense: false,
           itemHeight: null,
           initialValue: requirement,
           decoration: const InputDecoration(labelText: 'Out-Regel'),
@@ -100,7 +110,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ),
         const SizedBox(height: 24),
         if (score != null && score! >= 1 && score! <= 180)
-          CheckoutRoutes(
+          PersonalizedCheckoutRoutes(
+            accountId: widget.accountId,
             score: score!,
             dartsLeft: darts,
             requirement: requirement,

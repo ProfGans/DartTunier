@@ -67,7 +67,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        if (size.width < 592 || scale > 1.5) {
+        if (size.width < 840 * scale) {
           await tester.tap(find.byType(DropdownButtonFormField<StageViewMode>));
           await tester.pumpAndSettle();
           await tester.tap(find.text('Spielansicht').last);

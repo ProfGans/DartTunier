@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/sport_menu.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import '../../domain/engines/placement_engine.dart';
 import '../../domain/knockout_round_names.dart';
@@ -70,7 +71,32 @@ class TournamentResultsPage extends StatelessWidget {
                 ),
               ),
             ),
-            TournamentHighlightsButton(tournament: tournament),
+            const SizedBox(height: 16),
+            SportMenuGroup(
+              title: 'Ergebnisse ansehen',
+              actions: [
+                SportMenuAction(
+                  label: 'Spielergebnisse',
+                  icon: Icons.groups_outlined,
+                  onTap: () => _openPlayerList(context, summary),
+                ),
+                SportMenuAction(
+                  label: 'Alle Begegnungen',
+                  icon: Icons.sports_score,
+                  onTap: () => _openMatches(context),
+                ),
+                SportMenuAction(
+                  label: 'Statistik und Highlights',
+                  icon: Icons.auto_awesome,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          TournamentHighlightsPage(tournament: tournament),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 20),
             Text(
               'Podium',

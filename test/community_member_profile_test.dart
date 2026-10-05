@@ -56,17 +56,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Mitgliederprofil'), findsOneWidget);
     expect(find.text('Mitglied seit 1.1.2026'), findsOneWidget);
-    expect(
-      find.text('1 Siege · 0 Unentschieden · 0 Niederlagen'),
-      findsOneWidget,
-    );
+    expect(find.text('Aktuelle Form'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Persönliche Statistik öffnen').hitTestable(),
       150,
     );
     await tester.tap(find.text('Persönliche Statistik öffnen'));
     await tester.pumpAndSettle();
-    expect(find.text('Spielerstatistik'), findsOneWidget);
+    expect(find.text('Statistik-Cockpit'), findsOneWidget);
   });
   testWidgets('linked manual member resolves to account statistics', (
     tester,
@@ -92,10 +89,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Gastname'), findsOneWidget);
     expect(find.textContaining('Zugeordneter Account:'), findsOneWidget);
-    expect(
-      find.text('1 Siege · 0 Unentschieden · 0 Niederlagen'),
-      findsOneWidget,
-    );
+    expect(find.text('Aktuelle Form'), findsOneWidget);
   });
   testWidgets('manual member without games still has a profile', (
     tester,

@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -195,70 +196,43 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
       builder: (context, snapshot) {
         final account = snapshot.data;
         if (account == null) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.account_circle_outlined),
-                    title: Text('Account'),
-                    subtitle: Text('Nicht angemeldet'),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      _store.signInLabel,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      TextButton.icon(
-                        onPressed: _openSignInDialog,
-                        icon: const Icon(Icons.login_outlined),
-                        label: const Text('Anmelden'),
-                      ),
-                      FilledButton.icon(
-                        onPressed: _openRegisterDialog,
-                        icon: const Icon(Icons.person_add_alt_1_outlined),
-                        label: const Text('Account erstellen'),
-                      ),
-                    ],
-                  ),
-                ],
+          return SportMenuGroup(
+            title: 'Account',
+            actions: [
+              SportMenuAction(
+                label: 'Anmelden',
+                description: _store.signInLabel,
+                icon: Icons.login_outlined,
+                onTap: _openSignInDialog,
               ),
-            ),
+              SportMenuAction(
+                label: 'Account erstellen',
+                icon: Icons.person_add_alt_1_outlined,
+                onTap: _openRegisterDialog,
+              ),
+            ],
           );
         }
 
-        return Card(
-          child: ListTile(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => PlayerProfilePage(account: account),
+        return SportMenuGroup(
+          title: account.displayName,
+          actions: [
+            SportMenuAction(
+              label: 'Mein Profil und Statistiken öffnen',
+              description: account.email,
+              icon: Icons.account_circle_outlined,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => PlayerProfilePage(account: account),
+                ),
               ),
             ),
-            leading: CircleAvatar(child: Text(account.initials)),
-            title: Text(account.displayName),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(account.email),
-                const Text('Mein Profil und Statistiken öffnen'),
-              ],
+            SportMenuAction(
+              label: 'Abmelden',
+              icon: Icons.logout_outlined,
+              onTap: _signOut,
             ),
-            trailing: IconButton(
-              onPressed: _signOut,
-              icon: const Icon(Icons.logout_outlined),
-              tooltip: 'Abmelden',
-            ),
-          ),
+          ],
         );
       },
     );

@@ -84,6 +84,8 @@ void main() {
           ..stable = 2;
       }
       c.processFrames(data.current);
+      expect(counted, isEmpty);
+      c.processFrames(data.current);
       expect(counted.single.label, '20');
       c.processFrames(data.current);
       expect(counted.length, 1);

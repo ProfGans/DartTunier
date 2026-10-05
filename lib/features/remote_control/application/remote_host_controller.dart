@@ -9,8 +9,26 @@ import '../data/remote_settings_storage.dart';
 import '../domain/remote_control_settings.dart';
 import '../domain/account_remote_device.dart';
 import '../../devices/domain/app_device.dart';
+import 'remote_scorer_host.dart';
 
 class RemoteHostController extends ChangeNotifier {
+  final scorer = RemoteScorerHost();
+  bool _actionsConnection = false;
+  int _sentScorerRevision = -1;
+  Future<void> _stateQueue = Future.value();
+
+  Future<void> _sendState(Map<String, dynamic> message) {
+    final socket = _socket, channel = _channel;
+    final next = _stateQueue.then((_) async {
+      if (socket == null || channel == null || !identical(socket, _socket)) {
+        return;
+      }
+      socket.add(await channel.encode(message));
+    });
+    _stateQueue = next.catchError((Object _) {});
+    return next;
+  }
+
   RemoteHostController({
     RemoteSettingsStorage? settingsStorage,
     RemoteAccountRepository? accountRepository,
@@ -305,7 +323,9 @@ class RemoteHostController extends ChangeNotifier {
         }
       }
       if (byAccount && (owner != accountId || key != _accountKey)) return;
-      socket.add(await channel.encode({'type': 'ready'}));
+      _actionsConnection = auth['interaction'] == 'actions';
+      _sentScorerRevision = -1;
+      socket.add(await channel.encode({'type': 'ready', 'actionsVersion': 1}));
       if (!identical(socket, _socket) || !enabled) return;
       _channel = channel;
       _changed();
@@ -318,7 +338,11 @@ class RemoteHostController extends ChangeNotifier {
         }
         final message = await channel.decode(stream.current);
         if (!identical(socket, _socket) || !enabled) break;
-        if (message['type'] == 'frameAck') {
+        if (_actionsConnection) {
+          if (message['type'] == 'scorerCommand' && message['version'] == 1) {
+            await _sendState(await scorer.execute(message));
+          }
+        } else if (message['type'] == 'frameAck') {
           _awaitingFrame = false;
         } else {
           onInput?.call(message);
@@ -347,6 +371,17 @@ class RemoteHostController extends ChangeNotifier {
     final socket = _socket;
     final channel = _channel;
     if (_capturing || socket == null || channel == null) return;
+    if (_actionsConnection) {
+      if (_sentScorerRevision != scorer.revision) {
+        _sentScorerRevision = scorer.revision;
+        try {
+          await _sendState(scorer.snapshot());
+        } catch (_) {
+          unawaited(socket.close());
+        }
+      }
+      return;
+    }
     if (_awaitingFrame) {
       if (_lastFrame != null &&
           DateTime.now().difference(_lastFrame!) >
@@ -415,6 +450,7 @@ class RemoteHostController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    scorer.dispose();
     unawaited(_accountSubscription?.cancel() ?? Future.value());
     unawaited(stop());
     super.dispose();

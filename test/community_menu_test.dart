@@ -71,6 +71,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    if (find.text('Community bearbeiten').hitTestable().evaluate().isEmpty) {
+      await tester.ensureVisible(find.text('Community verwalten'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Community verwalten'));
+      await tester.pumpAndSettle();
+    }
     await tester.scrollUntilVisible(find.text('Community bearbeiten'), 150);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Community bearbeiten'));
@@ -119,6 +125,10 @@ void main() {
     expect(repository.tournamentLoads, 1);
     await tester.pageBack();
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Community verwalten'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Community verwalten'));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Einladen'), 150);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Einladen'));
@@ -138,6 +148,12 @@ void main() {
     expect(repository.tournamentLoads, 2);
     await tester.pageBack();
     await tester.pumpAndSettle();
+    if (find.text('Community bearbeiten').hitTestable().evaluate().isEmpty) {
+      await tester.ensureVisible(find.text('Community verwalten'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Community verwalten'));
+      await tester.pumpAndSettle();
+    }
     await tester.scrollUntilVisible(find.text('Community bearbeiten'), 150);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Community bearbeiten'));

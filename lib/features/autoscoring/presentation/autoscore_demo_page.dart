@@ -9,6 +9,7 @@ import 'widgets/dart_correction_dialog.dart';
 import '../application/capture_autoscore_evidence.dart';
 import '../data/autoscore_diagnostic_export.dart';
 import '../domain/board_geometry.dart';
+import '../domain/lens_distortion.dart';
 import '../domain/flat_board_projection.dart';
 import 'widgets/flat_board_view.dart';
 import 'widgets/dart_position_dialog.dart';
@@ -96,7 +97,10 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
     final result = entry.actual!;
     try {
       final path = await const AutoscoreDiagnosticExport().save(
-        entry.evidence!,
+        AutoscoreEvidence(entry.evidence!.cameras, {
+          ...entry.evidence!.hit,
+          'correctionHistoryAnalysis': controller.correctionAnalysis,
+        }, capturedAt: entry.evidence!.capturedAt),
         entry.detected.label,
         result.label,
         correctionPosition: entry.correctedPoint == null
@@ -357,10 +361,18 @@ List<FlatBoardCamera> _evidenceCameras(AutoscoreEvidence evidence) => [
     if (camera.metadata['calibration'] is List)
       FlatBoardCamera(
         camera.image,
-        BoardCalibration([
-          for (final p in camera.metadata['calibration'] as List)
-            BoardPoint((p['x'] as num).toDouble(), (p['y'] as num).toDouble()),
-        ]),
+        BoardCalibration(
+          [
+            for (final p in camera.metadata['calibration'] as List)
+              BoardPoint(
+                (p['x'] as num).toDouble(),
+                (p['y'] as num).toDouble(),
+              ),
+          ],
+          lens: camera.metadata['lens'] is Map
+              ? LensDistortion.fromJson(camera.metadata['lens'] as Map)
+              : const LensDistortion(),
+        ),
       ),
 ];
 

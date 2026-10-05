@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'lens_distortion.dart';
 import '../../scorer/domain/x01/x01_models.dart';
 import '../../scorer/domain/x01/x01_rules.dart';
 
@@ -44,8 +45,10 @@ class BoardGeometry {
 
 /// Four points: outer double at the centres of 20, 6, 3, 11 (clockwise).
 class BoardCalibration {
-  BoardCalibration(List<BoardPoint> points)
-    : points = List.unmodifiable(points) {
+  BoardCalibration(
+    List<BoardPoint> points, {
+    this.lens = const LensDistortion(),
+  }) : points = List.unmodifiable(points) {
     if (points.length != 4) {
       throw ArgumentError('Vier Kalibrierpunkte benötigt.');
     }
@@ -57,7 +60,7 @@ class BoardCalibration {
     ];
     final equations = <List<double>>[];
     for (var i = 0; i < 4; i++) {
-      final p = points[i], q = target[i];
+      final p = lens.undistort(points[i]), q = target[i];
       equations.add([p.x, p.y, 1, 0, 0, 0, -q.x * p.x, -q.x * p.y, q.x]);
       equations.add([0, 0, 0, p.x, p.y, 1, -q.y * p.x, -q.y * p.y, q.y]);
     }
@@ -104,8 +107,10 @@ class BoardCalibration {
     }
   }
   final List<BoardPoint> points;
+  final LensDistortion lens;
   late final List<double> _h;
   BoardPoint project(BoardPoint p) {
+    p = lens.undistort(p);
     final d = _h[6] * p.x + _h[7] * p.y + 1;
     if (d.abs() < 1e-9) throw StateError('Punkt außerhalb der Kalibrierung.');
     return Point(
@@ -122,10 +127,25 @@ class BoardCalibration {
     if (det.abs() < 1e-9) {
       throw StateError('Punkt außerhalb der Kamera-Projektion.');
     }
-    return Point((x * d - b * y) / det, (a * y - x * c) / det);
+    return lens.distort(Point((x * d - b * y) / det, (a * y - x * c) / det));
   }
 
   List<BoardPoint> imageAxis(DartAxis axis) {
+    if (lens.k1 != 0) {
+      final origin = Point(-axis.a * axis.c, -axis.b * axis.c);
+      final curve = <BoardPoint>[];
+      for (var t = -250.0; t <= 250; t += 5) {
+        final board = origin + Point(-axis.b * t, axis.a * t);
+        if (board.magnitude > 250) continue;
+        try {
+          final p = unproject(board);
+          if (p.x.isFinite && p.y.isFinite) curve.add(p);
+        } on StateError {
+          continue;
+        }
+      }
+      return curve;
+    }
     final a = axis.a * _h[0] + axis.b * _h[3] + axis.c * _h[6];
     final b = axis.a * _h[1] + axis.b * _h[4] + axis.c * _h[7];
     final c = axis.a * _h[2] + axis.b * _h[5] + axis.c;
