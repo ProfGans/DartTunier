@@ -251,26 +251,31 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
             return AdaptiveContentList(
               padding: const EdgeInsets.all(24),
               children: [
-                const SportPageHeading(
-                  title: 'Meine Turniere',
-                  subtitle:
-                      'Dein nächster Spieltag beginnt hier. Gespeicherte Turniere fortsetzen oder ein neues Turnier anlegen.',
-                  icon: Icons.emoji_events_outlined,
+                Text(
+                  'Meine Turniere',
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 6),
+                Text(
+                  '${tournaments.length} gespeicherte Turniere',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: _openCreationPage,
-                  icon: const Icon(Icons.add_circle_outline),
+                  icon: const Icon(Icons.add),
                   label: const Text('Turnier erstellen'),
                 ),
-                const SizedBox(height: 32),
-                Text(
-                  'Gespeicherte Turniere',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const LinearProgressIndicator(),
+                if (snapshot.hasError) ...[
+                  const Text('Turniere konnten nicht geladen werden.'),
+                  TextButton(
+                    onPressed: _reloadTournaments,
+                    child: const Text('Erneut versuchen'),
+                  ),
+                ],
                 if (tournaments.isEmpty)
                   const Card(
                     child: Padding(
@@ -279,24 +284,17 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
                     ),
                   )
                 else
-                  for (final tournament in tournaments)
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.emoji_events_outlined),
-                        title: Text(tournament.name),
-                        subtitle: Text(
-                          tournament.leagueMatch != null
-                              ? 'Ligaspiel · ${tournament.leagueMatch!.homePoints}:${tournament.leagueMatch!.awayPoints} Mannschaftspunkte'
-                              : '${tournament.players.length} Spieler - ${tournament.stages.length} Etappen',
+                  AdaptiveTileLayout(
+                    minTileWidth: 360,
+                    children: [
+                      for (final tournament in tournaments)
+                        TournamentSummaryCard(
+                          tournament: tournament,
+                          onOpen: () => _openTournament(tournament),
+                          onDelete: () => _deleteTournament(tournament),
                         ),
-                        trailing: IconButton(
-                          onPressed: () => _deleteTournament(tournament),
-                          icon: const Icon(Icons.delete_outline),
-                          tooltip: 'Turnier loeschen',
-                        ),
-                        onTap: () => _openTournament(tournament),
-                      ),
-                    ),
+                    ],
+                  ),
               ],
             );
           },

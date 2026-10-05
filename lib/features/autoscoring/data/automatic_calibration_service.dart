@@ -94,24 +94,9 @@ class WindowsAutomaticCalibrationService
 
   @override
   Future<AutomaticCalibrationResult> calibrate(Uint8List image) async {
-    if (useReferenceCache) {
-      try {
-        for (final reference
-            in await const CalibrationReferenceStorage().load()) {
-          try {
-            return await calibrateUsingReference(
-              image,
-              reference.image,
-              reference.calibration,
-            );
-          } on CalibrationFailure {
-            continue;
-          }
-        }
-      } catch (_) {
-        /* Read the numbers afresh when no usable reference exists. */
-      }
-    }
+    // Historical ring matches can retain a wrong sector orientation, especially
+    // after rotating the board or moving its separate number ring. Read current
+    // numerals first; the controller can transfer a fresh result to other cameras.
     final prepared = await compute(detectBoardOutline, image);
     final numbers = <BoardNumber>[];
     final rectified = img.decodePng(prepared.ocrImage)!;

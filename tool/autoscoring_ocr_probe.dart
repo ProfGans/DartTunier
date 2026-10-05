@@ -63,11 +63,13 @@ Future<void> main() async {
     const fixtureDirectory = String.fromEnvironment('OCR_FIXTURE_DIRECTORY');
     if (fixtureDirectory.isNotEmpty) {
       final results = <Map<String, dynamic>>[];
+      final calibrations = <BoardCalibration?>[];
       for (var i = 1; i <= 3; i++) {
         final diagnostic = <String, dynamic>{};
         try {
           final result =
               await WindowsAutomaticCalibrationService(
+                useReferenceCache: false,
                 onWords: (rotation, words) =>
                     diagnostic['words_$rotation'] = words,
                 onNumbers: (numbers) => diagnostic['numbers'] = [
@@ -85,7 +87,11 @@ Future<void> main() async {
             'success': true,
             'numbers': result.numberCount,
             'diagnostic': diagnostic,
+            'calibration': [
+              for (final p in result.calibration.points) {'x': p.x, 'y': p.y},
+            ],
           });
+          calibrations.add(result.calibration);
         } catch (e) {
           results.add({
             'camera': i,
@@ -93,6 +99,7 @@ Future<void> main() async {
             'error': '$e',
             'diagnostic': diagnostic,
           });
+          calibrations.add(null);
         }
       }
       for (var i = 1; i <= 3; i++) {
@@ -101,13 +108,30 @@ Future<void> main() async {
           final file = File('$fixtureDirectory/original_$i.jpg').existsSync()
               ? File('$fixtureDirectory/original_$i.jpg')
               : File('$fixtureDirectory/camera_$i.png');
-          final result = await const WindowsAutomaticCalibrationService()
-              .calibrate(await file.readAsBytes());
+          final reference = calibrations.indexWhere((c) => c != null);
+          if (reference < 0) continue;
+          final referenceFile =
+              File(
+                '$fixtureDirectory/original_${reference + 1}.jpg',
+              ).existsSync()
+              ? File('$fixtureDirectory/original_${reference + 1}.jpg')
+              : File('$fixtureDirectory/camera_${reference + 1}.png');
+          final result =
+              await const WindowsAutomaticCalibrationService(
+                useReferenceCache: false,
+              ).calibrateUsingReference(
+                await file.readAsBytes(),
+                await referenceFile.readAsBytes(),
+                calibrations[reference]!,
+              );
           results[i - 1] = {
             'camera': i,
             'success': true,
             'numbers': result.numberCount,
             'method': 'automatic_reference',
+            'calibration': [
+              for (final p in result.calibration.points) {'x': p.x, 'y': p.y},
+            ],
           };
         } catch (_) {}
       }

@@ -1,5 +1,8 @@
 import 'dart:math';
 import 'dart:io';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dart_tournament_manager/features/autoscoring/data/calibration_reference_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
@@ -39,6 +42,79 @@ img.Image boardImage(BoardOutline outline) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'Stored wrong orientation never bypasses fresh numeral recognition',
+    () async {
+      final image = File(
+        'test/fixtures/autoscoring/camera_1.png',
+      ).readAsBytesSync();
+      final outline = detectBoardOutline(image).outline;
+      final wrong = BoardCalibration([
+        for (var i = 0; i < 4; i++)
+          outline.unrectify(Point(sin(i * pi / 2), -cos(i * pi / 2))),
+      ]);
+      SharedPreferences.setMockInitialValues({});
+      await const CalibrationReferenceStorage().remember(image, wrong);
+      const channel = MethodChannel('fresh_rotation_test');
+      var calls = 0;
+      const rotation = pi * 2 / 5;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls++;
+            if (calls != 1) return [];
+            final args = call.arguments as Map;
+            final width = args['width'] as int, height = args['height'] as int;
+            return [
+              for (final pair in [(20, 0), (6, 5), (3, 10), (11, 15)])
+                (() {
+                  final angle = rotation + pair.$2 * pi / 10;
+                  return {
+                    'text': '${pair.$1}',
+                    'x':
+                        (sin(angle) * 1.18 / AutomaticCalibrationImage.extent +
+                                1) /
+                            2 *
+                            (width - 1) -
+                        5,
+                    'y':
+                        (-cos(angle) * 1.18 / AutomaticCalibrationImage.extent +
+                                1) /
+                            2 *
+                            (height - 1) -
+                        5,
+                    'width': 10.0,
+                    'height': 10.0,
+                  };
+                })(),
+            ];
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+      final result = await const WindowsAutomaticCalibrationService(
+        channel: channel,
+      ).calibrate(image);
+      expect(calls, 4);
+      expect(result.numberCount, 4);
+      final top = outline.rectify(result.calibration.points.first);
+      expect(
+        atan2(
+          sin(atan2(top.x, -top.y) - rotation),
+          cos(atan2(top.x, -top.y) - rotation),
+        ).abs(),
+        lessThan(.1),
+      );
+      // JSON remains valid after replacing the poisoned historical reference.
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        jsonDecode(
+          prefs.getString(CalibrationReferenceStorage.key)!,
+        )['version'],
+        2,
+      );
+    },
+  );
   test(
     'Scoring rings resolve candidates when the coarse centre is inconclusive',
     () {

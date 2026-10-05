@@ -1,4 +1,4 @@
-# Turnierspiele auf Gruppengeräten
+# Turnierspiele auf Geräten
 
 ## Turniere aus dem Hauptmenü
 
@@ -11,11 +11,11 @@ Ablauf wie Community-Turniere. Die Ergebnisse bleiben bei lokalen Turnieren loka
 
 ## Community-Turniere
 
-1. Zielgerät mit einem Account der Community als Gerät hinzufügen und den Gerätemodus einschalten.
+1. Auf dem Zielgerät den Gerätemodus einschalten. Es benötigt weder Account noch Community-Mitgliedschaft; eine Gruppenzuordnung ist optional.
 2. Beide Geräte müssen im selben erreichbaren lokalen Netzwerk sein.
 3. In der Community beim Turnier **Geräte zuteilen** öffnen. Mit den Rechten
    **Geräte zuteilen** und **Turniere leiten** öffnet sich die Turnierleitung mit Gerätezuweisung.
-4. Für jedes Board ein aktives Gruppengerät auswählen und die Kopplungsanfrage dort bestätigen.
+4. Für jedes Board ein aktives Netzwerkgerät auswählen und die Kopplungsanfrage dort bestätigen.
 5. Zur Turnieransicht zurückkehren und das geplante Spiel am Board starten.
    Der Geräte-Scorer öffnet sich automatisch mit Namen und strukturierten X01-Regeln.
 

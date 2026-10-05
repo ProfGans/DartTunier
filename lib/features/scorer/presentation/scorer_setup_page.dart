@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_form_section.dart';
 import 'widgets/scorer_doubles_dialog.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
@@ -283,66 +284,68 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
                 child: const Text('Einstellungen erneut laden'),
               ),
             const SizedBox(height: 16),
-            Text(
-              'X01 einrichten',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const Text('Best of 5 bedeutet: drei Siege zum Gewinn.'),
-            TextFormField(
-              controller: score,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Startpunkte'),
-              validator: _number,
-            ),
-            DropdownButtonFormField<StartRequirement>(
-              isExpanded: true,
-              isDense: false,
-              itemHeight: null,
-              initialValue: start,
-              decoration: const InputDecoration(labelText: 'In-Regel'),
-              items: const [
-                DropdownMenuItem(
-                  value: StartRequirement.straightIn,
-                  child: Text('Straight In'),
+            SportFormSection(
+              title: 'X01 einrichten',
+              description:
+                  'Lege Punkte und Spielregeln fest. Best of 5 bedeutet: drei Siege zum Gewinn.',
+              children: [
+                TextFormField(
+                  controller: score,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Startpunkte'),
+                  validator: _number,
                 ),
-                DropdownMenuItem(
-                  value: StartRequirement.doubleIn,
-                  child: Text('Double In'),
+                DropdownButtonFormField<StartRequirement>(
+                  isExpanded: true,
+                  isDense: false,
+                  itemHeight: null,
+                  initialValue: start,
+                  decoration: const InputDecoration(labelText: 'In-Regel'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: StartRequirement.straightIn,
+                      child: Text('Straight In'),
+                    ),
+                    DropdownMenuItem(
+                      value: StartRequirement.doubleIn,
+                      child: Text('Double In'),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => start = v!),
+                ),
+                DropdownButtonFormField<CheckoutRequirement>(
+                  isExpanded: true,
+                  isDense: false,
+                  itemHeight: null,
+                  initialValue: checkout,
+                  decoration: const InputDecoration(labelText: 'Out-Regel'),
+                  items: [
+                    for (final r in CheckoutRequirement.values)
+                      DropdownMenuItem(value: r, child: Text(checkoutLabel(r))),
+                  ],
+                  onChanged: (v) => setState(() => checkout = v!),
+                ),
+                TextFormField(
+                  controller: legs,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Best of Legs (je Set)',
+                    helperText:
+                        'Ungerade Zahl; keine Unentschieden im freien Spiel.',
+                    helperMaxLines: 3,
+                  ),
+                  validator: (v) => _number(v, odd: true),
+                ),
+                TextFormField(
+                  controller: sets,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Best of Sets',
+                    helperText: '1 = ausschließlich Legs',
+                  ),
+                  validator: (v) => _number(v, odd: true),
                 ),
               ],
-              onChanged: (v) => setState(() => start = v!),
-            ),
-            DropdownButtonFormField<CheckoutRequirement>(
-              isExpanded: true,
-              isDense: false,
-              itemHeight: null,
-              initialValue: checkout,
-              decoration: const InputDecoration(labelText: 'Out-Regel'),
-              items: [
-                for (final r in CheckoutRequirement.values)
-                  DropdownMenuItem(value: r, child: Text(checkoutLabel(r))),
-              ],
-              onChanged: (v) => setState(() => checkout = v!),
-            ),
-            TextFormField(
-              controller: legs,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Best of Legs (je Set)',
-                helperText:
-                    'Ungerade Zahl; keine Unentschieden im freien Spiel.',
-                helperMaxLines: 3,
-              ),
-              validator: (v) => _number(v, odd: true),
-            ),
-            TextFormField(
-              controller: sets,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Best of Sets',
-                helperText: '1 = ausschließlich Legs',
-              ),
-              validator: (v) => _number(v, odd: true),
             ),
             const SizedBox(height: 24),
             Text('Teilnehmer', style: Theme.of(context).textTheme.titleLarge),

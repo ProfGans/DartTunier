@@ -106,7 +106,14 @@ void main() {
           directory.deleteSync(recursive: true);
         });
         tester.view.devicePixelRatio = 1;
-        tester.view.physicalSize = Size(width, 800);
+        tester.view.physicalSize = Size(
+          width,
+          width == 800
+              ? 600
+              : width == 1440
+              ? 900
+              : 800,
+        );
         addTearDown(tester.view.reset);
         final profileRepository = PlayerStatisticsRepository(
           storage: TournamentStorage(
@@ -141,6 +148,53 @@ void main() {
           ),
         );
         for (final page in <Widget>[
+          TournamentRunPage(
+            tournament: CreatedTournament(
+              name: 'Sommerturnier',
+              players: [
+                TournamentPlayer.generated(1),
+                TournamentPlayer.generated(2),
+              ],
+              stages: const [
+                TournamentStage(
+                  name: 'Gruppenphase',
+                  type: 'group',
+                  groupCount: 1,
+                  groupSizes: [2],
+                ),
+              ],
+              runStages: [
+                GroupTournamentRunStage(
+                  name: 'Gruppenphase',
+                  groupPlayType: 'round_robin',
+                  qualificationPlan: null,
+                  tieBreakers: const [
+                    'points',
+                    'legDifference',
+                    'legsFor',
+                    'headToHead',
+                  ],
+                  groups: [
+                    TournamentGroup(
+                      name: 'Gruppe A',
+                      playType: 'round_robin',
+                      players: [
+                        TournamentPlayer.generated(1),
+                        TournamentPlayer.generated(2),
+                      ],
+                      matches: [
+                        GroupMatch(
+                          homePlayer: TournamentPlayer.generated(1),
+                          awayPlayer: TournamentPlayer.generated(2),
+                          round: 1,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
           rankingFixture(),
           const CalendarPreview(),
           const AppointmentEditorPreview(),
@@ -365,7 +419,14 @@ void main() {
             await tester.pumpAndSettle();
             await tester.tap(find.text('Datensicherung').last);
             await tester.pumpAndSettle();
-            tester.view.physicalSize = Size(width, 800);
+            tester.view.physicalSize = Size(
+              width,
+              width == 800
+                  ? 600
+                  : width == 1440
+                  ? 900
+                  : 800,
+            );
             await tester.pumpAndSettle();
             await tester.tap(find.text('Passende Turnierform').first);
             await tester.pumpAndSettle();
@@ -388,6 +449,50 @@ void main() {
               await file.writeAsBytes(bytes!.buffer.asUint8List());
               picture.dispose();
             });
+          }
+          if (page is TournamentRunPage) {
+            if (find.text('Offene Spiele').evaluate().isNotEmpty) {
+              await tester.scrollUntilVisible(
+                find.text('Runde 1'),
+                200,
+                scrollable: find.byType(Scrollable).first,
+              );
+              expect(find.text('Offene Spiele'), findsOneWidget);
+              await tester.scrollUntilVisible(
+                find.text('Tabelle & Qualifikation'),
+                200,
+                scrollable: find.byType(Scrollable).first,
+              );
+              await Scrollable.ensureVisible(
+                tester.element(find.text('Tabelle & Qualifikation')),
+                alignment: .5,
+              );
+              await tester.pump();
+              await tester.tap(find.text('Tabelle & Qualifikation'));
+            } else {
+              await tester.scrollUntilVisible(
+                find.text('Spiele'),
+                200,
+                scrollable: find.byType(Scrollable).first,
+              );
+              await Scrollable.ensureVisible(
+                tester.element(find.text('Spiele')),
+                alignment: .5,
+              );
+              await tester.pump();
+              await tester.tap(find.text('Spiele'));
+            }
+            await tester.pumpAndSettle();
+            await tester.drag(
+              find.byType(CustomScrollView),
+              const Offset(0, -600),
+            );
+            await tester.pumpAndSettle();
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: 'Tournament matches and footer',
+            );
           }
           if (page is PlayerProfilePage) {
             expect(find.byType(PlayerAnalyticsPage), findsOneWidget);

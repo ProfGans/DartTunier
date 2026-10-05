@@ -1,3 +1,4 @@
+import 'widgets/scorer_scoreboard.dart';
 import 'checkout_page.dart' show checkoutLabel;
 import '../../autoscoring/application/autoscore_audio_controller.dart';
 import '../../autoscoring/presentation/widgets/autoscore_audio_controls.dart';
@@ -117,6 +118,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     }
   }
 
+  final _scoreKeypadKey = GlobalKey();
   Timer? timer;
   bool _bustPending = false;
   late final _statisticsRepository =
@@ -651,28 +653,23 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
           '${widget.settings.startScore} · ${checkoutLabel(widget.settings.checkoutRequirement)} · Best of ${widget.settings.bestOfLegs} Legs'
           '${widget.settings.bestOfSets > 1 ? ' · Best of ${widget.settings.bestOfSets} Sets' : ''}',
         ),
-        for (var i = 0; i < widget.settings.participants.length; i++)
-          Card(
-            color: i == c.activePlayer
-                ? Theme.of(context).colorScheme.primaryContainer
-                : null,
-            child: ListTile(
-              leading: Icon(
-                widget.settings.participants[i].bot == null
-                    ? Icons.person_outline
-                    : Icons.smart_toy_outlined,
+        const SizedBox(height: 12),
+        ScorerScoreboard(
+          players: [
+            for (var i = 0; i < widget.settings.participants.length; i++)
+              ScorerScoreboardPlayer(
+                name: widget.settings.participants[i].name,
+                score: i == c.activePlayer && !c.isComplete
+                    ? c.remaining
+                    : c.scores[i],
+                legs: c.legs[i],
+                sets: c.sets[i],
+                average: statistics.players[i].average,
+                active: i == c.activePlayer && !c.isComplete,
+                bot: widget.settings.participants[i].bot != null,
               ),
-              title: Text(widget.settings.participants[i].name),
-              subtitle: Text(
-                '${c.legs[i]} Legs · ${c.sets[i]} Sets\n3DA: '
-                '${statistics.players[i].average?.toStringAsFixed(2) ?? '—'}',
-              ),
-              trailing: Text(
-                '${i == c.activePlayer && !c.isComplete ? c.remaining : c.scores[i]}',
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-            ),
-          ),
+          ],
+        ),
         const SizedBox(height: 12),
         if (c.isComplete)
           Text(
@@ -688,17 +685,11 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
           ),
           if (c.isBotTurn) const LinearProgressIndicator(),
         ],
-        const SizedBox(height: 12),
-        Text(c.message),
-        TextButton.icon(
-          onPressed: _showStatistics,
-          icon: const Icon(Icons.bar_chart),
-          label: Text(
-            !c.isComplete ? 'Live-Statistik' : 'Spielauswertung ansehen',
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (!c.isComplete)
+        if (c.message.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(c.message),
+        ],
+        if (!c.isComplete && c.remaining <= 180)
           PersonalizedCheckoutRoutes(
             accountId: widget.accountId,
             enabled: c.activePlayer == widget.profilePlayerIndex,
@@ -710,23 +701,6 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     );
     final pad = Column(
       children: [
-        if (!c.isComplete &&
-            !_cameraOpen &&
-            (!_isRemote || widget.remote!.state?['cameraAvailable'] == true))
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: OutlinedButton.icon(
-              onPressed: !_inputReady || _leaving || c.isBotTurn
-                  ? null
-                  : _openAutoscoring,
-              icon: const Icon(Icons.videocam_outlined),
-              label: Text(
-                _isRemote
-                    ? 'Autoscoring am Hauptgerät starten'
-                    : 'Autoscoring starten',
-              ),
-            ),
-          ),
         if (_cameraOpen && !_isRemote)
           ScorerCameraPanel(
             key: _cameraPanelKey,
@@ -775,6 +749,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
           ),
         ],
         ScoreKeypad(
+          key: _scoreKeypadKey,
           enabled:
               _inputReady &&
               !_cameraOpen &&
@@ -911,7 +886,11 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
                         constraints: const BoxConstraints(maxWidth: 1100),
                         child: Column(
                           children: [
-                            constraints.maxWidth >= 760
+                            constraints.maxWidth >= 900 &&
+                                    MediaQuery.textScalerOf(
+                                          context,
+                                        ).scale(16) <=
+                                        24
                                 ? Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,

@@ -5,8 +5,6 @@ import '../domain/app_device.dart';
 import '../domain/board_display.dart';
 import '../data/board_display_client.dart';
 import '../data/device_link_auth.dart';
-import '../data/community_device_repository.dart';
-import '../../tournaments/data/tournament_storage.dart';
 import 'devices_controller.dart';
 import 'board_display_projector.dart';
 import '../../communities/data/community_access_repository.dart';
@@ -31,17 +29,17 @@ class BoardDeviceDispatcher extends ChangeNotifier {
     required this.activeStage,
     BoardDisplayClient? client,
     this.onResult,
-  }) : _client = client ?? BoardDisplayClient();
+    Future<void> Function(String?, CommunityPermission)? authorize,
+  }) : _client = client ?? BoardDisplayClient(),
+       _authorize = authorize ?? CommunityAccessRepository().require;
+  final Future<void> Function(String?, CommunityPermission) _authorize;
   final DevicesController devices;
   CreatedTournament tournament;
   final int Function() activeStage;
   final BoardDisplayClient _client;
   final Future<void> Function(Map<String, dynamic> result)? onResult;
   final connections = <int, BoardDeviceConnection>{};
-  Set<String>? _groupDevices;
-  List<DevicePresence> get availablePeers => devices.discovery.peers.where(
-    (peer) => tournament.communityId == null || (_groupDevices?.contains(peer.device.id) ?? false),
-  ).toList();
+  List<DevicePresence> get availablePeers => devices.discovery.peers;
   Timer? _timer;
   bool _disposed = false;
   bool _sending = false;
@@ -57,25 +55,8 @@ class BoardDeviceDispatcher extends ChangeNotifier {
   }
 
   Future<void> start() async {
-    await CommunityAccessRepository().require(
-      tournament.communityId,
-      CommunityPermission.assignDevices,
-    );
+    await _authorize(tournament.communityId, CommunityPermission.assignDevices);
     if (_started) return;
-    final communityId = tournament.communityId;
-    if (communityId != null) {
-      final cache = TournamentStorage();
-      final cacheKey = 'device-group-members-v1:$communityId';
-      List<dynamic>? rows;
-      try {
-        rows = await CommunityDeviceRepository().devices(communityId);
-        await cache.writeCache(cacheKey, rows);
-      } catch (_) {
-        rows = await cache.readCache(cacheKey);
-        if (rows == null) rethrow;
-      }
-      _groupDevices = rows.map((row) => (row as Map)['device_id'] as String).toSet();
-    }
     _started = true;
     await devices.openPage();
     if (_disposed) return;
@@ -87,18 +68,12 @@ class BoardDeviceDispatcher extends ChangeNotifier {
     DevicePresence peer,
     String key,
   ) => _exclusive(() async {
-    await CommunityAccessRepository().require(
-      tournament.communityId,
-      CommunityPermission.assignDevices,
-    );
+    await _authorize(tournament.communityId, CommunityPermission.assignDevices);
     if (_disposed) return;
     if (board < 1 ||
         board > tournament.boardCount ||
         !DeviceLinkAuth.validKey(key)) {
       throw const FormatException('Board oder Kopplungscode ungültig');
-    }
-    if (tournament.communityId != null && !(_groupDevices?.contains(peer.device.id) ?? false)) {
-      throw StateError('Dieses Gerät gehört nicht zur Community.');
     }
     if (peer.device.id == devices.settings?.self.id ||
         connections.values.any((c) => c.device.id == peer.device.id)) {
@@ -151,7 +126,9 @@ class BoardDeviceDispatcher extends ChangeNotifier {
       targetId: connection.device.id,
       key: connection.key,
       sourceId: devices.settings!.self.id,
-      display: onResult != null ? display : BoardDisplay.fromJson({...display.toJson(), 'gameFormat': null}),
+      display: onResult != null
+          ? display
+          : BoardDisplay.fromJson({...display.toJson(), 'gameFormat': null}),
     );
     if (result != null &&
         display.state == 'running' &&
@@ -190,8 +167,7 @@ class BoardDeviceDispatcher extends ChangeNotifier {
               await _send(entry.value, display);
               entry.value.status = 'Verbunden';
             } catch (error) {
-              entry.value.status =
-                  'Übertragung fehlgeschlagen: $error';
+              entry.value.status = 'Übertragung fehlgeschlagen: $error';
             }
           }(),
       ]);

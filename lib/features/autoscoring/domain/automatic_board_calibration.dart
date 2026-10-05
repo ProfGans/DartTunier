@@ -98,13 +98,12 @@ class AutomaticCalibrationImage {
 /// Image-only stage, run in an isolate; no platform calls or user markers.
 AutomaticCalibrationImage detectBoardOutline(Uint8List bytes) {
   try {
-    return _detectBoardOutline(bytes, selectiveColors: false);
+    return _detectBoardOutline(bytes, selectiveColors: true);
   } on CalibrationFailure catch (original) {
-    // Auto white balance may tint white segments and split a bright surround
-    // into small islands. Retry with purer ring colours, keeping the same
-    // geometric validation; the original profile still covers pale rings.
+    // Start with purer ring colours so a fragmented orange surround cannot
+    // pass as a scoring ellipse. Pale rings still get the permissive fallback.
     try {
-      return _detectBoardOutline(bytes, selectiveColors: true);
+      return _detectBoardOutline(bytes, selectiveColors: false);
     } on CalibrationFailure catch (alternative) {
       if ((alternative.diagnostics?.progress ?? -1) >
           (original.diagnostics?.progress ?? -1)) {

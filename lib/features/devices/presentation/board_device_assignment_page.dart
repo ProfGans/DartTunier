@@ -20,9 +20,8 @@ class _BoardDeviceAssignmentPageState extends State<BoardDeviceAssignmentPage> {
     final peers = widget.dispatcher.availablePeers;
     if (peers.isEmpty) {
       setState(
-        () => _error = widget.dispatcher.tournament.communityId == null
-            ? 'Kein aktives Gerät im Netzwerk gefunden. Auf dem Zielgerät den Gerätemodus aktivieren und beide Geräte mit demselben Netzwerk verbinden.'
-            : 'Kein aktives Gruppengerät im Netzwerk gefunden. Gerät mit Account der Community hinzufügen und den Gerätemodus aktivieren.',
+        () => _error =
+            'Kein aktives Gerät im Netzwerk gefunden. Auf dem Zielgerät den Gerätemodus aktivieren und beide Geräte mit demselben Netzwerk verbinden. Eine Gruppenmitgliedschaft des Geräts ist nicht erforderlich.',
       );
       return;
     }
@@ -124,7 +123,7 @@ class _BoardDeviceAssignmentPageState extends State<BoardDeviceAssignmentPage> {
           Text(
             'Pro Board ein Gerät verbinden. Beim Start eines Spiels in der Turnierleitung öffnet sich dort der X01-Scorer mit Namen und Spielformat. Ergebnisse und Aufnahmen kommen automatisch zurück. '
             '${widget.dispatcher.tournament.communityId == null ? 'Lokale Turniere benötigen dafür keinen Account und keine Community. ' : 'Dafür werden Gerätezuweisung und Turnierleitungsrecht benötigt. '}'
-            'Die Turnieransicht muss geöffnet bleiben.',
+            'Das Zielgerät benötigt weder einen Account noch eine Gruppenmitgliedschaft; der Gerätemodus und die bestätigte Kopplung genügen. Die Turnieransicht muss geöffnet bleiben.',
           ),
           if (_busy) const LinearProgressIndicator(),
           if (_busy)

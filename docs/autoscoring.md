@@ -283,3 +283,9 @@ Die Auswertung steht in docs/autoscore_diagnostics_batch4_2026_10_03.md. Wenn de
 
 ### Neue Präzisionspipeline
 Die Kalibrierung prüft zusätzliche Ringpunkte mit unabhängiger Validierung und optionaler begrenzter Objektivkorrektur. Die Erkennung behält Originaldetailbilder, prüft mehrere Schaftkandidaten über die drei Kameras und entscheidet über ein kurzes, begrenztes Bildfenster. Diagnose-Schema 5 enthält Detailreferenzen, Bildfolgen und Korrekturauswertungen. Kalibrierungsschema 2 liest bestehende Daten aus Schema 1. Architektur, Grenzen, Migration und Analysewerkzeug sind in docs/autoscore_precision_pipeline.md beschrieben. Nach dem Update einmal auf leerem Board automatisch neu kalibrieren.
+
+Die Kalibrierung liest seit 2026-10-05 die aktuellen Zahlen vor jedem
+Kameraabgleich. Historische Ringbilder überspringen diesen Schritt nicht mehr;
+die selektive Ringfarberkennung verhindert im beigefügten Fall einen durch den
+orangefarbenen Surround verzerrten Ausschnitt. Diagnose und T20-Replay:
+[Gedrehtes Board](autoscore_rotation_2026_10_05.md).

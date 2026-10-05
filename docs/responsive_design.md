@@ -106,3 +106,19 @@ SportMenuLabel vereinheitlicht Kontextmenues mit Icons und umbrechenden Beschrif
 Validierung: 106 Tests aus 19 Suites bestanden, einschliesslich gemeinsamer Responsive-Matrix, Profil, Statistik, Backup, Push, Ranglisten, Highlights, Teams, Ergebnisse, Order of Play und Turniermatrix. Registrierung und Abmeldung im umgestalteten Kontomenue separat bestanden. Ein aelterer Scorer-Test wurde auf Scrollen zur Rueckgaengig-Aktion und den bereits vorhandenen Zwischenspeichern-Dialog angepasst; SharedPreferences sind im Test isoliert. Keine Aenderung der Scorer-Fachlogik.
 
 flutter analyze ohne Befunde. Gerenderte Desktop-/Mobile-Ansichten von Profil, Ergebnissen und Community-Auswertungen wurden kontrolliert. Physische Smartphones, Linux-Benachrichtigungsdienst und authentifizierte Online-Zustaende wurden nicht auf echten Geraeten geprueft.
+
+
+## Turnierbetrieb und Scorer auf Mobile (05.10.2026)
+
+Der X01-Scorer zeigt Restpunkte in eigenen Sport-Panels mit hervorgehobenem aktiven Spieler. Auf schmalen Displays nutzt die Punkteingabe drei breite Ziffernspalten; Schnellwerte bleiben separat erreichbar. Bei grosser Schrift wachsen die Elemente und Spieler-Panels wechseln auf eine Spalte. Statistik und Kamera bleiben direkt in der Kopfzeile erreichbar; doppelte Aktionen oberhalb der Tastatur wurden entfernt. Checkout-Hinweise erscheinen im Finish-Bereich. Die Keypad-Instanz und bereits eingegebene Ziffern bleiben beim Wechsel zwischen Mobile und Desktop erhalten.
+
+Die Turnierliste nutzt responsive Status-Karten mit eigenem Aktionsmenue. Kopfbereich, Etappenauswahl, Spiele und Abschlussaktionen im Turnierbetrieb liegen in einer gemeinsamen scrollbaren Flaeche. Mobile Match-Karten trennen Spielernamen und Ergebnisaktionen. Scorer-Einstellungen haben einen eigenen Formularabschnitt. Keine Aenderung an Turnierregeln oder Speicherschema.
+
+Validierung: flutter analyze ohne Befunde; 65 Tests aus 14 Suites einschliesslich Turniermatrix, Scorer-Abschluss/Rueckgaengig, Bots, Doppel, Kamera und Fernsteuerung bestanden. Nach abschliessender Layout-Anpassung 19 Responsive-/Scorer-Tests erneut bestanden. Die Seitenmatrix enthaelt nun die echte TournamentRunPage und prueft auch aufgeklappte Spiele und Scrollen zu Abschlussaktionen. Groessen: 360x800, 800x600, 1440x900 bei 100 und 200 Prozent Schrift; Eingabe-Zustand und Touch-Ziele zusaetzlich bei 320x568 und Fensterwechsel geprueft. Gerenderte Scorer-/Turnieransichten auf Desktop und Mobile visuell kontrolliert. Physische Smartphones und echte Kamera-/Netzwerk-Verbindungen wurden in dieser Designpruefung nicht getestet.
+
+
+## Mobile Gruppenuebersicht vereinfacht (05.10.2026)
+
+Auf schmalen Gruppenflaechen stehen offene Spiele direkt sichtbar vor der Tabelle. Tabellen/Qualifikation und abgeschlossene Spiele sind getrennte aufklappbare Bereiche. Bei mehreren Gruppen zeigt die mobile Etappenuebersicht eine Gruppenauswahl und nur die ausgewaehlte Gruppe; breite Fenster behalten die Gesamtuebersicht. Gruppenverwaltung ist eingeklappt, eine Etappenauswahl fuer nur eine Etappe entfaellt. Die bestehende Ergebnisbearbeitung und Berechnung bleiben erhalten.
+
+Validierung: flutter analyze ohne Befunde; 18 Tests aus Responsive-, Order-of-Play- und Turniermatrix-Suites sowie ein neuer Gruppen-Test bestanden. Der Gruppen-Test prueft Auswahl-Erhalt bei Mobile/Desktop-Wechsel und aufklappbare abgeschlossene Ergebnisse. Seiten bei 360x800, 800x600 und 1440x900 mit 100/200 Prozent Schrift geprueft. Gerenderte mobile und Desktop-Turnieransichten visuell kontrolliert; keine Sichtpruefung auf physischen Smartphones.

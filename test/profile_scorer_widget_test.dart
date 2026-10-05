@@ -55,9 +55,24 @@ void main() {
     );
     await tester.tap(find.text('Start'));
     await tester.pumpAndSettle();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('4')),
+      alignment: .5,
+    );
+    await tester.pump();
     await tester.tap(find.text('4'));
     await tester.pump();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('0')),
+      alignment: .5,
+    );
+    await tester.pump();
     await tester.tap(find.text('0'));
+    await tester.pump();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('OK')),
+      alignment: .5,
+    );
     await tester.pump();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();

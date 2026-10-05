@@ -28,9 +28,12 @@ class MatchResultTile extends StatelessWidget {
     final roundLabel = leadingLabel ?? 'Runde ${match.round}';
     final scorer = MatchScorerSummary.fromMatch(match);
     String playerLabel(bool home) {
-      final name = (home ? match.homePlayer : match.awayPlayer)?.name ?? 'offen';
+      final name =
+          (home ? match.homePlayer : match.awayPlayer)?.name ?? 'offen';
       final average = scorer?.players[home ? 0 : 1].average;
-      return average == null ? name : '$name · Avg ${average.toStringAsFixed(2)}';
+      return average == null
+          ? name
+          : '$name · Avg ${average.toStringAsFixed(2)}';
     }
 
     return Container(
@@ -39,11 +42,12 @@ class MatchResultTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          if (constraints.maxWidth < 520) {
+          if (constraints.maxWidth < 620 ||
+              MediaQuery.textScalerOf(context).scale(16) > 24) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -61,9 +65,35 @@ class MatchResultTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(playerLabel(true)),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    playerLabel(true),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(playerLabel(false)),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    playerLabel(false),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -103,10 +133,7 @@ class MatchResultTile extends StatelessWidget {
                 onTap: canEdit ? () => onEditResult(match) : null,
               ),
               Expanded(
-                child: Text(
-                  playerLabel(false),
-                  textAlign: TextAlign.right,
-                ),
+                child: Text(playerLabel(false), textAlign: TextAlign.right),
               ),
               const SizedBox(width: 12),
               IconButton.filledTonal(

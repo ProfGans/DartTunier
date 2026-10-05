@@ -40,9 +40,24 @@ void main() {
         ),
       ),
     );
+    await Scrollable.ensureVisible(
+      tester.element(find.text('4')),
+      alignment: .5,
+    );
+    await tester.pump();
     await tester.tap(find.text('4'));
     await tester.pump();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('0')),
+      alignment: .5,
+    );
+    await tester.pump();
     await tester.tap(find.text('0'));
+    await tester.pump();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('OK')),
+      alignment: .5,
+    );
     await tester.pump();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
@@ -96,6 +111,11 @@ void main() {
       expect(profile.finishingSkill, 650);
       expect(profile.radiusCalibrationPercent, 94);
       expect(page.settings.botThrowDelay, const Duration(milliseconds: 250));
+      await Scrollable.ensureVisible(
+        tester.element(find.text('100')),
+        alignment: .5,
+      );
+      await tester.pump();
       await tester.tap(find.text('100'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 1));
@@ -140,9 +160,19 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('2'));
     await tester.pump();
-    await tester.tap(find.text('⌫'));
+    await tester.tap(find.byTooltip('Letzte Ziffer löschen'));
+    await tester.pump();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('0')),
+      alignment: .5,
+    );
     await tester.pump();
     await tester.tap(find.text('0'));
+    await tester.pump();
+    await Scrollable.ensureVisible(
+      tester.element(find.text('OK')),
+      alignment: .5,
+    );
     await tester.pump();
     await tester.tap(find.text('OK'));
     await tester.pump();

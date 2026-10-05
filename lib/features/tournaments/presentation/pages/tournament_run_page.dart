@@ -2221,8 +2221,10 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
+        child: CustomScrollView(
+          key: ValueKey('stage-$_viewStageIndex-$_stageViewMode'),
+          slivers: [
+            SliverToBoxAdapter(child: Column(children: [
             TournamentTimingPanel(tournament: widget.tournament, onStart: () async {
               final previous = widget.tournament.startedAt;
               widget.tournament.startedAt ??= DateTime.now();
@@ -2234,7 +2236,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 rethrow;
               }
             }),
-            StageProgressBar(
+            if (widget.tournament.runStages.length > 1) StageProgressBar(
               stages: widget.tournament.runStages,
               activeStageIndex: _viewStageIndex,
               completedStageIndexes: _completedStageIndexes,
@@ -2263,11 +2265,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                 });
               },
             ),
-            Expanded(
-              child: ListView(
-                key: ValueKey('stage-$_viewStageIndex-$_stageViewMode'),
-                padding: const EdgeInsets.all(16),
-                children: [
+            ])),
+            SliverPadding(padding: const EdgeInsets.all(16), sliver: SliverList.list(children: [
                   if (widget.tournament.communityId != null &&
                       widget.tournament.countsForRanking &&
                       widget.tournament.communityRankingIds.isNotEmpty)
@@ -2383,10 +2382,8 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                       onEditResult: _editResult,
                       canEditResults: canEditResults,
                     ),
-                ],
-              ),
-            ),
-            StageFooter(
+                ])),
+            SliverToBoxAdapter(child: StageFooter(
               canCompleteStage: canCompleteStage,
               isLastStage: isLastStage,
               isViewingActiveStage: isViewingActiveStage,
@@ -2394,7 +2391,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
                   widget.tournament.runStages[_activeStageIndex].name,
               onCompleteStage: _completeCurrentStage,
               onFinishEarly: _finishCurrentStageEarly,
-            ),
+            )),
           ],
         ),
       ),

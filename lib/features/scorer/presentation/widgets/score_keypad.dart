@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Calculator-style visit entry, modeled on the source app's five-column pad.
+/// Three-column touch entry on phones, calculator layout on wider surfaces.
 class ScoreKeypad extends StatefulWidget {
   const ScoreKeypad({
     super.key,
@@ -60,18 +60,32 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
       Expanded(
         child: Padding(
           padding: const EdgeInsets.all(3),
-          child: SizedBox(
-            height: 54,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
             child: primary
                 ? FilledButton(
                     onPressed: callback,
-                    style: FilledButton.styleFrom(padding: EdgeInsets.zero),
-                    child: Text(label),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: label == '⌫'
+                        ? const Tooltip(
+                            message: 'Letzte Ziffer löschen',
+                            child: Icon(Icons.backspace_outlined),
+                          )
+                        : Text(label),
                   )
                 : OutlinedButton(
                     onPressed: callback,
-                    style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
-                    child: Text(label),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: label == '⌫'
+                        ? const Tooltip(
+                            message: 'Letzte Ziffer löschen',
+                            child: Icon(Icons.backspace_outlined),
+                          )
+                        : Text(label),
                   ),
           ),
         ),
@@ -107,111 +121,173 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
     child: Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact =
+                constraints.maxWidth < 420 ||
+                MediaQuery.textScalerOf(context).scale(16) > 24;
+            return Column(
               children: [
-                IconButton(
-                  tooltip: 'Rückgängig',
-                  onPressed: submitting || widget.onUndo == null
-                      ? null
-                      : () {
-                          setState(() => input = '');
-                          widget.onUndo!();
-                        },
-                  icon: const Icon(Icons.undo),
-                ),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Rückgängig',
+                      onPressed: submitting || widget.onUndo == null
+                          ? null
+                          : () {
+                              setState(() => input = '');
+                              widget.onUndo!();
+                            },
+                      icon: const Icon(Icons.undo),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const Text('AUFNAHME · 0–180'),
+                            Text(
+                              input.isEmpty ? '—' : input,
+                              key: const ValueKey('score-display'),
+                              style: Theme.of(context).textTheme.headlineLarge,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: enabled && widget.remaining <= 180
+                          ? () => submit(widget.remaining)
+                          : null,
+                      child: Text('CHECK\n${widget.remaining}'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (compact) ...[
+                  for (var row = 0; row < 3; row++)
+                    Row(
                       children: [
-                        const Text('AUFNAHME · 0–180'),
-                        Text(
-                          input.isEmpty ? '—' : input,
-                          key: const ValueKey('score-display'),
-                          style: Theme.of(context).textTheme.headlineLarge,
+                        for (var col = 1; col <= 3; col++)
+                          button(
+                            '${row * 3 + col}',
+                            enabled ? () => digit('${row * 3 + col}') : null,
+                          ),
+                      ],
+                    ),
+                  Row(
+                    children: [
+                      button(
+                        'C',
+                        enabled ? () => setState(() => input = '') : null,
+                      ),
+                      button('0', enabled ? () => digit('0') : null),
+                      button(
+                        '⌫',
+                        enabled
+                            ? () => setState(() {
+                                if (input.isNotEmpty) {
+                                  input = input.substring(0, input.length - 1);
+                                }
+                              })
+                            : null,
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      button(
+                        input.isEmpty ? '180' : 'OK',
+                        enabled
+                            ? () => input.isEmpty ? submit(180) : submit()
+                            : null,
+                        primary: true,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final points in [26, 41, 60, 81, 100, 140])
+                        OutlinedButton(
+                          onPressed: enabled ? () => submit(points) : null,
+                          child: Text('$points'),
+                        ),
+                    ],
+                  ),
+                ] else ...[
+                  for (var row = 0; row < 3; row++)
+                    Row(
+                      children: [
+                        button(
+                          '${[26, 41, 60][row]}',
+                          enabled ? () => submit([26, 41, 60][row]) : null,
+                        ),
+                        for (var col = 1; col <= 3; col++)
+                          button(
+                            '${row * 3 + col}',
+                            enabled ? () => digit('${row * 3 + col}') : null,
+                          ),
+                        button(
+                          '${[81, 100, 140][row]}',
+                          enabled ? () => submit([81, 100, 140][row]) : null,
                         ),
                       ],
                     ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: enabled && widget.remaining <= 180
-                      ? () => submit(widget.remaining)
-                      : null,
-                  child: Text('CHECK\n${widget.remaining}'),
-                ),
-              ],
-            ),
-            for (var row = 0; row < 3; row++)
-              Row(
-                children: [
-                  button(
-                    '${[26, 41, 60][row]}',
-                    enabled
-                        ? () => submit([26, 41, 60][row])
-                        : null,
-                  ),
-                  for (var col = 1; col <= 3; col++)
-                    button(
-                      '${row * 3 + col}',
-                      enabled ? () => digit('${row * 3 + col}') : null,
-                    ),
-                  button(
-                    '${[81, 100, 140][row]}',
-                    enabled
-                        ? () => submit([81, 100, 140][row])
-                        : null,
+                  Row(
+                    children: [
+                      button(
+                        'C',
+                        enabled ? () => setState(() => input = '') : null,
+                      ),
+                      button(
+                        '⌫',
+                        enabled
+                            ? () => setState(() {
+                                if (input.isNotEmpty) {
+                                  input = input.substring(0, input.length - 1);
+                                }
+                              })
+                            : null,
+                      ),
+                      button('0', enabled ? () => digit('0') : null),
+                      button(
+                        input.isEmpty ? '180' : 'OK',
+                        enabled
+                            ? () {
+                                if (input.isEmpty) {
+                                  submit(180);
+                                } else {
+                                  submit();
+                                }
+                              }
+                            : null,
+                        primary: true,
+                      ),
+                    ],
                   ),
                 ],
-              ),
-            Row(
-              children: [
-                button('C', enabled ? () => setState(() => input = '') : null),
-                button(
-                  '⌫',
-                  enabled
-                      ? () => setState(() {
-                          if (input.isNotEmpty) {
-                            input = input.substring(0, input.length - 1);
-                          }
-                        })
-                      : null,
-                ),
-                button('0', enabled ? () => digit('0') : null),
-                button(
-                  input.isEmpty ? '180' : 'OK',
-                  enabled
+                TextButton(
+                  onPressed: enabled
                       ? () {
-                          if (input.isEmpty) {
-                            submit(180);
-                          } else {
-                            submit();
-                          }
+                          setState(() => input = '');
+                          widget.onBust();
                         }
                       : null,
-                  primary: true,
+                  child: const Text('Überworfen'),
                 ),
               ],
-            ),
-            TextButton(
-              onPressed: enabled
-                  ? () {
-                      setState(() => input = '');
-                      widget.onBust();
-                    }
-                  : null,
-              child: const Text('Überworfen'),
-            ),
-          ],
+            );
+          },
         ),
       ),
     ),
