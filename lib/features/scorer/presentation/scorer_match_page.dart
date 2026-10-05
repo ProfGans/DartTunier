@@ -1,6 +1,8 @@
 import 'widgets/scorer_scoreboard.dart';
+import '../../autoscoring/presentation/widgets/dart_correction_dialog.dart';
 import 'checkout_page.dart' show checkoutLabel;
 import '../../autoscoring/application/autoscore_audio_controller.dart';
+import '../../autoscoring/data/autoscore_setup_store.dart';
 import '../../autoscoring/presentation/widgets/autoscore_audio_controls.dart';
 import '../application/scorer_audio_controller.dart';
 import 'widgets/personalized_checkout_routes.dart';
@@ -56,7 +58,9 @@ class ScorerMatchPage extends StatefulWidget {
 class _ScorerMatchPageState extends State<ScorerMatchPage> {
   late final ScorerController controller;
   final _cameraPanelKey = GlobalKey();
-  final _audio = AutoscoreAudioController();
+  final _audio = AutoscoreAudioController(
+    setupStore: AutoscoreSetupStore.instance,
+  );
   late final ScorerAudioController _scorerAudio;
   RemoteScorerHost? _remoteHost;
   bool get _isRemote => widget.remote != null;
@@ -383,9 +387,13 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
   List<bool> _cameraAttempts = [];
   List<DartLocation?> _cameraLocations = [];
   bool get _cameraPending => _cameraBase != null;
+  int _cameraDartCount = 0;
+  bool _cameraRemoved = false;
+  bool _confirmingCamera = false;
 
   bool _previewCameraVisit(List<DartThrowResult> darts, List<bool?> overrides) {
     if (_leaving ||
+        _cameraRemoved ||
         (!_cameraPending && (controller.isBotTurn || controller.isComplete))) {
       return false;
     }
@@ -419,14 +427,36 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
         preview.isComplete ||
         preview.activePlayer != player ||
         preview.visit.isEmpty;
+    _cameraDartCount = darts.length;
     controller.replaceActions(preview.exportActions());
     preview.dispose();
     return ended;
   }
 
-  void _confirmCameraVisit(List<DartThrowResult> _) {
-    if (!_cameraPending) return;
+  Future<void> _confirmCameraVisit(List<DartThrowResult> _) async {
+    if (!_cameraPending || _confirmingCamera) return;
+    setState(() {
+      _cameraRemoved = true;
+      _confirmingCamera = true;
+    });
+    try {
+      while (controller.visit.isNotEmpty && !controller.isComplete) {
+        final dart = await showDialog<DartThrowResult>(
+          context: context,
+          builder: (_) => DartCorrectionDialog(
+            title:
+                'Dart ${controller.visit.length + 1} nicht erfasst · bitte nachtragen',
+          ),
+        );
+        if (!mounted || dart == null) return;
+        controller.throwDart(dart);
+      }
+    } finally {
+      if (mounted) setState(() => _confirmingCamera = false);
+    }
+    if (!mounted) return;
     _cameraBase = null;
+    _cameraRemoved = false;
     _cameraAttempts = [];
     _changed();
     _publishCamera();
@@ -436,6 +466,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     final previous = _cameraBase;
     if (previous != null) controller.replaceActions(previous);
     _cameraBase = null;
+    _cameraRemoved = false;
     _cameraAttempts = [];
     setState(() => _localCameraOpen = false);
     _publishCamera();
@@ -496,7 +527,11 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
   void _changed() {
     setState(() {});
     if (_isRemote) return;
-    _scorerAudio.update(controller, provisional: _cameraPending);
+    _scorerAudio.update(
+      controller,
+      provisional: _cameraPending,
+      cameraDarts: _cameraDartCount,
+    );
     _publishCamera();
     if (!_cameraPending) _persistStatistics();
     _scheduleBot();
@@ -612,7 +647,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
         checkoutDarts: darts,
       );
       int? attempts;
-      final maximum = c.maxCheckoutAttempts(darts: darts ?? 3);
+      final maximum = c.maxCheckoutAttempts(darts: darts ?? 3, points: points);
       if (maximum > 0 &&
           !(darts != null && maximum == 1) &&
           widget.settings.checkoutRequirement ==
@@ -704,15 +739,31 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
         if (_cameraOpen && !_isRemote)
           ScorerCameraPanel(
             key: _cameraPanelKey,
+            activity: controller,
+            isInputEnabled: () =>
+                _cameraOpen &&
+                !_leaving &&
+                !_cameraRemoved &&
+                (_cameraPending ||
+                    (!controller.isBotTurn && !controller.isComplete)),
+            dartsLeftProvider: () => controller.dartsLeft,
             dartsLeft: c.dartsLeft,
             enabled:
                 !_leaving &&
+                !_cameraRemoved &&
                 (_cameraPending || (!c.isBotTurn && !c.isComplete)),
             onAccept: _confirmCameraVisit,
             onPreview: _previewCameraVisit,
             onLocations: (locations) => _cameraLocations = locations,
             attempts: _cameraAttempts,
             onClose: _closeCamera,
+          ),
+        if (_cameraRemoved && !_confirmingCamera && !_isRemote)
+          FilledButton(
+            onPressed: () => _confirmCameraVisit(const []),
+            child: const Text(
+              'Fehlende Darts nachtragen · Aufnahme abschließen',
+            ),
           ),
         if (_cameraOpen && _isRemote) ...[
           const Text(

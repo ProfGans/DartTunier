@@ -5,6 +5,7 @@ import 'package:dart_tournament_manager/features/scorer/domain/scorer_settings.d
 import 'package:dart_tournament_manager/features/scorer/domain/x01/x01_rules.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/widgets/scorer_statistics_view.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/scorer_match_page.dart';
+import 'package:dart_tournament_manager/features/scorer/presentation/widgets/score_keypad.dart';
 
 void main() {
   ScorerController game({int start = 501, int legs = 1, int sets = 1}) =>
@@ -165,13 +166,14 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(home: ScorerMatchPage(settings: c.settings)),
       );
-      await tester.tap(find.text('0'));
-      await tester.pump();
-      await tester.tap(find.text('OK'));
+      final submitted = tester
+          .widget<ScoreKeypad>(find.byType(ScoreKeypad))
+          .onSubmit(0);
       await tester.pumpAndSettle();
       expect(find.text('Darts auf Checkout'), findsOneWidget);
       await tester.tap(find.text('2 Versuche'));
       await tester.pumpAndSettle();
+      expect(await submitted, true);
       await tester.tap(find.byTooltip('Matchstatistik'));
       await tester.pumpAndSettle();
       expect(find.text('0 Treffer / 2 erfasst'), findsOneWidget);

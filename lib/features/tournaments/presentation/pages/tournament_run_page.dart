@@ -10,7 +10,53 @@ class TournamentRunPage extends StatefulWidget {
   State<TournamentRunPage> createState() => _TournamentRunPageState();
 }
 
-class _TournamentRunPageState extends State<TournamentRunPage> {
+class _TournamentRunPageState extends State<TournamentRunPage> with WidgetsBindingObserver {
+  bool _leaving = false;
+  bool _allowPop = false;
+  bool _backgrounded = false;
+  Future<void> _checkpoint() => _runController.saveProgress(
+    tournament: widget.tournament, activeStageIndex: _activeStageIndex,
+    completedStageIndexes: _completedStageIndexes);
+
+  Future<void> _leaveTournament({bool home = false}) async {
+    if (_leaving) return;
+    _leaving = true;
+    try {
+      await _checkpoint();
+      if (!mounted) return;
+      setState(() => _allowPop = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (home) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        } else {
+          Navigator.of(context).pop();
+        }
+      });
+    } catch (_) {
+      _leaving = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Speichern fehlgeschlagen. Bitte erneut zurückgehen.')));
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _backgrounded = state != AppLifecycleState.resumed;
+    if (widget.tournament.leagueMatch != null) return;
+    if (_backgrounded) {
+      unawaited(_checkpoint().catchError((Object error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Turnier konnte nicht zwischengespeichert werden.')));
+        }
+      }));
+    } else if (!_leaving) {
+      unawaited(_saveTournamentProgress());
+    }
+  }
   int _activeStageIndex = 0;
   int _viewStageIndex = 0;
   StageViewMode _stageViewMode = StageViewMode.overview;
@@ -41,7 +87,9 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
       matches: botRoundMatches,
       format: widget.tournament.stages[index].gameFormat,
       advance: () { _advanceKnockoutWinners(); _ensureGroupDeciders(); },
-      isActive: () => mounted && _activeStageIndex == index,
+      isActive: () => mounted && !_leaving && !_backgrounded &&
+          !_completedStageIndexes.contains(index) && _activeStageIndex == index,
+      checkpoint: _checkpoint,
     );
     if (mounted) setState(() {});
   }
@@ -109,6 +157,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _deviceDispatcher?.dispose();
     super.dispose();
   }
@@ -116,6 +165,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.tournament.leagueMatch != null) return;
     _activeStageIndex = widget.tournament.activeStageIndex.clamp(
       0,
@@ -137,6 +187,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
 
   Future<void> _saveTournamentProgress() async {
     try {
+      await _checkpoint();
       await _simulateReadyBots();
       await _runController.saveProgress(
         tournament: widget.tournament,
@@ -2188,7 +2239,12 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
         _activeStageIndex == widget.tournament.runStages.length - 1;
     final canEditResults = isViewingActiveStage;
 
-    return Scaffold(
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) unawaited(_leaveTournament());
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(widget.tournament.name),
         actions: [
@@ -2213,8 +2269,7 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
               SportMenuAction(
                 label: 'Hauptmenue',
                 icon: Icons.home_outlined,
-                onTap: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
+                onTap: () => _leaveTournament(home: true),
               ),
             ],
           ),
@@ -2395,6 +2450,6 @@ class _TournamentRunPageState extends State<TournamentRunPage> {
           ],
         ),
       ),
-    );
+    ));
   }
 }

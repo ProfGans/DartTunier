@@ -23,6 +23,7 @@ import 'community_statistics_navigation_test.dart'
     show CommunityStatisticsPreview, CommunityPlayerStatisticsPreview;
 import 'package:dart_tournament_manager/features/statistics/presentation/statistics_date_dialog.dart';
 import 'dart:io';
+import 'autoscorer_page_test.dart' show AutoscorerPreview;
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -288,6 +289,7 @@ void main() {
           const CheckoutPage(),
           const AutoscoringPage(),
           const AutoscoreDemoPage(),
+          const AutoscorerPreview(),
           const BotSettingsPage(),
           TournamentResultsPage(
             tournament: CreatedTournament(

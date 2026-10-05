@@ -58,6 +58,8 @@ class AutoscoringController extends ChangeNotifier {
            calibrationService ?? const WindowsAutomaticCalibrationService();
   final CameraPlatform platform;
   final AutoscoringStorage storage;
+  bool reuseSavedCalibration = false;
+  bool reusedCalibration = false;
   final AutomaticCalibrationService calibrationService;
   List<CameraDescription> available = [];
   final List<AutoscoreCamera> cameras = [];
@@ -137,6 +139,7 @@ class AutoscoringController extends ChangeNotifier {
   }
 
   Future<void> connect(List<int> indices) {
+    reusedCalibration = false;
     final generation = ++_generation;
     busy = true;
     running = false;
@@ -220,7 +223,15 @@ class AutoscoringController extends ChangeNotifier {
         }
         if (disposed || generation != _generation) return;
         await _capture();
-        await _autoCalibrate(generation);
+        if (reuseSavedCalibration &&
+            cameras.every((c) => c.calibration != null)) {
+          reusedCalibration = true;
+          for (final c in cameras) {
+            c.calibrationMessage = 'Gespeicherte Kalibrierung übernommen.';
+          }
+        } else {
+          await _autoCalibrate(generation);
+        }
         if (automaticCounting && cameras.every((c) => c.calibration != null)) {
           await _arm(generation);
         }
@@ -293,6 +304,7 @@ class AutoscoringController extends ChangeNotifier {
 
   Future<void> _autoCalibrate(int generation) async {
     if (disposed || generation != _generation) return;
+    reusedCalibration = false;
     lastHit = null;
     for (final camera in cameras) {
       camera.calibration = null;

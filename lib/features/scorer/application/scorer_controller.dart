@@ -147,7 +147,20 @@ class ScorerController extends ChangeNotifier {
         settings.checkoutRequirement == CheckoutRequirement.doubleOut,
   );
 
-  int maxCheckoutAttempts({int darts = 3}) {
+  int maxCheckoutAttempts({int darts = 3, int? points}) {
+    if (points != null &&
+        settings.checkoutRequirement == CheckoutRequirement.doubleOut &&
+        points <= remaining &&
+        remaining - points != 1) {
+      return VisitScoreEntry.maxDoubleAttempts(
+        score: remaining,
+        points: points,
+        darts: darts,
+        opened:
+            settings.startRequirement == StartRequirement.straightIn ||
+            opened[activePlayer],
+      );
+    }
     for (var n = 1; n <= darts; n++) {
       if (FixedCheckouts.routes(
         remaining,
@@ -164,8 +177,14 @@ class ScorerController extends ChangeNotifier {
     int? attempts, {
     required bool finish,
     required int darts,
+    int? points,
   }) {
-    final maximum = maxCheckoutAttempts(darts: darts);
+    // Keep explicitly recorded metadata replayable from older saved games.
+    // Only infer missing attempts using the more precise aggregate check.
+    final maximum = maxCheckoutAttempts(
+      darts: darts,
+      points: attempts == null ? points : null,
+    );
     if (attempts != null &&
         (attempts < (finish ? 1 : 0) || attempts > maximum)) {
       throw ArgumentError('Ungültige Anzahl an Checkoutversuchen.');
@@ -196,6 +215,15 @@ class ScorerController extends ChangeNotifier {
   bool get isBotTurn =>
       !isComplete && settings.participants[activePlayer].bot != null;
   bool get canUndo => _history.isNotEmpty;
+
+  /// Headless simulations do not need undo or a replayable scorer draft.
+  /// Keep match state and visits so the normal scoring engine stays unchanged.
+  void discardReplayHistory() {
+    _history.clear();
+    _actions.clear();
+    _hits.clear();
+  }
+
   int get dartsLeft => 3 - visit.length;
   VisitResult get progress => _engine.evaluateVisit(
     currentScore: scores[activePlayer],
@@ -222,6 +250,7 @@ class ScorerController extends ChangeNotifier {
       checkoutAttempts,
       finish: finish,
       darts: countedDarts,
+      points: result.didBust ? null : points,
     );
     _history.add(_Snapshot(this));
     _actions.add({

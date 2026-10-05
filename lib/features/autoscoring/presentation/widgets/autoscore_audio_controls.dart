@@ -30,7 +30,7 @@ class AutoscoreAudioControls extends StatelessWidget {
                   ),
                   subtitle: Text(
                     matchScorer
-                        ? 'Deutsch · Autoscoring-Ansagen nach Bestätigung durch Herausziehen.'
+                        ? 'Deutsch · Ansage nach dem dritten Dart. Spielerwechsel erst nach dem Herausziehen.'
                         : 'Deutsch · Bouncer zählen als Wurf mit 0 Punkten.',
                   ),
                   value: controller.caller,

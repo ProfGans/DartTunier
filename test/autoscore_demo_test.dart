@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dart_tournament_manager/features/autoscoring/data/autoscore_setup_store.dart';
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -37,6 +39,13 @@ class _CameraController extends AutoscoringController {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('xyz.luan/audioplayers.global/events'),
+          (_) async => null,
+        );
+  });
   testWidgets(
     'Correction archive action fits a narrow screen with large text',
     (tester) async {
@@ -92,13 +101,26 @@ void main() {
       )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
     }
   });
-  testWidgets('Menu opens automatically counting demo', (tester) async {
+  testWidgets('Menu opens Autoscorer settings and camera workbench', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await AutoscoreSetupStore.instance.load();
+    AutoscoreSetupStore.instance.saveSettings(caller: false, sounds: false);
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: AutoscoreTesterMenuCard())),
     );
-    await tester.tap(find.text('Autoscore-Tester'));
+    await tester.tap(find.text('Autoscorer'));
     await tester.pumpAndSettle();
-    expect(find.text('Autoscore-Demo'), findsOneWidget);
+    final open = find.text('Kameras, Kalibrierung und Erkennung öffnen');
+    await tester.scrollUntilVisible(
+      open,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(find.text('Autoscorer · Kameratest'), findsOneWidget);
     expect(find.byType(AutoscoringPage), findsOneWidget);
     expect(find.text('Beispieltreffer simulieren'), findsNothing);
     final page = tester.widget<AutoscoringPage>(find.byType(AutoscoringPage));

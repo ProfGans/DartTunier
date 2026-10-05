@@ -289,3 +289,18 @@ Kameraabgleich. Historische Ringbilder überspringen diesen Schritt nicht mehr;
 die selektive Ringfarberkennung verhindert im beigefügten Fall einen durch den
 orangefarbenen Surround verzerrten Ausschnitt. Diagnose und T20-Replay:
 [Gedrehtes Board](autoscore_rotation_2026_10_05.md).
+
+## Setups und dauerhafte Statistik
+
+Der Menüpunkt „Autoscorer“ ersetzt den Tester-Eintrag und bietet benannte Setups
+mit Kamera-/Audioeinstellungen sowie eigener Genauigkeitsstatistik. Die bisherigen
+Erkennungs-, Korrektur- und Diagnosewerkzeuge bleiben über die Kamera-Arbeitsfläche
+zugänglich. Beschreibung, Statistikregeln und Tests: [Autoscorer-Setups](autoscore_setups.md).
+
+## Desktop-Hintergrundbetrieb
+
+Die aktive Erkennung läuft auch bei anderem aktivem Fenster und minimierter App
+weiter. Spieler-/Botwechsel werden ohne UI-Neuaufbau direkt am Spielmodell geprüft.
+Die App muss geöffnet bleiben. Android/iOS benötigen für Hintergrundkameras eine
+separate native Lösung und pausieren weiterhin. Details und Tests:
+[Hintergrunderkennung](autoscore_background.md).

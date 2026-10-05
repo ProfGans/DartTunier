@@ -10,6 +10,29 @@ CameraDescription camera(String name) => CameraDescription(
 
 void main() {
   test(
+    'Setup camera order survives enumeration changes and missing devices',
+    () {
+      final cameras = [
+        camera('Integrated Camera'),
+        camera('USB'),
+        camera('USB'),
+        camera('Dart'),
+      ];
+      expect(
+        preferredAutoscoreCameras(
+          cameras,
+          preferred: ['USB#1', 'Dart#0', 'USB#0'],
+        ),
+        [2, 3, 1],
+      );
+      expect(
+        preferredAutoscoreCameras(cameras, preferred: ['Absent#0', 'USB#1']),
+        [2, 1, 3],
+      );
+      expect(autoscoreCameraKey(cameras, 2), 'USB#1');
+    },
+  );
+  test(
     'Three USB cameras take precedence over built-in and virtual cameras',
     () {
       expect(

@@ -13,9 +13,17 @@ import '../domain/lens_distortion.dart';
 import '../domain/flat_board_projection.dart';
 import 'widgets/flat_board_view.dart';
 import 'widgets/dart_position_dialog.dart';
+import '../data/autoscore_setup_store.dart';
+import 'autoscorer_page.dart';
 
 class AutoscoreDemoPage extends StatefulWidget {
-  const AutoscoreDemoPage({super.key, this.controller, this.cameraController});
+  const AutoscoreDemoPage({
+    super.key,
+    this.controller,
+    this.cameraController,
+    this.setupStore,
+  });
+  final AutoscoreSetupStore? setupStore;
   final AutoscoreDemoController? controller;
   final AutoscoringController? cameraController;
   @override
@@ -23,11 +31,14 @@ class AutoscoreDemoPage extends StatefulWidget {
 }
 
 class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
-  late final controller = widget.controller ?? AutoscoreDemoController();
+  late final controller =
+      widget.controller ??
+      AutoscoreDemoController(setupStore: widget.setupStore);
   late final cameras = widget.cameraController ?? AutoscoringController();
   @override
   void initState() {
     super.initState();
+    if (widget.setupStore != null) controller.setupStore = widget.setupStore;
     controller.addListener(_changed);
   }
 
@@ -99,6 +110,7 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
       final path = await const AutoscoreDiagnosticExport().save(
         AutoscoreEvidence(entry.evidence!.cameras, {
           ...entry.evidence!.hit,
+          if (entry.setupThrow != null) 'setupId': entry.setupThrow!.setupId,
           'correctionHistoryAnalysis': controller.correctionAnalysis,
         }, capturedAt: entry.evidence!.capturedAt),
         entry.detected.label,
@@ -181,7 +193,10 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
 
   @override
   Widget build(BuildContext context) => AutoscoringPage(
-    title: 'Autoscore-Tester',
+    title: widget.setupStore == null
+        ? 'Autoscorer · Erkennung'
+        : 'Autoscorer · ${widget.setupStore!.active.name}',
+    setupStore: widget.setupStore,
     controller: cameras,
     automaticCounting: true,
     automaticVisitDartLimit: null,
@@ -202,7 +217,7 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Autoscore-Demo',
+              'Autoscorer · Kameratest',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
@@ -382,12 +397,12 @@ class AutoscoreTesterMenuCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: ListTile(
       leading: const Icon(Icons.videocam_outlined),
-      title: const Text('Autoscore-Tester'),
-      subtitle: const Text('Geworfene Pfeile mit drei USB-Kameras erkennen.'),
+      title: const Text('Autoscorer'),
+      subtitle: const Text('Setups, Einstellungen und Erkennungsgenauigkeit.'),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const AutoscoreDemoPage()),
-      ),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const AutoscorerPage())),
     ),
   );
 }

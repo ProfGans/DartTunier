@@ -39,7 +39,10 @@ class CommunityTournamentEloPanel extends StatefulWidget {
   State<CommunityTournamentEloPanel> createState() => _PanelState();
 }
 
-class _PanelState extends State<CommunityTournamentEloPanel> {
+class _PanelState extends State<CommunityTournamentEloPanel>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   TournamentEloData? _data;
   bool _loading = true, _failed = false, _yearOnly = true;
   String? _ranking;
@@ -105,6 +108,7 @@ class _PanelState extends State<CommunityTournamentEloPanel> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_data?.enabled == false && !_failed && !_loading) {
       return const SizedBox.shrink();
     }
@@ -129,6 +133,7 @@ class _PanelState extends State<CommunityTournamentEloPanel> {
         constraints: const BoxConstraints(maxWidth: 1120),
         child: Card(
           child: ExpansionTile(
+            key: PageStorageKey('tournament-elo-${widget.tournament.id}'),
             initiallyExpanded: true,
             title: const Text('Spieler · Elo und nächstes Spiel'),
             childrenPadding: const EdgeInsets.all(12),

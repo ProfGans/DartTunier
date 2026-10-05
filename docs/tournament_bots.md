@@ -35,3 +35,5 @@ Bot bleiben die Wurfstatistiken des Menschen erhalten. Alte Bot-Wurfstatistiken
 werden beim Laden herausgefiltert und beim erneuten Speichern entfernt. Simulierte Spiele
 bekommen keinen gemessenen Startzeitpunkt: Rechenzeit ist keine Matchdauer.
 Die Prüfung erfolgt beim Öffnen, nach Ergebnissen und beim Etappenwechsel.
+
+Speicherpunkte: Menschliche Änderungen werden vor der Simulation gespeichert. Jedes fertige Bot-Ergebnis und die anschließende Weitergabe werden vor der nächsten Simulation gesichert. Beim Zurückgehen oder Hauptmenü wartet die Turnieransicht auf den Schreibvorgang; bei Fehlern bleibt sie geöffnet. Beim Wechsel in den Hintergrund wird ebenfalls gespeichert. Laufende Berechnungen werden dann nicht übernommen, sondern beim erneuten Öffnen/Fortsetzen bei Bedarf wiederholt. Ein sofortiges Beenden durch das Betriebssystem kann keinen zusätzlichen asynchronen Schreibvorgang garantieren; deshalb werden Ergebnisse bereits während des Ablaufs gesichert.

@@ -3,6 +3,8 @@ import '../../scorer/domain/x01/x01_models.dart';
 import '../data/autoscore_diagnostic_export.dart';
 import '../domain/board_geometry.dart';
 import '../domain/correction_analysis.dart';
+import '../data/autoscore_setup_store.dart';
+import '../domain/autoscore_setup.dart';
 
 class ReviewedAutoscoreThrow {
   ReviewedAutoscoreThrow(this.detected, this.evidence);
@@ -10,6 +12,7 @@ class ReviewedAutoscoreThrow {
   final AutoscoreEvidence? evidence;
   String? diagnosticPath;
   bool wasCorrected = false;
+  AutoscoreSetupThrow? setupThrow;
   bool get estimated => !wasCorrected && evidence?.hit['needsReview'] == true;
   DartThrowResult? actual;
   BoardPoint? correctedPoint;
@@ -24,6 +27,8 @@ class ReviewedAutoscoreThrow {
 }
 
 class AutoscoreDemoController extends ChangeNotifier {
+  AutoscoreDemoController({this.setupStore});
+  AutoscoreSetupStore? setupStore;
   final _history = <ReviewedAutoscoreThrow>[];
   int _visitStart = 0;
   List<ReviewedAutoscoreThrow> get history => List.unmodifiable(_history);
@@ -48,13 +53,20 @@ class AutoscoreDemoController extends ChangeNotifier {
   ]);
 
   void add(DartThrowResult result, {AutoscoreEvidence? evidence}) {
-    _history.add(ReviewedAutoscoreThrow(result, evidence));
+    final entry = ReviewedAutoscoreThrow(result, evidence);
+    entry.setupThrow = setupStore?.record(
+      estimated: evidence?.hit['needsReview'] == true,
+      missing: result.label == 'Nicht erkannt',
+      bounce: result.label == 'Bouncer',
+    );
+    _history.add(entry);
     notifyListeners();
   }
 
   void reset() {
     for (final entry in _history.skip(_visitStart)) {
       entry.actual ??= entry.detected;
+      setupStore?.review(entry.setupThrow, corrected: entry.wasCorrected);
     }
     _visitStart = _history.length;
     notifyListeners();
@@ -64,6 +76,7 @@ class AutoscoreDemoController extends ChangeNotifier {
     _history[index].correctedPoint = null;
     _history[index].actual = actual;
     _history[index].wasCorrected = true;
+    setupStore?.review(_history[index].setupThrow, corrected: true);
     _history[index].diagnosticPath = null;
     notifyListeners();
   }
@@ -82,6 +95,7 @@ class AutoscoreDemoController extends ChangeNotifier {
   void confirm(int index) {
     if (_history[index].wasCorrected) return;
     _history[index].actual = _history[index].detected;
+    setupStore?.review(_history[index].setupThrow, corrected: false);
     notifyListeners();
   }
 }

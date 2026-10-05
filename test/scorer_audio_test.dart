@@ -24,6 +24,38 @@ class _Output implements AutoscoreAudioOutput {
 }
 
 void main() {
+  test(
+    'Third camera dart calls immediately; removal and correction do not repeat it',
+    () async {
+      final output = _Output();
+      final audio = AutoscoreAudioController(output: output);
+      final c = ScorerController(
+        ScorerSettings(
+          participants: const [ScorerParticipant('A'), ScorerParticipant('B')],
+        ),
+      );
+      final bridge = ScorerAudioController(audio, c);
+      for (var n = 1; n <= 3; n++) {
+        c.throwDart(const X01Rules().createSingle(20));
+        bridge.update(c, provisional: true, cameraDarts: n);
+        await audio.idle;
+        expect(output.speech, n < 3 ? isEmpty : ['60 Punkte']);
+      }
+      final corrected = c.exportActions();
+      corrected.last['label'] = 'T20';
+      c.replaceActions(corrected);
+      bridge.update(c, provisional: true, cameraDarts: 3);
+      bridge.update(c, provisional: false, cameraDarts: 3);
+      await audio.idle;
+      expect(output.speech, ['60 Punkte']);
+      c.throwDart(const X01Rules().createSingle(20));
+      bridge.update(c, provisional: true, cameraDarts: 1);
+      await audio.idle;
+      expect(output.speech.length, 1);
+      audio.dispose();
+      c.dispose();
+    },
+  );
   final settings = ScorerSettings(
     startScore: 40,
     bestOfLegs: 1,

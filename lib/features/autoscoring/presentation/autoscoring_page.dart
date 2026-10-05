@@ -12,6 +12,8 @@ import 'widgets/camera_recognition_view.dart';
 import 'widgets/dart_correction_dialog.dart';
 import '../application/autoscore_audio_controller.dart';
 import 'widgets/autoscore_audio_controls.dart';
+import '../data/autoscore_setup_store.dart';
+import '../application/autoscore_lifecycle_policy.dart';
 
 class AutoscoringPage extends StatefulWidget {
   const AutoscoringPage({
@@ -27,6 +29,7 @@ class AutoscoringPage extends StatefulWidget {
     this.autoConnect = false,
     this.automaticVisitDartLimit = 3,
     this.audioThrows,
+    this.setupStore,
   });
   final AutoscoringController? controller;
 
@@ -41,6 +44,7 @@ class AutoscoringPage extends StatefulWidget {
   final bool autoConnect;
   final int? automaticVisitDartLimit;
   final List<DartThrowResult> Function()? audioThrows;
+  final AutoscoreSetupStore? setupStore;
   @override
   State<AutoscoringPage> createState() => _AutoscoringPageState();
 }
@@ -48,7 +52,7 @@ class AutoscoringPage extends StatefulWidget {
 class _AutoscoringPageState extends State<AutoscoringPage>
     with WidgetsBindingObserver {
   late final c = widget.controller ?? AutoscoringController();
-  late final audio = AutoscoreAudioController();
+  late final audio = AutoscoreAudioController(setupStore: widget.setupStore);
   List<int> selected = [-1, -1, -1];
   bool visitEnded = false;
   bool _connectionAttempted = false;
@@ -140,7 +144,10 @@ class _AutoscoringPageState extends State<AutoscoringPage>
     c.onAutomaticThrow = widget.automaticCounting
         ? (result) => widget.onThrow?.call(result) ?? true
         : null;
-    selected = preferredAutoscoreCameras(c.available);
+    selected = preferredAutoscoreCameras(
+      c.available,
+      preferred: widget.setupStore?.active.cameraKeys ?? const [],
+    );
     _discover();
   }
 
@@ -149,7 +156,10 @@ class _AutoscoringPageState extends State<AutoscoringPage>
     final previousSelection = List.of(selected);
     await c.discover();
     if (!mounted) return;
-    final defaults = preferredAutoscoreCameras(c.available);
+    final defaults = preferredAutoscoreCameras(
+      c.available,
+      preferred: widget.setupStore?.active.cameraKeys ?? const [],
+    );
     final retained = <int>{};
     final next = List<int>.filled(3, -1);
     for (var slot = 0; slot < 3; slot++) {
@@ -201,9 +211,7 @@ class _AutoscoringPageState extends State<AutoscoringPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached ||
-        state == AppLifecycleState.hidden) {
+    if (pauseAutoscoreForLifecycle(state)) {
       c.status =
           'Erkennung nach Hintergrundwechsel angehalten. Bitte neu verbinden.';
       c.stop();
@@ -301,7 +309,16 @@ class _AutoscoringPageState extends State<AutoscoringPage>
               FilledButton.icon(
                 onPressed: c.busy || c.available.length < 3
                     ? null
-                    : () => c.connect(List.of(selected)),
+                    : () {
+                        widget.setupStore?.saveSettings(
+                          cameras: [
+                            for (final index in selected)
+                              if (index >= 0)
+                                autoscoreCameraKey(c.available, index),
+                          ],
+                        );
+                        c.connect(List.of(selected));
+                      },
                 icon: const Icon(Icons.videocam),
                 label: Text(
                   widget.automaticCounting

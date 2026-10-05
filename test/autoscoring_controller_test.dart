@@ -157,6 +157,32 @@ void main() {
   });
   tearDown(() => directory.deleteSync(recursive: true));
   test(
+    'Scorer reconnect reuses saved calibration; explicit recalibration replaces it',
+    () async {
+      final platform = _Cameras(directory);
+      final service = _AutomaticCalibration();
+      final c = AutoscoringController(
+        platform: platform,
+        calibrationService: service,
+      )..reuseSavedCalibration = true;
+      await c.discover();
+      await c.connect([0, 1, 2]);
+      expect(service.calls, 3);
+      expect((await AutoscoringStorage().load()).length, 3);
+      await c.stop();
+      await c.connect([0, 1, 2]);
+      expect(service.calls, 3);
+      expect(c.reusedCalibration, true);
+      expect(c.cameras.every((camera) => camera.calibration != null), true);
+      await c.autoCalibrate();
+      expect(service.calls, 6);
+      expect(c.reusedCalibration, false);
+      await c.stop();
+      c.dispose();
+      await platform.events.close();
+    },
+  );
+  test(
     'An invalid capture preserves all last validated camera images',
     () async {
       final platform = _Cameras(directory);

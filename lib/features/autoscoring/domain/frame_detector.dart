@@ -68,9 +68,15 @@ class FrameDetector {
     for (var y = 1; y < current.height - 1; y += 3) {
       for (var x = 1; x < current.width - 1; x += 3) {
         final i = y * current.width + x;
-        if ((reference.pixels[i] - current.pixels[i]).abs() < 30) continue;
+        final difference = (reference.pixels[i] - current.pixels[i]).abs();
+        if (difference < 18) continue;
         final p = Point(x / (current.width - 1), y / (current.height - 1));
-        if (calibration.project(p).magnitude <= BoardGeometry.detectionRadius) {
+        final radius = calibration.project(p).magnitude;
+        if (radius <= BoardGeometry.detectionRadius &&
+            (difference >= 30 ||
+                (radius > 170 &&
+                    reference.pixels[i] < 80 &&
+                    _connectedChange(reference, current, x, y, 18)))) {
           points.add(p);
         }
       }
@@ -102,6 +108,14 @@ class FrameDetector {
           calibration,
           BoardGeometry.detectionRadius,
           outerRimOnly: true,
+        ) ??
+        _axis(
+          reference,
+          current,
+          calibration,
+          BoardGeometry.detectionRadius,
+          outerRimOnly: true,
+          darkRim: true,
         );
     return coarse == null
         ? null
@@ -117,6 +131,23 @@ class FrameDetector {
   }) {
     primary ??= axis(reference, current, calibration);
     final result = <DartAxis>[?primary];
+    final rim = _axis(
+      reference,
+      current,
+      calibration,
+      BoardGeometry.detectionRadius,
+      outerRimOnly: true,
+      darkRim: true,
+    );
+    if (rim != null &&
+        rim.confidence >= .75 &&
+        (primary == null ||
+            (primary.a * rim.b - primary.b * rim.a).abs() >= .015 ||
+            (primary.c - rim.c * (primary.a * rim.a + primary.b * rim.b).sign)
+                    .abs() >=
+                1)) {
+      result.add(rim);
+    }
     if (primary != null) {
       final secondary = _axis(
         reference,
@@ -271,6 +302,7 @@ class FrameDetector {
     BoardCalibration calibration,
     double radius, {
     bool outerRimOnly = false,
+    bool darkRim = false,
     DartAxis? excludedAxis,
   }) {
     if (reference.width != current.width ||
@@ -282,16 +314,22 @@ class FrameDetector {
     for (var y = 1; y < current.height - 1; y++) {
       for (var x = 1; x < current.width - 1; x++) {
         final i = y * current.width + x;
-        if ((reference.pixels[i] - current.pixels[i]).abs() < 30) continue;
+        final threshold = darkRim ? 18 : 30;
+        if ((reference.pixels[i] - current.pixels[i]).abs() < threshold) {
+          continue;
+        }
         final p = Point(x / (current.width - 1), y / (current.height - 1));
         final board = calibration.project(p);
         if (board.magnitude > radius) continue;
+        if (darkRim && (board.magnitude <= 170 || reference.pixels[i] >= 80)) {
+          continue;
+        }
         if (excludedAxis != null && excludedAxis.distance(board) < 3) continue;
         var neighbours = 0;
         for (var dy = -1; dy <= 1; dy++) {
           for (var dx = -1; dx <= 1; dx++) {
             final j = (y + dy) * current.width + x + dx;
-            if ((reference.pixels[j] - current.pixels[j]).abs() >= 30) {
+            if ((reference.pixels[j] - current.pixels[j]).abs() >= threshold) {
               neighbours++;
             }
           }
@@ -301,7 +339,7 @@ class FrameDetector {
         if (neighbours >= 3) points.add(calibration.lens.undistort(p));
       }
     }
-    if (points.length < (excludedAxis == null ? 12 : 24) ||
+    if (points.length < (darkRim ? 48 : (excludedAxis == null ? 12 : 24)) ||
         points.length > current.pixels.length * .06) {
       return null;
     }
@@ -311,6 +349,27 @@ class FrameDetector {
       current.width,
       current.height,
       outerRimOnly: outerRimOnly,
+      minimumSupport: darkRim ? .95 : .45,
+      maximumThicknessRatio: darkRim ? .025 : .22,
     );
+  }
+
+  bool _connectedChange(
+    GrayFrame before,
+    GrayFrame after,
+    int x,
+    int y,
+    int threshold,
+  ) {
+    var neighbours = 0;
+    for (var dy = -1; dy <= 1; dy++) {
+      for (var dx = -1; dx <= 1; dx++) {
+        final i = (y + dy) * after.width + x + dx;
+        if ((before.pixels[i] - after.pixels[i]).abs() >= threshold) {
+          neighbours++;
+        }
+      }
+    }
+    return neighbours >= 3;
   }
 }

@@ -2,10 +2,30 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../scorer/domain/x01/x01_models.dart';
 import '../data/autoscore_audio_output.dart';
+import '../data/autoscore_setup_store.dart';
 
 class AutoscoreAudioController extends ChangeNotifier {
-  AutoscoreAudioController({AutoscoreAudioOutput? output})
-    : output = output ?? LocalAutoscoreAudioOutput();
+  AutoscoreAudioController({AutoscoreAudioOutput? output, this.setupStore})
+    : output = output ?? LocalAutoscoreAudioOutput() {
+    setupStore?.addListener(_settingsChanged);
+    _settingsChanged();
+  }
+  final AutoscoreSetupStore? setupStore;
+  void _settingsChanged() {
+    final store = setupStore;
+    if (store == null || !store.loaded || _disposed) return;
+    final setup = store.active;
+    if (caller == setup.caller &&
+        sounds == setup.sounds &&
+        volume == setup.volume) {
+      return;
+    }
+    caller = setup.caller;
+    sounds = setup.sounds;
+    volume = setup.volume;
+    notifyListeners();
+  }
+
   final AutoscoreAudioOutput output;
   bool caller = true, sounds = true;
   double volume = .7;
@@ -58,16 +78,19 @@ class AutoscoreAudioController extends ChangeNotifier {
 
   void setCaller(bool value) {
     caller = value;
+    setupStore?.saveSettings(caller: value);
     notifyListeners();
   }
 
   void setSounds(bool value) {
     sounds = value;
+    setupStore?.saveSettings(sounds: value);
     notifyListeners();
   }
 
   void setVolume(double value) {
     volume = value.clamp(0, 1);
+    setupStore?.saveSettings(volume: volume);
     notifyListeners();
   }
 
@@ -129,6 +152,7 @@ class AutoscoreAudioController extends ChangeNotifier {
 
   @override
   void dispose() {
+    setupStore?.removeListener(_settingsChanged);
     _disposed = true;
     unawaited(output.close().catchError((Object _) {}));
     super.dispose();

@@ -10,6 +10,7 @@ DartAxis? fitShaftLine(
   bool outerRimOnly = false,
   double minimumSupport = .45,
   double pixelTolerance = 2.5,
+  double maximumThicknessRatio = .22,
 }) {
   if (points.length < 12) return null;
   final random = Random(7301);
@@ -48,7 +49,9 @@ DartAxis? fitShaftLine(
   final disc = sqrt(pow(xx - yy, 2) + 4 * xy * xy),
       major = (xx + yy + disc) / 2,
       minor = (xx + yy - disc) / 2;
-  if (major < .0001 || minor / max(major, 1e-9) > .22) return null;
+  if (major < .0001 || minor / max(major, 1e-9) > maximumThicknessRatio) {
+    return null;
+  }
   final angle = .5 * atan2(2 * xy, xx - yy),
       direction = Point(cos(angle) * .05, sin(angle) * .05);
   return DartAxis(

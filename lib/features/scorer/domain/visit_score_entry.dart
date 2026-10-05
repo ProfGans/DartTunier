@@ -4,6 +4,48 @@ import 'x01/x01_rules.dart';
 /// Validates aggregate human input; does not invent individual dart hits.
 class VisitScoreEntry {
   static const _rules = X01Rules();
+
+  /// Maximum checkout opportunities on a legal route matching the entered
+  /// total. A finish reached only after dart three is not an attempt yet.
+  static int maxDoubleAttempts({
+    required int score,
+    required int points,
+    int darts = 3,
+    bool opened = true,
+  }) {
+    final memo = <(int, int, int, bool), int>{};
+    final throws = _rules.buildAllThrows();
+    int search(int rest, int total, int left, bool isOpen) {
+      if (left == 0) return total == 0 ? 0 : -1;
+      final key = (rest, total, left, isOpen);
+      if (memo.containsKey(key)) return memo[key]!;
+      var best = -1;
+      final chance =
+          isOpen && (rest == 50 || (rest >= 2 && rest <= 40 && rest.isEven));
+      for (final dart in throws) {
+        final nextOpen = isOpen || dart.isFinishDouble;
+        final value = nextOpen ? dart.scoredPoints : 0;
+        if (value > total) continue;
+        final next = rest - value;
+        if (next < 0 || next == 1) continue;
+        int tail;
+        if (next == 0) {
+          if (left != 1 || total != value || !dart.isFinishDouble) continue;
+          tail = 0;
+        } else {
+          tail = search(next, total - value, left - 1, nextOpen);
+        }
+        if (tail < 0) continue;
+        final attempts = tail + ((chance || next == 0) ? 1 : 0);
+        if (attempts > best) best = attempts;
+      }
+      return memo[key] = best;
+    }
+
+    final result = search(score, points, darts, opened);
+    return result < 0 ? 0 : result;
+  }
+
   static bool canFinish(
     int score,
     int darts,

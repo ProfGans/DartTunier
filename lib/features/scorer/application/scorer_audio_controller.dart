@@ -2,7 +2,8 @@ import '../../autoscoring/application/autoscore_audio_controller.dart';
 import 'scorer_controller.dart';
 
 /// Connects scoring events to audio without replaying history on correction,
-/// resume or undo. Camera previews make effects; only confirmed visits speak.
+/// resume or undo. Three detected camera darts speak before removal; confirming
+/// the same visit must not announce it a second time.
 class ScorerAudioController {
   ScorerAudioController(this.audio, ScorerController scorer) {
     _events = _effectiveEvents(scorer).length;
@@ -23,7 +24,11 @@ class ScorerAudioController {
     return events;
   }
 
-  void update(ScorerController scorer, {required bool provisional}) {
+  void update(
+    ScorerController scorer, {
+    required bool provisional,
+    int cameraDarts = 0,
+  }) {
     final events = _effectiveEvents(scorer);
     if (events.length > _events) {
       audio.playHit(bounce: events.last['label'] == 'Bouncer');
@@ -31,7 +36,7 @@ class ScorerAudioController {
     _events = events.length;
     final visits = scorer.statisticsVisits;
     if (visits.length < _committedVisits) _committedVisits = visits.length;
-    if (provisional) return;
+    if (provisional && cameraDarts < 3) return;
     if (visits.length > _committedVisits) {
       final visit = visits.last;
       audio.announce(

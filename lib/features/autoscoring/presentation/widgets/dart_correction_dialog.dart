@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../scorer/domain/x01/x01_rules.dart';
 
 class DartCorrectionDialog extends StatefulWidget {
-  const DartCorrectionDialog({super.key});
+  const DartCorrectionDialog({super.key, this.title = 'Treffer korrigieren'});
+  final String title;
   @override
   State<DartCorrectionDialog> createState() => DartCorrectionDialogState();
 }
@@ -11,7 +12,7 @@ class DartCorrectionDialogState extends State<DartCorrectionDialog> {
   int value = 20, multiplier = 1;
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Treffer korrigieren'),
+    title: Text(widget.title),
     content: SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,

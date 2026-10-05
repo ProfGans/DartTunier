@@ -202,6 +202,56 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  testWidgets('collapsed Elo stays collapsed after scrolling out of view', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var loads = 0;
+    final tournament = eloTournament();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomScrollView(
+            cacheExtent: 0,
+            slivers: [
+              SliverList.list(
+                children: [
+                  CommunityTournamentEloPanel(
+                    tournament: tournament,
+                    activeStage: 0,
+                    load: () async {
+                      loads++;
+                      return eloData();
+                    },
+                  ),
+                  for (var i = 0; i < 20; i++)
+                    SizedBox(height: 200, child: Text('Spiel $i')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Spieler · Elo und nächstes Spiel'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1800));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 2500));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Spieler · Elo und nächstes Spiel').hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.text('Elo aktualisieren').hitTestable(), findsNothing);
+    expect(loads, 1);
+    await tester.tap(find.text('Spieler · Elo und nächstes Spiel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Elo aktualisieren').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('disabled ranking hides panel and errors allow retry', (
     tester,
   ) async {

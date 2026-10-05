@@ -12,6 +12,62 @@ import 'package:dart_tournament_manager/features/scorer/domain/x01/x01_models.da
 import 'package:dart_tournament_manager/features/scorer/presentation/scorer_match_page.dart';
 
 void main() {
+  testWidgets(
+    'Removal after two recognized darts requests missing dart and advances once',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ScorerMatchPage(
+            settings: ScorerSettings(
+              participants: const [
+                ScorerParticipant('A'),
+                ScorerParticipant('B'),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byTooltip('Autoscorer · drei Kameras'));
+      await tester.pumpAndSettle();
+      var panel = tester.widget<ScorerCameraPanel>(
+        find.byType(ScorerCameraPanel),
+      );
+      panel.onPreview!(
+        [const X01Rules().createSingle(20), const X01Rules().createSingle(20)],
+        [false, false],
+      );
+      await tester.pump();
+      panel.onAccept([]);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Dart 3 nicht erfasst'), findsOneWidget);
+      panel = tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel));
+      expect(panel.enabled, false);
+      await tester.tap(find.text('Abbrechen'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel))
+            .enabled,
+        false,
+      );
+      // Retrying after cancellation must retain both already counted darts.
+      panel.onAccept([]);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Dart 3 nicht erfasst'), findsOneWidget);
+      await tester.tap(find.text('Fehlwurf'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('nicht erfasst'), findsNothing);
+      expect(
+        tester
+            .widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel))
+            .enabled,
+        true,
+      );
+      expect(find.textContaining('B ist am Wurf'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   testWidgets('Camera panel survives desktop to phone layout changes', (
     tester,
   ) async {
