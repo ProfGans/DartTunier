@@ -6,6 +6,95 @@ import 'package:dart_tournament_manager/features/autoscoring/domain/board_geomet
 import 'package:dart_tournament_manager/features/autoscoring/domain/frame_detector.dart';
 
 void main() {
+  for (final radius in [215.0, 245.0]) {
+    test('Weak outer bounce at $radius mm counts once after returning', () {
+      final reference = List.generate(
+        3,
+        (_) => GrayFrame(100, 100, Uint8List(10000)),
+      );
+      final transient = List.generate(3, (_) {
+        final pixels = Uint8List(10000)..fillRange(5000, 5050, 22);
+        return GrayFrame(100, 100, pixels);
+      });
+      final detector = AutomaticBounceDetector();
+      expect(
+        detector.observe(
+          reference: reference,
+          current: transient,
+          axes: [
+            DartAxis(
+              Point(-50, -radius),
+              Point(50, -radius),
+              outerRimOnly: true,
+            ),
+            DartAxis(Point(0, -280), Point(0, -180), outerRimOnly: true),
+          ],
+          stable: false,
+          nowMilliseconds: 0,
+        ),
+        isFalse,
+      );
+      expect(
+        detector.observe(
+          reference: reference,
+          current: reference,
+          axes: [],
+          stable: true,
+          nowMilliseconds: 150,
+        ),
+        isTrue,
+      );
+      expect(
+        detector.observe(
+          reference: reference,
+          current: reference,
+          axes: [],
+          stable: true,
+          nowMilliseconds: 250,
+        ),
+        isFalse,
+      );
+    });
+  }
+  test(
+    'Single view and parallel transient axes cannot count an outer bounce',
+    () {
+      final reference = List.generate(
+        3,
+        (_) => GrayFrame(100, 100, Uint8List(10000)),
+      );
+      final transient = List.generate(
+        3,
+        (_) => GrayFrame(100, 100, Uint8List(10000)..fillRange(5000, 5050, 22)),
+      );
+      for (final axes in [
+        [DartAxis(const Point(-50, -215), const Point(50, -215))],
+        [
+          DartAxis(const Point(-50, -215), const Point(50, -215)),
+          DartAxis(const Point(-50, -220), const Point(50, -220)),
+        ],
+      ]) {
+        final detector = AutomaticBounceDetector();
+        detector.observe(
+          reference: reference,
+          current: transient,
+          axes: axes,
+          stable: false,
+          nowMilliseconds: 0,
+        );
+        expect(
+          detector.observe(
+            reference: reference,
+            current: reference,
+            axes: [],
+            stable: true,
+            nowMilliseconds: 100,
+          ),
+          isFalse,
+        );
+      }
+    },
+  );
   final empty = List.generate(3, (_) => GrayFrame(100, 100, Uint8List(10000)));
   final changed = List.generate(3, (_) {
     final p = Uint8List(10000);

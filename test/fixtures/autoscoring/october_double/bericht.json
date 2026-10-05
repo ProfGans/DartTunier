@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 5,
+  "capturedAtUtc": "2026-10-05T09:16:03.980448Z",
+  "detected": "D19",
+  "corrected": "D3",
+  "correctDetection": false,
+  "hit": {
+    "manualMissingReport": false,
+    "decisionFrames": [
+      {
+        "xMillimetres": -26.46574011449587,
+        "yMillimetres": 165.0948250996614,
+        "views": 3,
+        "residualMillimetres": 1.5616410086823538,
+        "axes": [
+          {
+            "a": -0.8264721627881709,
+            "b": -0.5629775875967382,
+            "c": 73.68956030789715,
+            "confidence": 0.4537449496284016
+          },
+          {
+            "a": 0.8862795065344289,
+            "b": -0.4631507705888971,
+            "c": 100.32966039909198,
+            "confidence": 0.9920135493690476
+          },
+          {
+            "a": -0.1767693715441344,
+            "b": -0.9842522996081299,
+            "c": 157.2744887970485,
+            "confidence": 0.9585129201276444
+          }
+        ]
+      },
+      {
+        "xMillimetres": -26.727409284263302,
+        "yMillimetres": 164.7864105471372,
+        "views": 3,
+        "residualMillimetres": 1.3326795345326599,
+        "axes": [
+          {
+            "a": -0.8232302095232679,
+            "b": -0.5677076907425833,
+            "c": 73.78902485448775,
+            "confidence": 0.4501783024622836
+          },
+          {
+            "a": 0.8863444409350688,
+            "b": -0.46302649170808846,
+            "c": 100.33214913990172,
+            "confidence": 0.9920849262380944
+          },
+          {
+            "a": -0.17974863168877728,
+            "b": -0.9837125745897591,
+            "c": 156.8650956954548,
+            "confidence": 0.985367638735169
+          }
+        ]
+      }
+    ],
+    "decisionSelectedFrame": 1,
+    "alternativesUsed": false,
+    "detailRefined": false,
+    "xMillimetres": -26.727409284263302,
+    "yMillimetres": 164.7864105471372,
+    "residualMillimetres": 1.3326795345326599,
+    "views": 3,
+    "needsReview": true,
+    "forcedDecision": true,
+    "setupId": "default",
+    "setupName": "Standard-Setup"
+  },
+  "correctionPosition": {
+    "xMillimetres": -16.499999999999968,
+    "yMillimetres": 163.49999999999997,
+    "source": "flatBoard"
+  },
+  "cameras": [
+    {
+      "camera": 1,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3852925226344672,
+          "y": 0.24130076436148473
+        },
+        {
+          "x": 0.6481509148726371,
+          "y": 0.29305478555540715
+        },
+        {
+          "x": 0.6210572524877243,
+          "y": 0.6790091815351018
+        },
+        {
+          "x": 0.233257312562214,
+          "y": 0.5390945713629871
+        }
+      ],
+      "lens": {
+        "k1": 0.0,
+        "aspectRatio": 1.0
+      },
+      "calibrationQuality": {},
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [
+        {
+          "a": -0.8232302095232679,
+          "b": -0.5677076907425833,
+          "c": 73.78902485448775,
+          "confidence": 0.4501783024622836,
+          "outerRimOnly": false
+        }
+      ],
+      "axis": {
+        "a": -0.8232302095232679,
+        "b": -0.5677076907425833,
+        "c": 73.78902485448775,
+        "confidence": 0.4501783024622836,
+        "outerRimOnly": false
+      },
+      "changedFraction": 0.00005401234567901235,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.008040123456790123,
+      "stableSamples": 0
+    },
+    {
+      "camera": 2,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.32969854191064807,
+          "y": 0.6935876664640226
+        },
+        {
+          "x": 0.32889992538636365,
+          "y": 0.2955779341872803
+        },
+        {
+          "x": 0.5962279266963149,
+          "y": 0.24079698431789964
+        },
+        {
+          "x": 0.7399700547578502,
+          "y": 0.5558792467787076
+        }
+      ],
+      "lens": {
+        "k1": 0.0,
+        "aspectRatio": 1.0
+      },
+      "calibrationQuality": {},
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [
+        {
+          "a": 0.8863444409350688,
+          "b": -0.46302649170808846,
+          "c": 100.33214913990172,
+          "confidence": 0.9920849262380944,
+          "outerRimOnly": true
+        }
+      ],
+      "axis": {
+        "a": 0.8863444409350688,
+        "b": -0.46302649170808846,
+        "c": 100.33214913990172,
+        "confidence": 0.9920849262380944,
+        "outerRimOnly": true
+      },
+      "changedFraction": 0.00006944444444444444,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.003935185185185185,
+      "stableSamples": 0
+    },
+    {
+      "camera": 3,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.6972068933811761,
+          "y": 0.36753022382294914
+        },
+        {
+          "x": 0.4556171676852425,
+          "y": 0.6893144650527083
+        },
+        {
+          "x": 0.23120877815607854,
+          "y": 0.3445981821396532
+        },
+        {
+          "x": 0.46877779439301936,
+          "y": 0.17662184793414676
+        }
+      ],
+      "lens": {
+        "k1": 0.04,
+        "aspectRatio": 1.7777777777777777
+      },
+      "calibrationQuality": {},
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [
+        {
+          "a": -0.17974863168877728,
+          "b": -0.9837125745897591,
+          "c": 156.8650956954548,
+          "confidence": 0.985367638735169,
+          "outerRimOnly": false
+        },
+        {
+          "a": -0.20135113426299756,
+          "b": -0.9795191272920628,
+          "c": 155.5464291215116,
+          "confidence": 0.964837965175612,
+          "outerRimOnly": true
+        }
+      ],
+      "axis": {
+        "a": -0.17974863168877728,
+        "b": -0.9837125745897591,
+        "c": 156.8650956954548,
+        "confidence": 0.985367638735169,
+        "outerRimOnly": false
+      },
+      "changedFraction": 0.00011574074074074075,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.00537037037037037,
+      "stableSamples": 0
+    }
+  ]
+}

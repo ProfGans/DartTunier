@@ -10,6 +10,7 @@ class AutomaticVisitReset {
   bool waitingForEmpty = false;
   int _emptySamples = 0;
   int _settledSamples = 0;
+  int _restoredSamples = 0;
   List<GrayFrame>? _previous;
   List<List<int>>? _regions;
   List<BoardCalibration>? _calibrations;
@@ -19,6 +20,7 @@ class AutomaticVisitReset {
     waitingForEmpty = false;
     _emptySamples = 0;
     _settledSamples = 0;
+    _restoredSamples = 0;
     _previous = null;
     _regions = null;
     _calibrations = null;
@@ -81,7 +83,7 @@ class AutomaticVisitReset {
     if (occupiedCounts.where((count) => count >= 6).length < 2) {
       return VisitResetState.playing;
     }
-    var clearViews = 0, removalViews = 0;
+    var clearViews = 0, removalViews = 0, restoredViews = 0;
     cameraMetrics = [];
     for (var i = 0; i < 3; i++) {
       final before = occupiedCounts[i];
@@ -104,6 +106,9 @@ class AutomaticVisitReset {
         if (wasDart && isDart) retained++;
       }
       final now = retained + added;
+      final restored =
+          removed <= max(2, before * .03) && added <= max(2, before * .03);
+      if (restored) restoredViews++;
       cameraMetrics.add({
         'before': before,
         'now': now,
@@ -111,6 +116,7 @@ class AutomaticVisitReset {
         'added': added,
         'removed': removed,
         'regionPixels': _regions![i].length,
+        'occupiedRestored': restored,
       });
       final tolerance = max(
         2.0,
@@ -138,6 +144,19 @@ class AutomaticVisitReset {
     // during an unfinished visit (one or two counted throws).
     if ((dartLimit != null && darts >= dartLimit) || removalViews >= 2) {
       waitingForEmpty = true;
+    }
+    // A hand or moving flight can temporarily resemble removal. Release a
+    // premature latch only when ALL views match the complete occupied board
+    // for three settled captures. Actual partial removal remains locked.
+    _restoredSamples = quiet && removalViews == 0 && restoredViews == 3
+        ? _restoredSamples + 1
+        : 0;
+    if (waitingForEmpty &&
+        (dartLimit == null || darts < dartLimit) &&
+        _restoredSamples >= 3) {
+      waitingForEmpty = false;
+      _emptySamples = 0;
+      _restoredSamples = 0;
     }
     // Two independently empty views can release one view with small residual
     // board texture, but only after substantial removal and without a shaft.

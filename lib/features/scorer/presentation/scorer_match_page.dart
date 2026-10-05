@@ -424,9 +424,10 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
       }
     }
     final ended =
-        preview.isComplete ||
-        preview.activePlayer != player ||
-        preview.visit.isEmpty;
+        darts.isNotEmpty &&
+        (preview.isComplete ||
+            preview.activePlayer != player ||
+            preview.visit.isEmpty);
     _cameraDartCount = darts.length;
     controller.replaceActions(preview.exportActions());
     preview.dispose();
@@ -435,6 +436,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
 
   Future<void> _confirmCameraVisit(List<DartThrowResult> _) async {
     if (!_cameraPending || _confirmingCamera) return;
+    if (!_cameraRemoved) _audio.confirmRemoval();
     setState(() {
       _cameraRemoved = true;
       _confirmingCamera = true;

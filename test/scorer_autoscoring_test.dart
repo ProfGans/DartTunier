@@ -32,6 +32,11 @@ void main() {
       var panel = tester.widget<ScorerCameraPanel>(
         find.byType(ScorerCameraPanel),
       );
+      panel.onPreview!([const X01Rules().createSingle(20)], [false]);
+      await tester.pump();
+      // Removing the last detection restores the visit instead of ending it.
+      expect(panel.onPreview!([], []), false);
+      await tester.pump();
       panel.onPreview!(
         [const X01Rules().createSingle(20), const X01Rules().createSingle(20)],
         [false, false],

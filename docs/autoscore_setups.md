@@ -44,7 +44,9 @@ wird. Die bisherige lokale Sitzungshistorie wird nicht als globale Historie gesp
 
 `domain/autoscore_setup.dart`: Setupmodell, Statistikwerte und feste Wurfzuordnung.
 `data/autoscore_setup_store.dart`: gemeinsame Setupauswahl und sequenziell gespeicherte
-JSON-Snapshots in SharedPreferences (`autoscoring.setups.v1`, Schema version 1).
+JSON-Snapshots in SharedPreferences (`autoscoring.setups.v1`, Schema version 2).
+Version 1 wird beim nächsten Speichern um unabhängige Prüfzähler und Prüfserien
+erweitert; bestehende Daten bleiben erhalten.
 Ohne alte Daten wird „Standard-Setup“ angelegt. Unbekannte oder ungültige Schema-
 Versionen werden nicht überschrieben; die UI zeigt den Ladefehler. Bestehende Kamera-
 Kalibrierungen und globale Startpräferenz bleiben mit ihren bisherigen Schemas erhalten.
@@ -70,3 +72,24 @@ rekonstruieren.
 
 Logs: `build/autoscore_analysis/setups_final_tests.log`, `setups_regressions.log`,
 `setups_analyze.log`, `setups_release_build.log`.
+# Genauigkeitsstatistik zurücksetzen
+
+Im Setup-Menü und im Kameratest kann die Genauigkeitsstatistik nach einer
+Bestätigung manuell zurückgesetzt werden. Sämtliche Statistikzähler des
+ausgewählten Setups beginnen wieder bei null; Kamera-/Audioeinstellungen,
+laufender Punktestand, Trefferverlauf und Diagnose-Dateien bleiben erhalten.
+Andere Setups behalten ihre Statistik. Die leeren Zähler werden gespeichert.
+
+Alte Würfe tragen eine nur im Arbeitsspeicher benötigte Statistikgeneration.
+Nach dem Reset können Herausziehen oder nachträgliche Korrekturen dieser Würfe
+die neuen Zähler nicht verändern. Neue Würfe starten die neue Messung. Im
+Kameratest beginnt außerdem die lokale Genauigkeitsanzeige neu. Das bestehende
+persistente Setup-Schema wird inzwischen als Version 2 gespeichert; die Wurf-Tokens werden
+weiterhin nicht gespeichert und brauchen keine Migration.
+
+Reset, spätere Korrekturen, Setup-Isolation und Neustart wurden mit Unit-Tests
+geprüft. UI-Tests prüfen Bestätigung/Abbrechen und Layouts bei 360×800, 800×600
+und 1440×900 mit 100 und 200 Prozent Schrift. Gemeinsame adaptive Layout- und
+Seitenregressionen bestehen. Gerenderte mobile und Desktop-Ansichten wurden
+visuell geprüft; keine Sichtprüfung auf physischen Geräten.
+

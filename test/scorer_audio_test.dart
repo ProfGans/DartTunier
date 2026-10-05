@@ -7,6 +7,8 @@ import 'package:dart_tournament_manager/features/scorer/domain/scorer_settings.d
 import 'package:dart_tournament_manager/features/scorer/domain/x01/x01_rules.dart';
 
 class _Output implements AutoscoreAudioOutput {
+  @override
+  Future<void> removal(double volume) async {}
   final effects = <bool>[];
   final speech = <String>[];
   @override

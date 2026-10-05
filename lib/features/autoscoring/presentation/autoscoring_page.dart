@@ -9,6 +9,7 @@ import '../application/autoscoring_controller.dart';
 import '../application/camera_selection.dart';
 import '../domain/board_geometry.dart';
 import 'widgets/camera_recognition_view.dart';
+import 'widgets/general_diagnostic_button.dart';
 import 'widgets/dart_correction_dialog.dart';
 import '../application/autoscore_audio_controller.dart';
 import 'widgets/autoscore_audio_controls.dart';
@@ -139,7 +140,10 @@ class _AutoscoringPageState extends State<AutoscoringPage>
     c.automaticCounting = widget.automaticCounting;
     c.automaticVisitDartLimit = widget.automaticVisitDartLimit;
     c.onAutomaticVisitCleared = widget.automaticCounting
-        ? widget.onBoardCleared
+        ? () {
+            audio.confirmRemoval();
+            widget.onBoardCleared?.call();
+          }
         : null;
     c.onAutomaticThrow = widget.automaticCounting
         ? (result) => widget.onThrow?.call(result) ?? true
@@ -340,6 +344,14 @@ class _AutoscoringPageState extends State<AutoscoringPage>
           ),
         const SizedBox(height: 16),
         Text(c.status, style: Theme.of(context).textTheme.titleMedium),
+        GeneralDiagnosticButton(
+          controller: c,
+          setupId: widget.setupStore?.active.id,
+        ),
+        if (c.continuousVideo)
+          Text(
+            'USB-Video · 3 Kameras · Zeitversatz ${((c.videoMetrics['skewMicroseconds'] as int? ?? 0) / 1000).toStringAsFixed(1)} ms',
+          ),
         if (c.cameras.length == 3) ...[
           const SizedBox(height: 12),
           Wrap(

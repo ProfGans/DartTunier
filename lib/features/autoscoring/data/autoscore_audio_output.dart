@@ -3,6 +3,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 abstract class AutoscoreAudioOutput {
+  Future<void> removal(double volume);
   Future<void> effect(bool bounce, double volume);
   Future<void> speak(String text, double volume);
   Future<void> close();
@@ -26,6 +27,13 @@ class LocalAutoscoreAudioOutput implements AutoscoreAudioOutput {
 
   @override
   Future<void> effect(bool bounce, double volume) async {
+    await _playEffect(bounce ? 'bounce' : 'hit', volume);
+  }
+
+  @override
+  Future<void> removal(double volume) => _playEffect('removal', volume);
+
+  Future<void> _playEffect(String name, double volume) async {
     if (_closed) return;
     // Effects do not depend on a speech engine being installed.
     final effects = _effects ??= AudioPlayer();
@@ -33,7 +41,7 @@ class LocalAutoscoreAudioOutput implements AutoscoreAudioOutput {
     if (_closed) return;
     await effects.stop();
     await effects.play(
-      AssetSource('autoscoring/audio/${bounce ? "bounce" : "hit"}.wav'),
+      AssetSource('autoscoring/audio/$name.wav'),
       volume: volume.clamp(0, 1),
     );
   }

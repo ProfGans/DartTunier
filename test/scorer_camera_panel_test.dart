@@ -50,6 +50,63 @@ class _Camera extends AutoscoringController {
 
 void main() {
   testWidgets(
+    'Deleting detections reopens the visit and preserves dart order',
+    (tester) async {
+      final camera = _Camera();
+      List<DartThrowResult> preview = [];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ScorerCameraPanel(
+                controller: camera,
+                dartsLeft: 3,
+                onAccept: (_) {},
+                onClose: () {},
+                onPreview: (darts, _) {
+                  preview = darts;
+                  return darts.length == 3;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final score in [20, 5, 1]) {
+        final dart = const X01Rules().createSingle(score);
+        camera.throws.add(dart);
+        camera.onAutomaticThrow!(dart);
+      }
+      await tester.pumpAndSettle();
+      expect(camera.automaticVisitDartLimit, 3);
+      Future<void> remove(String label) async {
+        final button = find.text(label);
+        await Scrollable.ensureVisible(tester.element(button), alignment: .5);
+        await tester.pumpAndSettle();
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+      }
+
+      await remove('Dart 2 (5) entfernen');
+      expect(preview.map((d) => d.label), ['20', '1']);
+      expect(camera.throws.map((d) => d.label), ['20', '1']);
+      expect(camera.automaticVisitDartLimit, 3);
+      await remove('Dart 1 (20) entfernen');
+      await remove('Dart 1 (1) entfernen');
+      expect(preview, isEmpty);
+      expect(camera.throws, isEmpty);
+      final next = const X01Rules().createSingle(19);
+      camera.throws.add(next);
+      camera.onAutomaticThrow!(next);
+      await tester.pumpAndSettle();
+      expect(preview.single.label, '19');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      camera.dispose();
+    },
+  );
+  testWidgets(
     'Returning from setup preserves controller and restores callbacks after route disposal',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
@@ -95,57 +152,64 @@ void main() {
       camera.dispose();
     },
   );
-  testWidgets(
-    'Missing first dart gets a position and is inserted before detected dart',
-    (tester) async {
-      final camera = _Camera();
-      List<DartThrowResult> preview = [];
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: ScorerCameraPanel(
-                controller: camera,
-                dartsLeft: 3,
-                onAccept: (_) {},
-                onClose: () {},
-                onPreview: (darts, _) {
-                  preview = darts;
-                  return darts.length == 3;
-                },
-              ),
+  testWidgets('Missing dart overrides stopped recognition without cameras', (
+    tester,
+  ) async {
+    final camera = _Camera();
+    List<DartThrowResult> preview = [];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ScorerCameraPanel(
+              controller: camera,
+              dartsLeft: 3,
+              onAccept: (_) {},
+              onClose: () {},
+              onPreview: (darts, _) {
+                preview = darts;
+                return darts.length == 3;
+              },
             ),
           ),
         ),
-      );
-      camera.running = true;
-      camera.throws.add(const X01Rules().createSingle(20));
-      camera.onAutomaticThrow!(const X01Rules().createSingle(20));
-      await tester.pumpAndSettle();
-      final button = find.text('Nicht erkannten Dart nachtragen');
-      await Scrollable.ensureVisible(tester.element(button), alignment: .5);
-      await tester.pumpAndSettle();
-      await tester.tap(button);
-      await tester.pumpAndSettle();
-      expect(camera.running, false);
-      await tester.tap(find.text('Dart 1 · vor 20 einfügen'));
-      await tester.pumpAndSettle();
-      final board = find.descendant(
-        of: find.byType(DartPositionDialog),
-        matching: find.byType(FlatBoardView),
-      );
-      tester.widget<FlatBoardView>(board).onPlaced!(const Point(0.0, -103.0));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Position speichern'));
-      await tester.pumpAndSettle();
-      expect(preview.map((d) => d.label), ['T20', '20']);
-      expect(camera.throws.map((d) => d.label), ['T20', '20']);
-      expect(camera.running, true);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-      camera.dispose();
-    },
-  );
+      ),
+    );
+    camera.running = true;
+    camera.throws.add(const X01Rules().createSingle(20));
+    camera.onAutomaticThrow!(const X01Rules().createSingle(20));
+    await tester.pumpAndSettle();
+    final button = find.text('Nicht erkannten Dart nachtragen');
+    camera.pauseRecognition();
+    await Scrollable.ensureVisible(tester.element(button), alignment: .5);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(camera.running, false);
+    await tester.tap(find.text('Dart 1 · vor 20 einfügen'));
+    await tester.pumpAndSettle();
+    final board = find.descendant(
+      of: find.byType(DartPositionDialog),
+      matching: find.byType(FlatBoardView),
+    );
+    tester.widget<FlatBoardView>(board).onPlaced!(const Point(0.0, -103.0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Position speichern'));
+    await tester.pumpAndSettle();
+    expect(preview.map((d) => d.label), ['T20', '20']);
+    expect(camera.throws.map((d) => d.label), ['T20', '20']);
+    expect(camera.running, false);
+    final confirm = find.text('Pfeile gezogen · Aufnahme bestätigen');
+    await Scrollable.ensureVisible(tester.element(confirm), alignment: .5);
+    await tester.pumpAndSettle();
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(camera.throws, isEmpty);
+    expect(camera.running, false);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    camera.dispose();
+  });
   testWidgets(
     'Match corrections and removal update the originating setup once',
     (tester) async {

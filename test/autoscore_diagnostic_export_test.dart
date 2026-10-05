@@ -14,6 +14,97 @@ import 'package:dart_tournament_manager/features/autoscoring/domain/board_geomet
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('Diagnostics preserve true colors and timed post-decision sequence', () {
+    final image = img.Image(width: 8, height: 8);
+    img.fill(image, color: img.ColorRgb8(240, 30, 20));
+    final color = img.encodePng(image);
+    final frame = GrayFrame(
+      8,
+      8,
+      Uint8List(64),
+      colorImage: color,
+      timestampUs: 123456,
+      sequence: 9,
+    );
+    final camera = AutoscoreCameraEvidence(
+      color,
+      frame,
+      frame,
+      {},
+      beforeColor: color,
+      emptyColor: color,
+      frames: [frame],
+      frameColors: [color],
+      postFrames: [frame],
+    );
+    final archive = ZipDecoder().decodeBytes(
+      const AutoscoreDiagnosticExport().encode(
+        AutoscoreEvidence([camera], {}),
+        '20',
+        'T20',
+      ),
+    );
+    for (final name in [
+      'kamera_1_vorher_farbe.jpg',
+      'kamera_1_leer_farbe.jpg',
+      'kamera_1_sequenz_1_farbe.jpg',
+      'kamera_1_nachher_1_farbe.jpg',
+    ]) {
+      final pixel = img
+          .decodeJpg(
+            Uint8List.fromList(archive.findFile(name)!.content as List<int>),
+          )!
+          .getPixel(0, 0);
+      expect(pixel.r, greaterThan(220));
+      expect(pixel.g, lessThan(50));
+    }
+    expect(archive.findFile('kamera_1_nachher_1.png'), isNotNull);
+    expect(archive.findFile('kamera_1_ablauf.gif'), isNotNull);
+    expect(
+      img.decodeGif(
+        Uint8List.fromList(
+          archive.findFile('kamera_1_ablauf.gif')!.content as List<int>,
+        ),
+      ),
+      isNotNull,
+    );
+    final report = jsonDecode(
+      utf8.decode(archive.findFile('bericht.json')!.content as List<int>),
+    );
+    expect(
+      report['cameras'][0]['postFrames'][0]['timestampMicroseconds'],
+      123456,
+    );
+    expect(report['cameras'][0]['postFrames'][0]['sequence'], 9);
+  });
+  test('Manual override without camera images still exports a diagnosis', () {
+    final c = AutoscoringController();
+    final evidence = captureAutoscoreEvidence(
+      c,
+      missed: true,
+      allowPartial: true,
+    )!;
+    final bytes = const AutoscoreDiagnosticExport().encode(
+      evidence,
+      'Nicht erkannt',
+      'T20',
+      correctionPosition: {
+        'xMillimetres': 0.0,
+        'yMillimetres': -103.0,
+        'source': 'manualMissingPoint',
+      },
+    );
+    final zip = ZipDecoder().decodeBytes(bytes);
+    final report =
+        jsonDecode(
+              utf8.decode(zip.findFile('bericht.json')!.content as List<int>),
+            )
+            as Map;
+    expect(report['hit']['missingCameraImages'], 3);
+    expect(report['correctionPosition']['yMillimetres'], -103.0);
+    expect(report['detected'], 'Nicht erkannt');
+    c.dispose();
+  });
   test(
     'Removal report preserves event state without marking a scoring error',
     () {
@@ -35,7 +126,7 @@ void main() {
       final report = jsonDecode(
         utf8.decode(archive.findFile('bericht.json')!.content as List<int>),
       );
-      expect(report['schemaVersion'], 5);
+      expect(report['schemaVersion'], 8);
       expect(report['correctDetection'], isNull);
       expect(report['hit']['eventType'], 'manualRemoval');
       expect(report['hit']['throws'].first['points'], 60);
@@ -111,7 +202,7 @@ void main() {
                 ),
               )
               as Map<String, dynamic>;
-      expect(report['schemaVersion'], 5);
+      expect(report['schemaVersion'], 8);
       expect(report['correctionPosition']['xMillimetres'], 12.0);
       expect(report['detected'], 'T20');
       expect(report['corrected'], 'S20');

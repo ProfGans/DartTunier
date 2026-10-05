@@ -8,8 +8,8 @@ class DetailHitRefinement {
   final bool applied;
 }
 
-/// Revisit only an 80-mm neighbourhood of the provisional tip. A local fit
-/// may improve pixel precision, but cannot authorize a large position jump.
+/// Revisit a 35-mm neighbourhood of the provisional tip. Larger corrections
+/// require three views with an improved residual and remain bounded to 12 mm.
 DetailHitRefinement refineHitDetail(
   FusedHit provisional,
   List<GrayFrame> before,
@@ -43,7 +43,8 @@ DetailHitRefinement refineHitDetail(
   if (hit == null ||
       hit.views < provisional.views ||
       hit.residual > 3 ||
-      hit.point.distanceTo(provisional.point) > 3) {
+      hit.point.distanceTo(provisional.point) >
+          (hit.views == 3 && hit.residual < provisional.residual ? 12 : 3)) {
     return DetailHitRefinement(provisional, axes, false);
   }
   final changed = hit.point.distanceTo(provisional.point) > .05;

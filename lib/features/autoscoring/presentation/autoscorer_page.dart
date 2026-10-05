@@ -5,6 +5,8 @@ import '../application/autoscore_audio_controller.dart';
 import 'autoscore_demo_page.dart';
 import 'widgets/autoscore_audio_controls.dart';
 import 'widgets/autoscoring_preference_tile.dart';
+import 'widgets/autoscore_statistics_reset_button.dart';
+import 'widgets/autoscore_verification_panel.dart';
 
 class AutoscorerPage extends StatefulWidget {
   const AutoscorerPage({super.key, this.store});
@@ -155,6 +157,10 @@ class _AutoscorerPageState extends State<AutoscorerPage> {
                     const Text(
                       'Beim Herausziehen zählen unkorrigierte Treffer als richtig. Jede Korrektur und jeder nachgemeldete Wurf zählt als Fehler. Die Statistik bleibt pro Setup gespeichert, auch nach einem Neustart.',
                     ),
+                    const SizedBox(height: 12),
+                    AutoscoreStatisticsResetButton(store: store),
+                    const SizedBox(height: 12),
+                    AutoscoreVerificationPanel(store: store),
                   ],
                 ),
               ),

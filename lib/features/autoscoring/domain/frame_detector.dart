@@ -11,6 +11,9 @@ class GrayFrame {
     this.pixels, {
     this.sourceAspectRatio,
     this.detail,
+    this.colorImage,
+    this.timestampUs,
+    this.sequence,
   });
   final int width, height;
   final Uint8List pixels;
@@ -18,6 +21,8 @@ class GrayFrame {
 
   /// Retained higher-resolution reference; the fast motion path stays 480px.
   final GrayFrame? detail;
+  final Uint8List? colorImage;
+  final int? timestampUs, sequence;
 }
 
 GrayFrame decodeCameraFrame(Uint8List bytes) {
@@ -36,6 +41,7 @@ GrayFrame decodeCameraFrame(Uint8List bytes) {
       pixels,
       sourceAspectRatio: decoded.width / decoded.height,
       detail: detail,
+      colorImage: bytes,
     );
   }
 
@@ -54,7 +60,50 @@ GrayFrame decodeCameraFrame(Uint8List bytes) {
 }
 
 class FrameDetector {
-  const FrameDetector();
+  const FrameDetector({this.reuseEvidence = true});
+
+  /// Disable reuse for equivalence checks and benchmarks of fresh captures.
+  final bool reuseEvidence;
+  static final _changes = Expando<_FrameChanges>();
+
+  _FrameChanges _evidence(
+    GrayFrame reference,
+    GrayFrame current,
+    BoardCalibration calibration,
+  ) {
+    final cached = reuseEvidence ? _changes[current] : null;
+    if (cached != null &&
+        identical(cached.reference.target, reference) &&
+        identical(cached.calibration, calibration)) {
+      return cached;
+    }
+    final evidence = _FrameChanges(reference, calibration);
+    for (var y = 1; y < current.height - 1; y++) {
+      for (var x = 1; x < current.width - 1; x++) {
+        final index = y * current.width + x;
+        final difference = (reference.pixels[index] - current.pixels[index])
+            .abs();
+        if (difference < 18) continue;
+        final raw = Point(x / (current.width - 1), y / (current.height - 1));
+        final undistorted = calibration.lens.undistort(raw);
+        final board = calibration.projectUndistorted(undistorted);
+        final radius = board.magnitude;
+        if (radius > BoardGeometry.detectionRadius) continue;
+        final normal =
+            difference >= 30 && _connectedChange(reference, current, x, y, 30);
+        final dark =
+            radius > 170 &&
+            reference.pixels[index] < 80 &&
+            _connectedChange(reference, current, x, y, 18);
+        if (normal || dark) {
+          evidence.points.add((board, undistorted, normal, dark, radius));
+        }
+      }
+    }
+    if (reuseEvidence) _changes[current] = evidence;
+    return evidence;
+  }
+
   List<BoardPoint> changeSamples(
     GrayFrame reference,
     GrayFrame current,
@@ -221,8 +270,8 @@ class FrameDetector {
         calibration.unproject(
           (nearPoint ?? const Point(0.0, 0.0)) +
               Point(
-                sin(a) * (nearPoint == null ? 230 : 80),
-                -cos(a) * (nearPoint == null ? 230 : 80),
+                sin(a) * (nearPoint == null ? 230 : 35),
+                -cos(a) * (nearPoint == null ? 230 : 35),
               ),
         ),
     ];
@@ -244,6 +293,7 @@ class FrameDetector {
         );
     final lineStart = calibration.lens.undistort(segment.first),
         direction = calibration.lens.undistort(segment.last) - lineStart;
+    final directionLength = direction.magnitude;
     for (var y = top; y <= bottom; y++) {
       for (var x = left; x <= right; x++) {
         final index = y * after.width + x;
@@ -253,19 +303,12 @@ class FrameDetector {
         if (((p.x - lineStart.x) * direction.y -
                             (p.y - lineStart.y) * direction.x)
                         .abs() /
-                    direction.magnitude >
+                    directionLength >
                 4 / 480 ||
-            calibration.project(raw).magnitude > 230) {
+            calibration.projectUndistorted(p).magnitude > 230) {
           continue;
         }
-        var neighbours = 0;
-        for (var dy = -1; dy <= 1; dy++) {
-          for (var dx = -1; dx <= 1; dx++) {
-            final i = (y + dy) * after.width + x + dx;
-            if ((before.pixels[i] - after.pixels[i]).abs() >= 30) neighbours++;
-          }
-        }
-        if (neighbours >= 3) points.add(p);
+        if (_connectedChange(before, after, x, y, 30)) points.add(p);
       }
     }
     final fit = fitShaftLine(
@@ -309,41 +352,23 @@ class FrameDetector {
         reference.height != current.height) {
       return null;
     }
-    final points = <BoardPoint>[];
-    // Limit analysis to the convex board quadrilateral, slightly expanded.
-    for (var y = 1; y < current.height - 1; y++) {
-      for (var x = 1; x < current.width - 1; x++) {
-        final i = y * current.width + x;
-        final threshold = darkRim ? 18 : 30;
-        if ((reference.pixels[i] - current.pixels[i]).abs() < threshold) {
-          continue;
-        }
-        final p = Point(x / (current.width - 1), y / (current.height - 1));
-        final board = calibration.project(p);
-        if (board.magnitude > radius) continue;
-        if (darkRim && (board.magnitude <= 170 || reference.pixels[i] >= 80)) {
-          continue;
-        }
-        if (excludedAxis != null && excludedAxis.distance(board) < 3) continue;
-        var neighbours = 0;
-        for (var dy = -1; dy <= 1; dy++) {
-          for (var dx = -1; dx <= 1; dx++) {
-            final j = (y + dy) * current.width + x + dx;
-            if ((reference.pixels[j] - current.pixels[j]).abs() >= threshold) {
-              neighbours++;
-            }
-          }
-        }
-        // Overlapping shafts can leave only a one-pixel-wide new edge.
-        // Keep connected edges while discarding isolated noise pixels.
-        if (neighbours >= 3) points.add(calibration.lens.undistort(p));
-      }
+    final evidence = _evidence(reference, current, calibration);
+    final key = (radius, outerRimOnly, darkRim);
+    if (excludedAxis == null && evidence.axes.containsKey(key)) {
+      return evidence.axes[key];
     }
+    final points = <BoardPoint>[
+      for (final point in evidence.points)
+        if (point.$5 <= radius &&
+            (darkRim ? point.$4 : point.$3) &&
+            (excludedAxis == null || excludedAxis.distance(point.$1) >= 3))
+          point.$2,
+    ];
     if (points.length < (darkRim ? 48 : (excludedAxis == null ? 12 : 24)) ||
         points.length > current.pixels.length * .06) {
       return null;
     }
-    return fitShaftLine(
+    final axis = fitShaftLine(
       points,
       calibration,
       current.width,
@@ -352,6 +377,8 @@ class FrameDetector {
       minimumSupport: darkRim ? .95 : .45,
       maximumThicknessRatio: darkRim ? .025 : .22,
     );
+    if (excludedAxis == null) evidence.axes[key] = axis;
+    return axis;
   }
 
   bool _connectedChange(
@@ -366,10 +393,21 @@ class FrameDetector {
       for (var dx = -1; dx <= 1; dx++) {
         final i = (y + dy) * after.width + x + dx;
         if ((before.pixels[i] - after.pixels[i]).abs() >= threshold) {
-          neighbours++;
+          if (++neighbours >= 3) return true;
         }
       }
     }
     return neighbours >= 3;
   }
+}
+
+// Weakly keyed by current frame: changing the reference or calibration always
+// invalidates the evidence. It cannot accumulate across camera captures.
+class _FrameChanges {
+  _FrameChanges(GrayFrame reference, this.calibration)
+    : reference = WeakReference(reference);
+  final WeakReference<GrayFrame> reference;
+  final BoardCalibration calibration;
+  final points = <(BoardPoint, BoardPoint, bool, bool, double)>[];
+  final axes = <(double, bool, bool), DartAxis?>{};
 }

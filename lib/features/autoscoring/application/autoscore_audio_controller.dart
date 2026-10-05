@@ -115,6 +115,14 @@ class AutoscoreAudioController extends ChangeNotifier {
     }
   }
 
+  void confirmRemoval() {
+    if (sounds) {
+      _effect(() async {
+        if (sounds) await output.removal(volume);
+      });
+    }
+  }
+
   void _send(Future<void> Function() action) {
     _queue = _queue.then((_) async {
       if (_disposed) return;

@@ -65,8 +65,16 @@ DenseCalibrationResult fitDenseCalibration(
     }
   }
   var applied = baseline - bestError >= .25 && bestError <= baseline * .8;
+  var finalError = bestError;
   if (applied) {
     best = _fit(observations, best.lens);
+    finalError = error(best, validation);
+    // Refitting all observations must preserve the held-out improvement.
+    if (!finalError.isFinite ||
+        finalError > baseline * .8 ||
+        baseline - finalError < .25) {
+      applied = false;
+    }
     // Ring texture cannot justify a large change of the whole board geometry.
     for (var angle = 0.0; angle < 2 * pi; angle += pi / 10) {
       for (final radius in [50.0, 103.0, 166.0, 220.0]) {
@@ -79,8 +87,13 @@ DenseCalibrationResult fitDenseCalibration(
   }
   return DenseCalibrationResult(applied ? best : initial, {
     'observations': observations.length,
+    'trainingObservationCount': training.length,
+    'validationObservationCount': validation.length,
+    'validationSectors': 'odd sectors; even sectors used for model selection',
+    'principalPointAssumption': 'image centre',
     'validationRmsBeforeMillimetres': baseline,
     'validationRmsAfterMillimetres': bestError,
+    'refittedRmsAfterMillimetres': finalError,
     'applied': applied,
     'lensK1': applied ? best.lens.k1 : initial.lens.k1,
   });

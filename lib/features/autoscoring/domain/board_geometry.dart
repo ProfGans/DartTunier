@@ -110,7 +110,11 @@ class BoardCalibration {
   final LensDistortion lens;
   late final List<double> _h;
   BoardPoint project(BoardPoint p) {
-    p = lens.undistort(p);
+    return projectUndistorted(lens.undistort(p));
+  }
+
+  /// Maps an already lens-corrected image point without correcting it twice.
+  BoardPoint projectUndistorted(BoardPoint p) {
     final d = _h[6] * p.x + _h[7] * p.y + 1;
     if (d.abs() < 1e-9) throw StateError('Punkt außerhalb der Kalibrierung.');
     return Point(

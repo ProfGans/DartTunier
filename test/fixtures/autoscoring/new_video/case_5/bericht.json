@@ -1,0 +1,483 @@
+{
+  "schemaVersion": 7,
+  "capturedAtUtc": "2026-10-05T11:27:56.680912Z",
+  "detected": "1",
+  "corrected": "T1",
+  "correctDetection": false,
+  "hit": {
+    "manualMissingReport": false,
+    "decisionFrames": [
+      {
+        "xMillimetres": 23.280647391911202,
+        "yMillimetres": -105.11829960057963,
+        "views": 2,
+        "residualMillimetres": 1.4261510795001846,
+        "axes": [
+          {
+            "a": -0.9317862444221929,
+            "b": -0.3630074306478936,
+            "c": -14.349535253668776,
+            "confidence": 0.7189299336520707
+          },
+          {
+            "a": 0.3639915186612782,
+            "b": -0.931402262367156,
+            "c": -103.41617599649264,
+            "confidence": 0.6990052810732668
+          },
+          {
+            "a": 0.5170615690300111,
+            "b": -0.8559482074472866,
+            "c": -101.26200355615896,
+            "confidence": 0.9310754374508506
+          }
+        ]
+      },
+      {
+        "xMillimetres": 23.729056213319076,
+        "yMillimetres": -105.25664331913225,
+        "views": 2,
+        "residualMillimetres": 1.8931949503852112,
+        "axes": [
+          {
+            "a": -0.9444428072614992,
+            "b": -0.328675803508592,
+            "c": -10.006763791759433,
+            "confidence": 0.758307508335628
+          },
+          {
+            "a": 0.35742962700285397,
+            "b": -0.933940073955819,
+            "c": -103.47031267967492,
+            "confidence": 0.6781501675054064
+          },
+          {
+            "a": 0.5186008089690984,
+            "b": -0.8550164916167389,
+            "c": -100.89186912811088,
+            "confidence": 0.9171760221996125
+          }
+        ]
+      }
+    ],
+    "decisionSelectedFrame": 1,
+    "alternativesUsed": true,
+    "detailRefined": true,
+    "video": {
+      "continuousVideo": true,
+      "timestampBasis": "hostArrivalMonotonic",
+      "skewMicroseconds": 22644,
+      "discardedForSynchronization": 4,
+      "nativeDroppedFrames": 3487
+    },
+    "tipContactConfirmed": true,
+    "spatialContact": null,
+    "tipObservations": [
+      {
+        "imageX": 0.4394057857701329,
+        "imageY": 0.27746870653685674,
+        "xMillimetres": 25.57873489770188,
+        "yMillimetres": -105.66022216484144,
+        "confidence": 0.758307508335628
+      },
+      null,
+      {
+        "imageX": 0.6133698201720095,
+        "imageY": 0.3949930458970793,
+        "xMillimetres": 21.879377528936274,
+        "yMillimetres": -104.85306447342306,
+        "confidence": 0.9171760221996125
+      }
+    ],
+    "performance": {
+      "captureAndDecodeMilliseconds": 58.398,
+      "processingMilliseconds": 201.714,
+      "nextCaptureDelayMilliseconds": 20
+    },
+    "xMillimetres": 23.729056213319076,
+    "yMillimetres": -105.25664331913225,
+    "residualMillimetres": 1.8931949503852112,
+    "views": 2,
+    "needsReview": true,
+    "forcedDecision": true,
+    "falsePositive": false,
+    "setupId": "default",
+    "correctionHistoryAnalysis": {
+      "positionedCorrections": 1,
+      "missingPositionCount": 0,
+      "xError": {
+        "count": 1,
+        "meanMillimetres": -3.1576276418905245,
+        "spreadMillimetres": 0.0
+      },
+      "yError": {
+        "count": 1,
+        "meanMillimetres": 6.25664331913228,
+        "spreadMillimetres": 0.0
+      },
+      "meanDistanceMillimetres": 7.008294938690416,
+      "cameras": [
+        {
+          "camera": 1,
+          "signedAxisError": {
+            "count": 1,
+            "meanMillimetres": -3.1036030062117703,
+            "spreadMillimetres": 0.0
+          }
+        },
+        {
+          "camera": 2,
+          "signedAxisError": {
+            "count": 1,
+            "meanMillimetres": -3.657407316847298,
+            "spreadMillimetres": 0.0
+          }
+        },
+        {
+          "camera": 3,
+          "signedAxisError": {
+            "count": 1,
+            "meanMillimetres": -5.576876959260886,
+            "spreadMillimetres": 0.0
+          }
+        }
+      ],
+      "automaticBiasCorrectionApplied": false
+    }
+  },
+  "correctionPosition": {
+    "xMillimetres": 20.57142857142855,
+    "yMillimetres": -98.99999999999997,
+    "source": "flatBoard"
+  },
+  "cameras": [
+    {
+      "camera": 1,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3851221636631327,
+          "y": 0.23970718285197173
+        },
+        {
+          "x": 0.6493829351727701,
+          "y": 0.2915290560580505
+        },
+        {
+          "x": 0.6223157100552955,
+          "y": 0.6796082740120442
+        },
+        {
+          "x": 0.2344245944651604,
+          "y": 0.5399215801137206
+        }
+      ],
+      "lens": {
+        "k1": 0.0,
+        "aspectRatio": 1.0
+      },
+      "calibrationQuality": {
+        "observations": 38,
+        "trainingObservationCount": 19,
+        "validationObservationCount": 19,
+        "validationSectors": "odd sectors; even sectors used for model selection",
+        "principalPointAssumption": "image centre",
+        "validationRmsBeforeMillimetres": 0.896355926721316,
+        "validationRmsAfterMillimetres": 0.896355926721316,
+        "refittedRmsAfterMillimetres": 0.896355926721316,
+        "applied": false,
+        "lensK1": 0.0
+      },
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [
+        {
+          "a": -0.9406288722220898,
+          "b": -0.3394367757656785,
+          "c": -11.056105804328794,
+          "confidence": 0.9917163999880886,
+          "outerRimOnly": false
+        },
+        {
+          "a": -0.9501971134182015,
+          "b": -0.3116495558343019,
+          "c": -7.138983029699354,
+          "confidence": 0.9845681139291415,
+          "outerRimOnly": false
+        },
+        {
+          "a": -0.947180352341616,
+          "b": -0.32070138780181817,
+          "c": -8.346550047309947,
+          "confidence": 0.9830857851997266,
+          "outerRimOnly": false
+        }
+      ],
+      "axis": {
+        "a": -0.9444428072614992,
+        "b": -0.328675803508592,
+        "c": -10.006763791759433,
+        "confidence": 0.758307508335628,
+        "outerRimOnly": false
+      },
+      "changedFraction": 0.0000154320987654321,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.0034567901234567903,
+      "stableSamples": 0,
+      "frameTimestampsMicroseconds": [
+        16352257257,
+        16352288307,
+        16352320368,
+        16352352547,
+        16352753806,
+        16352785756,
+        16352817120,
+        16352864439
+      ],
+      "frameSequences": [
+        1799,
+        1800,
+        1801,
+        1802,
+        1812,
+        1813,
+        1814,
+        1815
+      ],
+      "postFrames": [
+        {
+          "timestampMicroseconds": 16352896996,
+          "sequence": 1816
+        },
+        {
+          "timestampMicroseconds": 16352929342,
+          "sequence": 1817
+        },
+        {
+          "timestampMicroseconds": 16353552949,
+          "sequence": 1834
+        },
+        {
+          "timestampMicroseconds": 16353585489,
+          "sequence": 1835
+        }
+      ]
+    },
+    {
+      "camera": 2,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3316231331394968,
+          "y": 0.6923052549802633
+        },
+        {
+          "x": 0.32768926611088306,
+          "y": 0.29324718324416027
+        },
+        {
+          "x": 0.5982131177648123,
+          "y": 0.2381126848705999
+        },
+        {
+          "x": 0.7393815145225107,
+          "y": 0.557132439076211
+        }
+      ],
+      "lens": {
+        "k1": 0.0,
+        "aspectRatio": 1.0
+      },
+      "calibrationQuality": {
+        "observations": 40,
+        "trainingObservationCount": 20,
+        "validationObservationCount": 20,
+        "validationSectors": "odd sectors; even sectors used for model selection",
+        "principalPointAssumption": "image centre",
+        "validationRmsBeforeMillimetres": 1.3157697366940864,
+        "validationRmsAfterMillimetres": 1.0790224257147978,
+        "refittedRmsAfterMillimetres": 1.0790224257147978,
+        "applied": false,
+        "lensK1": 0.0
+      },
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [
+        {
+          "a": 0.35742962700285397,
+          "b": -0.933940073955819,
+          "c": -103.47031267967492,
+          "confidence": 0.6781501675054064,
+          "outerRimOnly": false
+        },
+        {
+          "a": 0.41310400683891485,
+          "b": -0.9106838526808487,
+          "c": -103.54543687708922,
+          "confidence": 0.9914411675954573,
+          "outerRimOnly": false
+        }
+      ],
+      "axis": {
+        "a": 0.35742962700285397,
+        "b": -0.933940073955819,
+        "c": -103.47031267967492,
+        "confidence": 0.6781501675054064,
+        "outerRimOnly": false
+      },
+      "changedFraction": 0.00005401234567901235,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.004683641975308642,
+      "stableSamples": 0,
+      "frameTimestampsMicroseconds": [
+        16352233642,
+        16352266837,
+        16352298357,
+        16352331295,
+        16352731157,
+        16352778230,
+        16352809855,
+        16352842485
+      ],
+      "frameSequences": [
+        1774,
+        1775,
+        1776,
+        1777,
+        1786,
+        1787,
+        1788,
+        1789
+      ],
+      "postFrames": [
+        {
+          "timestampMicroseconds": 16352872728,
+          "sequence": 1790
+        },
+        {
+          "timestampMicroseconds": 16352906698,
+          "sequence": 1791
+        },
+        {
+          "timestampMicroseconds": 16353576988,
+          "sequence": 1808
+        },
+        {
+          "timestampMicroseconds": 16353610050,
+          "sequence": 1809
+        }
+      ]
+    },
+    {
+      "camera": 3,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.6983252826665464,
+          "y": 0.3671274510461459
+        },
+        {
+          "x": 0.4561489680540174,
+          "y": 0.6911458323933433
+        },
+        {
+          "x": 0.2307131174893064,
+          "y": 0.34432091950893173
+        },
+        {
+          "x": 0.46965433318702543,
+          "y": 0.17558747104207467
+        }
+      ],
+      "lens": {
+        "k1": 0.12,
+        "aspectRatio": 1.7777777777777777
+      },
+      "calibrationQuality": {
+        "observations": 40,
+        "trainingObservationCount": 20,
+        "validationObservationCount": 20,
+        "validationSectors": "odd sectors; even sectors used for model selection",
+        "principalPointAssumption": "image centre",
+        "validationRmsBeforeMillimetres": 1.82495719127875,
+        "validationRmsAfterMillimetres": 1.336536789992328,
+        "refittedRmsAfterMillimetres": 1.1247124038913188,
+        "applied": true,
+        "lensK1": 0.12
+      },
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [
+        {
+          "a": 0.5186008089690984,
+          "b": -0.8550164916167389,
+          "c": -100.89186912811088,
+          "confidence": 0.9171760221996125,
+          "outerRimOnly": false
+        },
+        {
+          "a": 0.5061285272788802,
+          "b": -0.8624580649947635,
+          "c": -101.97456514736997,
+          "confidence": 0.9282931407631712,
+          "outerRimOnly": false
+        }
+      ],
+      "axis": {
+        "a": 0.5186008089690984,
+        "b": -0.8550164916167389,
+        "c": -100.89186912811088,
+        "confidence": 0.9171760221996125,
+        "outerRimOnly": false
+      },
+      "changedFraction": 0.00008487654320987654,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.006072530864197531,
+      "stableSamples": 0,
+      "frameTimestampsMicroseconds": [
+        16352259291,
+        16352290317,
+        16352322526,
+        16352354568,
+        16352753806,
+        16352788302,
+        16352834510,
+        16352866218
+      ],
+      "frameSequences": [
+        1788,
+        1789,
+        1790,
+        1791,
+        1801,
+        1802,
+        1803,
+        1804
+      ],
+      "postFrames": [
+        {
+          "timestampMicroseconds": 16352898552,
+          "sequence": 1805
+        },
+        {
+          "timestampMicroseconds": 16352929332,
+          "sequence": 1806
+        },
+        {
+          "timestampMicroseconds": 16353554038,
+          "sequence": 1823
+        },
+        {
+          "timestampMicroseconds": 16353587042,
+          "sequence": 1824
+        }
+      ]
+    }
+  ]
+}

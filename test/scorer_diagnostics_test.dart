@@ -5,6 +5,24 @@ import 'package:dart_tournament_manager/features/autoscoring/data/autoscore_diag
 
 void main() {
   test(
+    'Deletion diagnosis preserves evidence and shifts subsequent corrections',
+    () async {
+      final calls = <String>[];
+      final c = ScorerDiagnostics(
+        save: (e, d, a, p) async {
+          calls.add('$d:$a:${p['source']}');
+          return 'diagnosis.zip';
+        },
+      );
+      c.record('20', null);
+      c.record('5', AutoscoreEvidence([], {}));
+      await c.remove(0, const Point(0, -120), AutoscoreEvidence([], {}));
+      await c.correct(0, 'T5', const Point(0, -100));
+      expect(calls, ['20:Entfernt:manualRemoval', '5:T5:flatBoard']);
+      c.dispose();
+    },
+  );
+  test(
     'Missing dart diagnosis preserves missing flag and manually placed point',
     () async {
       final evidence = AutoscoreEvidence([], {'manualMissingReport': true});

@@ -15,6 +15,7 @@ import 'flat_board_view.dart';
 import '../../data/autoscore_setup_store.dart';
 import '../../domain/autoscore_setup.dart';
 import 'scorer_recognition_quality.dart';
+import 'general_diagnostic_button.dart';
 import 'dart_position_dialog.dart';
 import '../../application/autoscore_lifecycle_policy.dart';
 
@@ -118,6 +119,7 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
           setupStore.record(
             estimated: camera.lastHit?.needsReview ?? false,
             bounce: dart.label == 'Bouncer',
+            detectedLabel: dart.label,
           ),
         );
         final hit = camera.lastHit;
@@ -324,7 +326,11 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
     _placingMissing = true;
     final wasRunning = camera.running;
     camera.pauseRecognition();
-    final evidence = captureAutoscoreEvidence(camera, missed: true);
+    final evidence = captureAutoscoreEvidence(
+      camera,
+      missed: true,
+      allowPartial: true,
+    );
     try {
       final index = await showDialog<int>(
         context: context,
@@ -357,17 +363,7 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
       );
       if (!mounted || point == null) return;
       final result = BoardGeometry.score(point);
-      camera.resumeRecognition();
-      if (!camera.recordMissedThrow(result)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Dart konnte nicht nachgetragen werden. Kameraerkennung prüfen.',
-            ),
-          ),
-        );
-        return;
-      }
+      camera.recordManualThrow(result);
       // Preserve actual throw order in the scorer and in the camera visit.
       final recorded = camera.throws.removeLast();
       camera.throws.insert(index, recorded);
@@ -381,9 +377,20 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
         quality.insert(index, null);
         estimated.insert(index, false);
         overrides.insert(index, null);
-        final token = setupStore.record(estimated: true, bounce: false);
+        final token = setupStore.record(
+          estimated: true,
+          bounce: false,
+          missing: true,
+          detectedLabel: 'Nicht erkannt',
+        );
         setupThrows.insert(index, token);
         setupStore.review(token, corrected: true);
+        setupStore.verify(
+          token,
+          correct: false,
+          missing: true,
+          actualLabel: result.label,
+        );
         diagnostics.insertMissing(index, evidence);
       });
       _preview();
@@ -429,6 +436,41 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
           ),
         );
       }
+    }
+  }
+
+  void _removeDart(int index) {
+    if (!_inputEnabled || submitted || _placingMissing || configuring) return;
+    diagnostics.remove(
+      index,
+      points[index],
+      captureAutoscoreEvidence(camera, allowPartial: true),
+    );
+    setupStore.review(setupThrows[index], corrected: true);
+    setupStore.verify(
+      setupThrows[index],
+      correct: false,
+      extra: true,
+      actualLabel: 'Kein echter Wurf',
+    );
+    setState(() {
+      darts.removeAt(index);
+      points.removeAt(index);
+      locations.removeAt(index);
+      quality.removeAt(index);
+      estimated.removeAt(index);
+      overrides.removeAt(index);
+      setupThrows.removeAt(index);
+    });
+    camera.removeManualThrow(index);
+    _preview();
+  }
+
+  Future<void> _confirmRemoval() async {
+    await camera.confirmDartsRemoved(beforeReset: () {});
+    if (mounted && darts.isNotEmpty) {
+      // Explicit removal confirmation must also work without a camera stream.
+      camera.confirmManualRemovalWithoutCapture();
     }
   }
 
@@ -491,6 +533,11 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
                 onMoved: (i, point) {
                   if (!submitted) {
                     setupStore.review(setupThrows[i], corrected: true);
+                    setupStore.verify(
+                      setupThrows[i],
+                      correct: false,
+                      actualLabel: BoardGeometry.score(point).label,
+                    );
                     setState(() {
                       points[i] = point;
                       locations[i] = DartLocation(
@@ -509,6 +556,24 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
             ),
           ),
           if (camera.busy) const LinearProgressIndicator(),
+          if (darts.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (var i = 0; i < darts.length; i++)
+                  OutlinedButton.icon(
+                    onPressed: _inputEnabled && !submitted && !_placingMissing
+                        ? () => _removeDart(i)
+                        : null,
+                    icon: const Icon(Icons.delete_outline),
+                    label: Text('Dart ${i + 1} (${darts[i].label}) entfernen'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
+                  ),
+              ],
+            ),
           if (_inputEnabled &&
               darts.length <
                   min(_limit, camera.automaticVisitDartLimit ?? _limit))
@@ -537,11 +602,13 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
           ],
           if (darts.isNotEmpty && _inputEnabled)
             OutlinedButton(
-              onPressed: camera.busy
-                  ? null
-                  : () => camera.confirmDartsRemoved(beforeReset: () {}),
+              onPressed: camera.busy ? null : _confirmRemoval,
               child: const Text('Pfeile gezogen · Aufnahme bestätigen'),
             ),
+          GeneralDiagnosticButton(
+            controller: camera,
+            setupId: widget.setupStore?.active.id,
+          ),
           if (diagnostics.saving)
             const Text('Korrekturdiagnose wird gespeichert …'),
           if (diagnostics.error != null) Text(diagnostics.error!),
@@ -572,7 +639,7 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
           const Text(
             'Jeder Dart zählt live. Pfeile herausziehen bestätigt die Aufnahme.',
           ),
-          for (var i = 0; i < widget.attempts.length; i++)
+          for (var i = 0; i < min(widget.attempts.length, darts.length); i++)
             FilterChip(
               label: Text('Dart ${i + 1}: Doppelversuch'),
               tooltip:

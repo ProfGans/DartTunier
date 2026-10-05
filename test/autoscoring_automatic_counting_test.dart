@@ -74,6 +74,24 @@ void observe(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'Transient removal after first dart releases when occupied board returns',
+    () {
+      final counted = <DartThrowResult>[];
+      final c = createController(counted);
+      addTearDown(c.dispose);
+      observe(c, frames(1));
+      expect(counted.length, 1);
+      c.processFrames(frames(0));
+      expect(c.waitingForEmpty, true);
+      observe(c, frames(1), 8);
+      expect(c.waitingForEmpty, false);
+      expect(counted.length, 1);
+      expect(c.running, true);
+      observe(c, frames(2), 8);
+      expect(counted.length, 2);
+    },
+  );
   test('Pause and resume preserve occupied board and calibration', () {
     final c = createController([]);
     observe(c, frames(1));

@@ -7,6 +7,8 @@ import 'autoscoring_page.dart';
 import '../../scorer/domain/x01/x01_models.dart';
 import 'widgets/dart_correction_dialog.dart';
 import '../application/capture_autoscore_evidence.dart';
+import 'widgets/autoscore_statistics_reset_button.dart';
+import 'widgets/autoscore_verification_panel.dart';
 import '../data/autoscore_diagnostic_export.dart';
 import '../domain/board_geometry.dart';
 import '../domain/lens_distortion.dart';
@@ -53,6 +55,20 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
     );
     if (!mounted || result == null) return;
     controller.review(index, result);
+    await _saveDiagnostic(index);
+  }
+
+  Future<void> _falsePositive(int index) async {
+    if (controller.history[index].ignored) return;
+    if (index >= controller.visitStart) {
+      final liveIndex = controller.history
+          .skip(controller.visitStart)
+          .take(index - controller.visitStart)
+          .where((entry) => !entry.ignored)
+          .length;
+      cameras.removeManualThrow(liveIndex);
+    }
+    controller.markFalsePositive(index);
     await _saveDiagnostic(index);
   }
 
@@ -110,6 +126,7 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
       final path = await const AutoscoreDiagnosticExport().save(
         AutoscoreEvidence(entry.evidence!.cameras, {
           ...entry.evidence!.hit,
+          'falsePositive': entry.ignored,
           if (entry.setupThrow != null) 'setupId': entry.setupThrow!.setupId,
           'correctionHistoryAnalysis': controller.correctionAnalysis,
         }, capturedAt: entry.evidence!.capturedAt),
@@ -233,7 +250,8 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
                   i < controller.history.length;
                   i++
                 )
-                  if (controller.history[i].point != null)
+                  if (controller.history[i].point != null &&
+                      !controller.history[i].ignored)
                     FlatBoardMarker(
                       i,
                       controller.history[i].point!,
@@ -251,6 +269,8 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             Text('${controller.throws.length} Treffer'),
+            if (controller.setupStore != null)
+              AutoscoreVerificationPanel(store: controller.setupStore!),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
               onPressed: cameras.running && !cameras.waitingForEmpty
@@ -267,10 +287,14 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             Text(
-              '${controller.correctCount} von ${controller.reviewedCount} geprüften Treffern richtig · ${controller.history.length - controller.reviewedCount} ungeprüft',
+              '${controller.correctCount} von ${controller.reviewedCount} geprüften Treffern richtig · ${controller.uncheckedCount} ungeprüft',
             ),
             const Text(
               'Beim Herausziehen zählen unkorrigierte Treffer automatisch als richtig. Jede Korrektur zählt als Fehler. Statistik und Diagnosebilder bleiben erhalten.',
+            ),
+            AutoscoreStatisticsResetButton(
+              store: controller.setupStore,
+              onReset: controller.resetAccuracy,
             ),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
@@ -331,6 +355,14 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
                           onPressed: () => _correct(i),
                           icon: const Icon(Icons.edit),
                           label: const Text('Korrigieren'),
+                        ),
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                          ),
+                          onPressed: () => _falsePositive(i),
+                          icon: const Icon(Icons.remove_circle_outline),
+                          label: const Text('Kein echter Wurf'),
                         ),
                         if (controller.history[i].wasCorrected &&
                             controller.history[i].evidence != null)

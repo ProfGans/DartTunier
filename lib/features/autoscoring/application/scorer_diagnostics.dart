@@ -30,7 +30,24 @@ class ScorerDiagnostics extends ChangeNotifier {
   void insertMissing(int index, AutoscoreEvidence? evidence) =>
       _visit.insert(index, ('Nicht erkannt', evidence));
   void nextVisit() => _visit.clear();
-  Future<void> correct(int index, String corrected, BoardPoint point) {
+  Future<void> remove(
+    int index,
+    BoardPoint point,
+    AutoscoreEvidence? fallback,
+  ) {
+    final entry = _visit[index];
+    _visit[index] = (entry.$1, entry.$2 ?? fallback);
+    final saved = correct(index, 'Entfernt', point, source: 'manualRemoval');
+    _visit.removeAt(index);
+    return saved;
+  }
+
+  Future<void> correct(
+    int index,
+    String corrected,
+    BoardPoint point, {
+    String? source,
+  }) {
     final entry = _visit[index];
     final revision = ++_revision;
     path = null;
@@ -45,11 +62,16 @@ class ScorerDiagnostics extends ChangeNotifier {
     saving = true;
     notifyListeners();
     final position = <String, Object?>{
-      'xMillimetres': point.x,
-      'yMillimetres': point.y,
-      'source': entry.$1 == 'Nicht erkannt'
-          ? 'manualMissingPoint'
-          : 'flatBoard',
+      if (source == 'manualRemoval') ...{
+        'removedXMillimetres': point.x,
+        'removedYMillimetres': point.y,
+      } else ...{
+        'xMillimetres': point.x,
+        'yMillimetres': point.y,
+      },
+      'source':
+          source ??
+          (entry.$1 == 'Nicht erkannt' ? 'manualMissingPoint' : 'flatBoard'),
     };
     _queue = _queue.then((_) async {
       try {

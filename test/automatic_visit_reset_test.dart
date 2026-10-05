@@ -19,6 +19,50 @@ GrayFrame frame({int brightness = 80, int shafts = 0, int noise = 0}) {
 }
 
 void main() {
+  for (final darts in [1, 2, 3]) {
+    test(
+      'Restored full occupied board unlocks only unfinished visit $darts',
+      () {
+        final reset = AutomaticVisitReset();
+        final empty = List.generate(3, (_) => frame());
+        final occupied = List.generate(3, (_) => frame(shafts: darts));
+        reset.observe(
+          empty: empty,
+          occupied: occupied,
+          current: empty,
+          stable: false,
+          darts: darts,
+        );
+        expect(reset.waitingForEmpty, true);
+        for (var n = 0; n < 4; n++) {
+          reset.observe(
+            empty: empty,
+            occupied: occupied,
+            current: occupied,
+            stable: true,
+            darts: darts,
+          );
+        }
+        expect(reset.waitingForEmpty, darts == 3);
+      },
+    );
+  }
+  test('A remaining dart cannot release a genuine partial-removal latch', () {
+    final reset = AutomaticVisitReset();
+    final empty = List.generate(3, (_) => frame());
+    final occupied = List.generate(3, (_) => frame(shafts: 2));
+    final partial = List.generate(3, (_) => frame(shafts: 1));
+    for (var n = 0; n < 8; n++) {
+      reset.observe(
+        empty: empty,
+        occupied: occupied,
+        current: partial,
+        stable: true,
+        darts: 2,
+      );
+    }
+    expect(reset.waitingForEmpty, true);
+  });
   test(
     'Changed background outside the calibrated board cannot block removal',
     () {

@@ -12,6 +12,7 @@ class ReviewedAutoscoreThrow {
   final AutoscoreEvidence? evidence;
   String? diagnosticPath;
   bool wasCorrected = false;
+  bool ignored = false;
   AutoscoreSetupThrow? setupThrow;
   bool get estimated => !wasCorrected && evidence?.hit['needsReview'] == true;
   DartThrowResult? actual;
@@ -31,14 +32,29 @@ class AutoscoreDemoController extends ChangeNotifier {
   AutoscoreSetupStore? setupStore;
   final _history = <ReviewedAutoscoreThrow>[];
   int _visitStart = 0;
+  int _accuracyStart = 0;
   List<ReviewedAutoscoreThrow> get history => List.unmodifiable(_history);
   int get visitStart => _visitStart;
   List<DartThrowResult> get throws => List.unmodifiable(
-    _history.skip(_visitStart).map((entry) => entry.result),
+    _history
+        .skip(_visitStart)
+        .where((entry) => !entry.ignored)
+        .map((entry) => entry.result),
   );
-  int get reviewedCount =>
-      _history.where((entry) => entry.actual != null).length;
-  int get correctCount => _history.where((entry) => entry.correct).length;
+  int get reviewedCount => _history
+      .skip(_accuracyStart)
+      .where((entry) => entry.actual != null)
+      .length;
+  int get correctCount =>
+      _history.skip(_accuracyStart).where((entry) => entry.correct).length;
+  int get uncheckedCount => _history.length - _accuracyStart - reviewedCount;
+
+  /// Restart the displayed measurement without removing throws or diagnoses.
+  void resetAccuracy() {
+    _accuracyStart = _history.length;
+    notifyListeners();
+  }
+
   double? get accuracyPercent =>
       reviewedCount == 0 ? null : 100 * correctCount / reviewedCount;
   int get totalPoints => throws.fold(0, (sum, dart) => sum + dart.scoredPoints);
@@ -58,8 +74,12 @@ class AutoscoreDemoController extends ChangeNotifier {
       estimated: evidence?.hit['needsReview'] == true,
       missing: result.label == 'Nicht erkannt',
       bounce: result.label == 'Bouncer',
+      detectedLabel: result.label,
     );
     _history.add(entry);
+    if (result.label == 'Nicht erkannt') {
+      setupStore?.verify(entry.setupThrow, correct: false, missing: true);
+    }
     notifyListeners();
   }
 
@@ -77,6 +97,11 @@ class AutoscoreDemoController extends ChangeNotifier {
     _history[index].actual = actual;
     _history[index].wasCorrected = true;
     setupStore?.review(_history[index].setupThrow, corrected: true);
+    setupStore?.verify(
+      _history[index].setupThrow,
+      correct: false,
+      actualLabel: actual.label,
+    );
     _history[index].diagnosticPath = null;
     notifyListeners();
   }
@@ -96,6 +121,33 @@ class AutoscoreDemoController extends ChangeNotifier {
     if (_history[index].wasCorrected) return;
     _history[index].actual = _history[index].detected;
     setupStore?.review(_history[index].setupThrow, corrected: false);
+    setupStore?.verify(
+      _history[index].setupThrow,
+      correct: true,
+      actualLabel: _history[index].detected.label,
+    );
+    notifyListeners();
+  }
+
+  void markFalsePositive(int index) {
+    _history[index].ignored = true;
+    review(
+      index,
+      const DartThrowResult(
+        label: 'MISS',
+        baseValue: 0,
+        scoredPoints: 0,
+        isDouble: false,
+        isTriple: false,
+        isMiss: true,
+      ),
+    );
+    setupStore?.verify(
+      _history[index].setupThrow,
+      correct: false,
+      extra: true,
+      actualLabel: 'Kein echter Wurf',
+    );
     notifyListeners();
   }
 }

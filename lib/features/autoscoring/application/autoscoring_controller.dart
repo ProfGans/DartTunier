@@ -11,9 +11,16 @@ import '../domain/automatic_visit_reset.dart';
 import '../domain/automatic_bounce_detector.dart';
 import '../domain/multi_camera_consensus.dart';
 import '../domain/temporal_hit_decision.dart';
+import '../domain/uncertain_hit_recovery.dart';
 import '../domain/detail_hit_refinement.dart';
 import '../domain/forced_hit_decision.dart';
+import '../data/windows_video_source.dart';
+import 'decode_video_frames.dart';
+import '../domain/dart_tip_detection.dart';
+import '../domain/spatial_board_contact.dart';
 import '../../scorer/domain/x01/x01_models.dart';
+import 'recognition_diagnostic_trace.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class AutoscoreCamera {
   AutoscoreCamera(
@@ -35,6 +42,7 @@ class AutoscoreCamera {
   List<DartAxis> axisCandidates = const [], lastAxisCandidates = const [];
   final List<GrayFrame> recentFrames = [];
   List<GrayFrame> lastDetectionFrames = const [];
+  List<GrayFrame> postDetectionFrames = [];
   List<BoardPoint> changedPixels = const [];
   double changeFraction = 0;
   GrayFrame? reference, previous, emptyReference;
@@ -45,7 +53,7 @@ class AutoscoreCamera {
   String? calibrationMessage;
 }
 
-/// Snapshot polling is used because camera_windows has no image stream.
+/// Windows consumes buffered preview video; other platforms use snapshots.
 /// All camera mutations and captures run through a single queue.
 class AutoscoringController extends ChangeNotifier {
   AutoscoringController({
@@ -56,6 +64,16 @@ class AutoscoringController extends ChangeNotifier {
        storage = storage ?? AutoscoringStorage(),
        calibrationService =
            calibrationService ?? const WindowsAutomaticCalibrationService();
+  final _video = WindowsVideoSource();
+  final _videoSilence = Stopwatch();
+  bool get continuousVideo => _video.active;
+  Map<String, Object?> get videoMetrics => {
+    'continuousVideo': continuousVideo,
+    'timestampBasis': 'hostArrivalMonotonic',
+    'skewMicroseconds': _video.synchronizer?.lastSkewUs,
+    'discardedForSynchronization': _video.synchronizer?.discarded ?? 0,
+    'nativeDroppedFrames': _video.nativeDropped,
+  };
   final CameraPlatform platform;
   final AutoscoringStorage storage;
   bool reuseSavedCalibration = false;
@@ -85,11 +103,57 @@ class AutoscoringController extends ChangeNotifier {
   final _visitReset = AutomaticVisitReset();
   final _bounceDetector = AutomaticBounceDetector();
   final _hitDecision = TemporalHitDecision();
+  final _uncertainRecovery = UncertainHitRecovery();
+  Map<String, Object?> get recoveryMetrics => _uncertainRecovery.metrics;
   final _decisionAxisSamples = <List<DartAxis?>>[];
+  final _decisionCaptureTimes = <List<int?>>[];
+  final _diagnosticTrace = RecognitionDiagnosticTrace();
+  List<Map<String, Object?>> get diagnosticTimeline =>
+      _diagnosticTrace.snapshot();
+  String decisionReason = 'notEvaluated', tipDecisionReason = 'notEvaluated';
+  String? lastCaptureError, lastCaptureErrorStack;
+  Map<String, Object?> diagnosticEnvironment = {
+    'algorithmRevision': 'diagnostics-v8-2026-10-05',
+    'operatingSystem': Platform.operatingSystem,
+    'operatingSystemVersion': Platform.operatingSystemVersion,
+    'dartVersion': Platform.version,
+    'buildMode': kReleaseMode
+        ? 'release'
+        : kProfileMode
+        ? 'profile'
+        : 'debug',
+  };
   int decisionSelectedFrame = -1;
   List<Map<String, Object>> decisionMetrics = const [];
   bool alternativesUsed = false;
   bool detailRefined = false;
+  bool tipContactConfirmed = false;
+  List<DartTipObservation?> tipObservations = const [];
+  SpatialBoardContact? spatialContact;
+  final _acceptedBoardPoints = <BoardPoint>[];
+  int _robinFrames = 0;
+  static const robinHoodThrow = DartThrowResult(
+    label: 'Robin Hood',
+    baseValue: 0,
+    scoredPoints: 0,
+    isDouble: false,
+    isTriple: false,
+    isMiss: true,
+  );
+  double captureMilliseconds = 0;
+  Stopwatch? _processingWatch;
+  double get processingMilliseconds =>
+      (_processingWatch?.elapsedMicroseconds ?? 0) / 1000;
+  Duration get captureDelay => Duration(
+    milliseconds:
+        pending != null ||
+            _unresolvedSamples > 0 ||
+            cameras.any(
+              (c) => c.detectedAxis != null && c.changedPixels.length >= 4,
+            )
+        ? 20
+        : 80,
+  );
   static const bouncerThrow = DartThrowResult(
     label: 'Bouncer',
     baseValue: 0,
@@ -138,7 +202,23 @@ class AutoscoringController extends ChangeNotifier {
     _notify();
   }
 
+  Future<void> _loadDiagnosticPackageInfo() async {
+    try {
+      final package = await PackageInfo.fromPlatform();
+      diagnosticEnvironment.addAll({
+        'appVersion': package.version,
+        'appBuild': package.buildNumber,
+      });
+    } catch (_) {
+      diagnosticEnvironment['appVersion'] = null;
+      diagnosticEnvironment['appBuild'] = null;
+    }
+  }
+
   Future<void> connect(List<int> indices) {
+    unawaited(_loadDiagnosticPackageInfo());
+    _diagnosticTrace.clear();
+    lastCaptureError = lastCaptureErrorStack = null;
     reusedCalibration = false;
     final generation = ++_generation;
     busy = true;
@@ -222,6 +302,9 @@ class AutoscoringController extends ChangeNotifier {
           }
         }
         if (disposed || generation != _generation) return;
+        if (Platform.isWindows) {
+          await _video.configure(cameras.map((c) => c.id).toList());
+        }
         await _capture();
         if (reuseSavedCalibration &&
             cameras.every((c) => c.calibration != null)) {
@@ -250,6 +333,25 @@ class AutoscoringController extends ChangeNotifier {
   }
 
   Future<List<GrayFrame>> _capture() async {
+    final watch = Stopwatch()..start();
+    if (_video.active) {
+      while (watch.elapsedMilliseconds < 2500) {
+        final batches = await _video.read();
+        if (batches.isNotEmpty) {
+          _videoSilence
+            ..reset()
+            ..start();
+          final frames = await compute(decodeVideoFrames, batches.last);
+          _publishVideoSnapshots(frames);
+          captureMilliseconds = watch.elapsedMicroseconds / 1000;
+          return frames;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      throw StateError(
+        'Kein zeitlich passendes Bild von allen drei Kameras. USB-Verbindung prüfen.',
+      );
+    }
     final observations = <(AutoscoreCamera, Uint8List, Future<GrayFrame>)>[];
     // camera_windows names files by millisecond only, without a camera ID.
     // Read and remove each file before the next camera can reuse that name.
@@ -275,7 +377,15 @@ class AutoscoringController extends ChangeNotifier {
       observations[i].$1.snapshotAspectRatio =
           frames[i].sourceAspectRatio ?? frames[i].width / frames[i].height;
     }
+    captureMilliseconds = watch.elapsedMicroseconds / 1000;
     return frames;
+  }
+
+  void _publishVideoSnapshots(List<GrayFrame> frames) {
+    for (var i = 0; i < 3; i++) {
+      cameras[i].snapshot = frames[i].colorImage;
+      cameras[i].snapshotAspectRatio = frames[i].sourceAspectRatio;
+    }
   }
 
   Future<void> autoCalibrate() {
@@ -439,10 +549,14 @@ class AutoscoringController extends ChangeNotifier {
         cameras[i].changeFraction = 0;
       }
       throws.clear();
+      _acceptedBoardPoints.clear();
+      _robinFrames = 0;
       _visitReset.reset();
       _bounceDetector.reset();
       _hitDecision.reset();
+      _uncertainRecovery.reset();
       _decisionAxisSamples.clear();
+      _decisionCaptureTimes.clear();
       _unresolvedSamples = 0;
       _boundaryWaitSamples = 0;
       pending = null;
@@ -468,15 +582,39 @@ class AutoscoringController extends ChangeNotifier {
   void _schedule(int generation) {
     _timer?.cancel();
     _timer = Timer(
-      const Duration(milliseconds: 80),
+      continuousVideo ? const Duration(milliseconds: 10) : captureDelay,
       () => unawaited(
         _serial(() async {
           if (disposed || !running || generation != _generation) return;
           try {
-            final frames = await _capture();
-            if (disposed || !running || generation != _generation) return;
-            processFrames(frames);
-          } catch (e) {
+            if (continuousVideo) {
+              final batches = await _video.read();
+              if (batches.isEmpty && _videoSilence.elapsedMilliseconds > 2500) {
+                throw StateError(
+                  'Drei zeitlich passende Videobilder fehlen. USB-Verbindungen prüfen.',
+                );
+              }
+              if (batches.isNotEmpty) {
+                _videoSilence
+                  ..reset()
+                  ..start();
+              }
+              for (final batch in batches) {
+                final watch = Stopwatch()..start();
+                final frames = await compute(decodeVideoFrames, batch);
+                if (disposed || !running || generation != _generation) return;
+                captureMilliseconds = watch.elapsedMicroseconds / 1000;
+                _publishVideoSnapshots(frames);
+                processFrames(frames);
+              }
+            } else {
+              final frames = await _capture();
+              if (disposed || !running || generation != _generation) return;
+              processFrames(frames);
+            }
+          } catch (e, stack) {
+            lastCaptureError = e.toString();
+            lastCaptureErrorStack = stack.toString();
             running = false;
             status = 'Bildaufnahme fehlgeschlagen: $e. Bitte neu verbinden.';
           }
@@ -490,17 +628,48 @@ class AutoscoringController extends ChangeNotifier {
   /// Process one complete three-camera capture; separated for replay tests.
   @visibleForTesting
   void processFrames(List<GrayFrame> frames) {
+    _processingWatch = Stopwatch()..start();
+    _diagnosticTrace.begin(frames, throws.length);
+    try {
+      _processFrames(frames);
+    } finally {
+      _diagnosticTrace.checkpoint('remaining', {
+        'status': status,
+        'running': running,
+        'waitingForEmpty': waitingForEmpty,
+        'throwsAfter': throws.length,
+      });
+      _processingWatch!.stop();
+    }
+  }
+
+  void _processFrames(List<GrayFrame> frames) {
     if (!running || frames.length != 3 || cameras.length != 3) return;
     const detector = FrameDetector();
     var stableViews = 0;
     for (var i = 0; i < 3; i++) {
       final c = cameras[i];
+      if (c.lastReference != null && c.postDetectionFrames.length < 4) {
+        final f = frames[i];
+        c.postDetectionFrames.add(
+          GrayFrame(
+            f.width,
+            f.height,
+            f.pixels,
+            colorImage: f.colorImage,
+            timestampUs: f.timestampUs,
+            sequence: f.sequence,
+          ),
+        );
+      }
       c.changeFraction = detector.changedFraction(c.previous!, frames[i]);
       c.stable = c.changeFraction < .002 ? c.stable + 1 : 0;
       c.previous = frames[i];
       c.axisCandidates = const [];
       c.recentFrames.add(frames[i]);
-      if (c.recentFrames.length > 3) c.recentFrames.removeAt(0);
+      if (c.recentFrames.length > (continuousVideo ? 8 : 3)) {
+        c.recentFrames.removeAt(0);
+      }
       c.detectedAxis = detector.axis(c.reference!, frames[i], c.calibration!);
       c.changedPixels = detector.changeSamples(
         c.reference!,
@@ -509,6 +678,24 @@ class AutoscoringController extends ChangeNotifier {
       );
       if (c.stable >= 2) stableViews++;
     }
+    _diagnosticTrace.checkpoint('motionAndAxes', {
+      'cameras': [
+        for (final c in cameras)
+          {
+            'stableSamples': c.stable,
+            'changedFraction': c.changeFraction,
+            'changedPixels': c.changedPixels.length,
+            'axis': c.detectedAxis == null
+                ? null
+                : {
+                    'a': c.detectedAxis!.a,
+                    'b': c.detectedAxis!.b,
+                    'c': c.detectedAxis!.c,
+                    'confidence': c.detectedAxis!.confidence,
+                  },
+          },
+      ],
+    });
     if (automaticCounting && throws.isNotEmpty) {
       final state = _visitReset.observe(
         empty: cameras.map((c) => c.emptyReference!).toList(),
@@ -519,6 +706,10 @@ class AutoscoringController extends ChangeNotifier {
         dartLimit: automaticVisitDartLimit,
         calibrations: cameras.map((c) => c.calibration!).toList(),
       );
+      _diagnosticTrace.checkpoint('removal', {
+        'state': state.name,
+        'cameraMetrics': removalMetrics,
+      });
       if (state == VisitResetState.cleared) {
         for (var i = 0; i < 3; i++) {
           cameras[i].reference = frames[i];
@@ -535,12 +726,16 @@ class AutoscoringController extends ChangeNotifier {
           cameras[i].changeFraction = 0;
         }
         throws.clear();
+        _acceptedBoardPoints.clear();
+        _robinFrames = 0;
         pending = null;
         _unresolvedSamples = 0;
         _boundaryWaitSamples = 0;
         _bounceDetector.reset();
         _hitDecision.reset();
+        _uncertainRecovery.reset();
         _decisionAxisSamples.clear();
+        _decisionCaptureTimes.clear();
         _visitReset.reset();
         lastHit = null;
         decisionMetrics = const [];
@@ -555,7 +750,9 @@ class AutoscoringController extends ChangeNotifier {
       if (state == VisitResetState.waitingForEmpty) {
         _bounceDetector.reset();
         _hitDecision.reset();
+        _uncertainRecovery.reset();
         _decisionAxisSamples.clear();
+        _decisionCaptureTimes.clear();
         _unresolvedSamples = 0;
         _boundaryWaitSamples = 0;
         pending = null;
@@ -579,7 +776,12 @@ class AutoscoringController extends ChangeNotifier {
               .whereType<DartAxis>()
               .toList(),
           stable: stableViews >= 2,
-          nowMilliseconds: DateTime.now().millisecondsSinceEpoch,
+          nowMilliseconds: frames.first.timestampUs == null
+              ? DateTime.now().millisecondsSinceEpoch
+              : frames
+                        .map((f) => f.timestampUs!)
+                        .reduce((a, b) => a > b ? a : b) ~/
+                    1000,
         )) {
       recordMissedThrow(bouncerThrow);
       status = 'Bouncer erkannt · 0 Punkte. Nächsten Dart werfen.';
@@ -589,6 +791,7 @@ class AutoscoringController extends ChangeNotifier {
       }
       return;
     }
+    _diagnosticTrace.checkpoint('bounce');
     final localizedViews = cameras
         .where(
           (c) =>
@@ -606,7 +809,9 @@ class AutoscoringController extends ChangeNotifier {
         (camera) => camera.changedPixels.isEmpty && camera.detectedAxis == null,
       )) {
         _hitDecision.reset();
+        _uncertainRecovery.reset();
         _decisionAxisSamples.clear();
+        _decisionCaptureTimes.clear();
       }
     }
     final deadlineReached = automaticCounting && _unresolvedSamples >= 6;
@@ -694,7 +899,39 @@ class AutoscoringController extends ChangeNotifier {
             .toList(),
       );
     }
+    _diagnosticTrace.checkpoint('fusion', {
+      'localizedViews': localizedViews,
+      'stableViews': stableViews,
+      'unresolvedSamples': _unresolvedSamples,
+      'deadlineReached': deadlineReached,
+      'alternativesUsed': alternativesUsed,
+    });
+    var recoveredContactConfirmed = false;
+    if (continuousVideo &&
+        pending != null &&
+        cameras.every((c) => c.emptyReference != null)) {
+      final recovered = _uncertainRecovery.observe(
+        pending!,
+        cameras.map((c) => c.reference!).toList(),
+        cameras.map((c) => c.emptyReference!).toList(),
+        frames,
+        cameras.map((c) => c.calibration!).toList(),
+        cameras.map((c) => c.axisCandidates).toList(),
+      );
+      if (recovered != null) {
+        recoveredContactConfirmed = true;
+        pending = recovered.hit;
+        alternativesUsed = true;
+        for (var i = 0; i < 3; i++) {
+          cameras[i].detectedAxis = recovered.axes[i];
+        }
+      }
+    }
+    _diagnosticTrace.checkpoint('contactRecovery', {
+      'confirmed': recoveredContactConfirmed,
+    });
     detailRefined = false;
+    var temporalSupportViews = 0;
     if (pending != null) {
       final refined = refineHitDetail(
         pending!,
@@ -708,7 +945,65 @@ class AutoscoringController extends ChangeNotifier {
       for (var i = 0; i < 3; i++) {
         cameras[i].detectedAxis = refined.axes[i];
       }
+      _diagnosticTrace.checkpoint('detailRefinement', {
+        'applied': detailRefined,
+      });
+      temporalSupportViews =
+          recoveredContactConfirmed ||
+              (pending!.views == 3 &&
+                  pending!.residual <= 3 &&
+                  refined.axes
+                          .whereType<DartAxis>()
+                          .where((a) => a.confidence >= .8)
+                          .length ==
+                      3)
+          ? 3
+          : pending!.views.clamp(0, 2);
+      final tip = refineTipContact(
+        pending!,
+        cameras.map((c) => c.reference!).toList(),
+        frames,
+        cameras.map((c) => c.calibration!).toList(),
+        refined.axes,
+      );
+      tipContactConfirmed = tip.confirmed;
+      tipDecisionReason = tip.reason;
+      tipObservations = tip.observations;
+      if (continuousVideo) pending = tip.hit;
+      _diagnosticTrace.checkpoint('tipRefinement', {
+        'reason': tip.reason,
+        'confirmed': tip.confirmed,
+        'appliedToRecognition': continuousVideo,
+      });
+      spatialContact = locateSpatialContact(
+        [
+          for (var i = 0; i < 3; i++)
+            estimateBoardPose(
+              cameras[i].calibration!,
+              aspectRatio:
+                  frames[i].sourceAspectRatio ??
+                  frames[i].width / frames[i].height,
+            ),
+        ],
+        [
+          for (var i = 0; i < 3; i++)
+            tip.observations[i] == null
+                ? null
+                : DartTipObservation(
+                    cameras[i].calibration!.lens.undistort(
+                      tip.observations[i]!.image,
+                    ),
+                    tip.observations[i]!.board,
+                    tip.observations[i]!.confidence,
+                  ),
+        ],
+        _acceptedBoardPoints,
+      );
+      _robinFrames = continuousVideo && spatialContact?.robinHood == true
+          ? _robinFrames + 1
+          : 0;
     }
+    _diagnosticTrace.checkpoint('spatialAndBoundary');
     final hit = pending;
     if (hit == null) {
       _boundaryWaitSamples = 0;
@@ -737,7 +1032,11 @@ class AutoscoringController extends ChangeNotifier {
     }
     if (automaticCounting) {
       _decisionAxisSamples.add(cameras.map((c) => c.detectedAxis).toList());
-      final observed = _hitDecision.observe(hit);
+      _decisionCaptureTimes.add(frames.map((f) => f.timestampUs).toList());
+      final observed = _hitDecision.observe(
+        hit,
+        supportingViews: temporalSupportViews,
+      );
       final decision =
           observed ??
           (deadlineReached
@@ -748,10 +1047,18 @@ class AutoscoringController extends ChangeNotifier {
                   forcedDecision: true,
                 )
               : null);
+      decisionReason = observed == null && deadlineReached
+          ? 'deadlineCurrentEstimate'
+          : _hitDecision.reason;
+      _diagnosticTrace.checkpoint('temporalSelection', {
+        'reason': decisionReason,
+        'selectedIndex': _hitDecision.selectedIndex,
+      });
       decisionMetrics = [
         for (var i = 0; i < _hitDecision.metrics.length; i++)
           {
             ..._hitDecision.metrics[i],
+            'captureTimestampsMicroseconds': _decisionCaptureTimes[i],
             'axes': [
               for (final a in _decisionAxisSamples[i])
                 a == null
@@ -777,7 +1084,10 @@ class AutoscoringController extends ChangeNotifier {
         cameras[i].detectedAxis =
             _decisionAxisSamples[decisionSelectedFrame][i];
       }
-      final result = BoardGeometry.score(decision.point);
+      final result = _robinFrames >= 2
+          ? robinHoodThrow
+          : BoardGeometry.score(decision.point);
+      _acceptedBoardPoints.add(decision.point);
       accept(result);
       if (onAutomaticThrow?.call(result) == false) {
         running = false;
@@ -800,15 +1110,23 @@ class AutoscoringController extends ChangeNotifier {
     lastHit = pending;
     _bounceDetector.reset();
     _hitDecision.reset();
+    _uncertainRecovery.reset();
     _decisionAxisSamples.clear();
+    _decisionCaptureTimes.clear();
     _unresolvedSamples = 0;
     _boundaryWaitSamples = 0;
     throws.add(result);
+    _diagnosticTrace.checkpoint('accepted', {
+      'score': result.label,
+      'reason': decisionReason,
+      'throwsAfter': throws.length,
+    });
     pending = null;
     for (final c in cameras) {
       c.lastAcceptedAxis = c.detectedAxis;
       c.lastAxisCandidates = List.of(c.axisCandidates);
       c.lastDetectionFrames = List.of(c.recentFrames);
+      c.postDetectionFrames = [];
       c.recentFrames.clear();
       c.lastReference = c.reference;
       c.reference = c.previous;
@@ -838,12 +1156,21 @@ class AutoscoringController extends ChangeNotifier {
         cameras.any((c) => c.previous == null)) {
       return false;
     }
+    recordManualThrow(result);
+    return true;
+  }
+
+  /// Explicit user correction is independent of recognition readiness.
+  void recordManualThrow(DartThrowResult result) {
+    if (disposed) return;
     throws.add(result);
     _unresolvedSamples = 0;
     _boundaryWaitSamples = 0;
     _bounceDetector.reset();
     _hitDecision.reset();
+    _uncertainRecovery.reset();
     _decisionAxisSamples.clear();
+    _decisionCaptureTimes.clear();
     pending = null;
     lastHit = null;
     decisionMetrics = const [];
@@ -854,7 +1181,7 @@ class AutoscoringController extends ChangeNotifier {
       camera.lastDetectionFrames = List.of(camera.recentFrames);
       camera.recentFrames.clear();
       camera.lastReference = camera.reference;
-      camera.reference = camera.previous;
+      if (camera.previous != null) camera.reference = camera.previous;
       camera.lastAcceptedAxis = identical(result, unresolvedThrow)
           ? camera.detectedAxis
           : null;
@@ -862,7 +1189,51 @@ class AutoscoringController extends ChangeNotifier {
     }
     status = 'Übersehener Pfeil nachgetragen. Nächsten Dart werfen.';
     _notify();
-    return true;
+  }
+
+  /// Delete a false detection while retaining the current visual baseline.
+  void removeManualThrow(int index) {
+    if (disposed || index < 0 || index >= throws.length) return;
+    throws.removeAt(index);
+    _acceptedBoardPoints.clear();
+    _robinFrames = 0;
+    _visitReset.reset();
+    _hitDecision.reset();
+    _uncertainRecovery.reset();
+    _bounceDetector.reset();
+    _decisionAxisSamples.clear();
+    _decisionCaptureTimes.clear();
+    _unresolvedSamples = 0;
+    _boundaryWaitSamples = 0;
+    pending = null;
+    lastHit = null;
+    status = 'Erkennung entfernt. Nächsten Dart werfen.';
+    _notify();
+  }
+
+  /// Confirm removal without frames; require fresh references before resuming.
+  void confirmManualRemovalWithoutCapture() {
+    pauseRecognition();
+    throws.clear();
+    _acceptedBoardPoints.clear();
+    _robinFrames = 0;
+    pending = null;
+    lastHit = null;
+    _visitReset.reset();
+    _bounceDetector.reset();
+    _hitDecision.reset();
+    _uncertainRecovery.reset();
+    _decisionAxisSamples.clear();
+    _decisionCaptureTimes.clear();
+    for (final c in cameras) {
+      c.reference = null;
+      c.emptyReference = null;
+      c.previous = null;
+    }
+    status =
+        'Aufnahme manuell bestätigt. Für automatische Erkennung das leere Board neu aufnehmen.';
+    onAutomaticVisitCleared?.call();
+    _notify();
   }
 
   /// Pause polling without discarding calibration, references or pending darts.
@@ -886,6 +1257,9 @@ class AutoscoringController extends ChangeNotifier {
       return false;
     }
     running = true;
+    _videoSilence
+      ..reset()
+      ..start();
     _schedule(_generation);
     return true;
   }
@@ -900,6 +1274,7 @@ class AutoscoringController extends ChangeNotifier {
   }
 
   Future<void> _release() async {
+    await _video.close();
     running = false;
     _timer?.cancel();
     for (final s in _subscriptions) {

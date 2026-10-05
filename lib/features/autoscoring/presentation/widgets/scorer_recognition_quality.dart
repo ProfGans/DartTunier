@@ -23,7 +23,7 @@ class ScorerRecognitionQuality extends StatelessWidget {
             onPressed: () => showDialog<void>(
               context: context,
               builder: (context) => AlertDialog(
-                  scrollable: true,
+                scrollable: true,
                 title: const Text('Erkennungssicherheit'),
                 content: const Text(
                   'Die Anzeige berücksichtigt die Anzahl beteiligter Kameras, deren Übereinstimmung und die Nähe zum Draht. Millimeter geben die Abweichung der Kameralinien an, nicht den tatsächlichen Positionsfehler. Eine verlässliche Genauigkeit in Prozent erfordert unabhängig überprüfte Treffer.',

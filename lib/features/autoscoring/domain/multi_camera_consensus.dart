@@ -13,6 +13,33 @@ CameraConsensus chooseCameraConsensus(List<List<DartAxis>> cameras) {
   final primary = [for (final c in cameras) c.isEmpty ? null : c.first];
   final baseline = fuseAxes(primary.whereType<DartAxis>().toList());
   if (cameras.length != 3) return CameraConsensus(baseline, primary, false);
+  // A fit supported only by changes on the black rim must not displace two
+  // strong inner-board shaft observations by centimetres. Generic conflicting
+  // cameras remain ambiguous; this exception requires the rim-specific flag.
+  if (baseline == null && primary.whereType<DartAxis>().length == 3) {
+    final inner = primary
+        .whereType<DartAxis>()
+        .where((a) => !a.outerRimOnly)
+        .toList();
+    final rim = primary
+        .whereType<DartAxis>()
+        .where((a) => a.outerRimOnly)
+        .toList();
+    if (inner.length == 2 &&
+        rim.length == 1 &&
+        inner.every((a) => a.confidence >= .85)) {
+      final pair = fuseAxes(inner);
+      if (pair != null &&
+          pair.point.magnitude < 160 &&
+          rim.single.distance(pair.point) > 20) {
+        return CameraConsensus(
+          FusedHit(pair.point, pair.residual, 2, forcedDecision: true),
+          [for (final a in primary) a?.outerRimOnly == true ? null : a],
+          true,
+        );
+      }
+    }
+  }
   final combinations = <CameraConsensus>[];
   void visit(int index, List<DartAxis?> chosen) {
     if (index < cameras.length) {

@@ -39,6 +39,18 @@ class _AutoscorerPreviewState extends State<AutoscorerPreview> {
 }
 
 void main() {
+  Future<void> showResetButton(WidgetTester tester) async {
+    final button = find.widgetWithText(
+      OutlinedButton,
+      'Genauigkeitsstatistik zurücksetzen',
+    );
+    for (var i = 0; i < 20 && button.hitTestable().evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -200));
+      await tester.pumpAndSettle();
+    }
+    expect(button.hitTestable(), findsOneWidget);
+  }
+
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   const font = String.fromEnvironment('LAYOUT_PREVIEW_FONT');
@@ -84,6 +96,32 @@ void main() {
           scrollable: find.byType(Scrollable).first,
         );
         expect(tester.takeException(), isNull);
+        await showResetButton(tester);
+        await tester.tap(find.text('Genauigkeitsstatistik zurücksetzen'));
+        await tester.pumpAndSettle();
+        expect(find.text('Statistik zurücksetzen?'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        if (font.isNotEmpty && scale == 1) {
+          await tester.runAsync(() async {
+            // Capture the page with the reset action visible.
+            final boundary = tester.firstRenderObject<RenderRepaintBoundary>(
+              find.byType(RepaintBoundary),
+            );
+            final image = await boundary.toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            final file = File(
+              'build/layout_previews/autoscorer_reset_${size.width.toInt()}.png',
+            );
+            file.parent.createSync(recursive: true);
+            file.writeAsBytesSync(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+        await tester.tap(find.text('Abbrechen'));
+        await tester.pumpAndSettle();
+        expect(find.text('Genauigkeit: 50.0 %'), findsOneWidget);
         if (font.isNotEmpty && scale == 1) {
           tester
               .state<ScrollableState>(find.byType(Scrollable).first)
@@ -100,6 +138,29 @@ void main() {
             );
             final file = File(
               'build/layout_previews/autoscorer_setups_${size.width.toInt()}.png',
+            );
+            file.parent.createSync(recursive: true);
+            file.writeAsBytesSync(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+        if (font.isNotEmpty && scale == 1) {
+          await tester.scrollUntilVisible(
+            find.text('Neue Prüfserie starten'),
+            100,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            final boundary =
+                key.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary;
+            final image = await boundary.toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            final file = File(
+              'build/layout_previews/autoscorer_verification_${size.width.toInt()}.png',
             );
             file.parent.createSync(recursive: true);
             file.writeAsBytesSync(bytes!.buffer.asUint8List());
@@ -152,6 +213,30 @@ void main() {
     await tester.tap(find.text('Standard-Setup').last);
     await tester.pumpAndSettle();
     expect(store.active.accuracy, 100);
+    await store.flush();
+    await tester.pumpWidget(const SizedBox());
+    store.dispose();
+  });
+  testWidgets('Confirmed reset clears the selected setup in the menu', (
+    tester,
+  ) async {
+    final store = AutoscoreSetupStore();
+    await store.load();
+    final token = store.record();
+    store.review(token, corrected: false);
+    await tester.pumpWidget(MaterialApp(home: AutoscorerPage(store: store)));
+    await tester.pumpAndSettle();
+    await showResetButton(tester);
+    await tester.tap(find.text('Genauigkeitsstatistik zurücksetzen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Zurücksetzen'));
+    await tester.pumpAndSettle();
+    expect(store.active.total, 0);
+    expect(
+      find.text('Genauigkeit: noch keine geprüften Würfe'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
     await store.flush();
     await tester.pumpWidget(const SizedBox());
     store.dispose();

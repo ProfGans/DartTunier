@@ -8,6 +8,76 @@ import 'package:dart_tournament_manager/features/scorer/domain/x01/x01_rules.dar
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
+    'Reset is isolated, persisted, and rejects reviews from before reset',
+    () async {
+      final store = AutoscoreSetupStore();
+      await store.load();
+      store.saveSettings(cameras: ['USB1'], caller: false, volume: .4);
+      final correct = store.record(estimated: true);
+      final pending = store.record(missing: true, bounce: true);
+      store.review(correct, corrected: false);
+      store.create('Andere');
+      final other = store.record();
+      store.review(other, corrected: true);
+      store.resetStatistics('default');
+      store.review(correct, corrected: true);
+      store.review(pending, corrected: false);
+      expect(store.active.incorrect, 1);
+      store.select('default');
+      expect(store.active.accuracy, isNull);
+      expect([
+        store.active.total,
+        store.active.correct,
+        store.active.incorrect,
+        store.active.pending,
+        store.active.estimated,
+        store.active.missing,
+        store.active.bouncers,
+      ], everyElement(0));
+      expect(store.active.cameraKeys, ['USB1']);
+      expect(store.active.caller, false);
+      expect(store.active.volume, .4);
+      final fresh = store.record();
+      store.review(fresh, corrected: false);
+      expect(store.active.accuracy, 100);
+      await store.flush();
+      final restored = AutoscoreSetupStore();
+      await restored.load();
+      expect(restored.active.total, 1);
+      expect(restored.active.correct, 1);
+      expect(restored.setups.last.incorrect, 1);
+      store.dispose();
+      restored.dispose();
+    },
+  );
+  test(
+    'Resetting demo accuracy preserves scores, history and diagnoses',
+    () async {
+      final store = AutoscoreSetupStore();
+      await store.load();
+      final controller = AutoscoreDemoController(setupStore: store);
+      controller.add(const X01Rules().createSingle(20));
+      controller.confirm(0);
+      controller.history.first.diagnosticPath = 'diagnose.zip';
+      store.resetStatistics(store.active.id);
+      controller.resetAccuracy();
+      expect(controller.accuracyPercent, isNull);
+      expect(controller.uncheckedCount, 0);
+      expect(controller.totalPoints, 20);
+      expect(controller.history.first.diagnosticPath, 'diagnose.zip');
+      controller.review(0, const X01Rules().createSingle(5));
+      controller.reset();
+      expect(store.active.total, 0);
+      controller.add(const X01Rules().createSingle(1));
+      controller.reset();
+      expect(controller.accuracyPercent, 100);
+      expect(store.active.correct, 1);
+      await store.flush();
+      controller.dispose();
+      store.dispose();
+    },
+  );
+  test(
     'Removal confirms untouched throws and correction is sticky without double counting',
     () async {
       final store = AutoscoreSetupStore();

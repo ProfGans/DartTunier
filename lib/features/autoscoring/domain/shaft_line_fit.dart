@@ -22,15 +22,24 @@ DartAxis? fitShaftLine(
     final a = sample[random.nextInt(sample.length)],
         b = sample[random.nextInt(sample.length)],
         d = b - a;
-    if (d.magnitude < 12 / max(width, height)) continue;
-    final inliers = sample
-        .where(
-          (p) =>
-              ((p.x - a.x) * d.y - (p.y - a.y) * d.x).abs() / d.magnitude <=
-              tolerance,
-        )
-        .toList();
-    if (inliers.length > best.length) best = inliers;
+    final length = d.magnitude;
+    if (length < 12 / max(width, height)) continue;
+    var count = 0;
+    for (final p in sample) {
+      if (((p.x - a.x) * d.y - (p.y - a.y) * d.x).abs() / length <= tolerance) {
+        count++;
+      }
+    }
+    // Preserve the same samples, tie-breaking and inliers, but allocate only
+    // when a hypothesis improves. Its length does not vary between pixels.
+    if (count > best.length) {
+      best = [
+        for (final p in sample)
+          if (((p.x - a.x) * d.y - (p.y - a.y) * d.x).abs() / length <=
+              tolerance)
+            p,
+      ];
+    }
   }
   if (best.length < 12 || best.length < sample.length * minimumSupport) {
     return null;

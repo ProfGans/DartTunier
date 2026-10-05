@@ -9,6 +9,7 @@ import '../../backups/presentation/android_backup_export.dart';
 import '../data/android_update_service.dart';
 import '../domain/android_release.dart';
 import '../data/update_channel_preferences.dart';
+import 'manual_update_card.dart';
 
 class AndroidUpdatesPanel extends StatefulWidget {
   const AndroidUpdatesPanel({super.key, this.service, this.preferences});
@@ -150,6 +151,8 @@ class _AndroidUpdatesPanelState extends State<AndroidUpdatesPanel> {
       padding: const EdgeInsets.all(20),
       children: [
         Text('Updates', style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 12),
+        const ManualUpdateCard(),
         const SizedBox(height: 12),
         if (!_service.supported)
           const Text(

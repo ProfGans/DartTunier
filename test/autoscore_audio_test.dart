@@ -12,6 +12,9 @@ import 'package:dart_tournament_manager/features/autoscoring/presentation/widget
 import 'package:dart_tournament_manager/features/scorer/domain/x01/x01_rules.dart';
 
 class _Output implements AutoscoreAudioOutput {
+  final removals = <double>[];
+  @override
+  Future<void> removal(double volume) async => removals.add(volume);
   final effects = <bool>[];
   final speech = <String>[];
   Completer<void>? speaking;
@@ -35,6 +38,24 @@ class _Output implements AutoscoreAudioOutput {
 }
 
 void main() {
+  test(
+    'Removal sound respects effects setting and volume without caller',
+    () async {
+      final output = _Output();
+      final c = AutoscoreAudioController(output: output);
+      c.setCaller(false);
+      c.setVolume(.4);
+      c.confirmRemoval();
+      await c.idle;
+      expect(output.removals, [.4]);
+      expect(output.speech, isEmpty);
+      c.setSounds(false);
+      c.confirmRemoval();
+      await c.idle;
+      expect(output.removals, [.4]);
+      c.dispose();
+    },
+  );
   TestWidgetsFlutterBinding.ensureInitialized();
   const previewFont = String.fromEnvironment('LAYOUT_PREVIEW_FONT');
   setUpAll(() async {
