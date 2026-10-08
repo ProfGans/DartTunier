@@ -135,6 +135,17 @@ class BoardDisplayClient {
         throw const HttpException('Antwort des Geräts ungültig');
       }
       final completed = ack['result'] as String?;
+      final start = ack['startMatchId'] as String?;
+      if (start != null) {
+        if (!DeviceLinkAuth.verify(
+          key,
+          'start\n$nonce\n$start',
+          ack['startProof'] as String?,
+        )) {
+          throw const HttpException('Startanforderung des Geräts ungültig');
+        }
+        return {'kind': 'start', 'matchId': start};
+      }
       if (completed == null) return null;
       if (!DeviceLinkAuth.verify(
         key,

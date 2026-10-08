@@ -14,6 +14,7 @@ class SavedScorerMatch {
     required this.visits,
     this.winner,
     this.isDraw = false,
+    this.pendingDarts = 0,
   });
 
   final String id, accountId;
@@ -25,6 +26,17 @@ class SavedScorerMatch {
   final List<ScorerVisit> visits;
   final int? winner;
   final bool isDraw;
+
+  /// Individually entered darts in the owner's unfinished visit.
+  final int pendingDarts;
+  int get thrownDarts =>
+      pendingDarts +
+      visits
+          .where((v) => v.player == playerIndex)
+          .fold<int>(0, (sum, v) => sum + (v.thrownDarts ?? v.darts));
+  int get estimatedThrownDarts => visits
+      .where((v) => v.player == playerIndex && v.thrownDarts == null)
+      .fold<int>(0, (sum, v) => sum + v.darts);
   ScorerPlayerStatistics get statistics => ScorerStatistics.calculate(
     visits,
     playerCount: names.length,
@@ -33,7 +45,8 @@ class SavedScorerMatch {
   ).players[playerIndex];
 
   Map<String, dynamic> toJson() => {
-    'schemaVersion': 2,
+    'schemaVersion': 3,
+    'pendingDarts': pendingDarts,
     'isDraw': isDraw,
     'id': id,
     'accountId': accountId,
@@ -52,6 +65,7 @@ class SavedScorerMatch {
           'starter': v.starter,
           'points': v.points,
           'darts': v.darts,
+          'thrownDarts': v.thrownDarts,
           'remaining': v.remaining,
           'bust': v.bust,
           'checkoutAttempts': v.checkoutAttempts,
@@ -60,7 +74,7 @@ class SavedScorerMatch {
   };
 
   factory SavedScorerMatch.fromJson(Map<String, dynamic> json) {
-    if (![1, 2].contains(json['schemaVersion'])) {
+    if (![1, 2, 3].contains(json['schemaVersion'])) {
       throw const FormatException('Unbekannte Statistikversion');
     }
     return SavedScorerMatch(
@@ -74,6 +88,7 @@ class SavedScorerMatch {
       doubleOut: json['doubleOut'] as bool,
       winner: json['winner'] as int?,
       isDraw: json['isDraw'] as bool? ?? false,
+      pendingDarts: json['pendingDarts'] as int? ?? 0,
       visits: [
         for (final raw in json['visits'] as List)
           ScorerVisit(
@@ -82,6 +97,7 @@ class SavedScorerMatch {
             starter: raw['starter'] as int,
             points: raw['points'] as int,
             darts: raw['darts'] as int,
+            thrownDarts: raw['thrownDarts'] as int?,
             remaining: raw['remaining'] as int,
             bust: raw['bust'] as bool,
             checkoutAttempts: raw['checkoutAttempts'] as int?,

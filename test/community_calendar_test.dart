@@ -183,6 +183,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).at(0), 'Training');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ort & Hinweise'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).at(1), 'Vereinsheim');
       await tester.enterText(
         find.byType(TextFormField).at(2),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dart_tournament_manager/features/personal_profile/domain/personal_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dart_tournament_manager/features/communities/domain/community.dart';
 import 'package:dart_tournament_manager/features/communities/presentation/community_member_profile_page.dart';
@@ -8,6 +9,15 @@ import 'community_rankings_test.dart' show RankingsRepository;
 import 'community_tournament_elo_test.dart' show eloMembers, eloTournament;
 
 class MemberProfileRepository extends RankingsRepository {
+  @override
+  Future<PersonalProfile?> loadAccountProfile(
+    String communityId,
+    String userId,
+  ) async => const PersonalProfile(
+    name: 'Account-Spieler',
+    nationality: 'Deutschland',
+    favoriteDouble: 'D20',
+  );
   @override
   String get currentUserId => 'reader';
   @override
@@ -55,7 +65,12 @@ void main() {
     await tester.tap(find.text(eloMembers.first.displayName));
     await tester.pumpAndSettle();
     expect(find.text('Mitgliederprofil'), findsOneWidget);
+    expect(find.text('Account-Spieler'), findsOneWidget);
+    expect(find.text('Nationalität: Deutschland'), findsOneWidget);
+    expect(find.text('Profil bearbeiten'), findsNothing);
     expect(find.text('Mitglied seit 1.1.2026'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Aktuelle Form'), 150,
+      scrollable: find.byType(Scrollable).first);
     expect(find.text('Aktuelle Form'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Persönliche Statistik öffnen').hitTestable(),

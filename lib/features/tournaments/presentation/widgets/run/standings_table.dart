@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
 import '../../../domain/engines/qualification_certainty.dart';
+import '../../../modes/swiss/swiss_engine.dart';
 
 class StandingsTable extends StatelessWidget {
   const StandingsTable({
@@ -65,7 +66,7 @@ class StandingsTable extends StatelessWidget {
         headingRowHeight: 36,
         dataRowMinHeight: 40,
         dataRowMaxHeight: 44,
-        columns: const [
+        columns: [
           DataColumn(label: Text('#')),
           DataColumn(label: Text('Spieler')),
           DataColumn(label: Text('Sp')),
@@ -75,6 +76,7 @@ class StandingsTable extends StatelessWidget {
           DataColumn(label: Text('Legs')),
           DataColumn(label: Text('Diff')),
           DataColumn(label: Text('Pkt')),
+          if (group.playType == 'swiss') const DataColumn(label: Tooltip(message: 'Summe der Punkte der gespielten Gegner; Freilose zählen nicht mit.', child: Text('Buchholz'))),
         ],
         rows: [
           for (var index = 0; index < standings.length; index++)
@@ -148,6 +150,10 @@ class StandingsTable extends StatelessWidget {
                     isDark: _isSureQualification(standings[index], index + 1),
                   ),
                 ),
+                if (group.playType == 'swiss') DataCell(_StandingText(
+                  '${SwissEngine.buchholz(group, standings[index].player, standings)}',
+                  isDark: _isSureQualification(standings[index], index + 1),
+                )),
               ],
             ),
         ],

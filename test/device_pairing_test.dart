@@ -12,6 +12,46 @@ void main() {
   const target = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
   const source = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   test(
+    'board start is authenticated and cleared when revoked or reassigned',
+    () async {
+      final server = BoardDisplayServer(
+        port: 0,
+        bindAddress: InternetAddress.loopbackIPv4,
+      );
+      addTearDown(server.dispose);
+      final key = DeviceLinkAuth.newKey();
+      await server.configure(deviceId: target, key: key, enabled: true);
+      final client = BoardDisplayClient();
+      Future<Map<String, dynamic>?> send(bool allowed, String id) =>
+          client.send(
+            address: '127.0.0.1',
+            targetId: target,
+            key: key,
+            sourceId: source,
+            port: server.localPort!,
+            display: BoardDisplay(
+              tournamentId: 'cup',
+              tournamentName: 'Cup',
+              board: 1,
+              state: 'planned',
+              matchId: id,
+              allowDeviceStart: allowed,
+            ),
+          );
+      await send(false, 'first');
+      server.requestStart();
+      expect(server.startPending, isFalse);
+      await send(true, 'first');
+      server.requestStart();
+      expect(await send(true, 'first'), {'kind': 'start', 'matchId': 'first'});
+      expect(await send(true, 'second'), isNull);
+      expect(server.startPending, isFalse);
+      server.requestStart();
+      expect(await send(false, 'second'), isNull);
+      expect(server.startPending, isFalse);
+    },
+  );
+  test(
     'confirmed exchange derives a session key and reset revokes it',
     () async {
       final server = BoardDisplayServer(
@@ -102,7 +142,8 @@ void main() {
     addTearDown(sender.close);
     final found = Completer<void>();
     discovery.addListener(() {
-      if (discovery.peers.any((peer) => peer.device.id == target) && !found.isCompleted) {
+      if (discovery.peers.any((peer) => peer.device.id == target) &&
+          !found.isCompleted) {
         found.complete();
       }
     });
@@ -117,7 +158,14 @@ void main() {
     await found.future.timeout(const Duration(seconds: 2));
     await Future<void>.delayed(const Duration(milliseconds: 350));
     expect(discovery.localPort, isNotNull);
-    expect(discovery.peers.where((peer) => peer.device.id == target).single.device.name, 'Handy');
+    expect(
+      discovery.peers
+          .where((peer) => peer.device.id == target)
+          .single
+          .device
+          .name,
+      'Handy',
+    );
     await discovery.configure(settings, scanning: false);
     await Future<void>.delayed(const Duration(milliseconds: 150));
     expect(discovery.localPort, isNull);

@@ -38,7 +38,7 @@ void main() {
         expect(result.minimumMatchesPerPlayer, greaterThanOrEqualTo(2));
         expect(result.configurations.length, lessThanOrEqualTo(4));
         for (final stage in result.configurations) {
-          if (stage.type != 'groups' || stage.groupPlayType != 'round_robin') {
+          if (stage.type != 'groups' || !['round_robin', 'swiss'].contains(stage.groupPlayType)) {
             expect(stage.gameFormat.allowsDraws, isFalse);
           }
         }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
 
-enum StageViewMode { overview, playOrder, orderOfPlay, statistics }
+enum StageViewMode { director, overview, playOrder, orderOfPlay, statistics }
 
 class StageProgressBar extends StatelessWidget {
   const StageProgressBar({
@@ -141,10 +141,12 @@ class StageViewModeSwitch extends StatelessWidget {
     super.key,
     required this.selectedMode,
     required this.onModeChanged,
+    this.canLead = true,
   });
 
   final StageViewMode selectedMode;
   final ValueChanged<StageViewMode> onModeChanged;
+  final bool canLead;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -153,7 +155,8 @@ class StageViewModeSwitch extends StatelessWidget {
       label: 'Turnieransicht',
       selected: selectedMode,
       onChanged: onModeChanged,
-      sections: const [
+      sections: [
+        if (canLead) const SportSection(StageViewMode.director, 'Turnierleitung', Icons.dashboard_outlined),
         SportSection(
           StageViewMode.overview,
           'Uebersicht',
@@ -164,7 +167,7 @@ class StageViewModeSwitch extends StatelessWidget {
           'Spielansicht',
           Icons.format_list_numbered,
         ),
-        SportSection(
+        if (canLead) const SportSection(
           StageViewMode.orderOfPlay,
           'Order of Play',
           Icons.view_week_outlined,

@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../../personal_profile/domain/personal_profile.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,6 +17,15 @@ class SupabaseCommunityRepository {
     : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
+  Future<PersonalProfile?> loadAccountProfile(String communityId, String userId) async {
+    final viewer = currentUserId;
+    final result = await _client.rpc('community_account_profile', params: {
+      'requested_community_id': communityId,
+      'target_user_id': userId,
+    });
+    if (viewer != currentUserId) throw StateError('Account wurde gewechselt.');
+    return result == null ? null : PersonalProfile.fromJson(Map<String, dynamic>.from(result as Map));
+  }
   final TournamentStorage _storage = TournamentStorage();
   Future<List<CommunityRankingAction>> loadRankingActions(String communityId) =>
     CommunityRankingAdminRepository(_client, storage: _storage).load(communityId);
@@ -262,7 +272,7 @@ class SupabaseCommunityRepository {
     try {
       final rows = await _client
           .from('tournaments')
-          .select('payload,is_deleted,client_tournament_id')
+          .select('payload,is_deleted,client_tournament_id,owner_user_id')
           .eq('community_id', communityId)
           .order('updated_at', ascending: false)
           .timeout(const Duration(seconds: 5));
@@ -270,7 +280,10 @@ class SupabaseCommunityRepository {
         for (final row in rows)
           if (row['is_deleted'] != true)
             if (row['payload'] case final Map<String, dynamic> payload)
-              CreatedTournament.fromJson(payload),
+              CreatedTournament.fromJson({...payload, 'access': {
+                ...?payload['access'] as Map<String, dynamic>?,
+                'creatorUserId': row['owner_user_id'],
+              }}),
       ];
       deletedIds.addAll(
         rows

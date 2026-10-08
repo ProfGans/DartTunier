@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_settings_section.dart';
 import '../../../shared/widgets/sport_section_navigation.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import '../../backups/presentation/backup_panel.dart';
@@ -82,6 +83,11 @@ class _PlanningParametersPanel extends StatefulWidget {
 class _PlanningParametersPanelState extends State<_PlanningParametersPanel> {
   final _storage = PlanningSettingsStorage();
   final _form = GlobalKey<FormState>();
+  final _sections = {
+    for (final category
+        in PlanningParameter.values.map((p) => p.category).toSet())
+      category: GlobalKey<SportSettingsSectionState>(),
+  };
   final _controllers = {
     for (final parameter in PlanningParameter.values)
       parameter: TextEditingController(text: '${parameter.defaultValue}'),
@@ -115,7 +121,12 @@ class _PlanningParametersPanelState extends State<_PlanningParametersPanel> {
   }
 
   Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
+    if (!_form.currentState!.validate()) {
+      for (final section in _sections.values) {
+        section.currentState?.expand();
+      }
+      return;
+    }
     setState(() => _saving = true);
     try {
       await _storage.save(
@@ -185,16 +196,17 @@ class _PlanningParametersPanelState extends State<_PlanningParametersPanel> {
           const SizedBox(height: 16),
           for (final category
               in PlanningParameter.values.map((p) => p.category).toSet())
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+            SportSettingsSection(
+              key: _sections[category],
+              title: category,
+              summary:
+                  '${PlanningParameter.values.where((p) => p.category == category).length} Einstellungen · bei Bedarf anpassen',
+              initiallyExpanded:
+                  category == PlanningParameter.values.first.category,
+              children: [
+                AdaptiveTileLayout(
+                  minTileWidth: 320,
                   children: [
-                    Text(
-                      category,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
                     for (final parameter in PlanningParameter.values.where(
                       (p) => p.category == category,
                     ))
@@ -228,11 +240,18 @@ class _PlanningParametersPanelState extends State<_PlanningParametersPanel> {
                       ),
                   ],
                 ),
-              ),
+              ],
             ),
           const SizedBox(height: 12),
-          const Text(
-            'Leg-Dauern sind Schätzwerte. Pro Match gilt der Mittelwert aus minimaler und maximaler Leg-Zahl: Bo3 = 2,5; Bo5 = 4; Bo101 = 76; Bo1 = 1 Leg. Bei Sets wird zusätzlich mit der mittleren Set-Zahl gerechnet. Double In verwendet die Double-Out-Dauer. Weniger Strafpunkte bedeuten eine bessere Platzierung. Spielerzahl, Boards, Zeitfenster, Punktzahl und Checkout werden weiterhin je Turniersuche festgelegt.',
+          const SportSettingsSection(
+            title: 'So wird gerechnet',
+            summary: 'Leg-Dauern und Bewertung erklärt',
+            icon: Icons.info_outline,
+            children: [
+              Text(
+                'Leg-Dauern sind Schätzwerte. Pro Match gilt der Mittelwert aus minimaler und maximaler Leg-Zahl: Bo3 = 2,5; Bo5 = 4; Bo101 = 76; Bo1 = 1 Leg. Bei Sets wird zusätzlich mit der mittleren Set-Zahl gerechnet. Double In verwendet die Double-Out-Dauer. Weniger Strafpunkte bedeuten eine bessere Platzierung. Spielerzahl, Boards, Zeitfenster, Punktzahl und Checkout werden weiterhin je Turniersuche festgelegt.',
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Wrap(

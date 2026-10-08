@@ -3,6 +3,24 @@ import 'package:dart_tournament_manager/features/tournaments/domain/engines/grou
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
 
 void main() {
+  test('complete ties use a stable lottery rather than alphabetical priority', () {
+    final players = [for (final name in ['A', 'B', 'C'])
+      TournamentPlayer(name: name, isGenerated: false)];
+    final candidates = [for (var i = 0; i < players.length; i++)
+      BestOfCandidate(groupName: '$i', groupNumber: i + 1, place: 1,
+        standing: PlayerStanding(players[i])..played = 3..points = 9)];
+    List<int?> draw(String key, List<BestOfCandidate> entries) => const GroupByeSeeding().assign(
+      slots: [1, null, 2, 3], players: players, candidates: entries,
+      tieBreakers: defaultGroupTieBreakers, drawKey: key);
+    final recipients = <int?>{};
+    for (var i = 0; i < 40; i++) {
+      final result = draw('tournament-$i', candidates);
+      expect(draw('tournament-$i', candidates.reversed.toList()), result);
+      recipients.add(result.first);
+    }
+    expect(recipients, {1, 2, 3});
+    expect(const GroupByeSeeding().compare(candidates[0], candidates[1], defaultGroupTieBreakers), 0);
+  });
   test(
     'best group winners from B and C get byes instead of the first two in A',
     () {

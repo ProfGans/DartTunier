@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.14)
+project(autoscore_native_probe LANGUAGES CXX)
+add_executable(autoscore_native_probe main.cpp)
+target_compile_features(autoscore_native_probe PRIVATE cxx_std_17)
+target_include_directories(autoscore_native_probe PRIVATE ../../packages/camera_windows/windows)
+target_link_libraries(autoscore_native_probe PRIVATE windowscodecs ole32)

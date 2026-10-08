@@ -12,9 +12,13 @@ class ScorerVisit {
     required this.remaining,
     required this.bust,
     required this.checkoutAttempts,
+    this.thrownDarts,
   });
   final int player, leg, starter, points, darts, remaining;
   final bool bust;
+
+  /// Observed or explicitly entered count; null for unknown totals/old visits.
+  final int? thrownDarts;
   final int? checkoutAttempts;
   bool get finished => !bust && remaining == 0;
 }

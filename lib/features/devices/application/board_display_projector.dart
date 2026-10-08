@@ -48,6 +48,7 @@ class BoardDisplayProjector {
       }
     }
     return BoardDisplay(
+      allowDeviceStart: tournament.allowDeviceStart && state == 'planned',
       tournamentId: tournament.id,
       tournamentName: tournament.name,
       board: board,

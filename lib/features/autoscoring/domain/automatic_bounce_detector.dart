@@ -5,9 +5,17 @@ import 'frame_detector.dart';
 /// A short shaft observation that disappears back to the occupied reference.
 class AutomaticBounceDetector {
   int? _appearedAt, _returnedAt;
+  List<double>? _transientPeak;
+  int? _transientStarted;
+  int _settled = 0;
+  Map<String, Object?> metrics = const {};
   void reset() {
     _appearedAt = null;
     _returnedAt = null;
+    _transientPeak = null;
+    _transientStarted = null;
+    _settled = 0;
+    metrics = const {};
   }
 
   bool observe({
@@ -23,6 +31,48 @@ class AutomaticBounceDetector {
         detector.changedFraction(reference[i], current[i], threshold: 17),
     ];
     final returned = fractions.every((f) => f < .0001);
+    // Some bounces only expose a blurred flight in one view. Small changes
+    // from vibrating existing darts need not return to pixel-identical images.
+    // Require a localized multi-camera transient, a large decline in its peak,
+    // repeated settled frames and no persistent shaft evidence.
+    if (_transientPeak == null &&
+        fractions.any((f) => f >= .015 && f < .06) &&
+        fractions.where((f) => f >= .002 && f < .06).length >= 2) {
+      _transientPeak = List.of(fractions);
+      _transientStarted = nowMilliseconds;
+    }
+    if (_transientPeak != null) {
+      final elapsed = nowMilliseconds - _transientStarted!;
+      if (elapsed < 0 || elapsed > 900 || fractions.any((f) => f >= .06)) {
+        _transientPeak = null;
+        _settled = 0;
+      } else {
+        final decayed = List.generate(
+          3,
+          (i) =>
+              _transientPeak![i] >= .015 &&
+              fractions[i] <= _transientPeak![i] * .45,
+        ).any((v) => v);
+        _settled = decayed && stable && axes.isEmpty ? _settled + 1 : 0;
+        metrics = {
+          'transientPeak': _transientPeak,
+          'currentChanges': fractions,
+          'elapsedMilliseconds': elapsed,
+          'decayed': decayed,
+          'settledSamples': _settled,
+          'persistentAxes': axes.length,
+        };
+        if (_settled >= 2) {
+          final accepted = {
+            ...metrics,
+            'reason': 'transientWithoutPersistentShaft',
+          };
+          reset();
+          metrics = accepted;
+          return true;
+        }
+      }
+    }
     if (returned) {
       if (_appearedAt == null) return false;
       _returnedAt ??= nowMilliseconds;

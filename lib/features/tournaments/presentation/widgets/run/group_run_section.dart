@@ -114,7 +114,7 @@ class _GroupRunSectionState extends State<GroupRunSection> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
-                      Chip(label: Text('${widget.group.matches.length}')),
+                      Chip(label: Text('${widget.group.playType == 'swiss' ? (widget.group.players.length ~/ 2) * widget.group.matches.map((m) => m.round).toSet().length : widget.group.matches.length}')),
                     ],
                   ),
                 ),

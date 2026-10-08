@@ -1,3 +1,4 @@
+import '../../../shared/widgets/paged_entries.dart';
 import '../../statistics/presentation/heatmap/cockpit_heatmap_section.dart';
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/adaptive_content.dart';
@@ -26,10 +27,18 @@ class CommunityAnalyticsPage extends StatefulWidget {
 }
 
 class _CommunityAnalyticsState extends State<CommunityAnalyticsPage> {
-  StatisticsReport get all => const StatisticsAnalytics().tournaments(
+  late StatisticsReport all = _loadReport();
+  StatisticsReport _loadReport() => const StatisticsAnalytics().tournaments(
     widget.data.tournaments,
     aliases: widget.data.aliases,
   );
+  @override
+  void didUpdateWidget(covariant CommunityAnalyticsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Parent supplies a fresh snapshot after reload or result corrections.
+    all = _loadReport();
+  }
+
   StatisticsPeriod? period;
   String periodLabel = 'Gesamt';
   int metricIndex = 4;
@@ -48,7 +57,7 @@ class _CommunityAnalyticsState extends State<CommunityAnalyticsPage> {
             (
               id: player.key,
               name: player.value,
-              report: report.filtered(players: {player.key}),
+              report: report.byPlayer[player.key] ?? StatisticsReport(const []),
             ),
         ]..sort((a, b) {
           final x = a.report.value(metric), y = b.report.value(metric);
@@ -139,8 +148,10 @@ class _CommunityAnalyticsState extends State<CommunityAnalyticsPage> {
         const SizedBox(height: 16),
         if (report.observations.isEmpty)
           const Text('Keine erfassten Begegnungen im gewählten Zeitraum.'),
-        for (final player in ranked)
-          Card(
+        PagedEntries<({String id, String name, StatisticsReport report})>(
+          key: ValueKey('$periodLabel-$period-$doubles-$metricIndex'),
+          entries: ranked,
+          builder: (player) => Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -206,6 +217,7 @@ class _CommunityAnalyticsState extends State<CommunityAnalyticsPage> {
               ),
             ),
           ),
+        ),
       ],
     );
     return widget.embedded

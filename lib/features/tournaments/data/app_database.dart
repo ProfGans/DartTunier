@@ -12,11 +12,22 @@ import '../domain/tournament_models.dart';
 class LocalAppDatabase {
   LocalAppDatabase({Directory? baseDirectory}) : _baseDirectory = baseDirectory;
 
-  static const schemaVersion = 3;
+  static const schemaVersion = 5;
   static const _testUserId = '00000000-0000-4000-8000-000000000001';
   static const _currentUserSessionKey = 'current_user_id';
 
   final Directory? _baseDirectory;
+
+  /// Uses the same restore lock and migration backups as other app data.
+  Future<T> withDatabase<T>(Future<T> Function(Database) action) =>
+      StorageAccess.run(() async {
+        final database = await _openDatabase();
+        try {
+          return await action(database);
+        } finally {
+          database.close();
+        }
+      });
 
   Future<AccountUser?> loadCurrentAccount() async {
     return StorageAccess.run(() async {
@@ -307,6 +318,22 @@ class LocalAppDatabase {
       }
       if (currentVersion < 3) {
         _createSessionSchema(database);
+      }
+      if (currentVersion < 4) {
+        database.execute(
+          'CREATE TABLE IF NOT EXISTS heatmap_sessions (id TEXT PRIMARY KEY, date TEXT NOT NULL, payload TEXT NOT NULL)',
+        );
+        database.execute(
+          'CREATE INDEX IF NOT EXISTS heatmap_date ON heatmap_sessions(date DESC)',
+        );
+        database.execute(
+          'CREATE TABLE IF NOT EXISTS heatmap_migration (id INTEGER PRIMARY KEY CHECK(id = 1), legacy_json TEXT)',
+        );
+      }
+      if (currentVersion < 5) {
+        database.execute(
+          'CREATE TABLE IF NOT EXISTS profile_heatmaps (owner_user_id TEXT NOT NULL, session_id TEXT NOT NULL, payload TEXT NOT NULL, pending INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(owner_user_id, session_id))',
+        );
       }
       database.execute('PRAGMA user_version = $schemaVersion');
       database.execute('COMMIT');

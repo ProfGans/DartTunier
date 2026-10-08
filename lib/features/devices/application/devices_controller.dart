@@ -6,6 +6,7 @@ import '../data/lan_device_discovery.dart';
 import '../domain/app_device.dart';
 import '../data/board_display_server.dart';
 import '../data/device_link_auth.dart';
+import 'board_result_presentation.dart';
 
 class DevicesController extends ChangeNotifier {
   DevicesController({
@@ -19,6 +20,7 @@ class DevicesController extends ChangeNotifier {
        receiver = receiver ?? BoardDisplayServer() {
     this.discovery.addListener(_changed);
     this.receiver.addListener(_changed);
+    boardPresentation.addListener(_changed);
     _authSubscription = this.accountRepository.authChanges?.listen((_) {
       final current = this.accountRepository.userId;
       if (current != _accountId) {
@@ -34,6 +36,7 @@ class DevicesController extends ChangeNotifier {
   final LanDeviceDiscovery discovery;
   final DeviceAccountRepository accountRepository;
   final BoardDisplayServer receiver;
+  late final boardPresentation = BoardResultPresentation(receiver);
   bool showDisplay = true;
   void setShowDisplay(bool show) {
     showDisplay = show;
@@ -204,6 +207,7 @@ class DevicesController extends ChangeNotifier {
     }
     if (!_disposed) notifyListeners();
   }
+
   String? _lastScorerMatch;
 
   @override
@@ -213,6 +217,8 @@ class DevicesController extends ChangeNotifier {
     discovery.removeListener(_changed);
     discovery.dispose();
     receiver.removeListener(_changed);
+    boardPresentation.removeListener(_changed);
+    boardPresentation.dispose();
     receiver.dispose();
     super.dispose();
   }

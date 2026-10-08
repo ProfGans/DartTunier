@@ -5,6 +5,7 @@ const double _previewBracketCardHeight = 160;
 class _KnockoutPreview extends StatelessWidget {
   const _KnockoutPreview({
     required this.participantCount,
+    this.placementPlaces = const [],
     required this.bracketSize,
     required this.byeCount,
     required this.eliminationLossLimit,
@@ -20,6 +21,7 @@ class _KnockoutPreview extends StatelessWidget {
   });
 
   final int? participantCount;
+  final List<int> placementPlaces;
   final int? bracketSize;
   final int byeCount;
   final int eliminationLossLimit;
@@ -151,6 +153,19 @@ class _KnockoutPreview extends StatelessWidget {
             qualifyingRank: 0,
             onSwapSlot: onSwapSlot,
           )
+        else if (placementPlaces.isNotEmpty)
+          Builder(builder: (context) {
+            final players = [for (var i = 0; i < resolvedParticipantCount; i++)
+              TournamentPlayer(name: i < participantLabels.length ? participantLabels[i] : 'Teilnehmer ${i + 1}', isGenerated: true)];
+            final rounds = _buildKnockoutRoundsForPlayers(players, slotOrder: slots);
+            final placements = PlacementEngine.build(rounds, placementPlaces.where((p) => p < players.length));
+            return _KnockoutBracketView(
+              stage: KnockoutTournamentRunStage(name: 'Vorschau', rounds: rounds),
+              qualifyingRank: 0, placementMatches: placements,
+              onEditResult: (_) {}, canEditResults: false,
+              isEditMode: true, onSwapSlot: onSwapSlot,
+            );
+          })
         else
           _CompactKnockoutPreviewTree(
             bracketSize: resolvedBracketSize,
@@ -1175,6 +1190,7 @@ class _GroupEliminationBracketPreview extends StatelessWidget {
 class _InheritedKnockoutSetup extends StatelessWidget {
   const _InheritedKnockoutSetup({
     required this.previousStage,
+    this.placementPlaces = const [],
     required this.qualificationPlan,
     required this.participantCount,
     required this.bracketSize,
@@ -1192,6 +1208,7 @@ class _InheritedKnockoutSetup extends StatelessWidget {
   });
 
   final TournamentStage? previousStage;
+  final List<int> placementPlaces;
   final QualificationPlan? qualificationPlan;
   final int? participantCount;
   final int? bracketSize;
@@ -1229,6 +1246,7 @@ class _InheritedKnockoutSetup extends StatelessWidget {
           ),
         const SizedBox(height: 8),
         _KnockoutPreview(
+          placementPlaces: placementPlaces,
           participantCount: participantCount,
           bracketSize: bracketSize,
           byeCount: byeCount,
@@ -1278,7 +1296,9 @@ class _StageList extends StatelessWidget {
 
     final details = [
       for (var index = 0; index < stage.groupSizes.length; index++)
-        if (_groupPlayTypeForStage(stage, index) == 'round_robin')
+        if (_groupPlayTypeForStage(stage, index) == 'swiss')
+          '${groupLabel(index + 1)} ${_roundRobinRepeatForStage(stage, index)} Swiss-Runden'
+        else if (_groupPlayTypeForStage(stage, index) == 'round_robin')
           '${groupLabel(index + 1)} ${index < stage.groupRoundRobinRepeats.length ? stage.groupRoundRobinRepeats[index] : 1}x',
     ].join(', ');
 
@@ -1297,7 +1317,9 @@ class _StageList extends StatelessWidget {
     for (var index = 0; index < stage.groupSizes.length; index++) {
       final repeatCount = _roundRobinRepeatForStage(stage, index);
       final playType = _groupPlayTypeForStage(stage, index);
-      totalMatches += playType == 'round_robin'
+      totalMatches += playType == 'swiss'
+          ? (stage.groupSizes[index] ~/ 2) * repeatCount
+          : playType == 'round_robin'
           ? _roundRobinMatchCount(stage.groupSizes[index], repeatCount)
           : playType == 'mini_knockout' && stage.placementPlaces.isNotEmpty ? stage.groupSizes[index] - 1 + _optionalPlacementMatchCount(stage.groupSizes[index], {...stage.placementPlaces, if (_requiredRankForStoredStageGroup(stage, index).isOdd && _requiredRankForStoredStageGroup(stage, index) >= 3) _requiredRankForStoredStageGroup(stage, index)}) : _groupEliminationMatchEstimate(
               stage.groupSizes[index],

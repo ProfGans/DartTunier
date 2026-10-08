@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/features/scorer/presentation/widgets/score_keypad.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,7 @@ import 'package:dart_tournament_manager/features/scorer/domain/scorer_settings.d
 import 'package:dart_tournament_manager/features/scorer/domain/x01/x01_rules.dart';
 import 'package:dart_tournament_manager/features/scorer/domain/x01/x01_models.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/scorer_match_page.dart';
+import 'package:dart_tournament_manager/features/scorer/presentation/widgets/scorer_scoreboard.dart';
 
 void main() {
   testWidgets(
@@ -30,7 +32,7 @@ void main() {
       await tester.tap(find.byTooltip('Autoscorer · drei Kameras'));
       await tester.pumpAndSettle();
       var panel = tester.widget<ScorerCameraPanel>(
-        find.byType(ScorerCameraPanel),
+        find.byType(ScorerCameraPanel, skipOffstage: false),
       );
       panel.onPreview!([const X01Rules().createSingle(20)], [false]);
       await tester.pump();
@@ -45,13 +47,17 @@ void main() {
       panel.onAccept([]);
       await tester.pumpAndSettle();
       expect(find.textContaining('Dart 3 nicht erfasst'), findsOneWidget);
-      panel = tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel));
+      panel = tester.widget<ScorerCameraPanel>(
+        find.byType(ScorerCameraPanel, skipOffstage: false),
+      );
       expect(panel.enabled, false);
       await tester.tap(find.text('Abbrechen'));
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel))
+            .widget<ScorerCameraPanel>(
+              find.byType(ScorerCameraPanel, skipOffstage: false),
+            )
             .enabled,
         false,
       );
@@ -64,7 +70,9 @@ void main() {
       expect(find.textContaining('nicht erfasst'), findsNothing);
       expect(
         tester
-            .widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel))
+            .widget<ScorerCameraPanel>(
+              find.byType(ScorerCameraPanel, skipOffstage: false),
+            )
             .enabled,
         true,
       );
@@ -91,21 +99,58 @@ void main() {
         ),
       ),
     );
+    expect(find.byType(ScoreKeypad), findsOneWidget);
     await tester.tap(find.byTooltip('Autoscorer · drei Kameras'));
     await tester.pumpAndSettle();
-    final original = tester.state(find.byType(ScorerCameraPanel));
+    expect(find.byType(ScoreKeypad), findsNothing);
+    expect(find.textContaining('Summe der Aufnahme eingeben'), findsNothing);
+    final original = tester.state(
+      find.byType(ScorerCameraPanel, skipOffstage: false),
+    );
+    expect(find.byType(ScorerCameraPanel), findsNothing);
+    expect(tester.getSize(find.byType(ScorerScoreboard)).width, greaterThan(1300));
+    await tester.tap(find.text('Autoscoring aktiv · Darts korrigieren'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScorerCameraPanel), findsOneWidget);
+    expect(tester.getSize(find.byType(ScorerScoreboard)).width, lessThan(750));
+    await tester.tap(find.text('Autoscoring-Korrektur ausblenden'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScorerCameraPanel), findsNothing);
+    expect(
+      tester.state(find.byType(ScorerCameraPanel, skipOffstage: false)),
+      same(original),
+    );
     tester.view.physicalSize = const Size(360, 800);
     await tester.pumpAndSettle();
     expect(
-      identical(tester.state(find.byType(ScorerCameraPanel)), original),
+      identical(
+        tester.state(find.byType(ScorerCameraPanel, skipOffstage: false)),
+        original,
+      ),
       true,
     );
     tester.view.physicalSize = const Size(1440, 900);
     await tester.pumpAndSettle();
     expect(
-      identical(tester.state(find.byType(ScorerCameraPanel)), original),
+      identical(
+        tester.state(find.byType(ScorerCameraPanel, skipOffstage: false)),
+        original,
+      ),
       true,
     );
+    expect(find.byType(ScoreKeypad), findsNothing);
+    tester
+        .widget<ScorerCameraPanel>(
+          find.byType(ScorerCameraPanel, skipOffstage: false),
+        )
+        .onClose();
+    await tester.pumpAndSettle();
+    expect(find.byType(ScoreKeypad), findsOneWidget);
+    expect(
+      tester.widget<ScoreKeypad>(find.byType(ScoreKeypad)).enabled,
+      isTrue,
+    );
+    expect(find.textContaining('Summe der Aufnahme eingeben'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -134,13 +179,15 @@ void main() {
     final first = const X01Rules().createSingle(20);
     final last = const X01Rules().createDouble(10);
     var panel = tester.widget<ScorerCameraPanel>(
-      find.byType(ScorerCameraPanel),
+      find.byType(ScorerCameraPanel, skipOffstage: false),
     );
     panel.onLocations!([const DartLocation(0, -120)]);
     panel.onPreview!([first], [null]);
     await tester.pump();
     expect(find.text('20'), findsWidgets);
-    panel = tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel));
+    panel = tester.widget<ScorerCameraPanel>(
+      find.byType(ScorerCameraPanel, skipOffstage: false),
+    );
     expect(panel.attempts, [true]);
     panel.onLocations!([
       const DartLocation(0, -120),
@@ -149,15 +196,20 @@ void main() {
     panel.onPreview!([first, last], [null, null]);
     await tester.pump();
     expect(finished, isNull);
-    expect(await ScorerHeatmapRepository().load(), isEmpty);
-    panel = tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel));
+    expect(
+      await tester.runAsync(() => ScorerHeatmapRepository().load()),
+      isEmpty,
+    );
+    panel = tester.widget<ScorerCameraPanel>(
+      find.byType(ScorerCameraPanel, skipOffstage: false),
+    );
     expect(panel.attempts, [true, true]);
     panel.onAccept([]);
     await tester.pump();
     expect(finished!.statistics.players.first.checkoutPercent, 50);
     expect(find.text('A gewinnt!'), findsOneWidget);
-    final saved = await ScorerHeatmapRepository().load();
-    expect(saved.single.hits.length, 2);
+    final saved = await tester.runAsync(() => ScorerHeatmapRepository().load());
+    expect(saved!.single.hits.length, 2);
     expect(saved.single.hits.last.location.corrected, true);
     expect(saved.single.complete, true);
     await tester.pumpWidget(const SizedBox());
@@ -187,7 +239,11 @@ void main() {
     );
     await tester.tap(find.byTooltip('Autoscorer · drei Kameras'));
     await tester.pumpAndSettle();
-    tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel)).onPreview!(
+    tester
+        .widget<ScorerCameraPanel>(
+          find.byType(ScorerCameraPanel, skipOffstage: false),
+        )
+        .onPreview!(
       [
         const X01Rules().createSingle(20),
         const X01Rules().createSingle(20),
@@ -196,11 +252,17 @@ void main() {
       [null, null, null],
     );
     tester
-        .widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel))
+        .widget<ScorerCameraPanel>(
+          find.byType(ScorerCameraPanel, skipOffstage: false),
+        )
         .onAccept([]);
     await tester.pump();
     expect(
-      tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel)).enabled,
+      tester
+          .widget<ScorerCameraPanel>(
+            find.byType(ScorerCameraPanel, skipOffstage: false),
+          )
+          .enabled,
       isFalse,
     );
     // Both bots must play all three darts even with no camera connected.
@@ -208,7 +270,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 25));
     }
     expect(
-      tester.widget<ScorerCameraPanel>(find.byType(ScorerCameraPanel)).enabled,
+      tester
+          .widget<ScorerCameraPanel>(
+            find.byType(ScorerCameraPanel, skipOffstage: false),
+          )
+          .enabled,
       isTrue,
     );
     expect(find.textContaining('Human ist am Wurf'), findsOneWidget);
@@ -240,7 +306,7 @@ void main() {
         await tester.tap(find.byTooltip('Autoscorer · drei Kameras'));
         await tester.pumpAndSettle();
         final camera = tester.widget<ScorerCameraPanel>(
-          find.byType(ScorerCameraPanel),
+          find.byType(ScorerCameraPanel, skipOffstage: false),
         );
         expect(camera.dartsLeft, 3);
         camera.onPreview!([const X01Rules().createDouble(20)], [null]);

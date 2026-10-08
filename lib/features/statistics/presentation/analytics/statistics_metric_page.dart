@@ -1,3 +1,4 @@
+import '../../../../shared/widgets/paged_entries.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/adaptive_content.dart';
 import '../../domain/analytics/statistics_metric.dart';
@@ -32,26 +33,18 @@ class _MetricState extends State<StatisticsMetricPage> {
   @override
   Widget build(BuildContext context) {
     final metric = widget.metric;
-    final report = StatisticsReport(
-      widget.report
-          .filtered(period: period)
-          .observations
-          .where((o) => startScore == null || o.startScore == startScore),
+    final report = widget.report.filtered(
+      period: period,
+      startScore: startScore,
     );
     final series = report.series(metric);
     final chart = series.reversed.take(30).toList().reversed.toList();
     final trend = report.trend(metric);
     final distribution = report.distribution(metric);
     final histogram = report.histogram(metric);
-    final values = [
-      for (final point in chart)
-        mode == 'Einzelwerte'
-            ? point.$2
-            : report.value(
-                metric,
-                series.take(series.indexOf(point) + 1).map((p) => p.$1),
-              )!,
-    ];
+    final values = mode == 'Einzelwerte'
+        ? chart.map((point) => point.$2).toList()
+        : report.cumulative(metric).skip(series.length - chart.length).toList();
     final index = (selected ?? (chart.length - 1)).clamp(
       0,
       chart.isEmpty ? 0 : chart.length - 1,
@@ -243,8 +236,10 @@ class _MetricState extends State<StatisticsMetricPage> {
             const Text(
               'Gruppiert nach den gespeicherten Gegnernamen. Bei gleichen Namen kann die Zuordnung mehrdeutig sein.',
             ),
-            for (final entry in opponents.entries)
-              ListTile(
+            PagedEntries<MapEntry<String, List<StatisticsObservation>>>(
+              key: ValueKey('opponents-$periodLabel-$period-$startScore'),
+              entries: opponents.entries.toList(),
+              builder: (entry) => ListTile(
                 title: Text(entry.key),
                 subtitle: Text(
                   '${entry.value.length} Begegnungen · ${entry.value.where((o) => o.result == 'S').length} Siege',
@@ -253,6 +248,7 @@ class _MetricState extends State<StatisticsMetricPage> {
                   metric.format(report.value(metric, entry.value)),
                 ),
               ),
+            ),
           ],
           const SizedBox(height: 24),
           Text(
@@ -261,8 +257,10 @@ class _MetricState extends State<StatisticsMetricPage> {
           ),
           if (report.observations.isEmpty)
             const Text('Keine Daten im gewählten Zeitraum.'),
-          for (final o in report.observations.reversed)
-            Card(
+          PagedEntries<StatisticsObservation>(
+            key: ValueKey('values-$periodLabel-$period-$startScore'),
+            entries: report.observations.reversed.toList(),
+            builder: (o) => Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
@@ -280,6 +278,7 @@ class _MetricState extends State<StatisticsMetricPage> {
                 ),
               ),
             ),
+          ),
         ],
       ),
     );

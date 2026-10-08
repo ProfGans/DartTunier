@@ -7,6 +7,7 @@ import 'package:dart_tournament_manager/features/tournaments/data/tournament_sto
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/scorer_match_page.dart';
 import 'package:dart_tournament_manager/features/scorer/application/scorer_controller.dart';
+import 'package:dart_tournament_manager/features/scorer/presentation/monitor/scorer_monitor_page.dart';
 
 class MemoryResults extends TournamentStorage {
   final rows = <String,List<dynamic>>{};
@@ -26,6 +27,8 @@ void main() {
     Widget app() => MaterialApp(home:DeviceScorerSession(display:display,receiver:receiver,storage:storage,onExit:() {}));
     await tester.pumpWidget(app()); await tester.pumpAndSettle();
     final scorer = tester.widget<ScorerMatchPage>(find.byType(ScorerMatchPage));
+    expect(scorer.startInMonitorMode, isTrue);
+    expect(find.byType(ScorerMonitorPage), findsOneWidget);
     final controller = ScorerController(scorer.settings);
     addTearDown(controller.dispose);
     controller.submitScore(40,checkoutDarts:1,checkoutAttempts:1);
@@ -56,6 +59,7 @@ void main() {
       home:DeviceScorerSession(key:const ValueKey('match-1'),display:display,receiver:receiver,storage:storage,onExit:() {}));
     await tester.pumpWidget(app()); await tester.pumpAndSettle();
     final scorerState = tester.state(find.byType(ScorerMatchPage));
+    expect(find.byType(ScorerMonitorPage), findsOneWidget);
     for (final size in [const Size(360,800),const Size(800,600),const Size(1440,900)]) {
       tester.view.physicalSize=size;
       await tester.pumpWidget(app()); await tester.pumpAndSettle();
@@ -63,5 +67,9 @@ void main() {
       expect(find.textContaining('Anna Musterfrau'), findsWidgets);
       expect(tester.takeException(),isNull);
     }
+    await tester.tap(find.byTooltip('Zum Scorer'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScorerMonitorPage), findsNothing);
+    expect(tester.state(find.byType(ScorerMatchPage)), same(scorerState));
   });
 }

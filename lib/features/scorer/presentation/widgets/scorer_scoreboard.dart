@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'scorer_play_sizing.dart';
 
 class ScorerScoreboardPlayer {
   const ScorerScoreboardPlayer({
@@ -23,8 +24,10 @@ class ScorerScoreboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      final sizing = ScorerPlaySizing.of(context);
+      final spacious = (sizing?.scoreHeight ?? 0) > 0;
       final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
-      final columns = constraints.maxWidth >= 300 * scale ? 2 : 1;
+      final columns = constraints.maxWidth >= 320 * scale ? 2 : 1;
       final width = (constraints.maxWidth - (columns - 1) * 10) / columns;
       final scheme = Theme.of(context).colorScheme;
       return Wrap(
@@ -35,7 +38,10 @@ class ScorerScoreboard extends StatelessWidget {
             SizedBox(
               width: width,
               child: Container(
-                padding: const EdgeInsets.all(14),
+                constraints: BoxConstraints(
+                  minHeight: sizing?.scoreHeight ?? 0,
+                ),
+                padding: EdgeInsets.all(spacious ? 24 : 14),
                 decoration: BoxDecoration(
                   color: player.active ? scheme.secondary : scheme.surface,
                   borderRadius: BorderRadius.circular(18),
@@ -53,6 +59,7 @@ class ScorerScoreboard extends StatelessWidget {
                         : scheme.onSurface,
                   ),
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Wrap(
@@ -80,13 +87,18 @@ class ScorerScoreboard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         player.name,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          fontSize: spacious ? 26 : 20,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         '${player.score}',
                         style: TextStyle(
-                          fontSize: 42,
+                          fontSize:
+                              ((width - (spacious ? 48 : 28)) / (2.3 * scale))
+                                  .clamp(48.0, spacious ? 200.0 : 120.0),
                           height: 1.15,
                           fontWeight: FontWeight.w800,
                           color: player.active
@@ -97,11 +109,11 @@ class ScorerScoreboard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         '${player.legs} Legs · ${player.sets} Sets',
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: 16),
                       ),
                       Text(
                         '3DA: ${player.average?.toStringAsFixed(2) ?? '—'}',
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: 16),
                       ),
                     ],
                   ),

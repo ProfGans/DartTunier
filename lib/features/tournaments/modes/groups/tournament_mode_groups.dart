@@ -39,6 +39,7 @@ String _groupPlayTypeForStage(TournamentStage stage, int groupIndex) {
 String _groupPlayTypeLabel(String playType) {
   return switch (playType) {
     'round_robin' => 'Jeder gegen jeden',
+    'swiss' => 'Schweizer System',
     'mini_knockout' => 'Mini-KO in der Gruppe',
     'double_knockout' => 'Doppel-KO in der Gruppe',
     'triple_knockout' => 'Triple-KO in der Gruppe',
@@ -96,7 +97,9 @@ List<TournamentGroup> _buildTournamentGroupsForPlayers(
           name: groupLabel(groupIndex + 1),
           playType: groupPlayType,
           players: groupPlayers,
-          matches: _buildRoundRobinMatches(
+          matches: groupPlayType == 'swiss'
+              ? SwissEngine.build(groupPlayers, _roundRobinRepeatForStage(stage, groupIndex).clamp(1, SwissEngine.maximumRounds(groupPlayers.length)))
+              : _buildRoundRobinMatches(
             groupPlayers,
             repeatCount: _roundRobinRepeatForStage(stage, groupIndex),
           ),

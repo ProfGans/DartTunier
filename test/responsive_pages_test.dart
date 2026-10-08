@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/features/autoscoring/data/autoscore_audio_output.dart';
 import 'package:dart_tournament_manager/features/statistics/presentation/analytics/player_analytics_page.dart';
 import 'statistics_analytics_widget_test.dart'
     show
@@ -5,6 +6,7 @@ import 'statistics_analytics_widget_test.dart'
         CommunityAnalyticsPreview,
         MetricAnalyticsPreview;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'tournament_director_test.dart' show DirectorPreview;
 import 'community_rankings_test.dart' show rankingFixture;
 import 'community_calendar_test.dart'
     show CalendarPreview, AppointmentEditorPreview;
@@ -13,6 +15,7 @@ import 'community_ranking_admin_test.dart' show RankingAdminPreview;
 import 'community_live_ranking_test.dart' show LiveRankingPreview;
 import 'community_member_profile_test.dart' show MemberProfilePreview;
 import 'community_tournament_import_test.dart' show TournamentImportPreview;
+import 'challonge_import_test.dart' show ChallongeImportPreview, ChallongeArchivePreview;
 import 'player_profile_picker_creation_test.dart'
     show PlayerPickerCreationPreview;
 import 'community_trends_test.dart' show CommunityTrendsPreview;
@@ -68,6 +71,17 @@ import 'package:dart_tournament_manager/features/statistics/domain/tournament_pl
 import 'package:dart_tournament_manager/features/statistics/presentation/player_profile_page.dart';
 import 'package:dart_tournament_manager/features/statistics/presentation/tournament_statistics_view.dart';
 import 'package:dart_tournament_manager/features/tournaments/data/tournament_storage.dart';
+
+class _PreviewAudioOutput implements AutoscoreAudioOutput {
+  @override
+  Future<void> removal(double volume) async {}
+  @override
+  Future<void> effect(bool bounce, double volume) async {}
+  @override
+  Future<void> speak(String text, double volume) async {}
+  @override
+  Future<void> close() async {}
+}
 
 class _TestPaths extends PathProviderPlatform {
   _TestPaths(this.path);
@@ -198,12 +212,15 @@ void main() {
           ),
           rankingFixture(),
           const CalendarPreview(),
+          const DirectorPreview(),
           const AppointmentEditorPreview(),
           const TournamentEloPreview(),
           const RankingAdminPreview(),
           const LiveRankingPreview(),
           const MemberProfilePreview(),
           const TournamentImportPreview(),
+          const ChallongeImportPreview(),
+          const ChallongeArchivePreview(),
           const PlayerPickerCreationPreview(),
           const CommunityTrendsPreview(),
           const ResultsStatisticsPreview(),
@@ -287,9 +304,9 @@ void main() {
             access: RolePreviewAccess(),
           ),
           const CheckoutPage(),
-          const AutoscoringPage(),
-          const AutoscoreDemoPage(),
-          const AutoscorerPreview(),
+          AutoscoringPage(audioOutput: _PreviewAudioOutput()),
+          AutoscoreDemoPage(audioOutput: _PreviewAudioOutput()),
+          AutoscorerPreview(audioOutput: _PreviewAudioOutput()),
           const BotSettingsPage(),
           TournamentResultsPage(
             tournament: CreatedTournament(
@@ -373,6 +390,7 @@ void main() {
             ),
           ),
           ScorerMatchPage(
+            audioOutput: _PreviewAudioOutput(),
             settings: ScorerSettings(
               participants: const [
                 ScorerParticipant('Team Anna', members: ['Anna', 'Lena']),
@@ -471,7 +489,7 @@ void main() {
               );
               await tester.pump();
               await tester.tap(find.text('Tabelle & Qualifikation'));
-            } else {
+            } else if (find.text('Spiele').evaluate().isNotEmpty) {
               await tester.scrollUntilVisible(
                 find.text('Spiele'),
                 200,

@@ -130,7 +130,7 @@ class AutoscoreDiagnosticExport {
           final selectedColor = camera.frameColors[sourceIndex];
           if (selectedColor != null) {
             selectedImage = selectedColor;
-            add('kamera_${i + 1}_entscheidung_farbe.jpg', selectedColor);
+            color('kamera_${i + 1}_entscheidung_farbe.jpg', selectedColor);
           }
         }
       }

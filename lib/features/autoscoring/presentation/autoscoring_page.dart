@@ -12,6 +12,7 @@ import 'widgets/camera_recognition_view.dart';
 import 'widgets/general_diagnostic_button.dart';
 import 'widgets/dart_correction_dialog.dart';
 import '../application/autoscore_audio_controller.dart';
+import '../data/autoscore_audio_output.dart';
 import 'widgets/autoscore_audio_controls.dart';
 import '../data/autoscore_setup_store.dart';
 import '../application/autoscore_lifecycle_policy.dart';
@@ -31,6 +32,7 @@ class AutoscoringPage extends StatefulWidget {
     this.automaticVisitDartLimit = 3,
     this.audioThrows,
     this.setupStore,
+    this.audioOutput,
   });
   final AutoscoringController? controller;
 
@@ -46,6 +48,7 @@ class AutoscoringPage extends StatefulWidget {
   final int? automaticVisitDartLimit;
   final List<DartThrowResult> Function()? audioThrows;
   final AutoscoreSetupStore? setupStore;
+  final AutoscoreAudioOutput? audioOutput;
   @override
   State<AutoscoringPage> createState() => _AutoscoringPageState();
 }
@@ -53,7 +56,10 @@ class AutoscoringPage extends StatefulWidget {
 class _AutoscoringPageState extends State<AutoscoringPage>
     with WidgetsBindingObserver {
   late final c = widget.controller ?? AutoscoringController();
-  late final audio = AutoscoreAudioController(setupStore: widget.setupStore);
+  late final audio = AutoscoreAudioController(
+    setupStore: widget.setupStore,
+    output: widget.audioOutput,
+  );
   List<int> selected = [-1, -1, -1];
   bool visitEnded = false;
   bool _connectionAttempted = false;
@@ -209,6 +215,7 @@ class _AutoscoringPageState extends State<AutoscoringPage>
     Future<void>.microtask(() {
       if (mounted) {
         audio.update(widget.audioThrows?.call() ?? List.of(c.throws));
+        c.liveFrameTiming['audioEffect'] = audio.lastEffectTiming;
       }
     });
   }

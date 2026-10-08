@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_settings_section.dart';
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../data/community_access_repository.dart';
@@ -186,17 +187,25 @@ class _CommunityRolesPageState extends State<CommunityRolesPage> {
                                 role.name,
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
-                              Text(
-                                role.permissions.isEmpty
+                              SportSettingsSection(
+                                title: 'Berechtigungen',
+                                summary: role.permissions.isEmpty
                                     ? 'Nur lesen'
-                                    : CommunityPermission.values
-                                          .where(
-                                            (p) => role.permissions.contains(
-                                              p.key,
-                                            ),
-                                          )
-                                          .map((p) => p.label)
-                                          .join('\n'),
+                                    : '${role.permissions.length} Rechte freigegeben',
+                                icon: Icons.verified_user_outlined,
+                                children: [
+                                  Text(
+                                    role.permissions.isEmpty
+                                        ? 'Nur lesen'
+                                        : CommunityPermission.values
+                                              .where(
+                                                (p) => role.permissions
+                                                    .contains(p.key),
+                                              )
+                                              .map((p) => p.label)
+                                              .join('\n'),
+                                  ),
+                                ],
                               ),
                               if (rights.mayGrant(role.permissions))
                                 TextButton(
@@ -263,6 +272,25 @@ class CommunityRoleEditor extends StatefulWidget {
 class _CommunityRoleEditorState extends State<CommunityRoleEditor> {
   late final _name = TextEditingController(text: widget.role?.name ?? '');
   late final _selected = {...?widget.role?.permissions};
+  static const _permissionGroups = {
+    'Turniere': [
+      CommunityPermission.createTournaments,
+      CommunityPermission.editTournaments,
+      CommunityPermission.leadTournaments,
+      CommunityPermission.deleteTournaments,
+    ],
+    'Community & Mitglieder': [
+      CommunityPermission.inviteMembers,
+      CommunityPermission.removeMembers,
+      CommunityPermission.editCommunity,
+      CommunityPermission.manageRoles,
+    ],
+    'Geräte, Ranglisten & Highlights': [
+      CommunityPermission.assignDevices,
+      CommunityPermission.manageRankings,
+      CommunityPermission.manageHighlights,
+    ],
+  };
   final _form = GlobalKey<FormState>();
   @override
   void dispose() {
@@ -288,24 +316,33 @@ class _CommunityRoleEditorState extends State<CommunityRoleEditor> {
                 : null,
           ),
           const SizedBox(height: 16),
-          AdaptiveTileLayout(
-            children: [
-              for (final permission in CommunityPermission.values)
-                CheckboxListTile(
-                  title: Text(permission.label),
-                  value: _selected.contains(permission.key),
-                  onChanged: widget.grantable.allows(permission)
-                      ? (checked) => setState(() {
-                          if (checked == true) {
-                            _selected.add(permission.key);
-                          } else {
-                            _selected.remove(permission.key);
-                          }
-                        })
-                      : null,
+          for (final group in _permissionGroups.entries)
+            SportSettingsSection(
+              title: group.key,
+              summary:
+                  '${group.value.where((p) => _selected.contains(p.key)).length} von ${group.value.length} Rechten ausgewählt',
+              icon: Icons.verified_user_outlined,
+              children: [
+                AdaptiveTileLayout(
+                  children: [
+                    for (final permission in group.value)
+                      CheckboxListTile(
+                        title: Text(permission.label),
+                        value: _selected.contains(permission.key),
+                        onChanged: widget.grantable.allows(permission)
+                            ? (checked) => setState(() {
+                                if (checked == true) {
+                                  _selected.add(permission.key);
+                                } else {
+                                  _selected.remove(permission.key);
+                                }
+                              })
+                            : null,
+                      ),
+                  ],
                 ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 16),
           FilledButton(
             onPressed: () {

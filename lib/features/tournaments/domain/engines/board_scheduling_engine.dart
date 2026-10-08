@@ -37,8 +37,10 @@ class BoardSchedulingEngine {
     List<PlayEntry> running = const [],
     List<PlayEntry> finished = const [],
     required int boardCount,
+    Set<int> blockedBoards = const {},
   }) {
     if (boardCount < 1) throw ArgumentError.value(boardCount, 'boardCount');
+    if (List.generate(boardCount, (i) => i + 1).every(blockedBoards.contains)) return [];
     final pending = List<PlayEntry>.from(ready);
     final lastPlayed = <String, int>{};
     for (var i = 0; i < finished.length; i++) {
@@ -55,7 +57,7 @@ class BoardSchedulingEngine {
           : <String>{};
       final boards = [
         for (var b = 1; b <= boardCount; b++)
-          if (block != 0 || !running.any((e) => e.match.boardNumber == b)) b,
+          if (!blockedBoards.contains(b) && (block != 0 || !running.any((e) => e.match.boardNumber == b))) b,
       ];
       int rest(PlayEntry e) => e.players
           .map((p) => lastPlayed[p] ?? -100000)

@@ -1,5 +1,6 @@
 import '../data/tournament_storage.dart';
 import '../domain/tournament_models.dart';
+import '../domain/tournament_access.dart';
 
 class TournamentCreationController {
   const TournamentCreationController({TournamentStorage? storage})
@@ -34,6 +35,7 @@ class TournamentCreationController {
     required String communityId,
     bool countsForRanking = true,
     List<String> communityRankingIds = const ['default'],
+    TournamentAccessSettings access = const TournamentAccessSettings(),
   }) async {
     final tournament = _buildTournament(
       name: name,
@@ -45,7 +47,9 @@ class TournamentCreationController {
       communityRankingIds: communityRankingIds,
       boardCount: boardCount,
     );
-    await (_storage ?? TournamentStorage()).saveTournament(tournament);
+    final storage = _storage ?? TournamentStorage();
+    tournament.access = access.withCreator(storage.currentUserId);
+    await storage.saveTournament(tournament);
     return tournament;
   }
 

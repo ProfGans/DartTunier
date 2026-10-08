@@ -6,6 +6,7 @@ import '../data/supabase_community_repository.dart';
 import '../domain/community.dart';
 import '../domain/community_statistics.dart';
 import 'community_player_statistics_page.dart';
+import 'widgets/community_account_profile.dart';
 
 class CommunityMemberProfilePage extends StatefulWidget {
   const CommunityMemberProfilePage({
@@ -83,6 +84,15 @@ class _ProfileState extends State<CommunityMemberProfilePage> {
               ),
             ),
             const SizedBox(height: 16),
+            if (member.userId != null) ...[
+              CommunityAccountProfile(
+                load: () => widget.repository.loadAccountProfile(
+                  widget.community.id,
+                  member.userId!,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Text(
               'Community-Statistik',
               style: Theme.of(context).textTheme.titleLarge,

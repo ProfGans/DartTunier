@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import 'calendar_labels.dart';
 import 'calendar_month_view.dart';
@@ -342,20 +343,6 @@ class _CommunityCalendarPageState extends State<CommunityCalendarPage> {
                               icon: const Icon(Icons.notifications_outlined),
                               label: const Text('Erinnerung'),
                             ),
-                          if (_rights.allows(
-                            CommunityPermission.createTournaments,
-                          ))
-                            TextButton(
-                              onPressed: () => _edit(event: event, copy: true),
-                              child: const Text('Kopieren'),
-                            ),
-                          if (_rights.allows(
-                            CommunityPermission.editTournaments,
-                          ))
-                            TextButton(
-                              onPressed: () => _edit(event: event),
-                              child: const Text('Bearbeiten'),
-                            ),
                           if (event.isTournament &&
                               _rights.allows(
                                 CommunityPermission.createTournaments,
@@ -375,11 +362,43 @@ class _CommunityCalendarPageState extends State<CommunityCalendarPage> {
                               ),
                             ),
                           if (_rights.allows(
-                            CommunityPermission.deleteTournaments,
-                          ))
-                            TextButton(
-                              onPressed: () => _delete(event),
-                              child: const Text('Löschen'),
+                                CommunityPermission.createTournaments,
+                              ) ||
+                              _rights.allows(
+                                CommunityPermission.editTournaments,
+                              ) ||
+                              _rights.allows(
+                                CommunityPermission.deleteTournaments,
+                              ))
+                            SportActionsMenu(
+                              label: 'Termin verwalten',
+                              actions: [
+                                if (_rights.allows(
+                                  CommunityPermission.createTournaments,
+                                ))
+                                  SportMenuAction(
+                                    label: 'Kopieren',
+                                    icon: Icons.copy_outlined,
+                                    onTap: () =>
+                                        _edit(event: event, copy: true),
+                                  ),
+                                if (_rights.allows(
+                                  CommunityPermission.editTournaments,
+                                ))
+                                  SportMenuAction(
+                                    label: 'Bearbeiten',
+                                    icon: Icons.edit_outlined,
+                                    onTap: () => _edit(event: event),
+                                  ),
+                                if (_rights.allows(
+                                  CommunityPermission.deleteTournaments,
+                                ))
+                                  SportMenuAction(
+                                    label: 'Löschen',
+                                    icon: Icons.delete_outline,
+                                    onTap: () => _delete(event),
+                                  ),
+                              ],
                             ),
                         ],
                       ),

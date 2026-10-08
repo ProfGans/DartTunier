@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'performance_diagnostics.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import '../shared/platform/linux_camera.dart';
 import '../features/notifications/data/linux_notification_service.dart';
@@ -15,6 +16,7 @@ class AppBootstrap {
 
   static Future<String?> initialize({List<String> args = const []}) async {
     WidgetsFlutterBinding.ensureInitialized();
+    PerformanceDiagnostics.start();
     if (_instance != null) return null;
     if (Platform.isLinux) CameraPlatform.instance = LinuxCamera();
     await DesktopUpdateLauncher.forward(args);

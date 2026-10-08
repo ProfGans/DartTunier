@@ -11,9 +11,65 @@ import 'package:dart_tournament_manager/features/autoscoring/application/capture
 import 'package:dart_tournament_manager/features/autoscoring/data/autoscore_diagnostic_export.dart';
 import 'package:dart_tournament_manager/features/autoscoring/domain/frame_detector.dart';
 import 'package:dart_tournament_manager/features/autoscoring/domain/board_geometry.dart';
+import 'autoscoring_automatic_counting_test.dart' show createController, frames;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'General diagnostic keeps accepted throw timing after later idle frames',
+    () {
+      final controller = createController([]);
+      addTearDown(controller.dispose);
+      controller.liveFrameTiming = {'testCaptureSequence': 10};
+      controller.onAutomaticThrow = (_) => true;
+      for (var i = 0; i < 6; i++) {
+        controller.processFrames(frames(1));
+      }
+      expect(controller.throws.length, 1);
+      expect(controller.lastAcceptedLiveTiming?['testCaptureSequence'], 10);
+      expect(
+        controller.lastAcceptedLiveTiming?['throwCallbackMilliseconds'],
+        isA<double>(),
+      );
+      controller.liveFrameTiming = {'testCaptureSequence': 20};
+      final evidence = captureAutoscoreEvidence(
+        controller,
+        allowPartial: true,
+      )!;
+      final performance = evidence.hit['performance'] as Map;
+      expect((performance['liveFrame'] as Map)['testCaptureSequence'], 20);
+      expect(
+        (performance['lastAcceptedLiveFrame'] as Map)['testCaptureSequence'],
+        10,
+      );
+    },
+  );
+  test('Evidence retains completed timings only for its captured frame', () {
+    final controller = AutoscoringController();
+    addTearDown(controller.dispose);
+    controller.liveFrameTiming = {
+      'frameSequences': [7, 7, 7],
+    };
+    final evidence = captureAutoscoreEvidence(controller, allowPartial: true)!;
+    controller.liveFrameTiming['throwCallbackMilliseconds'] = 25.0;
+    controller.liveFrameTiming = {
+      'frameSequences': [8, 8, 8],
+    };
+    controller.liveFrameTiming['throwCallbackMilliseconds'] = 99.0;
+    final captured = (evidence.hit['performance'] as Map)['liveFrame'] as Map;
+    expect(captured['frameSequences'], [7, 7, 7]);
+    expect(captured['throwCallbackMilliseconds'], 25.0);
+    final archive = ZipDecoder().decodeBytes(
+      const AutoscoreDiagnosticExport().encode(evidence, '20', '20'),
+    );
+    final report = jsonDecode(
+      utf8.decode(archive.findFile('bericht.json')!.content as List<int>),
+    );
+    expect(
+      report['hit']['performance']['liveFrame']['throwCallbackMilliseconds'],
+      25.0,
+    );
+  });
   test('Diagnostics preserve true colors and timed post-decision sequence', () {
     final image = img.Image(width: 8, height: 8);
     img.fill(image, color: img.ColorRgb8(240, 30, 20));

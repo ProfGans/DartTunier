@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/features/autoscoring/data/autoscore_audio_output.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -8,8 +9,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dart_tournament_manager/features/autoscoring/data/autoscore_setup_store.dart';
 import 'package:dart_tournament_manager/features/autoscoring/presentation/autoscorer_page.dart';
 
+class _SilentAudio implements AutoscoreAudioOutput {
+  @override
+  Future<void> removal(double volume) async {}
+  @override
+  Future<void> effect(bool bounce, double volume) async {}
+  @override
+  Future<void> speak(String text, double volume) async {}
+  @override
+  Future<void> close() async {}
+}
+
 class AutoscorerPreview extends StatefulWidget {
-  const AutoscorerPreview({super.key});
+  const AutoscorerPreview({super.key, this.audioOutput});
+  final AutoscoreAudioOutput? audioOutput;
   @override
   State<AutoscorerPreview> createState() => _AutoscorerPreviewState();
 }
@@ -35,11 +48,21 @@ class _AutoscorerPreviewState extends State<AutoscorerPreview> {
   }
 
   @override
-  Widget build(BuildContext context) => AutoscorerPage(store: store);
+  Widget build(BuildContext context) =>
+      AutoscorerPage(store: store, audioOutput: widget.audioOutput);
 }
 
 void main() {
   Future<void> showResetButton(WidgetTester tester) async {
+    if (find.text('Genauigkeitsstatistik zurücksetzen').evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        find.text('Statistik & Prüfung').hitTestable(),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Statistik & Prüfung'));
+      await tester.pumpAndSettle();
+    }
     final button = find.widgetWithText(
       OutlinedButton,
       'Genauigkeitsstatistik zurücksetzen',
@@ -86,9 +109,19 @@ void main() {
               ).copyWith(textScaler: TextScaler.linear(scale)),
               child: child!,
             ),
-            home: RepaintBoundary(key: key, child: const AutoscorerPreview()),
+            home: RepaintBoundary(
+              key: key,
+              child: AutoscorerPreview(audioOutput: _SilentAudio()),
+            ),
           ),
         );
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('Statistik & Prüfung').hitTestable(),
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.text('Statistik & Prüfung'));
         await tester.pumpAndSettle();
         await tester.scrollUntilVisible(
           find.text('Genauigkeit: 50.0 %'),
@@ -167,8 +200,13 @@ void main() {
             image.dispose();
           });
         }
+        tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .jumpTo(0);
+        await tester.pumpAndSettle();
         await tester.scrollUntilVisible(
-          find.text('Kameras, Kalibrierung und Erkennung öffnen'),
+          find.text('Kameras, Kalibrierung und Erkennung öffnen').hitTestable(),
           150,
           scrollable: find.byType(Scrollable).first,
         );
@@ -199,7 +237,11 @@ void main() {
     await store.load();
     final token = store.record();
     store.review(token, corrected: false);
-    await tester.pumpWidget(MaterialApp(home: AutoscorerPage(store: store)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AutoscorerPage(store: store, audioOutput: _SilentAudio()),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Neues Setup'));
     await tester.pumpAndSettle();
@@ -224,7 +266,11 @@ void main() {
     await store.load();
     final token = store.record();
     store.review(token, corrected: false);
-    await tester.pumpWidget(MaterialApp(home: AutoscorerPage(store: store)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AutoscorerPage(store: store, audioOutput: _SilentAudio()),
+      ),
+    );
     await tester.pumpAndSettle();
     await showResetButton(tester);
     await tester.tap(find.text('Genauigkeitsstatistik zurücksetzen'));

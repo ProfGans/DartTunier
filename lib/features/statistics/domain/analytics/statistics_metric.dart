@@ -119,10 +119,22 @@ const statisticsMetrics = <StatisticsMetric>[
     'Summe der gewerteten Punkte aus Scorer-Aufnahmen.',
   ),
   StatisticsMetric(
-    'darts',
-    'Geworfene Darts',
+    'thrownDarts',
+    'Geworfene Pfeile',
     'Scoring',
-    'Gezählte Darts aus Scorer-Aufnahmen, einschließlich Überwürfen.',
+    'Alle erfassten Würfe, einschließlich Fehlwürfen, tatsächlichen Überwurf-Darts und noch offenen Aufnahmen. Keine Trefferposition erforderlich. Bei manuellen Punktesummen und alten Spielen wird die gespeicherte Dartanzahl verwendet; diese Anteile sind unter „Geschätzte Wurfanzahl“ ausgewiesen. Rückgängig gemachte Würfe zählen nicht.',
+  ),
+  StatisticsMetric(
+    'estimatedThrownDarts',
+    'Geschätzte Wurfanzahl',
+    'Scoring',
+    'Anteil der geworfenen Pfeile aus manuellen Punktesummen oder alten Aufnahmen ohne einzeln erfasste Dartanzahl. Bei regulären manuellen Aufnahmen werden drei Darts angenommen.',
+  ),
+  StatisticsMetric(
+    'darts',
+    'Für Average gezählte Darts',
+    'Scoring',
+    'Darts für die Average-Berechnung. Nicht abgeschlossene Aufnahmen fehlen; Überwürfe zählen regelgemäß als drei Darts, auch wenn weniger Pfeile geworfen wurden.',
   ),
   StatisticsMetric(
     'visits',

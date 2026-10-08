@@ -3,10 +3,68 @@ import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../application/scorer_lobby_controller.dart';
 import '../../domain/scorer_lobby.dart';
+import '../../../accounts/presentation/widgets/account_menu_card.dart';
+import '../../../accounts/data/supabase_account_config.dart';
+import '../../../accounts/data/supabase_account_session_store.dart';
 
 class ScorerLobbyPanel extends StatelessWidget {
   const ScorerLobbyPanel({super.key, required this.controller});
   final ScorerLobbyController controller;
+
+  Future<void> _openCode(BuildContext context) async {
+    if (!controller.repository.signedIn) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Für den QR-Code online anmelden'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Die Einladung verbindet die Konten deiner Mitspieler mit diesem Spiel. Deine eingegebenen Teilnehmer bleiben erhalten.',
+                  ),
+                  if (SupabaseAccountBootstrap.isInitialized)
+                    AccountMenuCard(store: SupabaseAccountSessionStore())
+                  else
+                    const Text(
+                      'Die Online-Verbindung ist in dieser App-Version nicht eingerichtet. Ein gültiger Beitrittscode kann deshalb noch nicht erstellt werden.',
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Zurück'),
+            ),
+            if (SupabaseAccountBootstrap.isInitialized)
+              FilledButton(
+                onPressed: () {
+                  if (controller.repository.signedIn) {
+                    Navigator.pop(context);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Bitte zuerst oben mit deinem Online-Konto anmelden.',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Angemeldet · QR-Code anzeigen'),
+              ),
+          ],
+        ),
+      );
+      if (!context.mounted || !controller.repository.signedIn) return;
+    }
+    await controller.create();
+  }
 
   Future<void> _invite(BuildContext context) async {
     try {
@@ -48,11 +106,11 @@ class ScorerLobbyPanel extends StatelessWidget {
               ),
               if (!controller.repository.signedIn)
                 const Text(
-                  'Für Einladungen bitte zuerst im Hauptmenü mit einem Online-Konto anmelden. Gastnamen funktionieren auch offline.',
-                )
-              else if (lobby == null || !lobby.open)
+                  'Noch keine Online-Anmeldung erkannt. Über den Button kannst du dich hier anmelden und den QR-Code erstellen.',
+                ),
+              if (lobby == null || !lobby.open)
                 FilledButton.icon(
-                  onPressed: controller.busy ? null : controller.create,
+                  onPressed: controller.busy ? null : () => _openCode(context),
                   icon: const Icon(Icons.qr_code),
                   label: Text(
                     controller.busy

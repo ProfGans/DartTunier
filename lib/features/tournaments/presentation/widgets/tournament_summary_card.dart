@@ -27,20 +27,19 @@ class TournamentSummaryCard extends StatelessWidget {
       child: InkWell(
         onTap: onOpen,
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.emoji_events_outlined, color: scheme.primary),
-                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      status,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelLarge?.copyWith(color: scheme.primary),
+                      tournament.name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   PopupMenuButton<String>(
@@ -55,11 +54,28 @@ class TournamentSummaryCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Text(
-                tournament.name,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
               const SizedBox(height: 8),
+              if (tournament.communityId != null) ...[
+                Row(
+                  children: [
+                    Icon(
+                      Icons.groups_outlined,
+                      size: 20,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Community-Turnier',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelLarge?.copyWith(color: scheme.primary),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
               Text(
                 tournament.leagueMatch != null
                     ? 'Ligaspiel · ${tournament.leagueMatch!.homePoints}:${tournament.leagueMatch!.awayPoints} Mannschaftspunkte'
@@ -68,12 +84,12 @@ class TournamentSummaryCard extends StatelessWidget {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: Text(
-                      complete ? 'Ergebnisse ansehen' : 'Turnier öffnen',
+                      '$status · ${complete ? 'Ergebnisse ansehen' : 'Turnier öffnen'}',
                       style: TextStyle(
                         color: scheme.primary,
                         fontWeight: FontWeight.w700,

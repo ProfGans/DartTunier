@@ -16,9 +16,10 @@ void main() {
     await file.writeAsString(jsonEncode({'schemaVersion': 13, 'tournaments': []}));
     final grants = {CommunityPermission.createTournaments};
     final uploaded = <Map<String, dynamic>>[];
+    var userId = 'user';
     final storage = TournamentStorage(
       file: file,
-      currentUserId: () => 'user',
+      currentUserId: () => userId,
       authorize: (_, permission) async {
         if (!grants.contains(permission)) throw StateError('denied');
       },
@@ -30,12 +31,13 @@ void main() {
       communityRankingIds: ['training', 'default'],
     );
     expect((await storage.loadTournaments()).single.countsForRanking, isFalse);
-    expect(jsonDecode(await file.readAsString())['schemaVersion'], 16);
+    expect(jsonDecode(await file.readAsString())['schemaVersion'], 20);
     expect(await File('${file.path}.v13.bak').exists(), isTrue);
     await storage.synchronize();
     expect((uploaded.single['payload'] as Map)['countsForRanking'], isFalse);
     expect((uploaded.single['payload'] as Map)['communityRankingIds'], ['training', 'default']);
     final edited = CreatedTournament.fromJson(tournament.toJson()..['countsForRanking'] = true);
+    userId = 'other-member';
     await expectLater(storage.saveTournament(edited), throwsStateError);
     grants.add(CommunityPermission.editTournaments);
     await storage.saveTournament(edited);

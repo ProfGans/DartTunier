@@ -21,8 +21,8 @@ class ProductionTournamentRuntime {
 }
 
 class _SimulationRunState extends _TournamentRunPageState {
-  _SimulationRunState(CreatedTournament tournament) : _simulationWidget = TournamentRunPage(tournament: tournament);
-  final TournamentRunPage _simulationWidget;
+  _SimulationRunState(CreatedTournament tournament) : _simulationWidget = _LiveTournamentRunPage(tournament: tournament, openDevicesOnStart: false);
+  final _LiveTournamentRunPage _simulationWidget;
   @override
-  TournamentRunPage get widget => _simulationWidget;
+  _LiveTournamentRunPage get widget => _simulationWidget;
 }

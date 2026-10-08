@@ -116,6 +116,7 @@ class SimulationMatchRecord {
     required this.bracket,
     required this.homeSource,
     required this.awaySource,
+    this.groupPlayType,
   });
 
   final int number;
@@ -123,6 +124,9 @@ class SimulationMatchRecord {
   final String bracket;
   final String homeSource;
   final String awaySource;
+  final String? groupPlayType;
+  bool get isRoundBased => groupPlayType == 'round_robin' || groupPlayType == 'swiss' ||
+      (groupPlayType == null && (bracket.endsWith(' - Liga') || bracket.endsWith(' - swiss')));
 }
 
 class TournamentSimulationFailure implements Exception {
@@ -249,7 +253,7 @@ class TournamentSimulationEngine {
         final all = runtime.matches(stage);
         for (final match in all.where(
           (m) =>
-              m.round == 1 &&
+              (m.round == 1 || (stage is GroupTournamentRunStage && stage.groups.any((g) => g.playType == 'swiss' && g.matches.contains(m)))) &&
               m.isResolved &&
               !m.hasPlayers &&
               (m.homePlayer != null || m.awayPlayer != null),
@@ -326,7 +330,7 @@ class TournamentSimulationEngine {
       final tables = <String, List<PlayerStanding>>{};
       if (stage is GroupTournamentRunStage) {
         for (final group in stage.groups.where(
-          (g) => g.playType == 'round_robin',
+          (g) => ['round_robin', 'swiss'].contains(g.playType),
         )) {
           tables[group.name] = runtime.standings(group, stage.tieBreakers);
         }
@@ -365,9 +369,11 @@ class TournamentSimulationEngine {
     Map<String, String> sources,
   ) {
     var bracket = stage.name;
+    String? groupPlayType;
     if (stage is GroupTournamentRunStage) {
       for (final group in stage.groups) {
         if (group.matches.contains(match)) {
+          groupPlayType = group.playType;
           bracket =
               '${group.name} - ${group.playType == 'round_robin' ? 'Liga' : group.playType}';
           break;
@@ -378,6 +384,7 @@ class TournamentSimulationEngine {
       number: number,
       match: match,
       bracket: bracket,
+      groupPlayType: groupPlayType,
       homeSource: match.homePlayer == null
           ? 'Freilos'
           : sources[match.homePlayer!.name] ?? match.homePlayer!.name,

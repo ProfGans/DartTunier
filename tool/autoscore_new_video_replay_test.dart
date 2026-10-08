@@ -59,6 +59,12 @@ void main() {
           low.height,
           low.pixels,
           detail: decoded?.detail ?? decoded,
+          colorImage:
+              File('$root/kamera_${camera + 1}_${name}_farbe.jpg').existsSync()
+              ? File(
+                  '$root/kamera_${camera + 1}_${name}_farbe.jpg',
+                ).readAsBytesSync()
+              : null,
           sourceAspectRatio: low.width / low.height,
           timestampUs: time,
           sequence: sequence,
@@ -91,6 +97,22 @@ void main() {
                             8]['timestampMicroseconds']
                         as int?,
               sequence: n,
+            ),
+        ];
+        final referenceChanges = [
+          for (var i = 0; i < 3; i++)
+            const FrameDetector().changedFraction(
+              c.cameras[i].reference!,
+              frames[i],
+              threshold: 17,
+            ),
+        ];
+        final motionChanges = [
+          for (var i = 0; i < 3; i++)
+            const FrameDetector().changedFraction(
+              c.cameras[i].previous!,
+              frames[i],
+              threshold: 17,
             ),
         ];
         // ignore: invalid_use_of_visible_for_testing_member
@@ -148,6 +170,22 @@ void main() {
           'frame': n,
           'probes': probes,
           'status': c.status,
+          'decisionReason': c.decisionReason,
+          'decisionMetrics': c.decisionMetrics,
+          'processingMilliseconds': c.processingMilliseconds,
+          'localBoundary': c.localBoundaryMetrics,
+          'ringContact': c.localRingMetrics,
+          'contactComparison': c.contactComparisonMetrics,
+          'contactComparisonMilliseconds': [
+            for (final stage in c.diagnosticTimeline.last['stages'] as List)
+              if (stage['phase'] == 'contactCandidateComparison')
+                stage['milliseconds'],
+          ],
+          'localBoundaryMilliseconds': [
+            for (final stage in c.diagnosticTimeline.last['stages'] as List)
+              if (stage['phase'] == 'localSegmentBoundary')
+                stage['milliseconds'],
+          ],
           'recovery': c.recoveryMetrics,
           'axisIntersection': (() {
             final hit = fuseAxes(
@@ -170,6 +208,20 @@ void main() {
           'point': c.pending == null
               ? null
               : [c.pending!.point.x, c.pending!.point.y],
+          'tips': [
+            for (final t in c.tipObservations)
+              t == null
+                  ? null
+                  : {
+                      'x': t.board.x,
+                      'y': t.board.y,
+                      'confidence': t.confidence,
+                    },
+          ],
+          'referenceChanges': referenceChanges,
+          'motionChanges': motionChanges,
+          'stableSamples': c.cameras.map((cam) => cam.stable).toList(),
+          'tipReason': c.tipDecisionReason,
           'axes': [
             for (final camera in c.cameras)
               [

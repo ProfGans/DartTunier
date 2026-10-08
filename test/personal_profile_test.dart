@@ -32,6 +32,52 @@ void main() {
     );
     expect(PersonalProfile.validSpotify(profile.spotify), isTrue);
   });
+  testWidgets(
+    'Invalid Spotify link opens the folded section and blocks saving',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      PersonalProfile? saved;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PersonalProfileEditor(
+            profile: const PersonalProfile(name: 'Anna'),
+            onSave: (value) async => saved = value,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Walk-on & Favoriten'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('personal-profile-field-3')),
+        'https://example.test/song',
+      );
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Walk-on & Favoriten'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Profil speichern').hitTestable(),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Profil speichern'));
+      await tester.pumpAndSettle();
+      expect(saved, isNull);
+      expect(
+        find.text('Bitte einen Spotify-Song-Link eingeben.'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('personal-profile-field-3')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final size in [
     const Size(360, 800),
     const Size(800, 600),
@@ -76,6 +122,19 @@ void main() {
           find.byKey(const ValueKey('personal-profile-field-0')),
           'Neuer Name',
         );
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find
+              .text('Darts, Gewicht, Shafts und Flights · optional')
+              .hitTestable(),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(
+          find.text('Darts, Gewicht, Shafts und Flights · optional'),
+        );
+        await tester.pumpAndSettle();
         final setupField = find.byKey(const ValueKey('dart-setup-field-0'));
         await tester.scrollUntilVisible(
           setupField,

@@ -1890,7 +1890,7 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
       allowsBye: match.allowsBye,
     );
 
-    return Container(
+    return MatchStatisticsTapTarget(match: match, child: Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: colorScheme.surface,
@@ -1962,7 +1962,7 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
           ],
         ],
       ),
-    );
+    ));
   }
 
   String? _bracketQualificationLabel() {

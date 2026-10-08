@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/tournament_models.dart';
 import '../../../statistics/presentation/tournament_highlights_page.dart';
+import '../../../communities/presentation/challonge_archive_page.dart';
 import '../widgets/results/tournament_results_statistics.dart';
 
 class TournamentResultsPage extends StatelessWidget {
@@ -15,6 +16,9 @@ class TournamentResultsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (tournament.importedArchive != null) {
+      return ChallongeArchivePage(tournament: tournament);
+    }
     final summary = _TournamentResultSummary.fromTournament(tournament);
     final podium = summary.ranking.take(3).toList();
     final colorScheme = Theme.of(context).colorScheme;

@@ -18,8 +18,10 @@ class BoardDisplay {
     this.awayMembers = const [],
     this.homeBot,
     this.awayBot,
+    this.allowDeviceStart = false,
   });
   final String tournamentId;
+  final bool allowDeviceStart;
   final String tournamentName;
   final int board;
   final String state;
@@ -33,7 +35,8 @@ class BoardDisplay {
   final String? matchId;
   final TournamentGameFormat? gameFormat;
   Map<String, dynamic> toJson() => {
-    'version': 4,
+    'version': 5,
+    'allowDeviceStart': allowDeviceStart,
     'homeBot': homeBot?.toJson(),
     'awayBot': awayBot?.toJson(),
     'homeMembers': homeMembers,
@@ -52,7 +55,7 @@ class BoardDisplay {
   };
   factory BoardDisplay.fromJson(Map<String, dynamic> json) {
     final board = json['board'];
-    if (![1, 2, 3, 4].contains(json['version']) ||
+    if (![1, 2, 3, 4, 5].contains(json['version']) ||
         board is! int ||
         board < 1 ||
         board > 64 ||
@@ -74,6 +77,7 @@ class BoardDisplay {
     }
 
     return BoardDisplay(
+      allowDeviceStart: json['allowDeviceStart'] == true,
       tournamentId: field('tournamentId'),
       tournamentName: field('tournamentName'),
       board: board,

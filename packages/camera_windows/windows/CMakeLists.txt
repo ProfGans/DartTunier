@@ -10,6 +10,8 @@ set(PLUGIN_NAME "${PROJECT_NAME}_plugin")
 
 list(APPEND PLUGIN_SOURCES
   "autoscore_video_buffer.h"
+  "autoscore_video_frame.h"
+  "autoscore_color_encoder.h"
   "autoscore_video_buffer.cpp"
   "camera_plugin.h"
   "camera_plugin.cpp"
@@ -51,6 +53,7 @@ target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter flutter_wrapper_plugin)
 target_link_libraries(${PLUGIN_NAME} PRIVATE mf mfplat mfuuid d3d11)
+target_link_libraries(${PLUGIN_NAME} PRIVATE windowscodecs ole32)
 
 # List of absolute paths to libraries that should be bundled with the plugin
 set(camera_windows_bundled_libraries

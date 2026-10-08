@@ -6,6 +6,7 @@ import '../../tournaments/data/tournament_storage.dart';
 import '../application/device_scorer_settings.dart';
 import '../data/board_display_server.dart';
 import '../domain/board_display.dart';
+import 'device_match_end_screen.dart';
 
 class DeviceScorerSession extends StatefulWidget {
   const DeviceScorerSession({
@@ -63,8 +64,9 @@ class _DeviceScorerSessionState extends State<DeviceScorerSession> {
           widget.display.gameFormat!.doubleIn == false &&
           widget.display.gameFormat!.checkoutType == 'double_out',
       doubleOut: widget.display.gameFormat!.checkoutType == 'double_out',
-      visits: controller.statisticsVisits.where((v) =>
-        _settings.participants[v.player].bot == null).toList(),
+      visits: controller.statisticsVisits
+          .where((v) => _settings.participants[v.player].bot == null)
+          .toList(),
       winner: controller.winner,
       isDraw: controller.isDraw,
     );
@@ -88,6 +90,15 @@ class _DeviceScorerSessionState extends State<DeviceScorerSession> {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
       if (snapshot.hasError || _result != null) {
+        if (_result != null) {
+          return DeviceMatchEndScreen(
+            display: widget.display,
+            result: _result!,
+            onExit: widget.onExit,
+            error: _error,
+            onRetry: _send,
+          );
+        }
         return Scaffold(
           appBar: AppBar(
             title: Text('Board ${widget.display.board}'),
@@ -121,6 +132,7 @@ class _DeviceScorerSessionState extends State<DeviceScorerSession> {
         );
       }
       return ScorerMatchPage(
+        startInMonitorMode: true,
         settings: _settings,
         onCompleted: _complete,
         onExit: widget.onExit,

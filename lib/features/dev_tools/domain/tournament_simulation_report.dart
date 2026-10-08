@@ -65,7 +65,7 @@ void _writeStage(
 
     final orderedRounds = rounds.keys.toList()..sort();
     for (final round in orderedRounds) {
-      buffer.writeln('    ${bracket.endsWith(' - Liga') ? _roundLabel(round) : knockoutMatchName(rounds[round]!.first.match, brackets[bracket]!.map((r) => r.match))}');
+      buffer.writeln('    ${rounds[round]!.first.isRoundBased ? _roundLabel(round) : knockoutMatchName(rounds[round]!.first.match, brackets[bracket]!.map((r) => r.match))}');
       for (final record in rounds[round]!) {
         buffer.writeln('      ${_recordLine(record)}');
       }

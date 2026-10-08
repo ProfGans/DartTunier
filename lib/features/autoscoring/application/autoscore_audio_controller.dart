@@ -34,6 +34,7 @@ class AutoscoreAudioController extends ChangeNotifier {
   bool _disposed = false;
   Future<void> _queue = Future.value();
   Future<void> _effectQueue = Future.value();
+  Map<String, Object?> lastEffectTiming = {};
 
   void update(List<DartThrowResult> throws, {int Function()? scoreProvider}) {
     if (_disposed) return;
@@ -139,8 +140,14 @@ class AutoscoreAudioController extends ChangeNotifier {
   }
 
   Future<void> _effect(Future<void> Function() action) {
+    final queued = Stopwatch()..start();
+    final timing = lastEffectTiming = <String, Object?>{
+      'physicalAudioOnsetMeasured': false,
+    };
     _effectQueue = _effectQueue.then((_) async {
       if (_disposed) return;
+      timing['queueWaitMilliseconds'] = queued.elapsedMicroseconds / 1000;
+      final dispatch = Stopwatch()..start();
       try {
         await action();
       } catch (_) {
@@ -148,6 +155,11 @@ class AutoscoreAudioController extends ChangeNotifier {
           error = 'Treffersound nicht verfügbar. Audioausgabe prüfen.';
           notifyListeners();
         }
+      } finally {
+        timing['outputDispatchMilliseconds'] =
+            dispatch.elapsedMicroseconds / 1000;
+        timing['queuedToDispatchCompletionMilliseconds'] =
+            queued.elapsedMicroseconds / 1000;
       }
     });
     return _effectQueue;

@@ -11,6 +11,13 @@ LeagueMatch rhlDevelopmentScenario() => LeagueMatch.rhl(
 );
 
 const tournamentDevelopmentScenarios = [
+  TournamentSimulationScenario(name: 'Swiss mit Freilosen und KO', playerCount: 13, stages: [
+    SimulationGroupStageSpec(name: 'Swiss', qualifiers: 4, groupSizes: [13], playTypes: ['swiss'], roundRobinRepeats: [4], fixedPerGroup: 4),
+    SimulationEliminationStageSpec(name: 'Finale', qualifiers: 1, lossLimit: 1),
+  ]),
+  TournamentSimulationScenario(name: 'Swiss mit Unentschieden', playerCount: 8, stages: [
+    SimulationGroupStageSpec(name: 'Swiss', qualifiers: 1, groupSizes: [8], playTypes: ['swiss'], roundRobinRepeats: [3], fixedPerGroup: 1, gameFormat: TournamentGameFormat(bestOfLegs: 4)),
+  ]),
   TournamentSimulationScenario(name: 'Finder: KO-Vorrunde, Mini-KO-Gruppen und Triple-KO', playerCount: 12, stages: [
     SimulationEliminationStageSpec(name: 'Vorrunde', qualifiers: 6, lossLimit: 1),
     SimulationGroupStageSpec(name: 'Mini-KO-Gruppen', qualifiers: 4, groupSizes: [3,3], playTypes: ['mini_knockout','mini_knockout'], fixedPerGroup: 2),

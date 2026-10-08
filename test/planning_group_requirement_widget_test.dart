@@ -25,6 +25,9 @@ void main() {
           home: const Scaffold(body: TournamentFormatPlannerDialog()),
         ),
       );
+      await tester.ensureVisible(find.text('Turnierformen'));
+      await tester.tap(find.text('Turnierformen'));
+      await tester.pumpAndSettle();
       final option = find.byKey(const ValueKey('planner-require-groups'));
       final mode = find.byKey(const ValueKey('planner-mode-single_knockout'));
       await tester.ensureVisible(mode);
@@ -33,6 +36,9 @@ void main() {
       await tester.tap(mode);
       await tester.pumpAndSettle();
       expect(tester.widget<CheckboxListTile>(mode).value, isFalse);
+      await tester.ensureVisible(find.text('Aufbau & Gruppen'));
+      await tester.tap(find.text('Aufbau & Gruppen'));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(option);
       await tester.pumpAndSettle();
       expect(tester.widget<SwitchListTile>(option).value, isFalse);

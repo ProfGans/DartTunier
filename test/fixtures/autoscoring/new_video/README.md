@@ -20,3 +20,24 @@ Fall 126: originale Vorher-/Leerbilder und zwei zeitlich getrennte Sequenzframes
 Fälle 42 und 20: komplette acht Frames mit Host-Zeitstempeln; Schutz vor falschem Spitzenscore und Vorrang konsistenter Drei-Kamera-Schätzungen am Deadline-Schritt.
 
 Fall 183: volle Originalsequenz; widersprüchliche Kameraachsen, bestätigte Schaftalternative mit neuer dritter Kamera-Pixelstützung und zeitliche Endauswahl.
+
+Fälle 6, 56, 99 und 111 vom 06.10.2026: acht Originalframes mit Zeitstempeln,
+Leer-/Vorherbilder und unveränderte Kalibrierung. 6/99 schützen sichtbare
+Spitzenendpunkte bei Ein-Kamera-Schätzungen. 56 schützt die Triple-Entscheidung
+mit unabhängigen Endpunkten, lokalen Änderungen und gemessenen Ringkanten;
+die originalen Farbleerbilder sind dafür enthalten. 111 schützt die zeitliche
+Beibehaltung eines gemessenen Segmentkontakts. Sollwerte werden ausschließlich
+in den Erwartungen benutzt, nicht zur Erzeugung von Kandidaten.
+
+`case_ordner9_2`, `case_ordner9_56` und `case_ordner9_68`: neue Aufnahmen mit
+denselben numerischen IDs aus Neuer Ordner (9), bewusst getrennt von früheren
+Fällen. Vollständige acht Originalframes sichern T5, T20 und den vom Nutzer
+bestätigten Bouncer mit null Punkten. Zeitstempel und Kalibrierung bleiben
+unverändert. Die Bouncer-Erwartung stammt aus der Nutzeraussage; ein manuell
+verschobener Boardpunkt ist für diesen Fall kein Kontakt-Trainingslabel.
+`case_102` und `case_134`: Originaldiagnosen aus Neuer Ordner (4), acht
+Bildpakete samt Detailbildern, Farbleerbildern, Kalibrierung und Zeitstempeln.
+Erwartungen sind T1 beziehungsweise 3. Sie sichern den lokal gemessenen
+Endpunkt an Ring-/Segmentgrenzen und seine zeitliche Beibehaltung. Die
+Korrekturposition wird der Erkennung nicht übergeben.
+

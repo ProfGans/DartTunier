@@ -36,7 +36,7 @@ String stageMatchName(TournamentRunStage stage, GroupMatch match) {
   if (stage is GroupTournamentRunStage) {
     for (final group in stage.groups) {
       final all = [...group.matches, ...group.knockoutRounds.expand((r) => r), ...group.placementMatches];
-      if (all.contains(match) && group.playType != 'round_robin') return knockoutMatchName(match, all);
+      if (all.contains(match) && !['round_robin', 'swiss'].contains(group.playType)) return knockoutMatchName(match, all);
     }
   }
   return match.label ?? 'Runde ${match.round % 1000}';

@@ -2,15 +2,33 @@ import 'package:flutter/material.dart';
 import '../application/devices_controller.dart';
 import '../application/device_scorer_settings.dart';
 import 'device_scorer_session.dart';
+import 'device_match_end_screen.dart';
 
 class BoardDisplayView extends StatelessWidget {
   const BoardDisplayView({super.key, required this.controller});
   final DevicesController controller;
   @override
   Widget build(BuildContext context) {
-    final display = controller.receiver.display;
+    final assigned = controller.boardPresentation.display;
+    final display =
+        controller.boardPresentation.result == null &&
+            assigned?.matchId != null &&
+            controller.receiver.completedResult?['matchId'] == assigned?.matchId
+        ? null
+        : assigned;
+    final result = controller.boardPresentation.result;
+    if (display != null && result != null) {
+      return DeviceMatchEndScreen(
+        display: display,
+        result: result,
+        onExit: () => controller.setShowDisplay(false),
+        onSkip: controller.boardPresentation.skip,
+      );
+    }
     String? scorerError;
-    if (display?.state == 'running' && display?.matchId != null && display?.gameFormat != null) {
+    if (display?.state == 'running' &&
+        display?.matchId != null &&
+        display?.gameFormat != null) {
       try {
         deviceScorerSettings(display!);
         return Navigator(
@@ -33,9 +51,10 @@ class BoardDisplayView extends StatelessWidget {
           display == null ? 'Spielanzeige' : 'Board ${display.board}',
         ),
         actions: [
-          TextButton(
+          IconButton(
+            tooltip: 'Zur Verwaltung',
             onPressed: () => controller.setShowDisplay(false),
-            child: const Text('Zur Verwaltung'),
+            icon: const Icon(Icons.settings_outlined),
           ),
         ],
       ),
@@ -91,6 +110,25 @@ class BoardDisplayView extends StatelessWidget {
                   const SizedBox(height: 24),
                   Text(display.format, textAlign: TextAlign.center),
                   Text(display.detail, textAlign: TextAlign.center),
+                  if (display.state == 'planned' && display.allowDeviceStart)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                        ),
+                        onPressed:
+                            controller.receiver.connected &&
+                                !controller.receiver.startPending
+                            ? controller.receiver.requestStart
+                            : null,
+                        child: Text(
+                          controller.receiver.startPending
+                              ? 'Start angefordert …'
+                              : 'Partie starten',
+                        ),
+                      ),
+                    ),
                   if (display.state == 'running')
                     Text(
                       display.score,

@@ -38,6 +38,7 @@ class ScorerController extends ChangeNotifier {
       legs[1] == legs[0];
   bool get isComplete => winner != null || isDraw;
   List<DartThrowResult> visit = [];
+  String? intendedTarget;
   String message = '';
   final List<_Snapshot> _history = [];
   final List<ScorerHit> _hits = [];
@@ -101,6 +102,11 @@ class ScorerController extends ChangeNotifier {
           if (dart == null) throw const FormatException('Ungültiger Dart');
           throwDart(
             dart,
+            preserveUnknownTime: true,
+            targetLabel: a['targetLabel'] as String?,
+            thrownAt: a['thrownAt'] == null
+                ? null
+                : DateTime.parse(a['thrownAt'] as String),
             checkoutAttempt: a['attempt'] as bool?,
             location: a['location'] == null
                 ? null
@@ -205,6 +211,11 @@ class ScorerController extends ChangeNotifier {
         starter: legStarter,
         points: result.scoredPoints,
         darts: darts,
+        thrownDarts: visit.isNotEmpty
+            ? visit.length
+            : !result.didBust && result.remainingScore == 0
+            ? darts
+            : null,
         remaining: result.remainingScore,
         bust: result.didBust,
         checkoutAttempts: attempts,
@@ -290,6 +301,7 @@ class ScorerController extends ChangeNotifier {
     );
     message = '${settings.participants[activePlayer].name}: Überworfen';
     activePlayer = (activePlayer + 1) % scores.length;
+    intendedTarget = null;
     notifyListeners();
   }
 
@@ -297,10 +309,18 @@ class ScorerController extends ChangeNotifier {
     DartThrowResult dart, {
     bool? checkoutAttempt,
     DartLocation? location,
+    String? targetLabel,
+    DateTime? thrownAt,
+    bool preserveUnknownTime = false,
   }) {
     if (isComplete) return;
+    final target = targetLabel ?? intendedTarget;
+    final time =
+        thrownAt ?? (preserveUnknownTime ? null : DateTime.now().toUtc());
     _actions.add({
       'type': 'dart',
+      'targetLabel': target,
+      'thrownAt': time?.toIso8601String(),
       'label': dart.label,
       'attempt': checkoutAttempt,
       if (location != null) 'location': location.toJson(),
@@ -329,6 +349,14 @@ class ScorerController extends ChangeNotifier {
           label: dart.label,
           points: dart.scoredPoints,
           checkoutAttempt: successful ? true : checkoutAttempt,
+          targetLabel: target,
+          dartInVisit: visit.length + 1,
+          visitIndex:
+              _statisticsVisits
+                  .where((v) => v.player == activePlayer && v.leg == _leg)
+                  .length +
+              1,
+          thrownAt: time,
         ),
       );
     }
@@ -362,6 +390,7 @@ class ScorerController extends ChangeNotifier {
       _winLeg();
     } else {
       activePlayer = (activePlayer + 1) % scores.length;
+      intendedTarget = null;
     }
     visit = [];
     _visitCheckoutAttempts = 0;
@@ -390,6 +419,7 @@ class ScorerController extends ChangeNotifier {
     opened = List.filled(scores.length, false);
     legStarter = (legStarter + 1) % scores.length;
     activePlayer = legStarter;
+    intendedTarget = null;
   }
 
   void playBotDart() {

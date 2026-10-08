@@ -11,10 +11,12 @@ class ConfigurationEstimate {
     this.minimumMatches,
     this.variableMatches, [
     this.matchEndSeconds = const [],
+    this.waitMinutes = 0,
   ]);
   final int minutes, totalMatches, minimumMatches;
   final bool variableMatches;
   final List<int> matchEndSeconds;
+  final double waitMinutes;
 }
 
 /// Uses an isolated production runtime; never mutates or saves the draft.
@@ -51,6 +53,7 @@ class ConfigurationDurationEstimator {
     final runtime = ProductionTournamentRuntime(tournament);
     final planner = TournamentFormatPlanner(parameters: parameters);
     var minutes = 0.0;
+    var waitMinutes = 0.0;
     final matchEndSeconds = <int>[];
     var totalMatches = 0;
     var minimumMatches = 0;
@@ -69,6 +72,7 @@ class ConfigurationDurationEstimator {
       tournament.runStages.add(stage);
       runtime.activate(index);
       runtime.advance();
+      final swissRounds = <int>{};
       if (allParticipantsReachStage) {
         minimumMatches += _minimum(config, stage);
       }
@@ -116,6 +120,17 @@ class ConfigurationDurationEstimator {
         final ready = all
             .where((entry) => entry.match.hasPlayers && !entry.match.isResolved)
             .toList();
+        if (stage is GroupTournamentRunStage) {
+          for (final group in stage.groups.where((g) => g.playType == 'swiss')) {
+            for (final match in group.matches.where((m) => m.hasPlayers && !m.isResolved && m.round > 1)) {
+              if (swissRounds.add(match.round)) {
+                final reserve = parameters.value(PlanningParameter.swissRoundWaitMinutes);
+                minutes += reserve;
+                waitMinutes += reserve;
+              }
+            }
+          }
+        }
         if (ready.isEmpty || blocks > 10000) return null;
         final schedule = const BoardSchedulingEngine().schedule(
           all: all,
@@ -154,6 +169,7 @@ class ConfigurationDurationEstimator {
       minimumMatches,
       variableMatches,
       matchEndSeconds..sort(),
+      waitMinutes,
     );
   }
 
@@ -180,7 +196,9 @@ class ConfigurationDurationEstimator {
       var minimum = 1 << 30;
       for (var i = 0; i < stage.groups.length; i++) {
         final group = stage.groups[i];
-        final games = group.playType == 'round_robin'
+        final games = group.playType == 'swiss'
+            ? group.matches.map((m) => m.round).toSet().length - (group.players.length.isOdd ? 1 : 0)
+            : group.playType == 'round_robin'
             ? group.players
                   .map(
                     (p) => group.matches

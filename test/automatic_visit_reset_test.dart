@@ -19,6 +19,93 @@ GrayFrame frame({int brightness = 80, int shafts = 0, int noise = 0}) {
 }
 
 void main() {
+  test('A hand covering old shafts cannot release an unfinished visit', () {
+    final reset = AutomaticVisitReset();
+    final empty = List.generate(3, (_) => frame());
+    final occupied = List.generate(3, (_) => frame(shafts: 1));
+    reset.observe(
+      empty: empty,
+      occupied: occupied,
+      current: empty,
+      stable: false,
+      darts: 1,
+    );
+    final hand = GrayFrame(
+      100,
+      100,
+      Uint8List(10000)..fillRange(0, 10000, 220),
+    );
+    for (var n = 0; n < 5; n++) {
+      reset.observe(
+        empty: empty,
+        occupied: occupied,
+        current: List.filled(3, hand),
+        stable: true,
+        darts: 1,
+      );
+    }
+    expect(reset.waitingForEmpty, true);
+  });
+  for (final darts in [1, 2, 3]) {
+    test(
+      'Shifted old shafts plus new dart release only unfinished visit $darts',
+      () {
+        final reset = AutomaticVisitReset();
+        final empty = List.generate(3, (_) => frame());
+        final occupied = List.generate(3, (_) => frame(shafts: darts));
+        reset.observe(
+          empty: empty,
+          occupied: occupied,
+          current: empty,
+          stable: false,
+          darts: darts,
+        );
+        final shifted = List.generate(3, (_) {
+          final pixels = Uint8List.fromList(frame(shafts: darts + 1).pixels);
+          for (var shaft = 0; shaft < darts; shaft++) {
+            pixels.fillRange(2000 + shaft * 200, 2100 + shaft * 200, 80);
+            pixels.fillRange(2100 + shaft * 200, 2200 + shaft * 200, 180);
+          }
+          return GrayFrame(100, 100, pixels);
+        });
+        for (var n = 0; n < 4; n++) {
+          reset.observe(
+            empty: empty,
+            occupied: occupied,
+            current: shifted,
+            stable: true,
+            darts: darts,
+          );
+        }
+        expect(reset.waitingForEmpty, darts == 3);
+      },
+    );
+  }
+  test('Unrelated added pixels cannot replace a removed shaft', () {
+    final reset = AutomaticVisitReset();
+    final empty = List.generate(3, (_) => frame());
+    final occupied = List.generate(3, (_) => frame(shafts: 2));
+    for (var n = 0; n < 8; n++) {
+      reset.observe(
+        empty: empty,
+        occupied: occupied,
+        current: List.generate(3, (_) => frame(shafts: 1, noise: 200)),
+        stable: true,
+        darts: 2,
+      );
+      if (n == 0) {
+        // Prime the latch with an unambiguous partial removal first.
+        reset.observe(
+          empty: empty,
+          occupied: occupied,
+          current: List.generate(3, (_) => frame(shafts: 1)),
+          stable: true,
+          darts: 2,
+        );
+      }
+    }
+    expect(reset.waitingForEmpty, true);
+  });
   for (final darts in [1, 2, 3]) {
     test(
       'Restored full occupied board unlocks only unfinished visit $darts',

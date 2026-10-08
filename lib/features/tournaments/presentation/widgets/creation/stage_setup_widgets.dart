@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../modes/swiss/swiss_engine.dart';
 
 import '../../../domain/tournament_models.dart';
 
@@ -98,7 +99,7 @@ class RoundRobinRepeatsSetup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (groupSizes.isEmpty || !playTypes.contains('round_robin')) {
+    if (groupSizes.isEmpty || !playTypes.any((t) => t == 'round_robin' || t == 'swiss')) {
       return const SizedBox.shrink();
     }
 
@@ -106,16 +107,18 @@ class RoundRobinRepeatsSetup extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Begegnungen pro Paar',
+          'Begegnungen pro Paar / Swiss-Runden',
           style: Theme.of(context).textTheme.titleMedium,
         ),
+        if (playTypes.contains('swiss'))
+          const Text('Swiss: feste Rundenzahl, maximal die aufgerundete halbe Teilnehmerzahl je Gruppe. Die nächste Runde wartet auf alle Ergebnisse.'),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
             for (var index = 0; index < groupSizes.length; index++)
-              if (index < playTypes.length && playTypes[index] == 'round_robin')
+              if (index < playTypes.length && (playTypes[index] == 'round_robin' || playTypes[index] == 'swiss'))
                 Container(
                   padding: const EdgeInsets.only(left: 10),
                   decoration: BoxDecoration(
@@ -124,16 +127,16 @@ class RoundRobinRepeatsSetup extends StatelessWidget {
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(groupLabel(index + 1)),
                       const SizedBox(width: 8),
                       IconButton(
                         key: ValueKey('round-robin-repeat-minus-${index + 1}'),
                         constraints: const BoxConstraints.tightFor(
-                          width: 32,
-                          height: 36,
+                          width: 48,
+                          height: 48,
                         ),
                         padding: EdgeInsets.zero,
                         onPressed: repeats[index] <= 1
@@ -142,15 +145,15 @@ class RoundRobinRepeatsSetup extends StatelessWidget {
                         icon: const Icon(Icons.remove),
                         tooltip: 'Weniger Spiele',
                       ),
-                      Text('${repeats[index]}x'),
+                      Text(playTypes[index] == 'swiss' ? '${repeats[index]} Runden' : '${repeats[index]}x'),
                       IconButton(
                         key: ValueKey('round-robin-repeat-plus-${index + 1}'),
                         constraints: const BoxConstraints.tightFor(
-                          width: 32,
-                          height: 36,
+                          width: 48,
+                          height: 48,
                         ),
                         padding: EdgeInsets.zero,
-                        onPressed: () => onChangeRepeats(index, 1),
+                        onPressed: playTypes[index] == 'swiss' && repeats[index] >= SwissEngine.maximumRounds(groupSizes[index]) ? null : () => onChangeRepeats(index, 1),
                         icon: const Icon(Icons.add),
                         tooltip: 'Mehr Spiele',
                       ),
@@ -210,6 +213,7 @@ class GroupPlayTypeSetup extends StatelessWidget {
                   ),
                   items: const [
                     DropdownMenuItem(value: 'round_robin', child: Text('Liga')),
+                    DropdownMenuItem(value: 'swiss', child: Text('Schweizer System')),
                     DropdownMenuItem(
                       value: 'mini_knockout',
                       child: Text('Mini-KO'),

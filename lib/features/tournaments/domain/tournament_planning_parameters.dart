@@ -1,4 +1,5 @@
 enum PlanningParameter {
+  swissRoundWaitMinutes('Swiss-Zeitplanung', 'Reserve je Rundenwechsel (Warten / Auslosung)', 5, 0, 120),
   maximumGroups('Turnieraufbau', 'Maximale Gruppenzahl', 4, 1, 64),
   qualifiersPerGroup('Turnieraufbau', 'Qualifikation je Gruppe', 2, 1, 64),
   maximumSuggestions('Turnieraufbau', 'Anzahl Vorschläge', 3, 1, 64),

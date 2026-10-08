@@ -15,8 +15,10 @@ DartTipObservation? detectDartTip(
   GrayFrame after,
   BoardCalibration calibration,
   DartAxis axis,
-  BoardPoint predicted,
-) {
+  BoardPoint predicted, {
+  double maximumDistance = 25,
+  int differenceThreshold = 24,
+}) {
   final a = before.detail ?? before, b = after.detail ?? after;
   if (a.width != b.width || a.height != b.height || axis.confidence < .7) {
     return null;
@@ -46,7 +48,9 @@ DartTipObservation? detectDartTip(
   for (var y = top; y <= bottom; y++) {
     for (var x = left; x <= right; x++) {
       final index = y * b.width + x;
-      if ((a.pixels[index] - b.pixels[index]).abs() < 24) continue;
+      if ((a.pixels[index] - b.pixels[index]).abs() < differenceThreshold) {
+        continue;
+      }
       final raw = Point(x / (b.width - 1), y / (b.height - 1));
       final p = calibration.lens.undistort(raw), d = p - origin;
       if ((d.x * direction.y - d.y * direction.x).abs() > 2 / b.width) continue;
@@ -56,7 +60,9 @@ DartTipObservation? detectDartTip(
       for (var dy = -1; dy <= 1; dy++) {
         for (var dx = -1; dx <= 1; dx++) {
           final i = (y + dy) * b.width + x + dx;
-          if ((a.pixels[i] - b.pixels[i]).abs() >= 24) neighbours++;
+          if ((a.pixels[i] - b.pixels[i]).abs() >= differenceThreshold) {
+            neighbours++;
+          }
         }
       }
       if (neighbours >= 3) {
@@ -77,7 +83,10 @@ DartTipObservation? detectDartTip(
       nearby.fold<double>(0, (s, p) => s + p.$2.y) / nearby.length,
     );
     final board = calibration.project(image);
-    if (board.magnitude >= 227 || board.distanceTo(predicted) > 25) continue;
+    if (board.magnitude >= 227 ||
+        board.distanceTo(predicted) > maximumDistance) {
+      continue;
+    }
     candidates.add(DartTipObservation(image, board, axis.confidence));
   }
   candidates.sort(
@@ -117,9 +126,25 @@ TipContactDecision refineTipContact(
               calibrations[i],
               axes[i]!,
               provisional.point,
+              maximumDistance: provisional.views == 1 ? 45 : 25,
+              differenceThreshold: provisional.views == 1 ? 18 : 24,
             ),
   ];
   final valid = tips.whereType<DartTipObservation>().toList();
+  // An infinite single shaft cannot locate contact along its own axis. A
+  // connected physical endpoint is preferable to the forced change centroid;
+  // the controller still requires temporal agreement before counting it.
+  if (provisional.views == 1 &&
+      valid.length == 1 &&
+      valid.single.confidence >= .85) {
+    final endpoint = valid.single;
+    return TipContactDecision(
+      FusedHit(endpoint.board, provisional.residual, 1, forcedDecision: true),
+      tips,
+      false,
+      reason: 'singleVisibleEndpoint',
+    );
+  }
   if (valid.length < 2 ||
       valid.any((a) => valid.any((b) => a.board.distanceTo(b.board) > 4))) {
     return TipContactDecision(

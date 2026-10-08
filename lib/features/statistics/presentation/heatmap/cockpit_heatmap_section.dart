@@ -9,11 +9,12 @@ class CockpitHeatmapSection extends StatefulWidget {
   const CockpitHeatmapSection({
     super.key,
     required this.subject,
+    this.favoriteDouble = '',
     this.sessions,
     this.period,
     this.community = false,
   });
-  final String subject;
+  final String subject, favoriteDouble;
   final List<ScorerHeatmapSession>? sessions;
   final StatisticsPeriod? period;
   final bool community;
@@ -138,6 +139,7 @@ class _SectionState extends State<CockpitHeatmapSection>
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => ScorerHeatmapPage(
+                              favoriteDouble: widget.favoriteDouble,
                               sessions: [
                                 for (final s in sessions)
                                   ScorerHeatmapSession(

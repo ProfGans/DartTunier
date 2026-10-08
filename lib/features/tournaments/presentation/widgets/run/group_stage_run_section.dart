@@ -55,7 +55,7 @@ class _GroupStageRunSectionState extends State<GroupStageRunSection> {
   Widget build(BuildContext context) {
     final standingsByGroup = {
       for (final group in stage.groups)
-        if (group.playType == 'round_robin')
+        if (['round_robin', 'swiss'].contains(group.playType))
           group: standingsFor(group, stage.tieBreakers),
     };
 
@@ -72,30 +72,15 @@ class _GroupStageRunSectionState extends State<GroupStageRunSection> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                stage.name,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+              if (!compact) ...[
+                Text(
+                  stage.name,
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-              ),
-              const SizedBox(height: 8),
-              ExpansionTile(
-                key: PageStorageKey('group-setup-${stage.name}'),
-                title: const Text('Gruppen verwalten'),
-                leading: const Icon(Icons.tune),
-                childrenPadding: const EdgeInsets.only(bottom: 12),
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: onEditPositions,
-                    icon: const Icon(Icons.open_with),
-                    label: const Text('Positionen bearbeiten'),
-                  ),
-                  const Text(
-                    'Spieler können vor dem ersten Spielstart oder Ergebnis getauscht werden.',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
+              if (stage.groups.any((g) => g.playType == 'swiss'))
+                const Padding(padding: EdgeInsets.only(bottom: 12), child: Text('Swiss: Nächste Runde erst nach allen Ergebnissen der vorherigen Runde. Wertung: Punkte, Buchholz (Gegnerpunkte), Leg-Differenz, gewonnene Legs, Startreihenfolge. Freilos: 3 Punkte, kein gespieltes Match.')), 
               if (compact && stage.groups.length > 1) ...[
                 DropdownButtonFormField<int>(
                   key: ValueKey('group-$selected'),
@@ -123,6 +108,8 @@ class _GroupStageRunSectionState extends State<GroupStageRunSection> {
                     MiniKnockoutGroupRunSection(
                       key: ValueKey(stage.groups[index]),
                       group: stage.groups[index],
+                      onEditResult: onEditResult,
+                      canEditResults: canEditResults,
                       bracket: miniKnockoutBracketBuilder(
                         stage.groups[index],
                         _requiredRankForMiniGroup(stage, index),
@@ -141,10 +128,26 @@ class _GroupStageRunSectionState extends State<GroupStageRunSection> {
                       onEditResult: onEditResult,
                       canEditResults: canEditResults,
                     ),
+              ExpansionTile(
+                key: PageStorageKey('group-setup-${stage.name}'),
+                title: const Text('Gruppen verwalten'),
+                leading: const Icon(Icons.tune),
+                childrenPadding: const EdgeInsets.only(bottom: 12),
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onEditPositions,
+                    icon: const Icon(Icons.open_with),
+                    label: const Text('Positionen bearbeiten'),
+                  ),
+                  const Text(
+                    'Spieler können vor dem ersten Spielstart oder Ergebnis getauscht werden.',
+                  ),
+                ],
+              ),
               if (stage.qualificationPlan != null &&
                   stage.qualificationPlan!.extraCount > 0 &&
                   stage.groups.every(
-                    (group) => group.playType == 'round_robin',
+                    (group) => ['round_robin', 'swiss'].contains(group.playType),
                   )) ...[
                 const SizedBox(height: 4),
                 BestOfComparisonTable(

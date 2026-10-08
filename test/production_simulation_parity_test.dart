@@ -25,7 +25,14 @@ void main() {
       winners.sort((a,b)=>const GroupByeSeeding().compare(a,b,defaultGroupTieBreakers));
       final byes=report.stageReports.last.matchRecords.where((r)=>r.match.round==1 && !r.match.hasPlayers).toList();
       expect(byes.length,2);
-      expect(byes.map((r)=>r.match.winner!.name).toSet(),winners.take(2).map((r)=>r.standing.player.name).toSet());
+      final recipients = byes.map((r) => r.match.winner!.name).toSet();
+      expect(winners.map((r) => r.standing.player.name), containsAll(recipients));
+      for (final selected in winners.where((r) => recipients.contains(r.standing.player.name))) {
+        for (final excluded in winners.where((r) => !recipients.contains(r.standing.player.name))) {
+          // Equal performance is now decided by lot; a worse player must never win.
+          expect(const GroupByeSeeding().compare(selected, excluded, defaultGroupTieBreakers), lessThanOrEqualTo(0));
+        }
+      }
     }
   });
 }

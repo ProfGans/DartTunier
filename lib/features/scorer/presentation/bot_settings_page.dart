@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_settings_section.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
 import '../../autoscoring/presentation/widgets/autoscoring_preference_tile.dart';
@@ -5,6 +6,7 @@ import '../data/bot_settings_storage.dart';
 import '../domain/bot_settings.dart';
 import '../application/theo_average_service.dart';
 import 'widgets/theo_average_input.dart';
+import 'monitor/scorer_monitor_preference_tile.dart';
 
 class BotSettingsPage extends StatelessWidget {
   const BotSettingsPage({super.key});
@@ -155,7 +157,6 @@ class _BotSettingsPanelState extends State<BotSettingsPanel> {
       child: AdaptiveContentList(
         padding: const EdgeInsets.all(16),
         children: [
-          const AutoscoringPreferenceTile(),
           Text(
             'Bots fein abstimmen',
             style: Theme.of(context).textTheme.headlineSmall,
@@ -202,23 +203,29 @@ class _BotSettingsPanelState extends State<BotSettingsPanel> {
               (v) => finish = v,
             ),
           ],
-          _slider(
-            'Zielstreuung',
-            'Wie in der bisherigen App: niedrigere Werte machen Bots präziser, höhere ungenauer.',
-            radius,
-            50,
-            150,
-            (v) => radius = v,
-            suffix: '%',
-          ),
-          _slider(
-            'Simulationsstreuung',
-            'Zusätzliche Feinabstimmung der Wurfstreuung. 100 % entspricht der bisherigen App.',
-            spread,
-            70,
-            140,
-            (v) => spread = v,
-            suffix: '%',
+          SportSettingsSection(
+            title: 'Feinabstimmung',
+            summary: 'Zielstreuung $radius % · Simulation $spread %',
+            children: [
+              _slider(
+                'Zielstreuung',
+                'Wie in der bisherigen App: niedrigere Werte machen Bots präziser, höhere ungenauer.',
+                radius,
+                50,
+                150,
+                (v) => radius = v,
+                suffix: '%',
+              ),
+              _slider(
+                'Simulationsstreuung',
+                'Zusätzliche Feinabstimmung der Wurfstreuung. 100 % entspricht der bisherigen App.',
+                spread,
+                70,
+                140,
+                (v) => spread = v,
+                suffix: '%',
+              ),
+            ],
           ),
           DropdownButtonFormField<int>(
             key: ValueKey(speed),
@@ -230,6 +237,15 @@ class _BotSettingsPanelState extends State<BotSettingsPanel> {
               DropdownMenuItem(value: 2, child: Text('Schnell')),
             ],
             onChanged: saving ? null : (v) => setState(() => speed = v!),
+          ),
+          const SportSettingsSection(
+            title: 'Anzeige & Kamera',
+            summary: 'Monitor und automatische Erfassung',
+            icon: Icons.devices_outlined,
+            children: [
+              AutoscoringPreferenceTile(),
+              ScorerMonitorPreferenceTile(),
+            ],
           ),
           const SizedBox(height: 16),
           FilledButton(

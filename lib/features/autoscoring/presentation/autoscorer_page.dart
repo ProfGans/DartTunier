@@ -1,7 +1,9 @@
+import '../../../shared/widgets/sport_settings_section.dart';
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../data/autoscore_setup_store.dart';
 import '../application/autoscore_audio_controller.dart';
+import '../data/autoscore_audio_output.dart';
 import 'autoscore_demo_page.dart';
 import 'widgets/autoscore_audio_controls.dart';
 import 'widgets/autoscoring_preference_tile.dart';
@@ -9,15 +11,19 @@ import 'widgets/autoscore_statistics_reset_button.dart';
 import 'widgets/autoscore_verification_panel.dart';
 
 class AutoscorerPage extends StatefulWidget {
-  const AutoscorerPage({super.key, this.store});
+  const AutoscorerPage({super.key, this.store, this.audioOutput});
   final AutoscoreSetupStore? store;
+  final AutoscoreAudioOutput? audioOutput;
   @override
   State<AutoscorerPage> createState() => _AutoscorerPageState();
 }
 
 class _AutoscorerPageState extends State<AutoscorerPage> {
   late final store = widget.store ?? AutoscoreSetupStore.instance;
-  late final audio = AutoscoreAudioController(setupStore: store);
+  late final audio = AutoscoreAudioController(
+    setupStore: store,
+    output: widget.audioOutput,
+  );
   @override
   void initState() {
     super.initState();
@@ -131,44 +137,6 @@ class _AutoscorerPageState extends State<AutoscorerPage> {
               ],
             ),
             const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Statistik · ${setup.name}',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      setup.accuracy == null
-                          ? 'Genauigkeit: noch keine geprüften Würfe'
-                          : 'Genauigkeit: ${setup.accuracy!.toStringAsFixed(1)} %',
-                    ),
-                    Text(
-                      '${setup.correct} richtig · ${setup.incorrect} falsch · ${setup.pending} ungeprüft',
-                    ),
-                    Text(
-                      '${setup.total} Würfe · ${setup.estimated} Schätzungen · ${setup.missing} nachgemeldet · ${setup.bouncers} Bouncer',
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Beim Herausziehen zählen unkorrigierte Treffer als richtig. Jede Korrektur und jeder nachgemeldete Wurf zählt als Fehler. Die Statistik bleibt pro Setup gespeichert, auch nach einem Neustart.',
-                    ),
-                    const SizedBox(height: 12),
-                    AutoscoreStatisticsResetButton(store: store),
-                    const SizedBox(height: 12),
-                    AutoscoreVerificationPanel(store: store),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const AutoscoringPreferenceTile(),
-            AutoscoreAudioControls(controller: audio),
-            const SizedBox(height: 12),
             FilledButton.icon(
               style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
               onPressed: !store.loaded
@@ -182,6 +150,44 @@ class _AutoscorerPageState extends State<AutoscorerPage> {
               icon: const Icon(Icons.videocam_outlined),
               label: const Text('Kameras, Kalibrierung und Erkennung öffnen'),
             ),
+            const SizedBox(height: 16),
+            SportSettingsSection(
+              title: 'Statistik & Prüfung',
+              summary: setup.accuracy == null
+                  ? 'Noch keine geprüften Würfe'
+                  : '${setup.accuracy!.toStringAsFixed(1)} % Genauigkeit · ${setup.pending} ungeprüft',
+              icon: Icons.analytics_outlined,
+              children: [
+                Text(
+                  setup.accuracy == null
+                      ? 'Genauigkeit: noch keine geprüften Würfe'
+                      : 'Genauigkeit: ${setup.accuracy!.toStringAsFixed(1)} %',
+                ),
+                Text(
+                  '${setup.correct} richtig · ${setup.incorrect} falsch · ${setup.pending} ungeprüft',
+                ),
+                Text(
+                  '${setup.total} Würfe · ${setup.estimated} Schätzungen · ${setup.missing} nachgemeldet · ${setup.bouncers} Bouncer',
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Beim Herausziehen zählen unkorrigierte Treffer als richtig. Jede Korrektur und jeder nachgemeldete Wurf zählt als Fehler. Die Statistik bleibt pro Setup gespeichert, auch nach einem Neustart.',
+                ),
+                const SizedBox(height: 12),
+                AutoscoreStatisticsResetButton(store: store),
+                const SizedBox(height: 12),
+                AutoscoreVerificationPanel(store: store),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const SportSettingsSection(
+              title: 'Automatische Erfassung',
+              summary: 'Vorgabe für neue Spiele',
+              icon: Icons.videocam_outlined,
+              children: [AutoscoringPreferenceTile()],
+            ),
+            AutoscoreAudioControls(controller: audio),
+            const SizedBox(height: 12),
             const SizedBox(height: 8),
             const Text(
               'Hier findest du die bisherigen Kameraansichten, Korrekturen und Diagnose-Exporte. Kameras werden je Setup gespeichert; nach einem Umbau oder einer Board-Drehung neu kalibrieren.',

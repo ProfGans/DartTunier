@@ -1,3 +1,6 @@
+import '../../personal_profile/data/personal_profile_repository.dart';
+import '../data/profile_heatmap_repository.dart';
+import '../domain/analytics/community_profile_reports.dart';
 import '../../../shared/widgets/sport_menu.dart';
 import '../data/scorer_heatmap_repository.dart';
 import '../domain/cockpit_heatmap_selection.dart';
@@ -35,8 +38,12 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
   >
   content;
   String? notice;
+  String favoriteDouble = '';
+  final profileHeatmaps = ProfileHeatmapRepository();
   final ownIds = <String>{};
   final aliases = <String, String>{};
+  final communityNames = <String, String>{};
+  final tournamentCommunities = <String, String>{};
   @override
   void initState() {
     super.initState();
@@ -59,9 +66,12 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
       ..clear()
       ..add(widget.account.id);
     aliases.clear();
+    communityNames.clear();
+    tournamentCommunities.clear();
     final local = await repository.storage.loadTournaments();
     for (final t in local) {
       tournaments[t.id] = t;
+      if (t.communityId != null) tournamentCommunities[t.id] = t.communityId!;
     }
     try {
       for (final p in await LocalAppDatabase().loadPlayerProfiles()) {
@@ -71,20 +81,27 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
         final communities = SupabaseCommunityRepository();
         if (communities.currentUserId == widget.account.id) {
           for (final community in await communities.loadMyCommunities()) {
-            final members = effectiveCommunityMembers(
-              await communities.loadMembers(community.id),
-            );
-            for (final member in members) {
-              if (member.userId != widget.account.id) continue;
-              if (member.playerProfileId != null) {
-                ownIds.add(member.playerProfileId!);
+            communityNames[community.id] = community.name;
+            try {
+              final members = effectiveCommunityMembers(
+                await communities.loadMembers(community.id),
+              );
+              for (final member in members) {
+                if (member.userId != widget.account.id) continue;
+                if (member.playerProfileId != null) {
+                  ownIds.add(member.playerProfileId!);
+                }
+                for (final alias in member.aliasProfileIds) {
+                  aliases[alias] = widget.account.id;
+                }
               }
-              for (final alias in member.aliasProfileIds) {
-                aliases[alias] = widget.account.id;
+              for (final t in await communities.loadTournaments(community.id)) {
+                tournaments[t.id] = t;
+                tournamentCommunities[t.id] = community.id;
               }
-            }
-            for (final t in await communities.loadTournaments(community.id)) {
-              tournaments[t.id] = t;
+            } catch (_) {
+              notice =
+                  'Einige Community-Daten konnten nicht geladen werden. Verfügbare Ergebnisse bleiben sichtbar.';
             }
           }
         }
@@ -93,15 +110,39 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
       notice =
           'Turnierdaten möglicherweise unvollständig. Gespeicherte Daten bleiben sichtbar.';
     }
+    try {
+      favoriteDouble = (await PersonalProfileRepository().load(
+        widget.account.id,
+        widget.account.displayName,
+      )).favoriteDouble;
+    } catch (_) {
+      favoriteDouble = '';
+    }
     var heatmaps = <ScorerHeatmapSession>[];
     try {
       heatmaps = selectProfileHeatmaps(
         await ScorerHeatmapRepository().load(),
         history,
       );
+      final owned = {for (final match in history) match.id: match};
+      for (final session in heatmaps) {
+        await profileHeatmaps.save(
+          widget.account.id,
+          session,
+          owned[session.id]!.playerIndex,
+          onlyIfAbsent: true,
+        );
+      }
     } catch (_) {
       notice =
-          '${notice == null ? '' : '$notice\n'}Lokale Heatmap-Daten konnten nicht geladen werden.';
+          '${notice == null ? '' : '$notice\n'}Ältere Heatmap-Daten konnten nicht übernommen werden.';
+    }
+    await profileHeatmaps.synchronize(widget.account.id);
+    try {
+      heatmaps = await profileHeatmaps.load(widget.account.id);
+    } catch (_) {
+      notice =
+          '${notice == null ? '' : '$notice\n'}Gespeicherte Profil-Heatmaps konnten nicht geladen werden.';
     }
     return (history, tournaments.values.toList(), heatmaps);
   }
@@ -151,8 +192,17 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
             return PlayerAnalyticsPage(
               embedded: true,
               name: widget.account.displayName,
+              favoriteDouble: favoriteDouble,
               scorer: const StatisticsAnalytics().scorer(allHistory),
               heatmapSessions: heatmaps,
+              communityNames: communityNames,
+              communityReports: communityProfileReports(
+                tournaments: tournaments,
+                tournamentCommunities: tournamentCommunities,
+                ownIds: ownIds,
+                aliases: aliases,
+                communities: communityNames.keys.toSet(),
+              ),
               tournaments: const StatisticsAnalytics()
                   .tournaments(tournaments, aliases: aliases)
                   .filtered(players: ownIds),
@@ -181,6 +231,7 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
                   ],
                 ),
                 Text(repository.status),
+                Text(profileHeatmaps.status),
                 if (notice != null) Text(notice!),
               ],
               footerBuilder: (period) {
@@ -204,6 +255,7 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
                             MaterialPageRoute<void>(
                               builder: (_) => PlayerAnalyticsPage(
                                 name: match.names.join(' · '),
+                                favoriteDouble: favoriteDouble,
                                 scorer: const StatisticsAnalytics().scorer([
                                   match,
                                 ]),

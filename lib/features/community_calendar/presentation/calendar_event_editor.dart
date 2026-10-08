@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_settings_section.dart';
 import 'package:flutter/material.dart';
 import 'calendar_labels.dart';
 import '../../../shared/widgets/adaptive_content.dart';
@@ -33,6 +34,7 @@ class CalendarEventEditor extends StatefulWidget {
 class _CalendarEventEditorState extends State<CalendarEventEditor> {
   bool get _isTournament => widget.event?.isTournament ?? widget.isTournament;
   final _form = GlobalKey<FormState>();
+  final _formatSection = GlobalKey<SportSettingsSectionState>();
   late final _title = TextEditingController(text: widget.event?.title);
   late final _location = TextEditingController(text: widget.event?.location);
   late final _notes = TextEditingController(text: widget.event?.notes);
@@ -128,7 +130,10 @@ class _CalendarEventEditorState extends State<CalendarEventEditor> {
   }
 
   Future<void> _save({bool preset = false}) async {
-    if (!_form.currentState!.validate()) return;
+    if (!_form.currentState!.validate()) {
+      _formatSection.currentState?.expand();
+      return;
+    }
     setState(() => _busy = true);
     try {
       if (preset) {
@@ -258,19 +263,26 @@ class _CalendarEventEditorState extends State<CalendarEventEditor> {
             const Text(
               'Datum und Uhrzeit werden in deiner lokalen Zeitzone angezeigt.',
             ),
-            TextFormField(
-              controller: _location,
-              maxLength: 200,
-              decoration: const InputDecoration(labelText: 'Ort'),
-            ),
-            TextFormField(
-              controller: _notes,
-              maxLength: 1000,
-              minLines: 2,
-              maxLines: 5,
-              decoration: InputDecoration(
-                labelText: _isTournament ? 'Hinweise' : 'Beschreibung',
-              ),
+            SportSettingsSection(
+              title: 'Ort & Hinweise',
+              summary: 'Weitere Angaben zum Termin · optional',
+              icon: Icons.place_outlined,
+              children: [
+                TextFormField(
+                  controller: _location,
+                  maxLength: 200,
+                  decoration: const InputDecoration(labelText: 'Ort'),
+                ),
+                TextFormField(
+                  controller: _notes,
+                  maxLength: 1000,
+                  minLines: 2,
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    labelText: _isTournament ? 'Hinweise' : 'Beschreibung',
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             if (_isTournament) ...[
@@ -300,33 +312,45 @@ class _CalendarEventEditorState extends State<CalendarEventEditor> {
               ),
               _number(_players, 'Geplante Spielerzahl', 2, 256),
               _number(_boards, 'Boards', 1, 64),
-              _number(_score, 'X01-Startpunkte', 2, 1001),
-              _number(
-                _legs,
-                'Legs (gerade Anzahl erlaubt Unentschieden in Gruppen)',
-                1,
-                101,
-              ),
-              _number(_sets, 'Best of Sets', 1, 101, odd: true),
-              DropdownButtonFormField<String>(
-                key: ValueKey('checkout:$_checkout'),
-                initialValue: _checkout,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Checkout'),
-                items: [
-                  for (final type in {
-                    'double_out': 'Double Out',
-                    'single_out': 'Single Out',
-                    'master_out': 'Master Out',
-                  }.entries)
-                    DropdownMenuItem(value: type.key, child: Text(type.value)),
+              SportSettingsSection(
+                key: _formatSection,
+                title: 'Spielformat',
+                summary:
+                    '${_score.text} Punkte · ${_legs.text} Legs · ${_sets.text} Sets',
+                icon: Icons.sports_outlined,
+                children: [
+                  _number(_score, 'X01-Startpunkte', 2, 1001),
+                  _number(
+                    _legs,
+                    'Legs (gerade Anzahl erlaubt Unentschieden in Gruppen)',
+                    1,
+                    101,
+                  ),
+                  _number(_sets, 'Best of Sets', 1, 101, odd: true),
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('checkout:$_checkout'),
+                    initialValue: _checkout,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Checkout'),
+                    items: [
+                      for (final type in {
+                        'double_out': 'Double Out',
+                        'single_out': 'Single Out',
+                        'master_out': 'Master Out',
+                      }.entries)
+                        DropdownMenuItem(
+                          value: type.key,
+                          child: Text(type.value),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() => _checkout = value!),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Double In'),
+                    value: _doubleIn,
+                    onChanged: (value) => setState(() => _doubleIn = value),
+                  ),
                 ],
-                onChanged: (value) => setState(() => _checkout = value!),
-              ),
-              SwitchListTile(
-                title: const Text('Double In'),
-                value: _doubleIn,
-                onChanged: (value) => setState(() => _doubleIn = value),
               ),
               SwitchListTile(
                 title: const Text('Zählt zur Rangliste'),

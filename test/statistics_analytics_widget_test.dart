@@ -49,6 +49,16 @@ class MetricAnalyticsPreview extends StatelessWidget {
   );
 }
 
+class ThrownDartsAnalyticsPreview extends StatelessWidget {
+  const ThrownDartsAnalyticsPreview({super.key});
+  @override
+  Widget build(BuildContext context) => StatisticsMetricPage(
+    report: analyticsFixture(),
+    metric: statisticsMetrics.firstWhere((m) => m.id == 'thrownDarts'),
+    subject: 'Alexandra',
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const font = String.fromEnvironment('LAYOUT_PREVIEW_FONT');
@@ -78,6 +88,7 @@ void main() {
           const PlayerAnalyticsPreview(),
           const CommunityAnalyticsPreview(),
           const MetricAnalyticsPreview(),
+          const ThrownDartsAnalyticsPreview(),
         ]) {
           await tester.pumpWidget(
             RepaintBoundary(

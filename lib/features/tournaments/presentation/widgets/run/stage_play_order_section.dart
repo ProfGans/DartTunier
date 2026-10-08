@@ -1,11 +1,12 @@
+import 'round_match_list.dart';
 import '../../../domain/knockout_round_names.dart';
 import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
-import 'result_entry.dart';
+import '../../../../../shared/widgets/sport_metric_grid.dart';
 import 'stage_surface.dart';
 
-class StagePlayOrderSection extends StatelessWidget {
+class StagePlayOrderSection extends StatefulWidget {
   const StagePlayOrderSection({
     super.key,
     required this.stage,
@@ -20,13 +21,24 @@ class StagePlayOrderSection extends StatelessWidget {
   final bool canEditResults;
 
   @override
+  State<StagePlayOrderSection> createState() => _StagePlayOrderSectionState();
+}
+
+class _StagePlayOrderSectionState extends State<StagePlayOrderSection> {
+  bool _results = false;
+  TournamentRunStage get stage => widget.stage;
+  List<GroupMatch> get matches => widget.matches;
+  @override
   Widget build(BuildContext context) {
     final rounds = <int, List<GroupMatch>>{};
-    for (final match in matches) {
+    for (final match in matches.where(
+      (m) => _results ? m.isResolved : !m.isResolved,
+    )) {
       rounds.putIfAbsent(match.round, () => []).add(match);
     }
     final groupLabels = _groupLabelsByMatch();
-
+    final completed = matches.where((m) => m.isResolved).length;
+    final ordered = rounds.keys.toList()..sort();
     return StageSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -38,26 +50,63 @@ class StagePlayOrderSection extends StatelessWidget {
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
-          Text(
-            'Spielreihenfolge',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          if (matches.isEmpty)
-            const Text('Keine Spiele in dieser Etappe.')
-          else
-            for (final round in rounds.keys.toList()..sort()) ...[
-              _RoundHeader(title: _roundTitle(rounds[round]!)),
-              for (final match in rounds[round]!)
-                MatchResultTile(
-                  match: match,
-                  onEditResult: onEditResult,
-                  canEditResult: canEditResults,
-                  originLabel: groupLabels[match],
-                  leadingLabel: _leadingLabel(match),
-                ),
-              const SizedBox(height: 8),
+          const Text('Spielreihenfolge'),
+          const SizedBox(height: 16),
+          SportMetricGrid(
+            metrics: [
+              SportMetric(
+                'Offene Spiele',
+                '${matches.length - completed}',
+                Icons.sports_score,
+              ),
+              SportMetric(
+                'Ergebnisse',
+                '$completed',
+                Icons.check_circle_outline,
+              ),
             ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Offene Spiele'),
+                selected: !_results,
+                padding: const EdgeInsets.all(12),
+                onSelected: (_) => setState(() => _results = false),
+              ),
+              ChoiceChip(
+                label: const Text('Ergebnisse'),
+                selected: _results,
+                padding: const EdgeInsets.all(12),
+                onSelected: (_) => setState(() => _results = true),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (ordered.isEmpty)
+            Text(
+              matches.isEmpty
+                  ? 'Keine Spiele in dieser Etappe.'
+                  : _results
+                  ? 'Noch keine Ergebnisse.'
+                  : 'Alle Spiele abgeschlossen.',
+            )
+          else
+            RoundMatchList(
+              key: ValueKey((stage, _results)),
+              rounds: [for (final round in ordered) rounds[round]!],
+              labels: [
+                for (final round in ordered) _roundTitle(rounds[round]!),
+              ],
+              useColumns: true,
+              originLabelFor: (match) => groupLabels[match],
+              leadingLabelFor: _leadingLabel,
+              onEditResult: widget.onEditResult,
+              canEditResults: widget.canEditResults,
+            ),
         ],
       ),
     );
@@ -98,34 +147,5 @@ class StagePlayOrderSection extends StatelessWidget {
         label == 'Spiel um Platz 5' ||
         label == 'Spiel um Platz 7' ||
         (label?.startsWith('Platz 5 Halbfinale') ?? false);
-  }
-}
-
-class _RoundHeader extends StatelessWidget {
-  const _RoundHeader({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(
-            Icons.repeat_outlined,
-            size: 18,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
   }
 }

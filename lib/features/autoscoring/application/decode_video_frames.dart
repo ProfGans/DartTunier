@@ -9,12 +9,16 @@ List<GrayFrame> decodeVideoFrames(List<CameraVideoFrame> frames) => [
 ];
 
 GrayFrame _decode(CameraVideoFrame frame) {
-  final gray = Uint8List(frame.width * frame.height);
-  for (var i = 0; i < gray.length; i++) {
-    final p = i * 3;
-    gray[i] =
-        (frame.rgb[p] * 77 + frame.rgb[p + 1] * 150 + frame.rgb[p + 2] * 29) >>
-        8;
+  final gray = frame.gray ?? Uint8List(frame.width * frame.height);
+  if (frame.gray == null) {
+    for (var i = 0; i < gray.length; i++) {
+      final p = i * 3;
+      gray[i] =
+          (frame.rgb[p] * 77 +
+              frame.rgb[p + 1] * 150 +
+              frame.rgb[p + 2] * 29) >>
+          8;
+    }
   }
   final width = min(480, frame.width),
       height = max(1, frame.height * width ~/ frame.width);
@@ -26,17 +30,20 @@ GrayFrame _decode(CameraVideoFrame frame) {
               x * frame.width ~/ width];
     }
   }
-  final rgb = img.Image.fromBytes(
-    width: frame.width,
-    height: frame.height,
-    bytes: frame.rgb.buffer,
-    bytesOffset: frame.rgb.offsetInBytes,
-    numChannels: 3,
-  );
-  final color = img.encodeJpg(
-    img.copyResize(rgb, width: min(640, frame.width)),
-    quality: 85,
-  );
+  Uint8List? color = frame.colorImage;
+  if (color == null) {
+    final rgb = img.Image.fromBytes(
+      width: frame.rgbWidth,
+      height: frame.rgbHeight,
+      bytes: frame.rgb.buffer,
+      bytesOffset: frame.rgb.offsetInBytes,
+      numChannels: 3,
+    );
+    color = img.encodeJpg(
+      rgb.width <= 640 ? rgb : img.copyResize(rgb, width: 640),
+      quality: 85,
+    );
+  }
   return GrayFrame(
     width,
     height,

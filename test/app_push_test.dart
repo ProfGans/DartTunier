@@ -68,6 +68,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Push-Nachricht senden'), findsOneWidget);
   });
+  testWidgets('Recipient selection survives filtering and folding', (
+    tester,
+  ) async {
+    final repo = FakePushRepository();
+    await tester.pumpWidget(
+      MaterialApp(home: PushSenderPage(repository: repo)),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byType(CheckboxListTile).hitTestable(),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.pumpAndSettle();
+    final search = find.widgetWithText(TextField, 'Geräte suchen');
+    await tester.enterText(search, 'unbekannt');
+    await tester.pumpAndSettle();
+    expect(find.byType(CheckboxListTile), findsNothing);
+    expect(find.text('Keine passenden Geräte.'), findsOneWidget);
+    await tester.enterText(search, 'Android');
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
+      isTrue,
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Empfänger auswählen'));
+    await tester.tap(find.text('Empfänger auswählen'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CheckboxListTile), findsNothing);
+    expect(find.text('1 von 1 Geräten ausgewählt'), findsOneWidget);
+    await tester.tap(find.text('Empfänger auswählen'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
+      isTrue,
+    );
+    expect(repo.requests, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final size in [
     const Size(360, 800),
     const Size(800, 600),
@@ -106,8 +149,10 @@ void main() {
           find.byType(TextFormField).last,
           'Am Samstag beginnt unser Turnier.',
         );
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
         await tester.scrollUntilVisible(
-          find.byType(CheckboxListTile),
+          find.byType(CheckboxListTile).hitTestable(),
           200,
           scrollable: find.byType(Scrollable).first,
         );
@@ -116,7 +161,7 @@ void main() {
         await tester.tap(find.byType(CheckboxListTile));
         await tester.pumpAndSettle();
         await tester.scrollUntilVisible(
-          find.text('Nachricht senden'),
+          find.text('Nachricht senden').hitTestable(),
           200,
           scrollable: find.byType(Scrollable).first,
         );

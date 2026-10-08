@@ -1,3 +1,4 @@
+import '../../../shared/utils/background_worker.dart';
 import 'dart:math';
 import '../domain/tournament_models.dart';
 import '../domain/tournament_format_planner.dart';
@@ -14,6 +15,24 @@ class ExpandedFormatPlanner {
   final TournamentPlanningParameters parameters;
 
   Future<List<TournamentFormatSuggestion>> suggest(
+    TournamentPlanningRequest request, {
+    bool allResults = false,
+    void Function(void Function())? onCancel,
+  }) async {
+    final worker =
+        BackgroundWorker<
+          (TournamentPlanningParameters, TournamentPlanningRequest, bool),
+          List<TournamentFormatSuggestion>
+        >(_planInBackground);
+    onCancel?.call(worker.close);
+    try {
+      return await worker.run((parameters, request, allResults));
+    } finally {
+      worker.close();
+    }
+  }
+
+  Future<List<TournamentFormatSuggestion>> _suggest(
     TournamentPlanningRequest request, {
     bool allResults = false,
   }) async {
@@ -114,7 +133,7 @@ class ExpandedFormatPlanner {
             }
             final elimination =
                 stages[i].type != 'groups' ||
-                stages[i].groupPlayType != 'round_robin';
+                !['round_robin', 'swiss'].contains(stages[i].groupPlayType);
             if (legs.isEven && elimination) legs++;
             final format = TournamentGameFormat(
               x01Score: progression == 4 && i > 0 && i == stages.length - 1
@@ -141,9 +160,9 @@ class ExpandedFormatPlanner {
           for (var i = 0; i < stages.length; i++) {
             final sample = estimates[i]!;
             minutes +=
-                sample.minutes /
+                (sample.minutes - sample.waitMinutes) /
                 planner.estimatedMatchMinutes(stages[i].gameFormat) *
-                planner.estimatedMatchMinutes(formats[i]);
+                planner.estimatedMatchMinutes(formats[i]) + sample.waitMinutes;
           }
           final configs = [
             for (var i = 0; i < stages.length; i++)
@@ -211,8 +230,10 @@ class ExpandedFormatPlanner {
             : prefix.last.qualifiedParticipantCount!;
         for (final stage in _stages(count, cap, request.maximumLives)) {
           final mode = stage.type == 'groups'
-              ? 'groups:${stage.groupPlayType}' : stage.type;
-          if (request.enabledModes != null && !request.enabledModes!.contains(mode)) {
+              ? 'groups:${stage.groupPlayType}'
+              : stage.type;
+          if (request.enabledModes != null &&
+              !request.enabledModes!.contains(mode)) {
             continue;
           }
           final path = [...prefix, stage];
@@ -249,7 +270,9 @@ class ExpandedFormatPlanner {
       final score = penalty(a).compareTo(penalty(b));
       return score != 0 ? score : a.stages.length.compareTo(b.stages.length);
     });
-    return allResults ? ranked : ranked.take(parameters.maximumSuggestions).toList();
+    return allResults
+        ? ranked
+        : ranked.take(parameters.maximumSuggestions).toList();
   }
 
   Iterable<TournamentStage> _stages(int n, int maxGroups, int maxLives) sync* {
@@ -301,6 +324,7 @@ class ExpandedFormatPlanner {
       ];
       for (final play in [
         'round_robin',
+        'swiss',
         'mini_knockout',
         'double_knockout',
         'triple_knockout',
@@ -311,7 +335,7 @@ class ExpandedFormatPlanner {
         }) {
           final target = groups * perGroup;
           if (target >= n || target < 1) continue;
-          final label = play == 'round_robin'
+          final label = play == 'swiss' ? 'Schweizer System' : play == 'round_robin'
               ? 'Jeder gegen jeden'
               : play == 'mini_knockout'
               ? 'Mini-KO'
@@ -325,7 +349,7 @@ class ExpandedFormatPlanner {
             groupSizes: sizes,
             groupPlayType: play,
             groupPlayTypes: List.filled(groups, play),
-            groupRoundRobinRepeats: List.filled(groups, 1),
+            groupRoundRobinRepeats: List.filled(groups, play == 'swiss' ? min(sizes.last - 1, (log(sizes.last) / log(2)).ceil()) : 1),
             fixedQualifiersByGroup: List.filled(groups, perGroup),
             qualifiedParticipantCount: target,
             finalEndsTournament: true,
@@ -336,3 +360,9 @@ class ExpandedFormatPlanner {
     }
   }
 }
+
+Future<List<TournamentFormatSuggestion>> _planInBackground(
+  (TournamentPlanningParameters, TournamentPlanningRequest, bool) input,
+) => ExpandedFormatPlanner(
+  parameters: input.$1,
+)._suggest(input.$2, allResults: input.$3);

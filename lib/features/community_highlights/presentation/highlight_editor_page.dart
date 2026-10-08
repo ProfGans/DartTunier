@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_settings_section.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/adaptive_content.dart';
@@ -109,8 +110,6 @@ class _EditorState extends State<HighlightEditorPage> {
           ),
           _field(_title, 'Titel', 120, required: true),
           _field(_value, 'Wert / Leistung', 80, required: true),
-          _field(_player, 'Spieler / Team (optional)', 512),
-          _field(_tournament, 'Turnier (optional)', 256),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             icon: const Icon(Icons.calendar_month),
@@ -127,7 +126,16 @@ class _EditorState extends State<HighlightEditorPage> {
                     if (value != null && mounted) setState(() => _date = value);
                   },
           ),
-          _field(_note, 'Notiz (optional)', 1000, lines: 3),
+          SportSettingsSection(
+            title: 'Zuordnung & Notiz',
+            summary: 'Spieler, Team oder Turnier ergänzen · optional',
+            icon: Icons.notes_outlined,
+            children: [
+              _field(_player, 'Spieler / Team (optional)', 512),
+              _field(_tournament, 'Turnier (optional)', 256),
+              _field(_note, 'Notiz (optional)', 1000, lines: 3),
+            ],
+          ),
           if (_error != null)
             Text(
               _error!,

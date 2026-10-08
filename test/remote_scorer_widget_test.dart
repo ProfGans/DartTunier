@@ -166,11 +166,17 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('T20'), findsOneWidget);
         expect(find.text('Aufnahme übernehmen'), findsOneWidget);
-        expect(
-          tester.widget<ScoreKeypad>(find.byType(ScoreKeypad)).enabled,
-          isFalse,
-        );
+        expect(find.byType(ScoreKeypad), findsNothing);
         expect(tester.takeException(), isNull);
+        host.cameraState(
+          available: true,
+          open: false,
+          pending: false,
+          darts: [],
+        );
+        client.scorer.receive(host.snapshot());
+        await tester.pumpAndSettle();
+        expect(find.byType(ScoreKeypad), findsOneWidget);
         client.scorer.disconnect();
         await tester.pumpAndSettle();
         expect(

@@ -35,6 +35,10 @@ Die Registrierung und das Abrufen der Account-Freigabe benötigen Internetzugrif
 
 ## Funktionsumfang und Grenzen
 
+Bei geräteverwalteten Turnierpartien zeigt das Scorer-Gerät nach dem Spielende 20 Sekunden einen Endscreen mit Gewinner und Endstand. „Überspringen“ beendet die Pause sofort. Das Ergebnis wird sofort gespeichert und an die Turnierleitung übergeben. Neue Zuweisungen werden während der Pause bereits empfangen; danach erscheint die zuletzt zugewiesene Partie. Ohne neue Zuweisung bleibt das Ergebnis sichtbar. Netzwerk-Polling und Bildschirmrotation starten die Pause nicht neu.
+
+In den Turnierleiter-Einstellungen kann pro Turnier „Partie am Board-Gerät starten“ aktiviert werden (standardmäßig aus). Dann erscheint auf der Vorschau ein Startknopf. Die authentifizierte Anfrage wird beim nächsten Abgleich geprüft; nur die aktuell geplante Partie darf auf dem zugewiesenen freien Board starten. Die normalen Etappen- und Spieler-Sperren gelten weiter. Alte gespeicherte Turniere übernehmen den ausgeschalteten Standard (Speicherversion 20); das Board-Protokoll verwendet Version 5 und liest weiterhin Version 1–4.
+
 Im Standardmodus rendert das Handy den normalen responsiven Scorer aus Spielregeln und dem tatsächlichen Wurfverlauf. Es werden keine Bilder übertragen. Das Hauptgerät allein führt die Partie, spielt Bots, verarbeitet Kameras, speichert Statistiken und gibt Ergebnisse an die Turnierleitung weiter. Die Handy-Ansicht führt keine zweite Bot-Simulation aus und speichert keine doppelten Statistiken.
 
 Autoscoring am Hauptgerät mit mindestens drei verfügbaren Kameras lässt sich vom Handy starten. Erkannte Darts und vorläufiger Spielstand werden zurückgegeben; die Aufnahme kann am Handy übernommen oder das Autoscoring beendet werden. Beenden verwirft eine noch nicht übernommene Aufnahme entsprechend der bestehenden Scorer-Logik. Kamerabilder, Kalibrierung und Kamera-Auswahl bleiben am Hauptgerät. Andere App-Bereiche verwenden weiterhin die optional aktivierbare Bildschirmspiegelung.

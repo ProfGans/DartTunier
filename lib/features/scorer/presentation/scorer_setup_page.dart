@@ -1,6 +1,6 @@
 import '../../../shared/widgets/sport_form_section.dart';
 import 'widgets/scorer_doubles_dialog.dart';
-import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
+import 'widgets/scorer_setup_wizard.dart';
 import 'package:flutter/material.dart';
 import '../../accounts/domain/account_user.dart';
 import '../data/repositories/checkout_route_repository.dart';
@@ -41,6 +41,7 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
   );
   late final botStorage = widget.botStorage ?? BotSettingsStorage();
   final form = GlobalKey<FormState>();
+  final _lobbyStorage = PageStorageBucket();
   final score = TextEditingController(text: '501');
   final legs = TextEditingController(text: '3');
   final sets = TextEditingController(text: '1');
@@ -51,6 +52,7 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
   StartRequirement start = StartRequirement.straightIn;
   CheckoutRequirement checkout = CheckoutRequirement.doubleOut;
   int starter = 0;
+  int _step = 0;
   bool loading = false;
   String? error;
   BotSettings botSettings = const BotSettings();
@@ -269,145 +271,286 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.opponents.label)),
-    body: AbsorbPointer(
-      absorbing: loading,
-      child: Form(
-        key: form,
-        child: AdaptiveContentList(
-          padding: const EdgeInsets.all(24),
-          children: [
-            if (!settingsLoaded && error != null)
-              TextButton(
-                onPressed: _loadBotSettings,
-                child: const Text('Einstellungen erneut laden'),
+  Widget build(BuildContext context) => PopScope(
+    canPop: _step == 0 && !loading,
+    onPopInvokedWithResult: (didPop, result) {
+      if (!didPop && !loading && _step > 0) {
+        setState(() {
+          _step--;
+          error = null;
+        });
+      }
+    },
+    child: Scaffold(
+      appBar: AppBar(
+        title: const Text('Partie erstellen'),
+        leading: _step == 0
+            ? null
+            : IconButton(
+                tooltip: 'Vorheriger Schritt',
+                icon: const Icon(Icons.arrow_back),
+                onPressed: loading
+                    ? null
+                    : () => setState(() {
+                        _step--;
+                        error = null;
+                      }),
               ),
-            const SizedBox(height: 16),
-            SportFormSection(
-              title: 'X01 einrichten',
-              description:
-                  'Lege Punkte und Spielregeln fest. Best of 5 bedeutet: drei Siege zum Gewinn.',
-              children: [
-                TextFormField(
-                  controller: score,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Startpunkte'),
-                  validator: _number,
+      ),
+      body: AbsorbPointer(
+        absorbing: loading,
+        child: Form(
+          key: form,
+          child: ScorerSetupWizard(
+            step: _step,
+            busy: loading,
+            onBack: () => setState(() {
+              _step--;
+              error = null;
+            }),
+            onNext: !settingsLoaded || lobby.busy ? null : _nextStep,
+            onStart: !settingsLoaded || lobby.busy ? null : _start,
+            children: [
+              if (!settingsLoaded && error == null)
+                const Text('Bot-Einstellungen werden geladen …'),
+              if (!settingsLoaded && error != null)
+                TextButton(
+                  onPressed: _loadBotSettings,
+                  child: const Text('Einstellungen erneut laden'),
                 ),
-                DropdownButtonFormField<StartRequirement>(
-                  isExpanded: true,
-                  isDense: false,
-                  itemHeight: null,
-                  initialValue: start,
-                  decoration: const InputDecoration(labelText: 'In-Regel'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: StartRequirement.straightIn,
-                      child: Text('Straight In'),
+              const SizedBox(height: 16),
+              if (_step == 1) ...[
+                SportFormSection(
+                  title: 'X01 einrichten',
+                  description:
+                      'Lege Punkte und Spielregeln fest. Best of 5 bedeutet: drei Siege zum Gewinn.',
+                  children: [
+                    TextFormField(
+                      controller: score,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Startpunkte',
+                      ),
+                      validator: _number,
                     ),
-                    DropdownMenuItem(
-                      value: StartRequirement.doubleIn,
-                      child: Text('Double In'),
+                    DropdownButtonFormField<CheckoutRequirement>(
+                      isExpanded: true,
+                      isDense: false,
+                      itemHeight: null,
+                      initialValue: checkout,
+                      decoration: const InputDecoration(labelText: 'Out-Regel'),
+                      items: [
+                        for (final r in CheckoutRequirement.values)
+                          DropdownMenuItem(
+                            value: r,
+                            child: Text(checkoutLabel(r)),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => checkout = v!),
+                    ),
+                    TextFormField(
+                      controller: legs,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Best of Legs (je Set)',
+                        helperText:
+                            'Ungerade Zahl; keine Unentschieden im freien Spiel.',
+                        helperMaxLines: 3,
+                      ),
+                      validator: (v) => _number(v, odd: true),
+                    ),
+                    ExpansionTile(
+                      key: const PageStorageKey('scorer-extra-rules'),
+                      maintainState: true,
+                      title: const Text('Weitere Spielregeln'),
+                      subtitle: Text(
+                        '${start == StartRequirement.doubleIn ? 'Double In' : 'Straight In'} · Best of ${sets.text} Sets',
+                      ),
+                      children: [
+                        DropdownButtonFormField<StartRequirement>(
+                          isExpanded: true,
+                          isDense: false,
+                          itemHeight: null,
+                          initialValue: start,
+                          decoration: const InputDecoration(
+                            labelText: 'In-Regel',
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: StartRequirement.straightIn,
+                              child: Text('Straight In'),
+                            ),
+                            DropdownMenuItem(
+                              value: StartRequirement.doubleIn,
+                              child: Text('Double In'),
+                            ),
+                          ],
+                          onChanged: (v) => setState(() => start = v!),
+                        ),
+                        TextFormField(
+                          controller: sets,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Best of Sets',
+                            helperText: '1 = ausschließlich Legs',
+                          ),
+                          validator: (v) => _number(v, odd: true),
+                        ),
+                      ],
                     ),
                   ],
-                  onChanged: (v) => setState(() => start = v!),
                 ),
-                DropdownButtonFormField<CheckoutRequirement>(
-                  isExpanded: true,
-                  isDense: false,
-                  itemHeight: null,
-                  initialValue: checkout,
-                  decoration: const InputDecoration(labelText: 'Out-Regel'),
-                  items: [
-                    for (final r in CheckoutRequirement.values)
-                      DropdownMenuItem(value: r, child: Text(checkoutLabel(r))),
-                  ],
-                  onChanged: (v) => setState(() => checkout = v!),
-                ),
-                TextFormField(
-                  controller: legs,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Best of Legs (je Set)',
-                    helperText:
-                        'Ungerade Zahl; keine Unentschieden im freien Spiel.',
-                    helperMaxLines: 3,
-                  ),
-                  validator: (v) => _number(v, odd: true),
-                ),
-                TextFormField(
-                  controller: sets,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Best of Sets',
-                    helperText: '1 = ausschließlich Legs',
-                  ),
-                  validator: (v) => _number(v, odd: true),
-                ),
+                const SizedBox(height: 24),
               ],
-            ),
-            const SizedBox(height: 24),
-            Text('Teilnehmer', style: Theme.of(context).textTheme.titleLarge),
-            if (widget.opponents != ScorerOpponents.bots)
-              ScorerLobbyPanel(controller: lobby),
-            for (var i = 0; i < participants.length; i++) _participant(i),
-            Wrap(
-              spacing: 12,
-              children: [
+              if (_step == 0) ...[
                 if (widget.opponents != ScorerOpponents.bots)
-                  TextButton.icon(
-                    onPressed: () => _addParticipant(false),
-                    icon: const Icon(Icons.person_add_outlined),
-                    label: const Text('Spieler hinzufügen'),
+                  ExpansionTile(
+                    key: const PageStorageKey('scorer-online-players'),
+                    maintainState: true,
+                    title: const Text('Online-Mitspieler einladen'),
+                    leading: const Icon(Icons.qr_code),
+                    children: [
+                      PageStorage(
+                        bucket: _lobbyStorage,
+                        child: ScorerLobbyPanel(controller: lobby),
+                      ),
+                    ],
                   ),
-                if (widget.opponents != ScorerOpponents.players)
-                  TextButton.icon(
-                    onPressed: () => _addParticipant(true),
-                    icon: const Icon(Icons.smart_toy_outlined),
-                    label: const Text('Bot hinzufügen'),
-                  ),
+                for (var i = 0; i < participants.length; i++) _participant(i),
+                Wrap(
+                  spacing: 12,
+                  children: [
+                    if (widget.opponents != ScorerOpponents.bots)
+                      TextButton.icon(
+                        onPressed: () => _addParticipant(false),
+                        icon: const Icon(Icons.person_add_outlined),
+                        label: const Text('Spieler hinzufügen'),
+                      ),
+                    if (widget.opponents != ScorerOpponents.players)
+                      TextButton.icon(
+                        onPressed: () => _addParticipant(true),
+                        icon: const Icon(Icons.smart_toy_outlined),
+                        label: const Text('Bot hinzufügen'),
+                      ),
+                  ],
+                ),
               ],
-            ),
-            DropdownButtonFormField<int>(
-              isExpanded: true,
-              isDense: false,
-              itemHeight: null,
-              key: ValueKey(participants.length),
-              initialValue: starter,
-              decoration: const InputDecoration(
-                labelText: 'Anwurf · Ergebnis des Ausbullens',
-              ),
-              items: [
-                for (var i = 0; i < participants.length; i++)
-                  DropdownMenuItem(
-                    value: i,
-                    child: Text('Teilnehmer ${i + 1}'),
+              if (_step == 1) ...[
+                DropdownButtonFormField<int>(
+                  isExpanded: true,
+                  isDense: false,
+                  itemHeight: null,
+                  key: ValueKey(participants.length),
+                  initialValue: starter,
+                  decoration: const InputDecoration(
+                    labelText: 'Anwurf · Ergebnis des Ausbullens',
                   ),
+                  items: [
+                    for (var i = 0; i < participants.length; i++)
+                      DropdownMenuItem(
+                        value: i,
+                        child: Text(
+                          participants[i].teamMembers.isEmpty
+                              ? participants[i].name.text
+                              : participants[i].teamMembers.join(' / '),
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => starter = v!),
+                ),
+                const Text(
+                  'Bei Ausbullen zuerst am Board ausbullen, dann den Gewinner als Anwerfer wählen. '
+                  'Der Anwurf wechselt nach jedem Leg.',
+                ),
+                const SizedBox(height: 24),
               ],
-              onChanged: (v) => setState(() => starter = v!),
-            ),
-            const Text(
-              'Bei Ausbullen zuerst am Board ausbullen, dann den Gewinner als Anwerfer wählen. '
-              'Der Anwurf wechselt nach jedem Leg.',
-            ),
-            const SizedBox(height: 24),
-            if (error != null)
-              Text(
-                error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            FilledButton.icon(
-              onPressed: loading || !settingsLoaded || lobby.busy
-                  ? null
-                  : _start,
-              icon: const Icon(Icons.play_arrow),
-              label: Text(loading ? 'Spiel wird geöffnet …' : 'Spiel starten'),
-            ),
-          ],
+              if (_step == 2) _summary(),
+              if (error != null)
+                Text(
+                  error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+            ],
+          ),
         ),
       ),
     ),
+  );
+
+  void _nextStep() {
+    if (!form.currentState!.validate()) {
+      setState(() => error = 'Bitte prüfe die markierten Eingaben.');
+      return;
+    }
+    final humanNames = participants
+        .where((p) => !p.bot)
+        .expand(
+          (p) => p.teamMembers.isEmpty ? [p.name.text.trim()] : p.teamMembers,
+        )
+        .map((name) => name.toLowerCase())
+        .toList();
+    final errors = <String?>[
+      if (_step == 0 && humanNames.toSet().length != humanNames.length)
+        'Ein Spieler darf nur einem Teilnehmer oder Doppelteam zugeordnet sein. Bitte doppelte Namen prüfen.',
+
+      if (_step == 0) ...[
+        for (final p in participants) ...[
+          if (p.name.text.trim().isEmpty)
+            'Für alle Teilnehmer einen Namen eingeben.',
+          _number(p.score.text, optional: true),
+          if (p.bot &&
+              p.useTheo &&
+              TheoAverageService.parse(p.average.text) == null)
+            'Für jeden Bot einen gültigen Theo-Average eingeben.',
+        ],
+        if (!widget.opponents.accepts(
+          participants.where((p) => !p.bot).length,
+          participants.where((p) => p.bot).length,
+        ))
+          widget.opponents.requirement,
+      ],
+      if (_step == 1) ...[
+        _number(score.text),
+        _number(legs.text, odd: true),
+        _number(sets.text, odd: true),
+      ],
+    ].whereType<String>();
+    if (errors.isNotEmpty) {
+      setState(() => error = errors.first);
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _step++;
+      error = null;
+    });
+  }
+
+  Widget _summary() => SportFormSection(
+    title: 'Deine X01-Partie',
+    description:
+        '${score.text} Punkte · ${checkoutLabel(checkout)} · Best of ${legs.text} Legs${sets.text == '1' ? ' · ohne Sets' : ' · Best of ${sets.text} Sets'}',
+    children: [
+      Text(start == StartRequirement.doubleIn ? 'Double In' : 'Straight In'),
+      for (var i = 0; i < participants.length; i++)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(
+            participants[i].bot
+                ? Icons.smart_toy_outlined
+                : Icons.person_outline,
+          ),
+          title: Text(
+            participants[i].teamMembers.isEmpty
+                ? participants[i].name.text
+                : participants[i].teamMembers.join(' / '),
+          ),
+          subtitle: Text(
+            '${i == starter ? 'Anwurf · ' : ''}${participants[i].score.text.isEmpty ? score.text : participants[i].score.text} Startpunkte'
+            '${participants[i].bot && participants[i].useTheo ? ' · Theo ${participants[i].average.text}' : ''}',
+          ),
+        ),
+    ],
   );
 
   void _syncMembers() {
@@ -453,6 +596,7 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
   Widget _participant(int index) {
     final p = participants[index];
     return Card(
+      key: ValueKey(p),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -509,15 +653,27 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
                 ],
               ),
             ],
-            TextFormField(
-              controller: p.score,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Eigene Startpunkte (optional)',
-                helperText: 'Leer = gemeinsame Startpunkte',
-                helperMaxLines: 3,
+            ExpansionTile(
+              key: PageStorageKey('handicap-$index'),
+              maintainState: true,
+              title: const Text('Eigene Startpunkte'),
+              subtitle: Text(
+                p.score.text.isEmpty
+                    ? 'Gemeinsame Punkte verwenden'
+                    : '${p.score.text} Punkte',
               ),
-              validator: (v) => _number(v, optional: true),
+              children: [
+                TextFormField(
+                  controller: p.score,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Eigene Startpunkte (optional)',
+                    helperText: 'Leer = gemeinsame Startpunkte',
+                    helperMaxLines: 3,
+                  ),
+                  validator: (v) => _number(v, optional: true),
+                ),
+              ],
             ),
             if (p.bot && p.useTheo)
               TheoAverageInput(controller: p.average, enabled: !loading),

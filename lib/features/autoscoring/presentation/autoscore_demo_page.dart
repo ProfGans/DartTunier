@@ -4,6 +4,7 @@ import 'package:file_selector/file_selector.dart';
 import '../application/autoscore_demo_controller.dart';
 import '../application/autoscoring_controller.dart';
 import 'autoscoring_page.dart';
+import '../data/autoscore_audio_output.dart';
 import '../../scorer/domain/x01/x01_models.dart';
 import 'widgets/dart_correction_dialog.dart';
 import '../application/capture_autoscore_evidence.dart';
@@ -17,6 +18,8 @@ import 'widgets/flat_board_view.dart';
 import 'widgets/dart_position_dialog.dart';
 import '../data/autoscore_setup_store.dart';
 import 'autoscorer_page.dart';
+import 'widgets/contact_image_label_dialog.dart';
+import 'widgets/autoscore_validation_panel.dart';
 
 class AutoscoreDemoPage extends StatefulWidget {
   const AutoscoreDemoPage({
@@ -24,8 +27,10 @@ class AutoscoreDemoPage extends StatefulWidget {
     this.controller,
     this.cameraController,
     this.setupStore,
+    this.audioOutput,
   });
   final AutoscoreSetupStore? setupStore;
+  final AutoscoreAudioOutput? audioOutput;
   final AutoscoreDemoController? controller;
   final AutoscoringController? cameraController;
   @override
@@ -55,6 +60,18 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
     );
     if (!mounted || result == null) return;
     controller.review(index, result);
+    await _saveDiagnostic(index);
+  }
+
+  Future<void> _labelImages(int index) async {
+    final entry = controller.history[index];
+    if (entry.evidence == null || entry.evidence!.cameras.isEmpty) return;
+    final labels = await showDialog<List<Map<String, Object?>>>(
+      context: context,
+      builder: (_) => ContactImageLabelDialog(evidence: entry.evidence!),
+    );
+    if (!mounted || labels == null) return;
+    controller.setImageLabels(index, labels);
     await _saveDiagnostic(index);
   }
 
@@ -210,6 +227,7 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
 
   @override
   Widget build(BuildContext context) => AutoscoringPage(
+    audioOutput: widget.audioOutput,
     title: widget.setupStore == null
         ? 'Autoscorer · Erkennung'
         : 'Autoscorer · ${widget.setupStore!.active.name}',
@@ -296,6 +314,7 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
               store: controller.setupStore,
               onReset: controller.resetAccuracy,
             ),
+            AutoscoreValidationPanel(controller: controller),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
               onPressed: controller.throws.isEmpty ? null : controller.reset,
@@ -373,6 +392,18 @@ class _AutoscoreDemoPageState extends State<AutoscoreDemoPage> {
                             onPressed: () => _export(i),
                             icon: const Icon(Icons.download),
                             label: const Text('Diagnose-ZIP speichern'),
+                          ),
+                        if (controller.history[i].actual != null &&
+                            controller
+                                    .history[i]
+                                    .evidence
+                                    ?.cameras
+                                    .isNotEmpty ==
+                                true)
+                          OutlinedButton.icon(
+                            onPressed: () => _labelImages(i),
+                            icon: const Icon(Icons.edit_location_alt_outlined),
+                            label: const Text('Originalbilder markieren'),
                           ),
                       ],
                     ),

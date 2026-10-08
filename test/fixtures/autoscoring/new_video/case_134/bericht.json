@@ -1,0 +1,3129 @@
+{
+  "schemaVersion": 8,
+  "capturedAtUtc": "2026-10-08T08:25:55.542900Z",
+  "detected": "19",
+  "corrected": "3",
+  "correctDetection": false,
+  "hit": {
+    "manualMissingReport": false,
+    "environment": {
+      "algorithmRevision": "compact-native-video-2026-10-08",
+      "operatingSystem": "windows",
+      "operatingSystemVersion": "\"Windows 10 Home\" 10.0 (Build 26200)",
+      "dartVersion": "3.11.1 (stable) (Tue Feb 24 00:03:07 2026 -0800) on \"windows_x64\"",
+      "buildMode": "debug",
+      "appVersion": "0.1.3",
+      "appBuild": "16"
+    },
+    "recognitionStatus": "Treffer übernommen. Nächsten Dart werfen.",
+    "recognitionRunning": true,
+    "waitingForEmpty": false,
+    "countedThrows": 3,
+    "decisionReason": "consecutiveAgreement",
+    "tipDecisionReason": "tipViewsDisagree",
+    "localSegmentBoundary": {
+      "applied": false,
+      "wires": [
+        null,
+        null,
+        null
+      ],
+      "supportingCameras": [],
+      "candidate": {
+        "xMillimetres": -16.77970414996341,
+        "yMillimetres": 107.79121533785177
+      },
+      "reason": "insufficientLocalContactSupport"
+    },
+    "localRingContact": {
+      "applied": false,
+      "reason": "endpointsNotIndependentlyConfirmed"
+    },
+    "contactCandidateComparison": {
+      "mode": "shadow",
+      "candidateSource": "currentFrameBeforeTemporalSelection",
+      "applied": false,
+      "occlusionIsEstimate": true,
+      "candidateCount": 6,
+      "candidates": [
+        {
+          "xMillimetres": -18.514599273343883,
+          "yMillimetres": 109.14556304708138,
+          "label": "19",
+          "score": 2.8696008580098376,
+          "supportingViews": 1,
+          "cameras": [
+            {
+              "camera": 1,
+              "newContactPixels": 3,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": null,
+              "axisDistanceMillimetres": 2.525034585462137
+            },
+            {
+              "camera": 2,
+              "newContactPixels": 0,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": 19.505745257672842,
+              "axisDistanceMillimetres": 0.6275875172928664
+            },
+            {
+              "camera": 3,
+              "newContactPixels": 19,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "newContactVisible",
+              "weight": 1.0,
+              "endpointDistanceMillimetres": 2.200935893347384,
+              "axisDistanceMillimetres": 0.6571321461885589
+            }
+          ]
+        },
+        {
+          "xMillimetres": -7.530968595259749,
+          "yMillimetres": 125.26492889021168,
+          "label": "3",
+          "score": 2.1583478409857806,
+          "supportingViews": 1,
+          "cameras": [
+            {
+              "camera": 1,
+              "newContactPixels": 0,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": null,
+              "axisDistanceMillimetres": 14.855497060035695
+            },
+            {
+              "camera": 2,
+              "newContactPixels": 10,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "newContactVisible",
+              "weight": 1.0,
+              "endpointDistanceMillimetres": 0.0,
+              "axisDistanceMillimetres": 1.324005330165619
+            },
+            {
+              "camera": 3,
+              "newContactPixels": 0,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": 19.77042677007166,
+              "axisDistanceMillimetres": 17.539149667646726
+            }
+          ]
+        },
+        {
+          "xMillimetres": -16.77970414996341,
+          "yMillimetres": 107.79121533785177,
+          "label": "3",
+          "score": 3.8040228576175257,
+          "supportingViews": 2,
+          "cameras": [
+            {
+              "camera": 1,
+              "newContactPixels": 27,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "newContactVisible",
+              "weight": 1.0,
+              "endpointDistanceMillimetres": null,
+              "axisDistanceMillimetres": 1.6548960001224415
+            },
+            {
+              "camera": 2,
+              "newContactPixels": 0,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": 19.77042677007166,
+              "axisDistanceMillimetres": 2.8174369984710097
+            },
+            {
+              "camera": 3,
+              "newContactPixels": 11,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "newContactVisible",
+              "weight": 1.0,
+              "endpointDistanceMillimetres": 0.0,
+              "axisDistanceMillimetres": 0.566233404902178
+            }
+          ]
+        },
+        {
+          "xMillimetres": -17.319644730780915,
+          "yMillimetres": 112.21829076173306,
+          "label": "3",
+          "score": 0.8163058286270235,
+          "supportingViews": 0,
+          "cameras": [
+            {
+              "camera": 1,
+              "newContactPixels": 2,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": null,
+              "axisDistanceMillimetres": 2.1316282072803006e-14
+            },
+            {
+              "camera": 2,
+              "newContactPixels": 0,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": 16.310516452325896,
+              "axisDistanceMillimetres": 1.4210854715202004e-14
+            },
+            {
+              "camera": 3,
+              "newContactPixels": 3,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": 4.459880339151182,
+              "axisDistanceMillimetres": 3.8092745522794758
+            }
+          ]
+        },
+        {
+          "xMillimetres": -15.137420820532265,
+          "yMillimetres": 108.23812150473499,
+          "label": "3",
+          "score": 2.245468816337784,
+          "supportingViews": 1,
+          "cameras": [
+            {
+              "camera": 1,
+              "newContactPixels": 35,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "newContactVisible",
+              "weight": 1.0,
+              "endpointDistanceMillimetres": null,
+              "axisDistanceMillimetres": 7.105427357601002e-15
+            },
+            {
+              "camera": 2,
+              "newContactPixels": 0,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": 18.648600086802137,
+              "axisDistanceMillimetres": 3.9684511323740708
+            },
+            {
+              "camera": 3,
+              "newContactPixels": 3,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": 1.7020045993256618,
+              "axisDistanceMillimetres": 2.842170943040401e-14
+            }
+          ]
+        },
+        {
+          "xMillimetres": -19.62048396189786,
+          "yMillimetres": 108.56803783081801,
+          "label": "19",
+          "score": 2.8958295231062756,
+          "supportingViews": 1,
+          "cameras": [
+            {
+              "camera": 1,
+              "newContactPixels": 0,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": null,
+              "axisDistanceMillimetres": 3.7723831586078234
+            },
+            {
+              "camera": 2,
+              "newContactPixels": 0,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": 20.614134782945396,
+              "axisDistanceMillimetres": 1.4210854715202004e-14
+            },
+            {
+              "camera": 3,
+              "newContactPixels": 21,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "newContactVisible",
+              "weight": 1.0,
+              "endpointDistanceMillimetres": 2.9450777791889675,
+              "axisDistanceMillimetres": 1.4210854715202004e-14
+            }
+          ]
+        }
+      ],
+      "preferred": {
+        "xMillimetres": -16.77970414996341,
+        "yMillimetres": 107.79121533785177,
+        "label": "3",
+        "score": 3.8040228576175257,
+        "supportingViews": 2,
+        "cameras": [
+          {
+            "camera": 1,
+            "newContactPixels": 27,
+            "previouslyOccupiedPixels": 0,
+            "visibility": "newContactVisible",
+            "weight": 1.0,
+            "endpointDistanceMillimetres": null,
+            "axisDistanceMillimetres": 1.6548960001224415
+          },
+          {
+            "camera": 2,
+            "newContactPixels": 0,
+            "previouslyOccupiedPixels": 0,
+            "visibility": "insufficientEvidence",
+            "weight": 0.4,
+            "endpointDistanceMillimetres": 19.77042677007166,
+            "axisDistanceMillimetres": 2.8174369984710097
+          },
+          {
+            "camera": 3,
+            "newContactPixels": 11,
+            "previouslyOccupiedPixels": 0,
+            "visibility": "newContactVisible",
+            "weight": 1.0,
+            "endpointDistanceMillimetres": 0.0,
+            "axisDistanceMillimetres": 0.566233404902178
+          }
+        ]
+      },
+      "margin": 0.9081933345112501
+    },
+    "recognitionTimeline": [
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4335891431,
+            "sequence": 31441,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4335893468,
+            "sequence": 31443,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4335914214,
+            "sequence": 31444,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.025,
+            "elapsedMilliseconds": 0.025,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 16,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00005401234567901235,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 16,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00007716049382716049,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 16,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00009259259259259259,
+                  "changedPixels": 0,
+                  "axis": null
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 9.186,
+            "elapsedMilliseconds": 9.211,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 231,
+                  "retained": 220,
+                  "added": 11,
+                  "removed": 14,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1794,
+                  "retained": 1746,
+                  "added": 48,
+                  "removed": 48,
+                  "regionPixels": 57044,
+                  "occupiedRestored": true,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 358,
+                  "retained": 341,
+                  "added": 17,
+                  "removed": 18,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 0.993,
+            "elapsedMilliseconds": 10.204,
+            "state": {}
+          },
+          {
+            "phase": "fusion",
+            "milliseconds": 1.2,
+            "elapsedMilliseconds": 11.404,
+            "state": {
+              "localizedViews": 0,
+              "stableViews": 3,
+              "unresolvedSamples": 0,
+              "deadlineReached": false,
+              "alternativesUsed": false
+            }
+          },
+          {
+            "phase": "contactRecovery",
+            "milliseconds": 0.002,
+            "elapsedMilliseconds": 11.406,
+            "state": {
+              "confirmed": false
+            }
+          },
+          {
+            "phase": "spatialAndBoundary",
+            "milliseconds": 0.001,
+            "elapsedMilliseconds": 11.407,
+            "state": {}
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.001,
+            "elapsedMilliseconds": 11.408,
+            "state": {
+              "status": "Bereit. Nächsten Dart werfen.",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4335922291,
+            "sequence": 31442,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4335926673,
+            "sequence": 31444,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4335945810,
+            "sequence": 31445,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.026,
+            "elapsedMilliseconds": 0.026,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 17,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00008487654320987654,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 17,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0001080246913580247,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 17,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0001080246913580247,
+                  "changedPixels": 1,
+                  "axis": null
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 8.974,
+            "elapsedMilliseconds": 9.0,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 237,
+                  "retained": 221,
+                  "added": 16,
+                  "removed": 13,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1796,
+                  "retained": 1748,
+                  "added": 48,
+                  "removed": 46,
+                  "regionPixels": 57044,
+                  "occupiedRestored": true,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 365,
+                  "retained": 342,
+                  "added": 23,
+                  "removed": 17,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 0.933,
+            "elapsedMilliseconds": 9.933,
+            "state": {}
+          },
+          {
+            "phase": "fusion",
+            "milliseconds": 1.238,
+            "elapsedMilliseconds": 11.171,
+            "state": {
+              "localizedViews": 0,
+              "stableViews": 3,
+              "unresolvedSamples": 0,
+              "deadlineReached": false,
+              "alternativesUsed": false
+            }
+          },
+          {
+            "phase": "contactRecovery",
+            "milliseconds": 0.002,
+            "elapsedMilliseconds": 11.173,
+            "state": {
+              "confirmed": false
+            }
+          },
+          {
+            "phase": "spatialAndBoundary",
+            "milliseconds": 0.001,
+            "elapsedMilliseconds": 11.174,
+            "state": {}
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.003,
+            "elapsedMilliseconds": 11.177,
+            "state": {
+              "status": "Neuer Pfeil noch nicht eindeutig sichtbar: 0 brauchbare Kameraachsen.",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4336083305,
+            "sequence": 31447,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336101412,
+            "sequence": 31449,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336106806,
+            "sequence": 31450,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.028,
+            "elapsedMilliseconds": 0.028,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 18,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00005401234567901235,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 18,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0001388888888888889,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 18,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00015432098765432098,
+                  "changedPixels": 0,
+                  "axis": null
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 9.646,
+            "elapsedMilliseconds": 9.674,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 241,
+                  "retained": 227,
+                  "added": 14,
+                  "removed": 7,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1796,
+                  "retained": 1744,
+                  "added": 52,
+                  "removed": 50,
+                  "regionPixels": 57044,
+                  "occupiedRestored": true,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 356,
+                  "retained": 335,
+                  "added": 21,
+                  "removed": 24,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 0.931,
+            "elapsedMilliseconds": 10.605,
+            "state": {}
+          },
+          {
+            "phase": "fusion",
+            "milliseconds": 1.229,
+            "elapsedMilliseconds": 11.834,
+            "state": {
+              "localizedViews": 0,
+              "stableViews": 3,
+              "unresolvedSamples": 0,
+              "deadlineReached": false,
+              "alternativesUsed": false
+            }
+          },
+          {
+            "phase": "contactRecovery",
+            "milliseconds": 0.002,
+            "elapsedMilliseconds": 11.836,
+            "state": {
+              "confirmed": false
+            }
+          },
+          {
+            "phase": "spatialAndBoundary",
+            "milliseconds": 0.001,
+            "elapsedMilliseconds": 11.837,
+            "state": {}
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.002,
+            "elapsedMilliseconds": 11.839,
+            "state": {
+              "status": "Bereit. Nächsten Dart werfen.",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4336115849,
+            "sequence": 31448,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336135139,
+            "sequence": 31450,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336139397,
+            "sequence": 31451,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.028,
+            "elapsedMilliseconds": 0.028,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 19,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00007716049382716049,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 19,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00010030864197530864,
+                  "changedPixels": 1,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 19,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00017746913580246913,
+                  "changedPixels": 1,
+                  "axis": null
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 9.321,
+            "elapsedMilliseconds": 9.349,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 239,
+                  "retained": 221,
+                  "added": 18,
+                  "removed": 13,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1798,
+                  "retained": 1744,
+                  "added": 54,
+                  "removed": 50,
+                  "regionPixels": 57044,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 369,
+                  "retained": 346,
+                  "added": 23,
+                  "removed": 13,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 0.918,
+            "elapsedMilliseconds": 10.267,
+            "state": {}
+          },
+          {
+            "phase": "fusion",
+            "milliseconds": 1.196,
+            "elapsedMilliseconds": 11.463,
+            "state": {
+              "localizedViews": 0,
+              "stableViews": 3,
+              "unresolvedSamples": 0,
+              "deadlineReached": false,
+              "alternativesUsed": false
+            }
+          },
+          {
+            "phase": "contactRecovery",
+            "milliseconds": 0.002,
+            "elapsedMilliseconds": 11.465,
+            "state": {
+              "confirmed": false
+            }
+          },
+          {
+            "phase": "spatialAndBoundary",
+            "milliseconds": 0.001,
+            "elapsedMilliseconds": 11.466,
+            "state": {}
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.003,
+            "elapsedMilliseconds": 11.469,
+            "state": {
+              "status": "Neuer Pfeil noch nicht eindeutig sichtbar: 0 brauchbare Kameraachsen.",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4336195520,
+            "sequence": 31450,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336168150,
+            "sequence": 31451,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336186623,
+            "sequence": 31452,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.025,
+            "elapsedMilliseconds": 0.025,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 20,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00005401234567901235,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 20,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00014660493827160494,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 20,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0001080246913580247,
+                  "changedPixels": 0,
+                  "axis": null
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 9.909,
+            "elapsedMilliseconds": 9.934,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 246,
+                  "retained": 225,
+                  "added": 21,
+                  "removed": 9,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1803,
+                  "retained": 1742,
+                  "added": 61,
+                  "removed": 52,
+                  "regionPixels": 57044,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 362,
+                  "retained": 344,
+                  "added": 18,
+                  "removed": 15,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 0.971,
+            "elapsedMilliseconds": 10.905,
+            "state": {}
+          },
+          {
+            "phase": "fusion",
+            "milliseconds": 1.203,
+            "elapsedMilliseconds": 12.108,
+            "state": {
+              "localizedViews": 0,
+              "stableViews": 3,
+              "unresolvedSamples": 0,
+              "deadlineReached": false,
+              "alternativesUsed": false
+            }
+          },
+          {
+            "phase": "contactRecovery",
+            "milliseconds": 0.001,
+            "elapsedMilliseconds": 12.109,
+            "state": {
+              "confirmed": false
+            }
+          },
+          {
+            "phase": "spatialAndBoundary",
+            "milliseconds": 0.001,
+            "elapsedMilliseconds": 12.11,
+            "state": {}
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.001,
+            "elapsedMilliseconds": 12.111,
+            "state": {
+              "status": "Bereit. Nächsten Dart werfen.",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4336419327,
+            "sequence": 31457,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336406230,
+            "sequence": 31458,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336409661,
+            "sequence": 31459,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.024,
+            "elapsedMilliseconds": 0.024,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 21,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.000046296296296296294,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 21,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00013117283950617284,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 21,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00010030864197530864,
+                  "changedPixels": 1,
+                  "axis": null
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 9.203,
+            "elapsedMilliseconds": 9.227,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 237,
+                  "retained": 221,
+                  "added": 16,
+                  "removed": 13,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1796,
+                  "retained": 1752,
+                  "added": 44,
+                  "removed": 42,
+                  "regionPixels": 57044,
+                  "occupiedRestored": true,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 365,
+                  "retained": 340,
+                  "added": 25,
+                  "removed": 19,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 0.909,
+            "elapsedMilliseconds": 10.136,
+            "state": {}
+          },
+          {
+            "phase": "fusion",
+            "milliseconds": 1.247,
+            "elapsedMilliseconds": 11.383,
+            "state": {
+              "localizedViews": 0,
+              "stableViews": 3,
+              "unresolvedSamples": 0,
+              "deadlineReached": false,
+              "alternativesUsed": false
+            }
+          },
+          {
+            "phase": "contactRecovery",
+            "milliseconds": 0.003,
+            "elapsedMilliseconds": 11.386,
+            "state": {
+              "confirmed": false
+            }
+          },
+          {
+            "phase": "spatialAndBoundary",
+            "milliseconds": 0.0,
+            "elapsedMilliseconds": 11.386,
+            "state": {}
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.004,
+            "elapsedMilliseconds": 11.39,
+            "state": {
+              "status": "Neuer Pfeil noch nicht eindeutig sichtbar: 0 brauchbare Kameraachsen.",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4336450078,
+            "sequence": 31458,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336438540,
+            "sequence": 31459,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336442606,
+            "sequence": 31460,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.024,
+            "elapsedMilliseconds": 0.024,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 22,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00007716049382716049,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 22,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00008487654320987654,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 22,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00014660493827160494,
+                  "changedPixels": 1,
+                  "axis": null
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 9.261,
+            "elapsedMilliseconds": 9.285,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 242,
+                  "retained": 224,
+                  "added": 18,
+                  "removed": 10,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1789,
+                  "retained": 1741,
+                  "added": 48,
+                  "removed": 53,
+                  "regionPixels": 57044,
+                  "occupiedRestored": true,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 373,
+                  "retained": 344,
+                  "added": 29,
+                  "removed": 15,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 1.013,
+            "elapsedMilliseconds": 10.298,
+            "state": {}
+          },
+          {
+            "phase": "fusion",
+            "milliseconds": 1.311,
+            "elapsedMilliseconds": 11.609,
+            "state": {
+              "localizedViews": 0,
+              "stableViews": 3,
+              "unresolvedSamples": 0,
+              "deadlineReached": false,
+              "alternativesUsed": false
+            }
+          },
+          {
+            "phase": "contactRecovery",
+            "milliseconds": 0.003,
+            "elapsedMilliseconds": 11.612,
+            "state": {
+              "confirmed": false
+            }
+          },
+          {
+            "phase": "spatialAndBoundary",
+            "milliseconds": 0.0,
+            "elapsedMilliseconds": 11.612,
+            "state": {}
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.008,
+            "elapsedMilliseconds": 11.62,
+            "state": {
+              "status": "Neuer Pfeil noch nicht eindeutig sichtbar: 0 brauchbare Kameraachsen.",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4336484789,
+            "sequence": 31459,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336469657,
+            "sequence": 31460,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336473752,
+            "sequence": 31461,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.03,
+            "elapsedMilliseconds": 0.03,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 0,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.006867283950617284,
+                  "changedPixels": 65,
+                  "axis": {
+                    "a": -0.8782945218645032,
+                    "b": -0.47811999839245767,
+                    "c": 38.49906230066012,
+                    "confidence": 0.7694160345160085
+                  }
+                },
+                {
+                  "stableSamples": 23,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00009259259259259259,
+                  "changedPixels": 0,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 23,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.001427469135802469,
+                  "changedPixels": 2,
+                  "axis": null
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 9.563,
+            "elapsedMilliseconds": 9.593,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 803,
+                  "retained": 223,
+                  "added": 580,
+                  "removed": 11,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1802,
+                  "retained": 1744,
+                  "added": 58,
+                  "removed": 50,
+                  "regionPixels": 57044,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 381,
+                  "retained": 339,
+                  "added": 42,
+                  "removed": 20,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 1.082,
+            "elapsedMilliseconds": 10.675,
+            "state": {}
+          },
+          {
+            "phase": "fusion",
+            "milliseconds": 1.615,
+            "elapsedMilliseconds": 12.29,
+            "state": {
+              "localizedViews": 1,
+              "stableViews": 2,
+              "unresolvedSamples": 0,
+              "deadlineReached": false,
+              "alternativesUsed": false
+            }
+          },
+          {
+            "phase": "contactRecovery",
+            "milliseconds": 0.005,
+            "elapsedMilliseconds": 12.295,
+            "state": {
+              "confirmed": false
+            }
+          },
+          {
+            "phase": "spatialAndBoundary",
+            "milliseconds": 0.0,
+            "elapsedMilliseconds": 12.295,
+            "state": {}
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.005,
+            "elapsedMilliseconds": 12.3,
+            "state": {
+              "status": "Neuer Pfeil noch nicht eindeutig sichtbar: 0 brauchbare Kameraachsen.",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4336723939,
+            "sequence": 31466,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336693291,
+            "sequence": 31467,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336714011,
+            "sequence": 31468,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.043,
+            "elapsedMilliseconds": 0.043,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 0,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.007337962962962963,
+                  "changedPixels": 95,
+                  "axis": {
+                    "a": -0.8767977203717271,
+                    "b": -0.48085939478286427,
+                    "c": 39.26459413482905,
+                    "confidence": 0.5010308945536245
+                  }
+                },
+                {
+                  "stableSamples": 0,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.003626543209876543,
+                  "changedPixels": 12,
+                  "axis": {
+                    "a": 0.852136325249797,
+                    "b": -0.5233198669931918,
+                    "c": 72.59336756231443,
+                    "confidence": 0.9888442542495683
+                  }
+                },
+                {
+                  "stableSamples": 0,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.005015432098765432,
+                  "changedPixels": 27,
+                  "axis": {
+                    "a": -0.07250481957833933,
+                    "b": -0.9973680620201915,
+                    "c": 106.87955139879718,
+                    "confidence": 0.9814242978348723
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 10.35,
+            "elapsedMilliseconds": 10.393,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 1124,
+                  "retained": 222,
+                  "added": 902,
+                  "removed": 12,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1891,
+                  "retained": 1748,
+                  "added": 143,
+                  "removed": 46,
+                  "regionPixels": 57044,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 568,
+                  "retained": 340,
+                  "added": 228,
+                  "removed": 19,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 0.909,
+            "elapsedMilliseconds": 11.302,
+            "state": {}
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 1.106,
+            "elapsedMilliseconds": 12.408,
+            "state": {
+              "status": "Neuer Pfeil noch nicht eindeutig sichtbar: 0 brauchbare Kameraachsen.",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4336755164,
+            "sequence": 31467,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336728525,
+            "sequence": 31468,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336748144,
+            "sequence": 31469,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.036,
+            "elapsedMilliseconds": 0.036,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 1,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00009259259259259259,
+                  "changedPixels": 95,
+                  "axis": {
+                    "a": -0.8816029141982018,
+                    "b": -0.47199184492662377,
+                    "c": 38.46571292052836,
+                    "confidence": 0.49888249751553043
+                  }
+                },
+                {
+                  "stableSamples": 1,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00010030864197530864,
+                  "changedPixels": 13,
+                  "axis": {
+                    "a": 0.8472136480001732,
+                    "b": -0.5312523267170117,
+                    "c": 74.13542887662602,
+                    "confidence": 0.9843713298087168
+                  }
+                },
+                {
+                  "stableSamples": 2,
+                  "stationaryShaft": true,
+                  "changedFraction": 0.00014660493827160494,
+                  "changedPixels": 25,
+                  "axis": {
+                    "a": -0.07162056388584886,
+                    "b": -0.9974319499738682,
+                    "c": 107.02407235835211,
+                    "confidence": 0.9815552219609954
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 9.588,
+            "elapsedMilliseconds": 9.624,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 1124,
+                  "retained": 224,
+                  "added": 900,
+                  "removed": 10,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1892,
+                  "retained": 1748,
+                  "added": 144,
+                  "removed": 46,
+                  "regionPixels": 57044,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 563,
+                  "retained": 341,
+                  "added": 222,
+                  "removed": 18,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 0.929,
+            "elapsedMilliseconds": 10.553,
+            "state": {}
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 1.155,
+            "elapsedMilliseconds": 11.708,
+            "state": {
+              "status": "Neuer Pfeil noch nicht eindeutig sichtbar: 0 brauchbare Kameraachsen.",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4336788163,
+            "sequence": 31468,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336759405,
+            "sequence": 31469,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4336780125,
+            "sequence": 31470,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.035,
+            "elapsedMilliseconds": 0.035,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 2,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0000617283950617284,
+                  "changedPixels": 94,
+                  "axis": {
+                    "a": -0.8773695066995593,
+                    "b": -0.47981532771866725,
+                    "c": 38.95132463852765,
+                    "confidence": 0.5003177204870062
+                  }
+                },
+                {
+                  "stableSamples": 2,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.000046296296296296294,
+                  "changedPixels": 13,
+                  "axis": {
+                    "a": 0.8568037863926259,
+                    "b": -0.5156425812743354,
+                    "c": 71.64222489945821,
+                    "confidence": 0.9833082320907024
+                  }
+                },
+                {
+                  "stableSamples": 3,
+                  "stationaryShaft": true,
+                  "changedFraction": 0.00010030864197530864,
+                  "changedPixels": 27,
+                  "axis": {
+                    "a": -0.07292164891437004,
+                    "b": -0.997337672566122,
+                    "c": 106.93928883781011,
+                    "confidence": 0.9747296799215023
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 9.587,
+            "elapsedMilliseconds": 9.622,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 1113,
+                  "retained": 223,
+                  "added": 890,
+                  "removed": 11,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1889,
+                  "retained": 1751,
+                  "added": 138,
+                  "removed": 43,
+                  "regionPixels": 57044,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 576,
+                  "retained": 342,
+                  "added": 234,
+                  "removed": 17,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 1.173,
+            "elapsedMilliseconds": 10.795,
+            "state": {}
+          },
+          {
+            "phase": "fusion",
+            "milliseconds": 8.739,
+            "elapsedMilliseconds": 19.534,
+            "state": {
+              "localizedViews": 3,
+              "stableViews": 3,
+              "unresolvedSamples": 2,
+              "deadlineReached": false,
+              "alternativesUsed": false
+            }
+          },
+          {
+            "phase": "contactRecovery",
+            "milliseconds": 0.063,
+            "elapsedMilliseconds": 19.597,
+            "state": {
+              "confirmed": false
+            }
+          },
+          {
+            "phase": "detailRefinement",
+            "milliseconds": 1.33,
+            "elapsedMilliseconds": 20.927,
+            "state": {
+              "applied": false
+            }
+          },
+          {
+            "phase": "tipRefinement",
+            "milliseconds": 0.532,
+            "elapsedMilliseconds": 21.459,
+            "state": {
+              "reason": "tipViewsDisagree",
+              "confirmed": false,
+              "appliedToRecognition": true
+            }
+          },
+          {
+            "phase": "localSegmentBoundary",
+            "milliseconds": 0.029,
+            "elapsedMilliseconds": 21.488,
+            "state": {
+              "applied": false,
+              "wires": [
+                null,
+                null,
+                null
+              ],
+              "supportingCameras": [],
+              "candidate": {
+                "xMillimetres": -16.76639575530101,
+                "yMillimetres": 108.08336255916826
+              },
+              "reason": "insufficientLocalContactSupport"
+            }
+          },
+          {
+            "phase": "localRingContact",
+            "milliseconds": 0.012,
+            "elapsedMilliseconds": 21.5,
+            "state": {
+              "applied": false,
+              "reason": "endpointsNotIndependentlyConfirmed"
+            }
+          },
+          {
+            "phase": "contactCandidateComparison",
+            "milliseconds": 0.1,
+            "elapsedMilliseconds": 21.6,
+            "state": {
+              "mode": "shadow",
+              "candidateSource": "currentFrameBeforeTemporalSelection",
+              "applied": false,
+              "occlusionIsEstimate": true,
+              "candidateCount": 5,
+              "candidates": [
+                {
+                  "xMillimetres": -17.455949613234033,
+                  "yMillimetres": 109.00353578549623,
+                  "label": "19",
+                  "score": 3.8117150734451917,
+                  "supportingViews": 2,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 16,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 1.9650752942518181
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 14.982171031712486,
+                      "axisDistanceMillimetres": 0.4790366152977441
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 15,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": 1.1498709881726412,
+                      "axisDistanceMillimetres": 0.501127214811504
+                    }
+                  ]
+                },
+                {
+                  "xMillimetres": -9.276362017320036,
+                  "yMillimetres": 121.55581827053673,
+                  "label": "3",
+                  "score": 2.033831405024295,
+                  "supportingViews": 1,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 11.234222973958083
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 6,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": 0.0,
+                      "axisDistanceMillimetres": 1.0148468971360955
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 15.414527832239237,
+                      "axisDistanceMillimetres": 13.61646042876788
+                    }
+                  ]
+                },
+                {
+                  "xMillimetres": -16.76639575530101,
+                  "yMillimetres": 108.08336255916826,
+                  "label": "3",
+                  "score": 4.051909040548968,
+                  "supportingViews": 2,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 23,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 1.801594984222831
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 15.414527832239237,
+                      "axisDistanceMillimetres": 1.5443294693396865
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 13,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": 0.0,
+                      "axisDistanceMillimetres": 0.36631280475634753
+                    }
+                  ]
+                },
+                {
+                  "xMillimetres": -16.548697423719506,
+                  "yMillimetres": 111.44005629817735,
+                  "label": "3",
+                  "score": 1.527125566994983,
+                  "supportingViews": 1,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 6,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 7.105427357601002e-15
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 12.458551382267663,
+                      "axisDistanceMillimetres": 1.4210854715202004e-14
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 3,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 3.36374574263219,
+                      "axisDistanceMillimetres": 2.997319237729087
+                    }
+                  ]
+                },
+                {
+                  "xMillimetres": -14.83669370639322,
+                  "yMillimetres": 108.30956052164582,
+                  "label": "3",
+                  "score": 2.311041301701186,
+                  "supportingViews": 1,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 35,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 1.4210854715202004e-14
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 14.365953948226478,
+                      "axisDistanceMillimetres": 3.081068190202558
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 3,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 1.942914181272018,
+                      "axisDistanceMillimetres": 1.4210854715202004e-14
+                    }
+                  ]
+                }
+              ],
+              "preferred": {
+                "xMillimetres": -16.76639575530101,
+                "yMillimetres": 108.08336255916826,
+                "label": "3",
+                "score": 4.051909040548968,
+                "supportingViews": 2,
+                "cameras": [
+                  {
+                    "camera": 1,
+                    "newContactPixels": 23,
+                    "previouslyOccupiedPixels": 0,
+                    "visibility": "newContactVisible",
+                    "weight": 1.0,
+                    "endpointDistanceMillimetres": null,
+                    "axisDistanceMillimetres": 1.801594984222831
+                  },
+                  {
+                    "camera": 2,
+                    "newContactPixels": 0,
+                    "previouslyOccupiedPixels": 0,
+                    "visibility": "insufficientEvidence",
+                    "weight": 0.4,
+                    "endpointDistanceMillimetres": 15.414527832239237,
+                    "axisDistanceMillimetres": 1.5443294693396865
+                  },
+                  {
+                    "camera": 3,
+                    "newContactPixels": 13,
+                    "previouslyOccupiedPixels": 0,
+                    "visibility": "newContactVisible",
+                    "weight": 1.0,
+                    "endpointDistanceMillimetres": 0.0,
+                    "axisDistanceMillimetres": 0.36631280475634753
+                  }
+                ]
+              },
+              "margin": 0.24019396710377627
+            }
+          },
+          {
+            "phase": "spatialAndBoundary",
+            "milliseconds": 0.024,
+            "elapsedMilliseconds": 21.624,
+            "state": {}
+          },
+          {
+            "phase": "temporalSelection",
+            "milliseconds": 0.009,
+            "elapsedMilliseconds": 21.633,
+            "state": {
+              "reason": "waitingForSecondFrame",
+              "selectedIndex": -1
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.008,
+            "elapsedMilliseconds": 21.641,
+            "state": {
+              "status": "Treffer kurz über mehrere Bilder abgleichen …",
+              "running": true,
+              "waitingForEmpty": false,
+              "throwsAfter": 2
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 2,
+        "frames": [
+          {
+            "timestampMicroseconds": 4337059800,
+            "sequence": 31476,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4337063771,
+            "sequence": 31478,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 4337083635,
+            "sequence": 31479,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.034,
+            "elapsedMilliseconds": 0.034,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 3,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.000023148148148148147,
+                  "changedPixels": 93,
+                  "axis": {
+                    "a": -0.8768541602785641,
+                    "b": -0.48075646808147493,
+                    "c": 38.76286658401886,
+                    "confidence": 0.5031949403192265
+                  }
+                },
+                {
+                  "stableSamples": 3,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00020061728395061727,
+                  "changedPixels": 13,
+                  "axis": {
+                    "a": 0.8459681718934579,
+                    "b": -0.5332333936872679,
+                    "c": 74.4904082074064,
+                    "confidence": 0.9840794503922177
+                  }
+                },
+                {
+                  "stableSamples": 4,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00008487654320987654,
+                  "changedPixels": 26,
+                  "axis": {
+                    "a": -0.07339324863057102,
+                    "b": -0.9973030788358428,
+                    "c": 106.83522733417337,
+                    "confidence": 0.9815904751888896
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 9.709,
+            "elapsedMilliseconds": 9.743,
+            "state": {
+              "state": "playing",
+              "cameraMetrics": [
+                {
+                  "before": 234,
+                  "now": 1128,
+                  "retained": 224,
+                  "added": 904,
+                  "removed": 10,
+                  "regionPixels": 53640,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 1794,
+                  "now": 1902,
+                  "retained": 1745,
+                  "added": 157,
+                  "removed": 49,
+                  "regionPixels": 57044,
+                  "occupiedRestored": false,
+                  "clear": false
+                },
+                {
+                  "before": 359,
+                  "now": 563,
+                  "retained": 338,
+                  "added": 225,
+                  "removed": 21,
+                  "regionPixels": 52819,
+                  "occupiedRestored": false,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "bounce",
+            "milliseconds": 0.972,
+            "elapsedMilliseconds": 10.715,
+            "state": {}
+          },
+          {
+            "phase": "fusion",
+            "milliseconds": 6.574,
+            "elapsedMilliseconds": 17.289,
+            "state": {
+              "localizedViews": 3,
+              "stableViews": 3,
+              "unresolvedSamples": 3,
+              "deadlineReached": false,
+              "alternativesUsed": false
+            }
+          },
+          {
+            "phase": "contactRecovery",
+            "milliseconds": 0.04,
+            "elapsedMilliseconds": 17.329,
+            "state": {
+              "confirmed": false
+            }
+          },
+          {
+            "phase": "detailRefinement",
+            "milliseconds": 0.872,
+            "elapsedMilliseconds": 18.201,
+            "state": {
+              "applied": false
+            }
+          },
+          {
+            "phase": "tipRefinement",
+            "milliseconds": 0.427,
+            "elapsedMilliseconds": 18.628,
+            "state": {
+              "reason": "tipViewsDisagree",
+              "confirmed": false,
+              "appliedToRecognition": true
+            }
+          },
+          {
+            "phase": "localSegmentBoundary",
+            "milliseconds": 0.022,
+            "elapsedMilliseconds": 18.65,
+            "state": {
+              "applied": false,
+              "wires": [
+                null,
+                null,
+                null
+              ],
+              "supportingCameras": [],
+              "candidate": {
+                "xMillimetres": -16.77970414996341,
+                "yMillimetres": 107.79121533785177
+              },
+              "reason": "insufficientLocalContactSupport"
+            }
+          },
+          {
+            "phase": "localRingContact",
+            "milliseconds": 0.012,
+            "elapsedMilliseconds": 18.662,
+            "state": {
+              "applied": false,
+              "reason": "endpointsNotIndependentlyConfirmed"
+            }
+          },
+          {
+            "phase": "contactCandidateComparison",
+            "milliseconds": 0.069,
+            "elapsedMilliseconds": 18.731,
+            "state": {
+              "mode": "shadow",
+              "candidateSource": "currentFrameBeforeTemporalSelection",
+              "applied": false,
+              "occlusionIsEstimate": true,
+              "candidateCount": 6,
+              "candidates": [
+                {
+                  "xMillimetres": -18.514599273343883,
+                  "yMillimetres": 109.14556304708138,
+                  "label": "19",
+                  "score": 2.8696008580098376,
+                  "supportingViews": 1,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 3,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 2.525034585462137
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 19.505745257672842,
+                      "axisDistanceMillimetres": 0.6275875172928664
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 19,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": 2.200935893347384,
+                      "axisDistanceMillimetres": 0.6571321461885589
+                    }
+                  ]
+                },
+                {
+                  "xMillimetres": -7.530968595259749,
+                  "yMillimetres": 125.26492889021168,
+                  "label": "3",
+                  "score": 2.1583478409857806,
+                  "supportingViews": 1,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 14.855497060035695
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 10,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": 0.0,
+                      "axisDistanceMillimetres": 1.324005330165619
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 19.77042677007166,
+                      "axisDistanceMillimetres": 17.539149667646726
+                    }
+                  ]
+                },
+                {
+                  "xMillimetres": -16.77970414996341,
+                  "yMillimetres": 107.79121533785177,
+                  "label": "3",
+                  "score": 3.8040228576175257,
+                  "supportingViews": 2,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 27,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 1.6548960001224415
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 19.77042677007166,
+                      "axisDistanceMillimetres": 2.8174369984710097
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 11,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": 0.0,
+                      "axisDistanceMillimetres": 0.566233404902178
+                    }
+                  ]
+                },
+                {
+                  "xMillimetres": -17.319644730780915,
+                  "yMillimetres": 112.21829076173306,
+                  "label": "3",
+                  "score": 0.8163058286270235,
+                  "supportingViews": 0,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 2,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 2.1316282072803006e-14
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 16.310516452325896,
+                      "axisDistanceMillimetres": 1.4210854715202004e-14
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 3,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 4.459880339151182,
+                      "axisDistanceMillimetres": 3.8092745522794758
+                    }
+                  ]
+                },
+                {
+                  "xMillimetres": -15.137420820532265,
+                  "yMillimetres": 108.23812150473499,
+                  "label": "3",
+                  "score": 2.245468816337784,
+                  "supportingViews": 1,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 35,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 7.105427357601002e-15
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 18.648600086802137,
+                      "axisDistanceMillimetres": 3.9684511323740708
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 3,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 1.7020045993256618,
+                      "axisDistanceMillimetres": 2.842170943040401e-14
+                    }
+                  ]
+                },
+                {
+                  "xMillimetres": -19.62048396189786,
+                  "yMillimetres": 108.56803783081801,
+                  "label": "19",
+                  "score": 2.8958295231062756,
+                  "supportingViews": 1,
+                  "cameras": [
+                    {
+                      "camera": 1,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": null,
+                      "axisDistanceMillimetres": 3.7723831586078234
+                    },
+                    {
+                      "camera": 2,
+                      "newContactPixels": 0,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "insufficientEvidence",
+                      "weight": 0.4,
+                      "endpointDistanceMillimetres": 20.614134782945396,
+                      "axisDistanceMillimetres": 1.4210854715202004e-14
+                    },
+                    {
+                      "camera": 3,
+                      "newContactPixels": 21,
+                      "previouslyOccupiedPixels": 0,
+                      "visibility": "newContactVisible",
+                      "weight": 1.0,
+                      "endpointDistanceMillimetres": 2.9450777791889675,
+                      "axisDistanceMillimetres": 1.4210854715202004e-14
+                    }
+                  ]
+                }
+              ],
+              "preferred": {
+                "xMillimetres": -16.77970414996341,
+                "yMillimetres": 107.79121533785177,
+                "label": "3",
+                "score": 3.8040228576175257,
+                "supportingViews": 2,
+                "cameras": [
+                  {
+                    "camera": 1,
+                    "newContactPixels": 27,
+                    "previouslyOccupiedPixels": 0,
+                    "visibility": "newContactVisible",
+                    "weight": 1.0,
+                    "endpointDistanceMillimetres": null,
+                    "axisDistanceMillimetres": 1.6548960001224415
+                  },
+                  {
+                    "camera": 2,
+                    "newContactPixels": 0,
+                    "previouslyOccupiedPixels": 0,
+                    "visibility": "insufficientEvidence",
+                    "weight": 0.4,
+                    "endpointDistanceMillimetres": 19.77042677007166,
+                    "axisDistanceMillimetres": 2.8174369984710097
+                  },
+                  {
+                    "camera": 3,
+                    "newContactPixels": 11,
+                    "previouslyOccupiedPixels": 0,
+                    "visibility": "newContactVisible",
+                    "weight": 1.0,
+                    "endpointDistanceMillimetres": 0.0,
+                    "axisDistanceMillimetres": 0.566233404902178
+                  }
+                ]
+              },
+              "margin": 0.9081933345112501
+            }
+          },
+          {
+            "phase": "spatialAndBoundary",
+            "milliseconds": 0.022,
+            "elapsedMilliseconds": 18.753,
+            "state": {}
+          },
+          {
+            "phase": "temporalSelection",
+            "milliseconds": 0.01,
+            "elapsedMilliseconds": 18.763,
+            "state": {
+              "reason": "consecutiveAgreement",
+              "selectedIndex": 1
+            }
+          },
+          {
+            "phase": "accepted",
+            "milliseconds": 0.02,
+            "elapsedMilliseconds": 18.783,
+            "state": {
+              "score": "19",
+              "reason": "consecutiveAgreement",
+              "throwsAfter": 3
+            }
+          }
+        ]
+      }
+    ],
+    "lastCaptureError": null,
+    "lastCaptureErrorStack": null,
+    "decisionFrames": [
+      {
+        "xMillimetres": -17.455949613234033,
+        "yMillimetres": 109.00353578549623,
+        "views": 3,
+        "supportingViews": 2,
+        "residualMillimetres": 1.2030690581868142,
+        "captureTimestampsMicroseconds": [
+          4336788163,
+          4336759405,
+          4336780125
+        ],
+        "axes": [
+          {
+            "a": -0.8773695066995593,
+            "b": -0.47981532771866725,
+            "c": 38.95132463852765,
+            "confidence": 0.5003177204870062
+          },
+          {
+            "a": 0.8568037863926259,
+            "b": -0.5156425812743354,
+            "c": 71.64222489945821,
+            "confidence": 0.9833082320907024
+          },
+          {
+            "a": -0.07292164891437004,
+            "b": -0.997337672566122,
+            "c": 106.93928883781011,
+            "confidence": 0.9747296799215023
+          }
+        ]
+      },
+      {
+        "xMillimetres": -18.514599273343883,
+        "yMillimetres": 109.14556304708138,
+        "views": 3,
+        "supportingViews": 2,
+        "residualMillimetres": 1.5493534573272978,
+        "captureTimestampsMicroseconds": [
+          4337059800,
+          4337063771,
+          4337083635
+        ],
+        "axes": [
+          {
+            "a": -0.8768541602785641,
+            "b": -0.48075646808147493,
+            "c": 38.76286658401886,
+            "confidence": 0.5031949403192265
+          },
+          {
+            "a": 0.8459681718934579,
+            "b": -0.5332333936872679,
+            "c": 74.4904082074064,
+            "confidence": 0.9840794503922177
+          },
+          {
+            "a": -0.07339324863057102,
+            "b": -0.9973030788358428,
+            "c": 106.83522733417337,
+            "confidence": 0.9815904751888896
+          }
+        ]
+      }
+    ],
+    "decisionSelectedFrame": 1,
+    "alternativesUsed": false,
+    "detailRefined": false,
+    "uncertainRecovery": {
+      "eligible": false
+    },
+    "video": {
+      "continuousVideo": true,
+      "timestampBasis": "hostArrivalMonotonic",
+      "skewMicroseconds": 25740,
+      "discardedForSynchronization": 364,
+      "nativeDroppedFrames": 18994,
+      "backlogDroppedBatches": 12336,
+      "oldestBufferedAgeMilliseconds": 207.568,
+      "newestBufferedAgeMilliseconds": 7.552,
+      "nativeReadMilliseconds": 134.274,
+      "nativeReadPixelBytes": 29030400
+    },
+    "tipContactConfirmed": false,
+    "spatialContact": null,
+    "tipObservations": [
+      null,
+      {
+        "imageX": 0.5840500390930414,
+        "imageY": 0.2795549374130737,
+        "xMillimetres": -7.530968595259749,
+        "yMillimetres": 125.26492889021168,
+        "confidence": 0.9840794503922177
+      },
+      {
+        "imageX": 0.3221266614542611,
+        "imageY": 0.3282336578581363,
+        "xMillimetres": -16.77970414996341,
+        "yMillimetres": 107.79121533785177,
+        "confidence": 0.9815904751888896
+      }
+    ],
+    "performance": {
+      "liveFrame": {
+        "frameSequences": [
+          31476,
+          31478,
+          31479
+        ],
+        "captureTimestampsMicroseconds": [
+          4337059800,
+          4337063771,
+          4337083635
+        ],
+        "oldestFrameAgeAtNativeReadMilliseconds": 94.826,
+        "newestFrameAgeAtNativeReadMilliseconds": 70.991,
+        "queuedAfterChannelReturnMilliseconds": 0.006,
+        "nativeReadMilliseconds": 134.274,
+        "physicalImpactTimestampAvailable": false,
+        "decodeAndColorMilliseconds": 66.82,
+        "axisAnalysisIncludingWorkerMilliseconds": 11.58,
+        "firstShaftEvidenceCaptureTimestampMicroseconds": 4336723939,
+        "shaftEvidenceToCurrentCaptureMilliseconds": 359.696,
+        "throwCallbackMilliseconds": 4.251,
+        "decisionIncludingCallbackMilliseconds": 23.093,
+        "channelReturnToProcessingFinishedMilliseconds": 101.524,
+        "hostArrivalToProcessingFinishedEstimateMilliseconds": 172.51600000000002
+      },
+      "lastAcceptedLiveFrame": {
+        "frameSequences": [
+          31476,
+          31478,
+          31479
+        ],
+        "captureTimestampsMicroseconds": [
+          4337059800,
+          4337063771,
+          4337083635
+        ],
+        "oldestFrameAgeAtNativeReadMilliseconds": 94.826,
+        "newestFrameAgeAtNativeReadMilliseconds": 70.991,
+        "queuedAfterChannelReturnMilliseconds": 0.006,
+        "nativeReadMilliseconds": 134.274,
+        "physicalImpactTimestampAvailable": false,
+        "decodeAndColorMilliseconds": 66.82,
+        "axisAnalysisIncludingWorkerMilliseconds": 11.58,
+        "firstShaftEvidenceCaptureTimestampMicroseconds": 4336723939,
+        "shaftEvidenceToCurrentCaptureMilliseconds": 359.696,
+        "throwCallbackMilliseconds": 4.251,
+        "decisionIncludingCallbackMilliseconds": 23.093,
+        "channelReturnToProcessingFinishedMilliseconds": 101.524,
+        "hostArrivalToProcessingFinishedEstimateMilliseconds": 172.51600000000002
+      },
+      "captureAndDecodeMilliseconds": 66.82,
+      "processingMilliseconds": 22.874,
+      "nextCaptureDelayMilliseconds": 10
+    },
+    "xMillimetres": -18.514599273343883,
+    "yMillimetres": 109.14556304708138,
+    "residualMillimetres": 1.5493534573272978,
+    "views": 3,
+    "needsReview": true,
+    "forcedDecision": false,
+    "falsePositive": false,
+    "setupId": "default",
+    "correctionHistoryAnalysis": {
+      "positionedCorrections": 2,
+      "missingPositionCount": 0,
+      "xError": {
+        "count": 2,
+        "meanMillimetres": 0.9942241795598328,
+        "spreadMillimetres": 2.948946522355371
+      },
+      "yError": {
+        "count": 2,
+        "meanMillimetres": 1.596941576127989,
+        "spreadMillimetres": 0.5996474803521892
+      },
+      "meanDistanceMillimetres": 3.5038652820252607,
+      "cameras": [
+        {
+          "camera": 1,
+          "signedAxisError": {
+            "count": 2,
+            "meanMillimetres": -0.057584675295276,
+            "spreadMillimetres": 1.469591311619718
+          }
+        },
+        {
+          "camera": 2,
+          "signedAxisError": {
+            "count": 2,
+            "meanMillimetres": -0.3053140133628247,
+            "spreadMillimetres": 3.736907925623946
+          }
+        },
+        {
+          "camera": 3,
+          "signedAxisError": {
+            "count": 2,
+            "meanMillimetres": 0.2794469435905853,
+            "spreadMillimetres": 1.6616917825384405
+          }
+        }
+      ],
+      "automaticBiasCorrectionApplied": false
+    }
+  },
+  "correctionPosition": {
+    "xMillimetres": -14.57142857142868,
+    "yMillimetres": 110.14285714285718,
+    "source": "flatBoard"
+  },
+  "cameras": [
+    {
+      "camera": 1,
+      "deviceName": "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&3390689c&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+      "deviceIndex": 5,
+      "cameraId": 2043857294352,
+      "calibrationMessage": "Zahlenring mit Kamera 2 abgeglichen · Board-Geometrie geprüft\nRingprüfung: 38 Punkte · 1.0 mm Abweichung",
+      "calibrationReused": false,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3848889250935847,
+          "y": 0.24288706605343924
+        },
+        {
+          "x": 0.6482607451424841,
+          "y": 0.29390072554804
+        },
+        {
+          "x": 0.6217471695202119,
+          "y": 0.6791466794287367
+        },
+        {
+          "x": 0.23508111361419248,
+          "y": 0.5395422026976794
+        }
+      ],
+      "lens": {
+        "k1": 0.0,
+        "aspectRatio": 1.0
+      },
+      "calibrationQuality": {
+        "observations": 38,
+        "trainingObservationCount": 19,
+        "validationObservationCount": 19,
+        "validationSectors": "odd sectors; even sectors used for model selection",
+        "principalPointAssumption": "image centre",
+        "validationRmsBeforeMillimetres": 1.0315739124474288,
+        "validationRmsAfterMillimetres": 1.0315739124474288,
+        "refittedRmsAfterMillimetres": 1.0315739124474288,
+        "applied": false,
+        "lensK1": 0.0
+      },
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [
+        {
+          "a": -0.8768541602785641,
+          "b": -0.48075646808147493,
+          "c": 38.76286658401886,
+          "confidence": 0.5031949403192265,
+          "outerRimOnly": false
+        }
+      ],
+      "axis": {
+        "a": -0.8768541602785641,
+        "b": -0.48075646808147493,
+        "c": 38.76286658401886,
+        "confidence": 0.5031949403192265,
+        "outerRimOnly": false
+      },
+      "changedFraction": 0.000023148148148148147,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.006782407407407407,
+      "stableSamples": 0,
+      "frameTimestampsMicroseconds": [
+        4336195520,
+        4336419327,
+        4336450078,
+        4336484789,
+        4336723939,
+        4336755164,
+        4336788163,
+        4337059800
+      ],
+      "frameSequences": [
+        31450,
+        31457,
+        31458,
+        31459,
+        31466,
+        31467,
+        31468,
+        31476
+      ],
+      "postFrames": [
+        {
+          "timestampMicroseconds": 4337091864,
+          "sequence": 31477
+        },
+        {
+          "timestampMicroseconds": 4337121334,
+          "sequence": 31478
+        },
+        {
+          "timestampMicroseconds": 4337521563,
+          "sequence": 31490
+        },
+        {
+          "timestampMicroseconds": 4337555339,
+          "sequence": 31491
+        }
+      ]
+    },
+    {
+      "camera": 2,
+      "deviceName": "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&b2dc3c8&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+      "deviceIndex": 6,
+      "cameraId": 2044385622560,
+      "calibrationMessage": "3 Zahlen erkannt · Board-Geometrie geprüft\nRingprüfung: 39 Punkte · 1.3 mm Abweichung",
+      "calibrationReused": false,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3333775968940082,
+          "y": 0.6909681968582262
+        },
+        {
+          "x": 0.3286221803489082,
+          "y": 0.2943502847880836
+        },
+        {
+          "x": 0.5973651388102051,
+          "y": 0.23935933334546577
+        },
+        {
+          "x": 0.7376673891571004,
+          "y": 0.5553903336806024
+        }
+      ],
+      "lens": {
+        "k1": 0.0,
+        "aspectRatio": 1.0
+      },
+      "calibrationQuality": {
+        "observations": 39,
+        "trainingObservationCount": 19,
+        "validationObservationCount": 20,
+        "validationSectors": "odd sectors; even sectors used for model selection",
+        "principalPointAssumption": "image centre",
+        "validationRmsBeforeMillimetres": 1.2500000000000084,
+        "validationRmsAfterMillimetres": 1.2500000000000084,
+        "refittedRmsAfterMillimetres": 1.2500000000000084,
+        "applied": false,
+        "lensK1": 0.0
+      },
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [
+        {
+          "a": 0.8459681718934579,
+          "b": -0.5332333936872679,
+          "c": 74.4904082074064,
+          "confidence": 0.9840794503922177,
+          "outerRimOnly": false
+        },
+        {
+          "a": 0.8268912999673167,
+          "b": -0.5623617857201544,
+          "c": 78.76652167405183,
+          "confidence": 0.9750928841085484,
+          "outerRimOnly": false
+        },
+        {
+          "a": 0.8552348876506045,
+          "b": -0.5182405686023219,
+          "c": 72.12184047226658,
+          "confidence": 0.9918382608653588,
+          "outerRimOnly": true
+        }
+      ],
+      "axis": {
+        "a": 0.8459681718934579,
+        "b": -0.5332333936872679,
+        "c": 74.4904082074064,
+        "confidence": 0.9840794503922177,
+        "outerRimOnly": false
+      },
+      "changedFraction": 0.00020061728395061727,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.0035956790123456792,
+      "stableSamples": 0,
+      "frameTimestampsMicroseconds": [
+        4336168150,
+        4336406230,
+        4336438540,
+        4336469657,
+        4336693291,
+        4336728525,
+        4336759405,
+        4337063771
+      ],
+      "frameSequences": [
+        31451,
+        31458,
+        31459,
+        31460,
+        31467,
+        31468,
+        31469,
+        31478
+      ],
+      "postFrames": [
+        {
+          "timestampMicroseconds": 4337093729,
+          "sequence": 31479
+        },
+        {
+          "timestampMicroseconds": 4337126834,
+          "sequence": 31480
+        },
+        {
+          "timestampMicroseconds": 4337527152,
+          "sequence": 31492
+        },
+        {
+          "timestampMicroseconds": 4337559566,
+          "sequence": 31493
+        }
+      ]
+    },
+    {
+      "camera": 3,
+      "deviceName": "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&1de7746d&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+      "deviceIndex": 7,
+      "cameraId": 2043857297104,
+      "calibrationMessage": "Zahlenring mit Kamera 2 abgeglichen · Board-Geometrie geprüft\nRingprüfung: 39 Punkte · 0.9 mm Abweichung",
+      "calibrationReused": false,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.6956809097196905,
+          "y": 0.36711993315962976
+        },
+        {
+          "x": 0.45720815462002934,
+          "y": 0.6917946611759239
+        },
+        {
+          "x": 0.23240429770233312,
+          "y": 0.3467144799659506
+        },
+        {
+          "x": 0.4682486482239562,
+          "y": 0.17755565442009846
+        }
+      ],
+      "lens": {
+        "k1": 0.0,
+        "aspectRatio": 1.0
+      },
+      "calibrationQuality": {
+        "observations": 39,
+        "trainingObservationCount": 19,
+        "validationObservationCount": 20,
+        "validationSectors": "odd sectors; even sectors used for model selection",
+        "principalPointAssumption": "image centre",
+        "validationRmsBeforeMillimetres": 0.8741066868523644,
+        "validationRmsAfterMillimetres": 0.8741066868523644,
+        "refittedRmsAfterMillimetres": 0.8741066868523644,
+        "applied": false,
+        "lensK1": 0.0
+      },
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [
+        {
+          "a": -0.07339324863057102,
+          "b": -0.9973030788358428,
+          "c": 106.83522733417337,
+          "confidence": 0.9815904751888896,
+          "outerRimOnly": false
+        }
+      ],
+      "axis": {
+        "a": -0.07339324863057102,
+        "b": -0.9973030788358428,
+        "c": 106.83522733417337,
+        "confidence": 0.9815904751888896,
+        "outerRimOnly": false
+      },
+      "changedFraction": 0.00008487654320987654,
+      "referenceChangedFraction": 0.0,
+      "lastReferenceChangedFraction": 0.005007716049382716,
+      "stableSamples": 0,
+      "frameTimestampsMicroseconds": [
+        4336186623,
+        4336409661,
+        4336442606,
+        4336473752,
+        4336714011,
+        4336748144,
+        4336780125,
+        4337083635
+      ],
+      "frameSequences": [
+        31452,
+        31459,
+        31460,
+        31461,
+        31468,
+        31469,
+        31470,
+        31479
+      ],
+      "postFrames": [
+        {
+          "timestampMicroseconds": 4337114671,
+          "sequence": 31480
+        },
+        {
+          "timestampMicroseconds": 4337147074,
+          "sequence": 31481
+        },
+        {
+          "timestampMicroseconds": 4337545658,
+          "sequence": 31493
+        },
+        {
+          "timestampMicroseconds": 4337578510,
+          "sequence": 31494
+        }
+      ]
+    }
+  ]
+}

@@ -12,13 +12,13 @@ class StatisticsObservation {
     required this.name,
     required this.label,
     required this.date,
-    required this.values,
+    required Map<String, double> values,
     this.opponent = '',
     this.result,
     this.estimatedDate = false,
     this.doubleMatch = false,
     this.startScore,
-  });
+  }) : values = Map.unmodifiable(values);
   final String id, playerId, name, label, opponent;
   final DateTime date;
   final Map<String, double> values;
@@ -29,32 +29,105 @@ class StatisticsObservation {
 
 class StatisticsReport {
   StatisticsReport(Iterable<StatisticsObservation> source)
-    : observations =
-          ({for (final o in source) '${o.playerId}:${o.id}': o}.values.toList()
-            ..sort((a, b) {
-              final date = a.date.compareTo(b.date);
-              return date == 0 ? a.id.compareTo(b.id) : date;
-            }));
+    : observations = List.unmodifiable(
+        ({for (final o in source) '${o.playerId}:${o.id}': o}.values.toList()
+          ..sort((a, b) {
+            final date = a.date.compareTo(b.date);
+            return date == 0 ? a.id.compareTo(b.id) : date;
+          })),
+      );
+  StatisticsReport._sorted(Iterable<StatisticsObservation> source)
+    : observations = List.unmodifiable(source);
   final List<StatisticsObservation> observations;
+  final _values = <StatisticsMetric, double?>{};
+  final _series = <StatisticsMetric, List<(StatisticsObservation, double)>>{};
+  late final Map<String, StatisticsReport> byPlayer = _groupPlayers();
+  Map<String, StatisticsReport> _groupPlayers() {
+    final groups = <String, List<StatisticsObservation>>{};
+    for (final observation in observations) {
+      groups.putIfAbsent(observation.playerId, () => []).add(observation);
+    }
+    return Map.unmodifiable(
+      groups.map((id, rows) => MapEntry(id, StatisticsReport._sorted(rows))),
+    );
+  }
+
+  final _cumulative = <StatisticsMetric, List<double>>{};
+  ({StatisticsPeriod? period, bool? doubles, int? score})? _filterKey;
+  StatisticsReport? _filtered;
   StatisticsReport filtered({
     StatisticsPeriod? period,
     Set<String>? players,
     bool? doubleMatch,
-  }) => StatisticsReport(
-    observations.where(
-      (o) =>
-          (period == null || (!o.estimatedDate && period.contains(o.date))) &&
-          (players == null || players.contains(o.playerId)) &&
-          (doubleMatch == null || o.doubleMatch == doubleMatch),
-    ),
-  );
+    int? startScore,
+  }) {
+    if (players == null &&
+        period == null &&
+        doubleMatch == null &&
+        startScore == null) {
+      return this;
+    }
+    if (players?.length == 1) {
+      return (byPlayer[players!.single] ?? StatisticsReport(const [])).filtered(
+        period: period,
+        doubleMatch: doubleMatch,
+        startScore: startScore,
+      );
+    }
+    final key = (period: period, doubles: doubleMatch, score: startScore);
+    if (players == null && _filterKey == key && _filtered != null) {
+      return _filtered!;
+    }
+    final result = StatisticsReport._sorted(
+      observations.where(
+        (o) =>
+            (period == null || (!o.estimatedDate && period.contains(o.date))) &&
+            (players == null || players.contains(o.playerId)) &&
+            (doubleMatch == null || o.doubleMatch == doubleMatch) &&
+            (startScore == null || o.startScore == startScore),
+      ),
+    );
+    if (players == null) {
+      _filterKey = key;
+      _filtered = result;
+    }
+    return result;
+  }
+
+  /// Aggregate each prefix once, instead of rescanning for every chart point.
+  List<double> cumulative(StatisticsMetric metric) =>
+      _cumulative.putIfAbsent(metric, () {
+        var numerator = 0.0, denominator = 0.0;
+        double? extreme;
+        final result = <double>[];
+        for (final (observation, individual) in series(metric)) {
+          numerator += observation.values[metric.id]!;
+          denominator += observation.values[metric.denominator] ?? 0;
+          extreme = extreme == null
+              ? individual
+              : metric.aggregation == MetricAggregation.minimum
+              ? math.min(extreme, individual)
+              : math.max(extreme, individual);
+          result.add(switch (metric.aggregation) {
+            MetricAggregation.sum => numerator,
+            MetricAggregation.ratio => metric.factor * numerator / denominator,
+            MetricAggregation.minimum || MetricAggregation.maximum => extreme,
+          });
+        }
+        return List.unmodifiable(result);
+      });
   double? value(
     StatisticsMetric metric, [
     Iterable<StatisticsObservation>? source,
-  ]) {
-    final rows = (source ?? observations)
-        .where((o) => o.values.containsKey(metric.id))
-        .toList();
+  ]) => source == null
+      ? _values.putIfAbsent(metric, () => _value(metric, observations))
+      : _value(metric, source);
+
+  double? _value(
+    StatisticsMetric metric,
+    Iterable<StatisticsObservation> source,
+  ) {
+    final rows = source.where((o) => o.values.containsKey(metric.id)).toList();
     if (rows.isEmpty) return null;
     if (metric.id == 'finishes' &&
         metric.denominator == 'attempts' &&
@@ -141,18 +214,25 @@ class StatisticsReport {
     ];
   }
 
-  List<(StatisticsObservation, double)> series(StatisticsMetric metric) => [
-    for (final o in observations)
-      if (value(metric, [o]) case final double v) (o, v),
-  ];
-  List<StatisticsObservation> get completed =>
-      observations.where((o) => o.result != null).toList();
-  List<String> get form => completed.reversed
-      .take(10)
-      .map((o) => o.result!)
-      .toList()
-      .reversed
-      .toList();
+  List<(StatisticsObservation, double)> series(StatisticsMetric metric) =>
+      _series.putIfAbsent(
+        metric,
+        () => List.unmodifiable([
+          for (final o in observations)
+            if (value(metric, [o]) case final double v) (o, v),
+        ]),
+      );
+  late final List<StatisticsObservation> completed = List.unmodifiable(
+    observations.where((o) => o.result != null),
+  );
+  late final List<String> form = List.unmodifiable(
+    completed.reversed
+        .take(10)
+        .map((o) => o.result!)
+        .toList()
+        .reversed
+        .toList(),
+  );
   int get winningStreak {
     var count = 0;
     for (final o in completed.reversed) {
@@ -191,7 +271,7 @@ class StatisticsAnalytics {
   StatisticsReport scorer(Iterable<SavedScorerMatch> matches) =>
       StatisticsReport([
         for (final m in {for (final m in matches) m.id: m}.values)
-          if (m.statistics.visits > 0) _scorer(m),
+          if (m.statistics.visits > 0 || m.thrownDarts > 0) _scorer(m),
       ]);
   StatisticsObservation _scorer(SavedScorerMatch m) {
     final p = m.statistics;
@@ -210,6 +290,8 @@ class StatisticsAnalytics {
       'doubleOutGames': m.doubleOut ? 1 : 0,
       'points': p.points.toDouble(),
       'darts': p.darts.toDouble(),
+      'thrownDarts': m.thrownDarts.toDouble(),
+      'estimatedThrownDarts': m.estimatedThrownDarts.toDouble(),
       'visits': p.visits.toDouble(),
       'firstPoints': p.firstNinePoints.toDouble(),
       'firstDarts': p.firstNineDarts.toDouble(),

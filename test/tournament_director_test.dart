@@ -1,0 +1,286 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:dart_tournament_manager/features/tournaments/application/tournament_director_snapshot.dart';
+import 'package:dart_tournament_manager/features/tournaments/application/order_of_play/order_of_play_controller.dart';
+import 'package:dart_tournament_manager/features/tournaments/data/tournament_storage.dart';
+import 'package:dart_tournament_manager/features/tournaments/presentation/widgets/run/tournament_director_dashboard.dart';
+import 'order_of_play_test.dart' show fixture;
+
+class DirectorPreview extends StatefulWidget {
+  const DirectorPreview({super.key});
+  @override
+  State<DirectorPreview> createState() => _DirectorPreviewState();
+}
+
+class _DirectorPreviewState extends State<DirectorPreview> {
+  late final t = fixture(boards: 4);
+  final sync = ValueNotifier('Synchronisierung ausstehend');
+  @override
+  void initState() {
+    super.initState();
+    const c = OrderOfPlayController();
+    final first = c.plan(t, 0).planned.first;
+    c.start(t, 0, first.entry.match, 1);
+    t.blockedBoards.add(4);
+  }
+
+  @override
+  void dispose() {
+    sync.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: TournamentDirectorDashboard(
+          tournament: t,
+          activeStage: 0,
+          syncStatus: sync,
+          onChange: () async => setState(() {}),
+          onResult: (match) async {
+            setState(() {
+              match.homeLegs = 3;
+              match.awayLegs = 1;
+              const OrderOfPlayController().resultRecorded(match);
+            });
+          },
+          onBlock: (board) async => setState(() {
+            if (!t.blockedBoards.remove(board)) t.blockedBoards.add(board);
+          }),
+          onDevices: () async {},
+          onSync: () async {},
+        ),
+      ),
+    ),
+  );
+}
+
+void main() {
+  const font = String.fromEnvironment('LAYOUT_PREVIEW_FONT');
+  setUpAll(() async {
+    if (font.isNotEmpty) {
+      await (FontLoader(
+        'Roboto',
+      )..addFont(File(font).readAsBytes().then(ByteData.sublistView))).load();
+      await (FontLoader(
+        'MaterialIcons',
+      )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+    }
+  });
+  for (final size in [
+    const Size(360, 800),
+    const Size(800, 600),
+    const Size(1440, 900),
+  ]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('all director sections at $size text $scale', (tester) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final boundary = GlobalKey();
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(scale)),
+              child: child!,
+            ),
+            home: RepaintBoundary(
+              key: boundary,
+              child: const DirectorPreview(),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Turnierleiter-Einstellungen'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byType(SwitchListTile));
+        await tester.tap(find.byType(SwitchListTile));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+          isTrue,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.ensureVisible(find.text('Turnierleiter-Einstellungen'));
+        await tester.tap(find.text('Turnierleiter-Einstellungen'));
+        await tester.pumpAndSettle();
+        for (final section in ['Übersicht', 'Boards', 'Spiele']) {
+          final tab = find.widgetWithText(ChoiceChip, section);
+          if (tab.evaluate().isNotEmpty) {
+            await tester.ensureVisible(tab);
+            await tester.tap(tab);
+            await tester.pumpAndSettle();
+          }
+          expect(tester.takeException(), isNull);
+          if (font.isNotEmpty) {
+            await tester.runAsync(() async {
+              final image =
+                  await (boundary.currentContext!.findRenderObject()
+                          as RenderRepaintBoundary)
+                      .toImage();
+              final bytes = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              final file = File(
+                'build/layout_previews/Director_${size.width}_${scale}_$section.png',
+              );
+              await file.parent.create(recursive: true);
+              await file.writeAsBytes(bytes!.buffer.asUint8List());
+              image.dispose();
+            });
+          }
+          await tester.drag(
+            find.byType(SingleChildScrollView).first,
+            const Offset(0, -550),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
+        await tester.pumpWidget(const SizedBox());
+      });
+    }
+  }
+  const c = OrderOfPlayController();
+  test('blocked boards excluded in plan, starts and player suggestions', () {
+    final t = fixture();
+    t.blockedBoards.add(1);
+    final schedule = c.plan(t, 0);
+    expect(schedule.planned.every((a) => a.board == 2), isTrue);
+    expect(c.start(t, 0, schedule.planned.first.entry.match, 1), isFalse);
+    expect(c.suggestForPlayer(t, 0, t.players.first)!.board, 2);
+    t.blockedBoards.add(2);
+    expect(c.plan(t, 0).planned, isEmpty);
+    expect(TournamentDirectorSnapshot(t, 0).ready.length, 15);
+    expect(c.suggestForPlayer(t, 0, t.players.first), isNull);
+    t.blockedBoards.remove(1);
+    expect(c.plan(t, 0).planned.length, 15);
+  });
+  test('search prioritizes running match, excludes completed pairings', () {
+    final t = fixture();
+    final first = c.plan(t, 0).planned.first;
+    c.start(t, 0, first.entry.match, 1);
+    var view = TournamentDirectorSnapshot(t, 0);
+    expect(
+      view.search(t.players.first.name).first.match,
+      same(first.entry.match),
+    );
+    expect(
+      view.canStart(
+        view.ready.firstWhere((e) => e.players.contains(t.players.first.name)),
+      ),
+      isFalse,
+    );
+    first.entry.match.homeLegs = 3;
+    first.entry.match.awayLegs = 1;
+    c.resultRecorded(first.entry.match);
+    view = TournamentDirectorSnapshot(t, 0);
+    expect(
+      view
+          .search(t.players.first.name)
+          .any((e) => identical(e.match, first.entry.match)),
+      isFalse,
+    );
+    t.completedStageIndexes.add(0);
+    expect(c.start(t, 0, view.ready.first.match, 2), isFalse);
+  });
+  test(
+    'legacy migration keeps backup and board locks survive reload',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('director_test');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/tournaments.json');
+      final t = fixture();
+      await file.writeAsString(
+        jsonEncode({
+          'schemaVersion': 17,
+          'tournaments': [t.toJson()],
+        }),
+      );
+      final storage = TournamentStorage(file: file);
+      final loaded = (await storage.loadTournaments()).single;
+      expect(loaded.blockedBoards, isEmpty);
+      loaded.blockedBoards.add(2);
+      await storage.saveTournament(loaded);
+      expect((await storage.loadTournaments()).single.blockedBoards, {2});
+      expect(await File('${file.path}.v17.bak').exists(), isTrue);
+      expect(jsonDecode(await file.readAsString())['schemaVersion'], 20);
+    },
+  );
+  testWidgets('board actions, search and state survive width changes', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 800);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: DirectorPreview()));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Boards'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Ergebnis erfassen').first);
+    await tester.tap(find.text('Ergebnis erfassen').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Board 1 · Frei'), findsOneWidget);
+    final startButton = find.byTooltip('Spiel starten oder vorziehen').first;
+    await tester.ensureVisible(startButton);
+    await tester.tap(startButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Auf Board 1 starten'));
+    await tester.pumpAndSettle();
+    expect(find.text('Board 1 · Belegt'), findsOneWidget);
+    await tester.ensureVisible(find.text('Board freigeben'));
+    await tester.tap(find.text('Board freigeben'));
+    await tester.pumpAndSettle();
+    expect(find.text('Board 4 · Frei'), findsOneWidget);
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Spiele'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Spiele'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Spieler');
+    tester.view.physicalSize = const Size(1440, 900);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'Spieler'), findsOneWidget);
+    expect(find.text('Board 4 · Frei'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('save and synchronization errors stay visible and offer retry', (
+    tester,
+  ) async {
+    var retried = false;
+    final sync = ValueNotifier('Synchronisierung fehlgeschlagen');
+    addTearDown(sync.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: TournamentDirectorDashboard(
+              tournament: fixture(),
+              activeStage: 0,
+              syncStatus: sync,
+              saveError: 'Nicht gespeichert',
+              onChange: () async {
+                retried = true;
+              },
+              onResult: (_) async {},
+              onBlock: (_) async {},
+              onDevices: () async {},
+              onSync: () async {},
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Nicht gespeichert'), findsOneWidget);
+    await tester.tap(find.text('Speichern erneut versuchen'));
+    await tester.pumpAndSettle();
+    expect(retried, isTrue);
+    await tester.pumpWidget(const SizedBox());
+  });
+}

@@ -8,6 +8,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   camera_windows
   file_selector_windows
   firebase_core
+  flutter_inappwebview_windows
   flutter_tts
   url_launcher_windows
 )

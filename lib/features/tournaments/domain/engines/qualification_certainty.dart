@@ -9,6 +9,9 @@ class QualificationCertainty {
     required List<GroupMatch> matches, required List<String> tieBreakers}) {
     if (fixedPlaces < 1 || place > fixedPlaces) return false;
     if (matches.every((match) => match.isResolved)) return true;
+    // Swiss opponents in future rounds are not assigned yet. Their absence
+    // must never be interpreted as zero remaining games for a player.
+    if (matches.any((match) => !match.isResolved && !match.hasPlayers)) return false;
     // Points can only bound the final ranking when they are the first criterion.
     if (tieBreakers.isEmpty || tieBreakers.first != 'points') return false;
     final possibleOvertakers = standings.where((other) {

@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_settings_section.dart';
 import '../../../shared/widgets/sport_menu.dart';
 import 'dart_setup_widgets.dart';
 import '../../../shared/images/profile_avatar.dart';
@@ -176,6 +177,7 @@ class PersonalProfileEditor extends StatefulWidget {
 
 class _PersonalProfileEditorState extends State<PersonalProfileEditor> {
   final form = GlobalKey<FormState>();
+  final _optionalSection = GlobalKey<SportSettingsSectionState>();
   late final controllers = [
     widget.profile.name,
     widget.profile.nationality,
@@ -225,7 +227,10 @@ class _PersonalProfileEditorState extends State<PersonalProfileEditor> {
   }
 
   Future<void> save() async {
-    if (!form.currentState!.validate()) return;
+    if (!form.currentState!.validate()) {
+      _optionalSection.currentState?.expand();
+      return;
+    }
     setState(() {
       busy = true;
       error = null;
@@ -290,7 +295,7 @@ class _PersonalProfileEditorState extends State<PersonalProfileEditor> {
             AdaptiveTileLayout(
               minTileWidth: 350,
               children: [
-                for (var i = 0; i < controllers.length; i++)
+                for (var i = 0; i < 2; i++)
                   TextFormField(
                     key: ValueKey('personal-profile-field-$i'),
                     controller: controllers[i],
@@ -322,11 +327,60 @@ class _PersonalProfileEditorState extends State<PersonalProfileEditor> {
                   ),
               ],
             ),
-            const SizedBox(height: 24),
-            DartSetupFields(
-              initialValue: dartSetup,
-              enabled: !busy,
-              onChanged: (value) => dartSetup = value,
+            SportSettingsSection(
+              key: _optionalSection,
+              title: 'Walk-on & Favoriten',
+              summary: 'Song, Spotify-Link und persönliche Vorlieben',
+              icon: Icons.music_note_outlined,
+              children: [
+                AdaptiveTileLayout(
+                  minTileWidth: 350,
+                  children: [
+                    for (var i = 2; i < controllers.length; i++)
+                      TextFormField(
+                        key: ValueKey('personal-profile-field-$i'),
+                        controller: controllers[i],
+                        enabled: !busy,
+                        maxLength: i == 3 ? 500 : 100,
+                        keyboardType: i == 3
+                            ? TextInputType.url
+                            : TextInputType.text,
+                        decoration: InputDecoration(
+                          labelText: [
+                            'Name',
+                            'Nationalität',
+                            'Walk-on-Song',
+                            'Spotify-Link zum Song',
+                            'Lieblingsspieler',
+                            'Lieblingsdoppel',
+                          ][i],
+                          hintText: i == 5
+                              ? 'z. B. D20 oder Bull'
+                              : i == 3
+                              ? 'https://open.spotify.com/track/…'
+                              : null,
+                        ),
+                        validator: (v) => i == 0 && (v ?? '').trim().isEmpty
+                            ? 'Bitte einen Namen eingeben.'
+                            : i == 3 && !PersonalProfile.validSpotify(v ?? '')
+                            ? 'Bitte einen Spotify-Song-Link eingeben.'
+                            : null,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            SportSettingsSection(
+              title: 'Mein Dart-Setup',
+              summary: 'Darts, Gewicht, Shafts und Flights · optional',
+              icon: Icons.sports_outlined,
+              children: [
+                DartSetupFields(
+                  initialValue: dartSetup,
+                  enabled: !busy,
+                  onChanged: (value) => dartSetup = value,
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             if (error != null)

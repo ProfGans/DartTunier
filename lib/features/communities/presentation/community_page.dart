@@ -25,6 +25,8 @@ import 'community_profile_page.dart';
 import 'widgets/community_avatar.dart';
 import 'widgets/community_tournament_actions.dart';
 import 'community_tournament_import_page.dart';
+import 'challonge_import_page.dart';
+import 'challonge_archive_page.dart';
 import '../domain/community_permissions.dart';
 import 'widgets/community_members_section.dart';
 import 'widgets/community_menu.dart';
@@ -536,6 +538,16 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
                     if (mounted) setState(_reload);
                   },
                 ),
+              if (_rights.allows(CommunityPermission.createTournaments))
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.history),
+                  label: const Text('Challonge-Turniere importieren'),
+                  onPressed: () async {
+                    await Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => ChallongeImportPage(community: widget.community, repository: widget.repository)));
+                    if (mounted) setState(_reload);
+                  },
+                ),
               const SizedBox(height: 20),
               ValueListenableBuilder<String>(
                 valueListenable: TournamentStorage.syncStatus,
@@ -582,10 +594,10 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
                             )
                           : null,
                       onTap:
-                          widget.runTournamentBuilder == null ||
-                              !_rights.allows(
-                                CommunityPermission.leadTournaments,
-                              )
+                          tournament.importedArchive != null
+                          ? () => Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (_) => ChallongeArchivePage(tournament: tournament)))
+                          : widget.runTournamentBuilder == null
                           ? null
                           : () async {
                               await Navigator.of(context).push(

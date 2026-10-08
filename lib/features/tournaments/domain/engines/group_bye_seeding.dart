@@ -1,4 +1,5 @@
 import '../tournament_models.dart';
+import 'dart:math';
 
 /// Awards automatic advances by group performance without changing qualifiers.
 class GroupByeSeeding {
@@ -9,6 +10,7 @@ class GroupByeSeeding {
     required List<TournamentPlayer> players,
     required List<BestOfCandidate> candidates,
     required List<String> tieBreakers,
+    String? drawKey,
   }) {
     final result = List<int?>.from(slots);
     final byePositions = <int>[];
@@ -24,9 +26,21 @@ class GroupByeSeeding {
     final ranked =
         candidates
             .where((c) => players.any((p) => p.name == c.standing.player.name))
-            .toList()
-          ..sort((a, b) => compare(a, b, tieBreakers));
+            .toList();
     if (ranked.length != players.length) return result;
+    // Canonical input makes the draw independent of group/list ordering.
+    final lottery = [...ranked]..sort((a, b) =>
+      a.standing.player.name.compareTo(b.standing.player.name));
+    var seed = 0;
+    for (final unit in (drawKey ?? '').codeUnits) {
+      seed = ((seed * 31) + unit) & 0x7fffffff;
+    }
+    lottery.shuffle(drawKey == null ? Random() : Random(seed));
+    final lots = {for (var i = 0; i < lottery.length; i++) lottery[i]: i};
+    ranked.sort((a, b) {
+      final performance = compare(a, b, tieBreakers);
+      return performance != 0 ? performance : lots[a]!.compareTo(lots[b]!);
+    });
     final winners = ranked
         .take(byePositions.length)
         .map(
@@ -70,7 +84,6 @@ class GroupByeSeeding {
       final comparison = (bValue * aGames).compareTo(aValue * bGames);
       if (comparison != 0) return comparison;
     }
-    // Stable tie resolution, independent of the order of the groups.
-    return a.standing.player.name.compareTo(b.standing.player.name);
+    return 0;
   }
 }

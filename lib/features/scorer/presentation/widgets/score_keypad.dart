@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'scorer_play_sizing.dart';
 
 /// Three-column touch entry on phones, calculator layout on wider surfaces.
 class ScoreKeypad extends StatefulWidget {
@@ -56,40 +57,63 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
     }
   }
 
-  Widget button(String label, VoidCallback? callback, {bool primary = false}) =>
-      Expanded(
-        child: Padding(
-          padding: const EdgeInsets.all(3),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56),
-            child: primary
-                ? FilledButton(
-                    onPressed: callback,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: label == '⌫'
-                        ? const Tooltip(
-                            message: 'Letzte Ziffer löschen',
-                            child: Icon(Icons.backspace_outlined),
-                          )
-                        : Text(label),
-                  )
-                : OutlinedButton(
-                    onPressed: callback,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: label == '⌫'
-                        ? const Tooltip(
-                            message: 'Letzte Ziffer löschen',
-                            child: Icon(Icons.backspace_outlined),
-                          )
-                        : Text(label),
-                  ),
-          ),
+  Widget button(
+    String label,
+    VoidCallback? callback, {
+    bool primary = false,
+  }) => Expanded(
+    child: Padding(
+      padding: const EdgeInsets.all(3),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: ScorerPlaySizing.of(context)?.keyHeight ?? 64,
         ),
-      );
+        child: primary
+            ? FilledButton(
+                onPressed: callback,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: label == '⌫'
+                    ? const Tooltip(
+                        message: 'Letzte Ziffer löschen',
+                        child: Icon(Icons.backspace_outlined),
+                      )
+                    : Text(
+                        label,
+                        style: TextStyle(
+                          fontSize:
+                              ((ScorerPlaySizing.of(context)?.keyHeight ?? 64) /
+                                      4)
+                                  .clamp(24.0, 40.0),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              )
+            : OutlinedButton(
+                onPressed: callback,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: label == '⌫'
+                    ? const Tooltip(
+                        message: 'Letzte Ziffer löschen',
+                        child: Icon(Icons.backspace_outlined),
+                      )
+                    : Text(
+                        label,
+                        style: TextStyle(
+                          fontSize:
+                              ((ScorerPlaySizing.of(context)?.keyHeight ?? 64) /
+                                      4)
+                                  .clamp(24.0, 40.0),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+      ),
+    ),
+  );
   @override
   Widget build(BuildContext context) => Focus(
     autofocus: true,

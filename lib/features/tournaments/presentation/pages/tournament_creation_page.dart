@@ -21,6 +21,7 @@ class TournamentCreationPage extends StatefulWidget {
 class _TournamentCreationPageState extends State<TournamentCreationPage> {
   bool _showEntryChoices = true;
   bool _countsForRanking = true;
+  TournamentAccessSettings _tournamentAccess = const TournamentAccessSettings();
   List<String> _communityRankingIds = ['default'];
   final _tournamentNameController = TextEditingController();
   final _playerNameController = TextEditingController();
@@ -107,9 +108,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   List<int> _roundRobinRepeatsForGroupSizes(List<int> groupSizes) {
     return [
       for (var index = 0; index < groupSizes.length; index++)
-        index < _groupRoundRobinRepeats.length
-            ? _groupRoundRobinRepeats[index]
-            : 1,
+        (_playTypesForGroupSizes(groupSizes)[index] == 'swiss'
+          ? (index < _groupRoundRobinRepeats.length ? _groupRoundRobinRepeats[index] : 3).clamp(1, SwissEngine.maximumRounds(groupSizes[index]))
+          : index < _groupRoundRobinRepeats.length ? _groupRoundRobinRepeats[index] : 1),
     ];
   }
 
@@ -153,8 +154,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     }
 
     setState(() {
+      final current = _roundRobinRepeatsForGroupSizes(groupSizes);
       while (_groupRoundRobinRepeats.length < groupSizes.length) {
-        _groupRoundRobinRepeats.add(1);
+        _groupRoundRobinRepeats.add(current[_groupRoundRobinRepeats.length]);
       }
       final nextValue = _groupRoundRobinRepeats[groupIndex] + delta;
       _groupRoundRobinRepeats[groupIndex] = nextValue < 1 ? 1 : nextValue;
@@ -175,7 +177,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     final qualificationPlan = _groupQualificationPlan();
     var totalMatches = 0;
     for (var index = 0; index < groupSizes.length; index++) {
-      totalMatches += playTypes[index] == 'round_robin'
+      totalMatches += playTypes[index] == 'swiss' ? (groupSizes[index] ~/ 2) * repeats[index] : playTypes[index] == 'round_robin'
           ? _roundRobinMatchCount(groupSizes[index], repeats[index])
           : playTypes[index] == 'mini_knockout' && _placementPlaces.isNotEmpty ? groupSizes[index] - 1 + _optionalPlacementMatchCount(groupSizes[index], {..._placementPlaces, if (_requiredRankForCurrentGroup(index, qualificationPlan).isOdd && _requiredRankForCurrentGroup(index, qualificationPlan) >= 3) _requiredRankForCurrentGroup(index, qualificationPlan)}) : _groupEliminationMatchEstimate(
               groupSizes[index],
@@ -207,7 +209,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     final qualificationPlan = _groupQualificationPlan();
     return [
       for (var index = 0; index < groupSizes.length; index++)
-        playTypes[index] == 'round_robin'
+        playTypes[index] == 'swiss'
+            ? '${groupLabel(index + 1)} ${repeats[index]} Runden · ${(groupSizes[index] ~/ 2) * repeats[index]} Spiele'
+            : playTypes[index] == 'round_robin'
             ? '${groupLabel(index + 1)} ${_roundRobinMatchCount(groupSizes[index], repeats[index])}'
             : '${groupLabel(index + 1)} ${_groupEliminationMatchEstimate(groupSizes[index], _lossLimitForGroupPlayType(playTypes[index]), _requiredRankForCurrentGroup(index, qualificationPlan))}',
     ];
@@ -1116,8 +1120,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     }
     if (_stageGameFormat.bestOfLegs.isEven &&
         (_stageGameFormat.bestOfSets > 1 || _selectedStageType != 'groups' ||
-         _groupPlayType != 'round_robin' || _groupPlayTypes.any((type) => type != 'round_robin'))) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gerade Leg-Längen sind nur für Jeder-gegen-jeden ohne Sets möglich.')));
+         !['round_robin', 'swiss'].contains(_groupPlayType) || _groupPlayTypes.any((type) => !['round_robin', 'swiss'].contains(type)))) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gerade Leg-Längen sind nur für Jeder-gegen-jeden oder Swiss ohne Sets möglich.')));
       return;
     }
     final stageName = _stageNameController.text.trim();
@@ -1450,6 +1454,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
           stages: _stages,
           runStages: runStages,
           communityId: communityId,
+          access: _tournamentAccess,
           countsForRanking: _countsForRanking,
           communityRankingIds: _communityRankingIds,
           boardCount: _plannedBoardCount,
@@ -1857,8 +1862,11 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       return Scaffold(
         appBar: AppBar(title: const Text('Turnier erstellen')),
         body: CreationEntryChoices(
-          onLeague: () => Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
-            builder: (_) => LeagueMatchPage(communityId: widget.communityId))),
+          onLeague: () => Navigator.of(context).pushReplacement(
+            MaterialPageRoute<void>(
+              builder: (_) => LeagueMatchPage(communityId: widget.communityId),
+            ),
+          ),
           onFind: _openFormatPlanner,
           onExpert: () => setState(() => _showEntryChoices = false),
         ),
@@ -1878,7 +1886,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         groupQualificationPlan != null &&
         _bestOfQualifierCountController.text !=
             '${groupQualificationPlan.extraCount}') {
-      _bestOfQualifierCountController.text = '${groupQualificationPlan.extraCount}';
+      _bestOfQualifierCountController.text =
+          '${groupQualificationPlan.extraCount}';
     }
 
     return Scaffold(
@@ -1888,10 +1897,14 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
           padding: const EdgeInsets.all(24),
           children: [
             Text(
-              'Neues Turnier',
+              'Turnier konfigurieren',
               style: textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Lege Teilnehmer und Ablauf fest. Weitere Optionen öffnest du bei Bedarf.',
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
@@ -1900,365 +1913,491 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
               label: const Text('Passende Turnierform finden'),
             ),
             const SizedBox(height: 24),
-            TextField(
-              controller: _tournamentNameController,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: 'Turniername',
-                prefixIcon: Icon(Icons.emoji_events_outlined),
-              ),
-            ),
-            const SizedBox(height: 32),
-            if (widget.communityId != null)
-              SwitchListTile(
-                title: const Text('Zählt zur Community-Rangliste'),
-                subtitle: const Text('Ausgeschaltete Turniere beeinflussen weder Elo noch den Ranglistenverlauf.'),
-                value: _countsForRanking,
-                onChanged: (value) => setState(() => _countsForRanking = value),
-              ),
-            if (widget.communityId != null && _countsForRanking)
-              CommunityRankingPicker(
-                communityId: widget.communityId!, selectedIds: _communityRankingIds,
-                onChanged: (ids) => setState(() => _communityRankingIds = ids),
-              ),
-            Text(
-              'Spieler',
-              style: textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _responsiveFormRow(
-              alignTrailingEndOnNarrow: true,
-              leading: TextField(
-                controller: _playerNameController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Spielername',
-                  prefixIcon: Icon(Icons.person_add_alt_1_outlined),
-                ),
-                onSubmitted: (_) => _addPlayer(),
-              ),
-              trailing: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  IconButton.filled(
-                    onPressed: _addPlayer,
-                    icon: const Icon(Icons.add),
-                    tooltip: 'Spieler hinzufuegen',
-                  ),
-                  OutlinedButton.icon(onPressed:()=>_configureBots(),
-                    icon:const Icon(Icons.smart_toy_outlined),label:const Text('Bots hinzufügen')),
-                  OutlinedButton.icon(
-                    onPressed: _isOpeningPlayerPicker
-                        ? null
-                        : _selectPlayersFromDatabase,
-                    icon: _isOpeningPlayerPicker
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.playlist_add_check_outlined),
-                    label: const Text('Auswaehlen'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _responsiveFormRow(
-              leading: TextField(
-                controller: _playerCountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Anzahl',
-                ),
-              ),
-              trailing: OutlinedButton.icon(
-                onPressed: _generatePlayers,
-                icon: const Icon(Icons.group_add_outlined),
-                label: const Text('Spieler erzeugen'),
-              ),
-              breakpoint: 420,
-            ),
-            const SizedBox(height: 24),
-            TeamParticipantList(
-              players: _players,
-              onRename: _renamePlayer,
-              onRemove: _removePlayer,
-              onMerge: _mergePlayers,
-              onSplit: _splitTeam,
-              onEditBot: (index)=>_configureBots(index),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Etappen',
-              style: textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _responsiveFormRow(
-              alignTrailingEndOnNarrow: true,
-              leading: TextField(
-                key: const ValueKey('stage-name-field'),
-                controller: _stageNameController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Etappenname',
-                  prefixIcon: Icon(Icons.flag_outlined),
-                ),
-                onChanged: (_) {
-                  _stageNameWasEdited = true;
-                },
-                onSubmitted: (_) => _saveStage(),
-              ),
-              trailing: IconButton.filled(
-                onPressed: _saveStage,
-                icon: Icon(
-                  _editingStageIndex == null ? Icons.add : Icons.check,
-                ),
-                tooltip: _editingStageIndex == null
-                    ? 'Etappe hinzufuegen'
-                    : 'Etappe speichern',
-              ),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>( isExpanded: true, isDense: false, itemHeight: null,
-              key: const ValueKey('stage-type-field'),
-              initialValue: _selectedStageType,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: 'Etappentyp',
-                prefixIcon: Icon(Icons.schema_outlined),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'groups', child: Text('Gruppenphase')),
-                DropdownMenuItem(value: 'kratzer', child: Text('Kratzer-Modus')),
-                DropdownMenuItem(
-                  value: 'single_knockout',
-                  child: Text('K.-o.-Runde'),
-                ),
-                DropdownMenuItem(
-                  value: 'double_knockout',
-                  child: Text('Doppel-KO'),
-                ),
-                DropdownMenuItem(
-                  value: 'triple_knockout',
-                  child: Text('Triple-KO'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value == null) {
-                  return;
-                }
-
-                setState(() {
-                  _selectedStageType = value;
-                  _finalEndsTournament = value != 'kratzer';
-                  _kratzerLives = _lossLimitForStageType(value).clamp(2, 10);
-                  _setDefaultStageNameIfNeeded(value);
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-            if ((_isKnockoutStageType(_selectedStageType) && _selectedStageType != 'single_knockout') || (_selectedStageType == 'groups' && (_lossLimitForGroupPlayType(_groupPlayType) > 1 || _groupPlayTypes.any((t) => _lossLimitForGroupPlayType(t) > 1)))) ...[
-              if (_selectedStageType != 'kratzer') SwitchListTile(
-                key: const ValueKey('final-ends-tournament'),
-                title: const Text('Ein großes Finale entscheidet'),
-                subtitle: const Text('Der Verlierer des großen Finales scheidet unabhängig von übrigen Leben aus.'),
-                value: _finalEndsTournament,
-                onChanged: (value) => setState(() => _finalEndsTournament = value),
-              ),
-              if (_selectedStageType == 'kratzer' || (!_finalEndsTournament && _selectedStageType != 'groups')) DropdownButtonFormField<int>( isExpanded: true, isDense: false, itemHeight: null,
-                key: ValueKey('kratzer-lives-$_kratzerLives'),
-                initialValue: _kratzerLives,
-                decoration: const InputDecoration(labelText: 'Kratzer-Modus: Leben', border: OutlineInputBorder()),
-                items: [for (var lives = 2; lives <= 10; lives++) DropdownMenuItem(value: lives, child: Text('$lives Leben'))],
-                onChanged: (value) => setState(() => _kratzerLives = value ?? 3),
-              ),
-            ],
-            if (_selectedStageType == 'single_knockout' || (_selectedStageType == 'groups' && (_groupPlayType == 'mini_knockout' || _groupPlayTypes.contains('mini_knockout')))) _placementSelection(),
-            _StageGameFormatSetup(
-              value: _stageGameFormat,
-              onChanged: (value) => setState(() => _stageGameFormat = value),
-            ),
-            if (_selectedStageType == 'groups') ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>( isExpanded: true, isDense: false, itemHeight: null,
-                key: const ValueKey('group-play-type-field'),
-                initialValue: _groupPlayType,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Spieltyp',
-                  prefixIcon: Icon(Icons.sports_score_outlined),
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'round_robin',
-                    child: Text('Jeder gegen jeden'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'mini_knockout',
-                    child: Text('Mini-KO in der Gruppe'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'double_knockout',
-                    child: Text('Doppel-KO in der Gruppe'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'triple_knockout',
-                    child: Text('Triple-KO in der Gruppe'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) {
-                    return;
-                  }
-
-                  _setDefaultGroupPlayType(value);
-                },
-              ),
-              const SizedBox(height: 12),
-              _responsiveFormRow(
-                leading: TextField(
-                  key: const ValueKey('group-count-field'),
-                  controller: _groupCountController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
+            ExpertSetupSection(
+              title: '1 · Name & Teilnehmer',
+              summary: '${_players.length} Teilnehmer ausgewählt',
+              initiallyExpanded: true,
+              children: [
+                TextField(
+                  key: const ValueKey('tournament-name-field'),
+                  controller: _tournamentNameController,
+                  decoration: InputDecoration(
                     border: OutlineInputBorder(),
-                    labelText: 'Gruppen',
+                    labelText: 'Turniername',
+                    prefixIcon: Icon(Icons.emoji_events_outlined),
                   ),
-                  onChanged: (_) => setState(() {}),
                 ),
-                trailing: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: GroupSizePreview(groupSizes: groupSizes),
+                const SizedBox(height: 32),
+                if (widget.communityId != null)
+                  SwitchListTile(
+                    title: const Text('Zählt zur Community-Rangliste'),
+                    subtitle: const Text(
+                      'Ausgeschaltete Turniere beeinflussen weder Elo noch den Ranglistenverlauf.',
+                    ),
+                    value: _countsForRanking,
+                    onChanged: (value) =>
+                        setState(() => _countsForRanking = value),
+                  ),
+                if (widget.communityId != null)
+                  TournamentAccessEditor(communityId: widget.communityId!, value: _tournamentAccess,
+                    onChanged: (value) => setState(() => _tournamentAccess = value)),
+                if (widget.communityId != null && _countsForRanking)
+                  CommunityRankingPicker(
+                    communityId: widget.communityId!,
+                    selectedIds: _communityRankingIds,
+                    onChanged: (ids) =>
+                        setState(() => _communityRankingIds = ids),
+                  ),
+                Text(
+                  'Spieler',
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                breakpoint: 520,
-              ),
-              const SizedBox(height: 12),
-              GroupPlayTypeSetup(
-                groupSizes: groupSizes,
-                playTypes: _playTypesForGroupSizes(groupSizes),
-                onChanged: _setGroupPlayType,
-              ),
-              const SizedBox(height: 12),
-              _GroupDrawSetup(
-                enabled: _groupDrawOnStart,
-                onChanged: _setGroupDrawOnStart,
-              ),
-              if (_playTypesForGroupSizes(groupSizes).contains(
-                'round_robin',
-              )) ...[
                 const SizedBox(height: 12),
-                RoundRobinRepeatsSetup(
-                  groupSizes: groupSizes,
-                  playTypes: _playTypesForGroupSizes(groupSizes),
-                  repeats: _roundRobinRepeatsForGroupSizes(groupSizes),
-                  onChangeRepeats: _changeGroupRoundRobinRepeats,
+                _responsiveFormRow(
+                  alignTrailingEndOnNarrow: true,
+                  leading: TextField(
+                    controller: _playerNameController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Spielername',
+                      prefixIcon: Icon(Icons.person_add_alt_1_outlined),
+                    ),
+                    onSubmitted: (_) => _addPlayer(),
+                  ),
+                  trailing: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      IconButton.filled(
+                        onPressed: _addPlayer,
+                        icon: const Icon(Icons.add),
+                        tooltip: 'Spieler hinzufuegen',
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => _configureBots(),
+                        icon: const Icon(Icons.smart_toy_outlined),
+                        label: const Text('Bots hinzufügen'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _isOpeningPlayerPicker
+                            ? null
+                            : _selectPlayersFromDatabase,
+                        icon: _isOpeningPlayerPicker
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.playlist_add_check_outlined),
+                        label: const Text('Auswaehlen'),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 16),
+                _responsiveFormRow(
+                  leading: TextField(
+                    controller: _playerCountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Anzahl',
+                    ),
+                  ),
+                  trailing: OutlinedButton.icon(
+                    onPressed: _generatePlayers,
+                    icon: const Icon(Icons.group_add_outlined),
+                    label: const Text('Spieler erzeugen'),
+                  ),
+                  breakpoint: 420,
+                ),
+                const SizedBox(height: 24),
+                TeamParticipantList(
+                  players: _players,
+                  onRename: _renamePlayer,
+                  onRemove: _removePlayer,
+                  onMerge: _mergePlayers,
+                  onSplit: _splitTeam,
+                  onEditBot: (index) => _configureBots(index),
+                ),
+                const SizedBox(height: 32),
               ],
-              const SizedBox(height: 12),
-              StageMatchCountPreview(
-                matchCount: _currentStageMatchCount(),
-                details: _currentStageMatchDetails(),
-              ),
-              const SizedBox(height: 12),
-              _responsiveFormRow(
-                leading: TextField(
-                  key: const ValueKey('group-qualifier-count-field'),
-                  controller: _groupQualifierCountController,
-                  keyboardType: TextInputType.number,
+            ),
+            ExpertSetupSection(
+              title: '2 · Turnierablauf',
+              summary:
+                  '${_stages.length} Etappen gespeichert · Gruppen, KO und Spielregeln',
+              children: [
+                Text(
+                  'Etappen',
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _responsiveFormRow(
+                  alignTrailingEndOnNarrow: true,
+                  leading: TextField(
+                    key: const ValueKey('stage-name-field'),
+                    controller: _stageNameController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Etappenname',
+                      prefixIcon: Icon(Icons.flag_outlined),
+                    ),
+                    onChanged: (_) {
+                      _stageNameWasEdited = true;
+                    },
+                    onSubmitted: (_) => _saveStage(),
+                  ),
+                  trailing: IconButton.filled(
+                    onPressed: _saveStage,
+                    icon: Icon(
+                      _editingStageIndex == null ? Icons.add : Icons.check,
+                    ),
+                    tooltip: _editingStageIndex == null
+                        ? 'Etappe hinzufuegen'
+                        : 'Etappe speichern',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  isDense: false,
+                  itemHeight: null,
+                  key: const ValueKey('stage-type-field'),
+                  initialValue: _selectedStageType,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
-                    labelText: 'Weiter',
+                    labelText: 'Etappentyp',
+                    prefixIcon: Icon(Icons.schema_outlined),
                   ),
-                  onChanged: (_) => setState(() {}),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'groups',
+                      child: Text('Gruppenphase'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'kratzer',
+                      child: Text('Kratzer-Modus'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'single_knockout',
+                      child: Text('K.-o.-Runde'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'double_knockout',
+                      child: Text('Doppel-KO'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'triple_knockout',
+                      child: Text('Triple-KO'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+
+                    setState(() {
+                      _selectedStageType = value;
+                      _finalEndsTournament = value != 'kratzer';
+                      _kratzerLives = _lossLimitForStageType(
+                        value,
+                      ).clamp(2, 10);
+                      _setDefaultStageNameIfNeeded(value);
+                    });
+                  },
                 ),
-                trailing: _GroupQualificationSetup(
-                  groupSizes: groupSizes,
-                  groupPlayTypes: _playTypesForGroupSizes(groupSizes),
-                  qualificationPlan: groupQualificationPlan,
-                  autoAdjust: _autoAdjustQualification,
-                  bestOfQualifierCountController:
-                      _bestOfQualifierCountController,
-                  onSetExtraGroup: _setExtraGroupSelection,
-                  onCyclePlace: _cycleQualificationPlace,
-                  onAutoAdjustChanged: _setQualificationAutoAdjust,
-                  onBestOfQualifierCountChanged: _setBestOfQualifierCount,
+                const SizedBox(height: 12),
+                if ((_isKnockoutStageType(_selectedStageType) &&
+                        _selectedStageType != 'single_knockout') ||
+                    (_selectedStageType == 'groups' &&
+                        (_lossLimitForGroupPlayType(_groupPlayType) > 1 ||
+                            _groupPlayTypes.any(
+                              (t) => _lossLimitForGroupPlayType(t) > 1,
+                            )))) ...[
+                  if (_selectedStageType != 'kratzer')
+                    SwitchListTile(
+                      key: const ValueKey('final-ends-tournament'),
+                      title: const Text('Ein großes Finale entscheidet'),
+                      subtitle: const Text(
+                        'Der Verlierer des großen Finales scheidet unabhängig von übrigen Leben aus.',
+                      ),
+                      value: _finalEndsTournament,
+                      onChanged: (value) =>
+                          setState(() => _finalEndsTournament = value),
+                    ),
+                  if (_selectedStageType == 'kratzer' ||
+                      (!_finalEndsTournament && _selectedStageType != 'groups'))
+                    DropdownButtonFormField<int>(
+                      isExpanded: true,
+                      isDense: false,
+                      itemHeight: null,
+                      key: ValueKey('kratzer-lives-$_kratzerLives'),
+                      initialValue: _kratzerLives,
+                      decoration: const InputDecoration(
+                        labelText: 'Kratzer-Modus: Leben',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        for (var lives = 2; lives <= 10; lives++)
+                          DropdownMenuItem(
+                            value: lives,
+                            child: Text('$lives Leben'),
+                          ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _kratzerLives = value ?? 3),
+                    ),
+                ],
+                if (_selectedStageType == 'single_knockout' ||
+                    (_selectedStageType == 'groups' &&
+                        (_groupPlayType == 'mini_knockout' ||
+                            _groupPlayTypes.contains('mini_knockout'))))
+                  _placementSelection(),
+                ExpertSetupSection(
+                  title: 'Spielregeln anpassen',
+                  summary: _stageGameFormat.label,
+                  children: [
+                    _StageGameFormatSetup(
+                      value: _stageGameFormat,
+                      onChanged: (value) =>
+                          setState(() => _stageGameFormat = value),
+                    ),
+                  ],
                 ),
-                breakpoint: 620,
-              ),
-              const SizedBox(height: 12),
-              GroupTieBreakerSetup(
-                tieBreakers: _groupTieBreakers,
-                onMoveTieBreaker: _moveGroupTieBreaker,
-              ),
-            ],
-            if (_isKnockoutStageType(_selectedStageType)) ...[
-              const SizedBox(height: 12),
-              _InheritedKnockoutSetup(
-                previousStage: _previousStageForCurrentForm(),
-                qualificationPlan: inheritedQualificationPlan,
-                participantCount: knockoutParticipantCount,
-                bracketSize: knockoutBracketSize,
-                byeCount: knockoutByeCount,
-                eliminationLossLimit: _selectedLossLimit,
-                seedingMode: _effectiveKnockoutSeedingMode(),
-                slotOrder: _knockoutSlotOrder(),
-                participantLabels: _knockoutParticipantLabels(),
-                allowCrossSeed: _hasGroupSeedSources(),
-                drawOnStart: _knockoutDrawOnStart &&
-                    _effectiveKnockoutSeedingMode() == 'random',
-                onSeedingModeChanged: _setKnockoutSeedingMode,
-                onDrawOnStartChanged: _setKnockoutDrawOnStart,
-                onSwapSlot: _swapKnockoutSlots,
-                onResetSlots: _resetKnockoutSlots,
-              ),
-            ],
-            if (_isKnockoutStageType(_selectedStageType)) ...[
-              const SizedBox(height: 12),
-              StageMatchCountPreview(
-                matchCount: _currentStageMatchCount(),
-                details: _currentStageMatchDetails(),
-              ),
-            ],
-            const SizedBox(height: 16),
-            _StageList(
-              stages: _stages,
-              editingStageIndex: _editingStageIndex,
-              onEditStage: _editStage,
-              onRemoveStage: _removeStage,
-            ),
-            ConfigurationDurationBar(
-              stages: [
-                if (_stages.isEmpty) _currentStageConfiguration(),
-                for (var i = 0; i < _stages.length; i++)
-                  i == _editingStageIndex ? _currentStageConfiguration() : _stages[i],
+                if (_selectedStageType == 'groups') ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    isDense: false,
+                    itemHeight: null,
+                    key: const ValueKey('group-play-type-field'),
+                    initialValue: _groupPlayType,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Spieltyp',
+                      prefixIcon: Icon(Icons.sports_score_outlined),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'swiss', child: Text('Schweizer System')),
+                      DropdownMenuItem(
+                        value: 'round_robin',
+                        child: Text('Jeder gegen jeden'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'mini_knockout',
+                        child: Text('Mini-KO in der Gruppe'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'double_knockout',
+                        child: Text('Doppel-KO in der Gruppe'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'triple_knockout',
+                        child: Text('Triple-KO in der Gruppe'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+
+                      _setDefaultGroupPlayType(value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _responsiveFormRow(
+                    leading: TextField(
+                      key: const ValueKey('group-count-field'),
+                      controller: _groupCountController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Gruppen',
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    trailing: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: GroupSizePreview(groupSizes: groupSizes),
+                    ),
+                    breakpoint: 520,
+                  ),
+                  const SizedBox(height: 12),
+                  ExpertSetupSection(
+                    title: 'Gruppenoptionen',
+                    summary:
+                        'Spieltypen je Gruppe, Auslosung und Wiederholungen',
+                    children: [
+                      GroupPlayTypeSetup(
+                        groupSizes: groupSizes,
+                        playTypes: _playTypesForGroupSizes(groupSizes),
+                        onChanged: _setGroupPlayType,
+                      ),
+                      const SizedBox(height: 12),
+                      _GroupDrawSetup(
+                        enabled: _groupDrawOnStart,
+                        onChanged: _setGroupDrawOnStart,
+                      ),
+                      if (_playTypesForGroupSizes(
+                        groupSizes,
+                      ).any((type) => type == 'round_robin' || type == 'swiss')) ...[
+                        const SizedBox(height: 12),
+                        RoundRobinRepeatsSetup(
+                          groupSizes: groupSizes,
+                          playTypes: _playTypesForGroupSizes(groupSizes),
+                          repeats: _roundRobinRepeatsForGroupSizes(groupSizes),
+                          onChangeRepeats: _changeGroupRoundRobinRepeats,
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                  StageMatchCountPreview(
+                    matchCount: _currentStageMatchCount(),
+                    details: _currentStageMatchDetails(),
+                  ),
+                  const SizedBox(height: 12),
+                  _responsiveFormRow(
+                    leading: TextField(
+                      key: const ValueKey('group-qualifier-count-field'),
+                      controller: _groupQualifierCountController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Weiter',
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    trailing: ExpertSetupSection(
+                      title: 'Qualifikation im Detail',
+                      summary:
+                          'Plätze, Best-of-Vergleich und automatische Anpassung',
+                      children: [
+                        _GroupQualificationSetup(
+                          groupSizes: groupSizes,
+                          groupPlayTypes: _playTypesForGroupSizes(groupSizes),
+                          qualificationPlan: groupQualificationPlan,
+                          autoAdjust: _autoAdjustQualification,
+                          bestOfQualifierCountController:
+                              _bestOfQualifierCountController,
+                          onSetExtraGroup: _setExtraGroupSelection,
+                          onCyclePlace: _cycleQualificationPlace,
+                          onAutoAdjustChanged: _setQualificationAutoAdjust,
+                          onBestOfQualifierCountChanged:
+                              _setBestOfQualifierCount,
+                        ),
+                      ],
+                    ),
+                    breakpoint: 620,
+                  ),
+                  const SizedBox(height: 12),
+                  ExpertSetupSection(
+                    title: 'Gleichstand entscheiden',
+                    summary: 'Reihenfolge der Tabellenkriterien anpassen',
+                    children: [
+                      GroupTieBreakerSetup(
+                        tieBreakers: _groupTieBreakers,
+                        onMoveTieBreaker: _moveGroupTieBreaker,
+                      ),
+                    ],
+                  ),
+                ],
+                if (_isKnockoutStageType(_selectedStageType)) ...[
+                  const SizedBox(height: 12),
+                  _InheritedKnockoutSetup(
+                    placementPlaces: _placementPlaces.toList(),
+                    previousStage: _previousStageForCurrentForm(),
+                    qualificationPlan: inheritedQualificationPlan,
+                    participantCount: knockoutParticipantCount,
+                    bracketSize: knockoutBracketSize,
+                    byeCount: knockoutByeCount,
+                    eliminationLossLimit: _selectedLossLimit,
+                    seedingMode: _effectiveKnockoutSeedingMode(),
+                    slotOrder: _knockoutSlotOrder(),
+                    participantLabels: _knockoutParticipantLabels(),
+                    allowCrossSeed: _hasGroupSeedSources(),
+                    drawOnStart:
+                        _knockoutDrawOnStart &&
+                        _effectiveKnockoutSeedingMode() == 'random',
+                    onSeedingModeChanged: _setKnockoutSeedingMode,
+                    onDrawOnStartChanged: _setKnockoutDrawOnStart,
+                    onSwapSlot: _swapKnockoutSlots,
+                    onResetSlots: _resetKnockoutSlots,
+                  ),
+                ],
+                if (_isKnockoutStageType(_selectedStageType)) ...[
+                  const SizedBox(height: 12),
+                  StageMatchCountPreview(
+                    matchCount: _currentStageMatchCount(),
+                    details: _currentStageMatchDetails(),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _saveStage,
+                  icon: Icon(
+                    _editingStageIndex == null ? Icons.add : Icons.check,
+                  ),
+                  label: Text(
+                    _editingStageIndex == null
+                        ? 'Etappe hinzufügen'
+                        : 'Änderungen speichern',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _StageList(
+                  stages: _stages,
+                  editingStageIndex: _editingStageIndex,
+                  onEditStage: _editStage,
+                  onRemoveStage: _removeStage,
+                ),
               ],
-              editing: _editingStageIndex != null || _stages.isEmpty,
-              boards: _plannedBoardCount,
-              onBoardsChanged: (boards) => setState(() => _plannedBoardCount = boards),
             ),
-            const SizedBox(height: 12),
-            const TournamentDevicesSection(),
-            const SizedBox(height: 24),
-            if (_players.isEmpty || _stages.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(_players.isEmpty
-                    ? 'Zum Anlegen fehlen die Teilnehmer. Bitte oben Spieler hinzufügen oder auswählen.'
-                    : 'Zum Anlegen fehlt eine Etappe. Bitte eine Etappe hinzufügen oder einen Vorschlag übernehmen.'),
-              ),
-            FilledButton.icon(
-              onPressed: _players.isEmpty || _stages.isEmpty
-                  ? null
-                  : _createTournament,
-              icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Turnier anlegen'),
+            ExpertSetupSection(
+              title: '3 · Prüfen & anlegen',
+              summary:
+                  '${_players.length} Teilnehmer · ${_stages.length} Etappen · $_plannedBoardCount Boards',
+              children: [
+                ConfigurationDurationBar(
+                  stages: [
+                    if (_stages.isEmpty) _currentStageConfiguration(),
+                    for (var i = 0; i < _stages.length; i++)
+                      i == _editingStageIndex
+                          ? _currentStageConfiguration()
+                          : _stages[i],
+                  ],
+                  editing: _editingStageIndex != null || _stages.isEmpty,
+                  boards: _plannedBoardCount,
+                  onBoardsChanged: (boards) =>
+                      setState(() => _plannedBoardCount = boards),
+                ),
+                const SizedBox(height: 12),
+                const TournamentDevicesSection(),
+                const SizedBox(height: 24),
+                if (_players.isEmpty || _stages.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      _players.isEmpty
+                          ? 'Zum Anlegen fehlen die Teilnehmer. Bitte oben Spieler hinzufügen oder auswählen.'
+                          : 'Zum Anlegen fehlt eine Etappe. Bitte eine Etappe hinzufügen oder einen Vorschlag übernehmen.',
+                    ),
+                  ),
+                FilledButton.icon(
+                  onPressed: _players.isEmpty || _stages.isEmpty
+                      ? null
+                      : _createTournament,
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Turnier anlegen'),
+                ),
+              ],
             ),
           ],
         ),
@@ -2266,4 +2405,3 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     );
   }
 }
-

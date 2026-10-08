@@ -23,6 +23,25 @@ class BoardDisplayServer extends ChangeNotifier {
   final _challenges = <String, DateTime>{};
   BoardDisplay? display;
   Map<String, dynamic>? completedResult;
+  String? _startMatchId;
+  Timer? _startTimeout;
+  bool get startPending => _startMatchId != null;
+  void requestStart() {
+    if (!connected ||
+        display?.state != 'planned' ||
+        display?.allowDeviceStart != true ||
+        display?.matchId == null) {
+      return;
+    }
+    _startMatchId = display!.matchId;
+    _startTimeout?.cancel();
+    _startTimeout = Timer(const Duration(seconds: 20), () {
+      _startMatchId = null;
+      _changed();
+    });
+    _changed();
+  }
+
   void completeMatch(Map<String, dynamic> result) {
     if (display?.matchId != result['matchId']) {
       throw StateError('Die Spielzuweisung wurde geändert.');
@@ -249,10 +268,23 @@ class BoardDisplayServer extends ChangeNotifier {
         json['display'] as Map<String, dynamic>,
       );
       display = next.state == 'released' ? null : next;
+      if (next.matchId != _startMatchId ||
+          next.state != 'planned' ||
+          !next.allowDeviceStart) {
+        _startMatchId = null;
+        _startTimeout?.cancel();
+      }
       _source = next.state == 'released' ? null : source;
       _seen = next.state == 'released' ? null : DateTime.now();
       response.write(
         jsonEncode({
+          if (_startMatchId != null) ...{
+            'startMatchId': _startMatchId,
+            'startProof': DeviceLinkAuth.sign(
+              _sessionKey ?? _key!,
+              'start\n$nonce\n$_startMatchId',
+            ),
+          },
           if (completedResult != null &&
               completedResult!['matchId'] == next.matchId) ...{
             'result': jsonEncode(completedResult),
@@ -278,6 +310,8 @@ class BoardDisplayServer extends ChangeNotifier {
   }
 
   Future<void> _stop() async {
+    _startTimeout?.cancel();
+    _startMatchId = null;
     _clearPairing();
     _sessionKey = null;
     _expiry?.cancel();

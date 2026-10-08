@@ -38,11 +38,18 @@ class ScorerHit {
     required this.label,
     required this.points,
     required this.checkoutAttempt,
+    this.targetLabel,
+    this.dartInVisit,
+    this.visitIndex,
+    this.thrownAt,
   });
   final DartLocation location;
   final int player, leg, points;
   final String thrower, label;
   final bool? checkoutAttempt;
+  final String? targetLabel;
+  final int? dartInVisit, visitIndex;
+  final DateTime? thrownAt;
   Map<String, dynamic> toJson() => {
     'location': location.toJson(),
     'player': player,
@@ -51,6 +58,10 @@ class ScorerHit {
     'label': label,
     'points': points,
     'checkoutAttempt': checkoutAttempt,
+    'targetLabel': targetLabel,
+    'dartInVisit': dartInVisit,
+    'visitIndex': visitIndex,
+    'thrownAt': thrownAt?.toUtc().toIso8601String(),
   };
   factory ScorerHit.fromJson(Map<String, dynamic> json) => ScorerHit(
     location: DartLocation.fromJson(
@@ -62,5 +73,11 @@ class ScorerHit {
     label: json['label'] as String,
     points: json['points'] as int,
     checkoutAttempt: json['checkoutAttempt'] as bool?,
+    targetLabel: json['targetLabel'] as String?,
+    dartInVisit: json['dartInVisit'] as int?,
+    visitIndex: json['visitIndex'] as int?,
+    thrownAt: json['thrownAt'] == null
+        ? null
+        : DateTime.parse(json['thrownAt'] as String),
   );
 }

@@ -137,6 +137,9 @@ AutoscoreEvidence? captureAutoscoreEvidence(
       'countedThrows': controller.throws.length,
       'decisionReason': controller.decisionReason,
       'tipDecisionReason': controller.tipDecisionReason,
+      'localSegmentBoundary': controller.localBoundaryMetrics,
+      'localRingContact': controller.localRingMetrics,
+      'contactCandidateComparison': controller.contactComparisonMetrics,
       'recognitionTimeline': controller.diagnosticTimeline,
       'lastCaptureError': controller.lastCaptureError,
       'lastCaptureErrorStack': controller.lastCaptureErrorStack,
@@ -167,6 +170,10 @@ AutoscoreEvidence? captureAutoscoreEvidence(
                 },
       ],
       'performance': {
+        // This per-frame object finishes after the callback returns. The next
+        // frame replaces it, so saved evidence retains only its own timings.
+        'liveFrame': controller.liveFrameTiming,
+        'lastAcceptedLiveFrame': controller.lastAcceptedLiveTiming,
         'captureAndDecodeMilliseconds': controller.captureMilliseconds,
         'processingMilliseconds': controller.processingMilliseconds,
         'nextCaptureDelayMilliseconds': controller.continuousVideo

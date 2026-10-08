@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_settings_section.dart';
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../data/app_push_repository.dart';
@@ -14,6 +15,7 @@ class _PushSenderPageState extends State<PushSenderPage> {
   late Future<List<PushDevice>> devices = repository.devices();
   final title = TextEditingController(), body = TextEditingController();
   final selected = <String>{};
+  String _query = '';
   final form = GlobalKey<FormState>();
   bool busy = false;
   String? result, requestId;
@@ -134,20 +136,50 @@ class _PushSenderPageState extends State<PushSenderPage> {
                     ],
                   ),
                 ),
-                Text('${selected.length} Geräte ausgewählt'),
-                for (final device in targets)
-                  CheckboxListTile(
-                    value: selected.contains(device.id),
-                    onChanged: busy
-                        ? null
-                        : (value) => setState(
-                            () => value == true
-                                ? selected.add(device.id)
-                                : selected.remove(device.id),
-                          ),
-                    title: Text(device.name),
-                    subtitle: Text('${device.owner} · ${device.platform}'),
-                  ),
+                SportSettingsSection(
+                  title: 'Empfänger auswählen',
+                  summary:
+                      '${selected.length} von ${targets.length} Geräten ausgewählt',
+                  icon: Icons.devices_outlined,
+                  initiallyExpanded: true,
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Geräte suchen',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                      onChanged: (value) =>
+                          setState(() => _query = value.trim().toLowerCase()),
+                    ),
+                    Text('${selected.length} Geräte ausgewählt'),
+                    for (final device in targets.where(
+                      (device) =>
+                          '${device.name} ${device.owner} ${device.platform}'
+                              .toLowerCase()
+                              .contains(_query),
+                    ))
+                      CheckboxListTile(
+                        value: selected.contains(device.id),
+                        onChanged: busy
+                            ? null
+                            : (value) => setState(
+                                () => value == true
+                                    ? selected.add(device.id)
+                                    : selected.remove(device.id),
+                              ),
+                        title: Text(device.name),
+                        subtitle: Text('${device.owner} · ${device.platform}'),
+                      ),
+                    if (_query.isNotEmpty &&
+                        !targets.any(
+                          (device) =>
+                              '${device.name} ${device.owner} ${device.platform}'
+                                  .toLowerCase()
+                                  .contains(_query),
+                        ))
+                      const Text('Keine passenden Geräte.'),
+                  ],
+                ),
                 FilledButton.icon(
                   onPressed: busy || selected.isEmpty ? null : send,
                   icon: const Icon(Icons.send),

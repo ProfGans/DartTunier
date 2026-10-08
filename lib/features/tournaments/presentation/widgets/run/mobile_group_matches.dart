@@ -1,3 +1,4 @@
+import 'round_match_list.dart';
 import 'package:flutter/material.dart';
 import '../../../domain/tournament_models.dart';
 import 'result_entry.dart';
@@ -20,6 +21,11 @@ class MobileGroupMatches extends StatelessWidget {
   Widget build(BuildContext context) {
     final pending = group.matches.where((match) => !match.isResolved).toList();
     final finished = group.matches.where((match) => match.isResolved).toList();
+    final swiss = group.playType == 'swiss';
+    final playedCount = finished.where((m) => m.hasPlayers).length;
+    final openCount = swiss
+        ? (group.players.length ~/ 2) * group.matches.map((m) => m.round).toSet().length - playedCount
+        : pending.length;
     Widget tile(GroupMatch match) => MatchResultTile(
       match: match,
       onEditResult: onEditResult,
@@ -31,12 +37,29 @@ class MobileGroupMatches extends StatelessWidget {
       children: [
         Text(group.name, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 4),
-        Text('${pending.length} offen · ${finished.length} abgeschlossen'),
+        Text('$openCount offen · ${swiss ? playedCount : finished.length} abgeschlossen${swiss ? ' · ${finished.where((m) => !m.hasPlayers).length} Freilose' : ''}'),
         const SizedBox(height: 12),
         if (pending.isNotEmpty) ...[
           Text('Offene Spiele', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          for (final match in pending) tile(match),
+          RoundMatchList(
+            key: ValueKey(group),
+            rounds: [
+              for (final round
+                  in (group.matches.map((m) => m.round).toSet().toList()
+                    ..sort()))
+                group.matches.where((m) => m.round == round).toList(),
+            ],
+            labels: [
+              for (final round
+                  in (group.matches.map((m) => m.round).toSet().toList()
+                    ..sort()))
+                'Runde $round',
+            ],
+            openOnly: true,
+            onEditResult: onEditResult,
+            canEditResults: canEditResults,
+          ),
         ] else
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),

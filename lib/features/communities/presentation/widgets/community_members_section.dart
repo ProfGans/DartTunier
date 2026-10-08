@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/supabase_community_repository.dart';
 import '../../domain/community.dart';
+import '../../domain/community_member_order.dart';
 import '../../domain/community_permissions.dart';
 import '../community_member_profile_page.dart';
 
@@ -111,9 +112,10 @@ class _CommunityMembersSectionState extends State<CommunityMembersSection> {
                       value: '',
                       child: Text('Ohne Account'),
                     ),
-                    for (final account in widget.members.where(
-                      (item) => !item.isManual,
-                    ))
+                    for (final account in sortedCommunityMembers(
+                      widget.members,
+                      ownerUserId: widget.community.ownerUserId,
+                    ).where((item) => !item.isManual))
                       DropdownMenuItem(
                         value: account.userId,
                         child: Text(
@@ -207,7 +209,10 @@ class _CommunityMembersSectionState extends State<CommunityMembersSection> {
             label: const Text('Mitglied hinzufügen'),
           ),
         if (_busy) const LinearProgressIndicator(),
-        for (final member in widget.members)
+        for (final member in sortedCommunityMembers(
+          widget.members,
+          ownerUserId: widget.community.ownerUserId,
+        ))
           ListTile(
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(

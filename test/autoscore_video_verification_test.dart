@@ -111,6 +111,41 @@ void main() {
     },
   );
   test(
+    'Capture backlog keeps newest three distinct synchronized observations',
+    () async {
+      const channel = MethodChannel('test/autoscore/backlog');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'configure') return true;
+            return [
+              for (var id = 1; id <= 3; id++)
+                for (var n = 1; n <= 6; n++)
+                  {
+                    'cameraId': id,
+                    'timestampUs': n * 33333 + id * 1000,
+                    'sequence': n,
+                    'width': 1,
+                    'height': 1,
+                    'rgb': Uint8List(3),
+                  },
+            ];
+          });
+      final source = WindowsVideoSource(channel: channel);
+      await source.configure([1, 2, 3]);
+      final batches = await source.read();
+      expect(batches.map((b) => b.first.sequence), [4, 5, 6]);
+      expect(batches.every((b) => b.length == 3), true);
+      expect(source.backlogDropped, 3);
+      expect(
+        await source.read(),
+        isEmpty,
+      ); // Duplicate images are not evidence.
+      await source.close();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    },
+  );
+  test(
     'Native channel delivers matched batches and releases capture',
     () async {
       const channel = MethodChannel('test/autoscore/video');

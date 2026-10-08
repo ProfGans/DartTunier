@@ -1,3 +1,5 @@
+import '../../domain/heatmap_analysis.dart';
+import 'heatmap_target_analysis.dart';
 import '../../domain/scorer_heatmap_summary.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/adaptive_content.dart';
@@ -5,7 +7,13 @@ import '../../data/scorer_heatmap_repository.dart';
 import 'scorer_heatmap_view.dart';
 
 class ScorerHeatmapPage extends StatefulWidget {
-  const ScorerHeatmapPage({super.key, this.sessions, this.initialPlayer});
+  const ScorerHeatmapPage({
+    super.key,
+    this.sessions,
+    this.initialPlayer,
+    this.favoriteDouble = '',
+  });
+  final String favoriteDouble;
   final List<ScorerHeatmapSession>? sessions;
   final String? initialPlayer;
   @override
@@ -20,6 +28,9 @@ class _HeatmapState extends State<ScorerHeatmapPage> {
   String? session;
   int? leg;
   int days = 0;
+  String area = 'Alle';
+  String? target, field;
+  int? dart, visit;
   bool estimates = true, checkoutOnly = false;
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -60,7 +71,7 @@ class _HeatmapState extends State<ScorerHeatmapPage> {
             .toList();
         final all = [for (final s in selected) ...s.hits];
         final legs = all.map((h) => h.leg).toSet().toList()..sort();
-        final hits = all
+        final baseHits = all
             .where(
               (h) =>
                   (player == null || h.thrower == player) &&
@@ -69,6 +80,26 @@ class _HeatmapState extends State<ScorerHeatmapPage> {
                   (!checkoutOnly || h.checkoutAttempt == true),
             )
             .toList();
+        final hits = HeatmapAnalysis.filter(
+          baseHits,
+          target: target,
+          field: field,
+          dart: dart,
+          visit: visit,
+          area: area,
+        );
+        final available = [for (final s in sessions) ...s.hits];
+        final targets =
+            available
+                .map((h) => h.targetLabel)
+                .whereType<String>()
+                .toSet()
+                .toList()
+              ..sort();
+        final fields = available.map((h) => h.label).toSet().toList()..sort();
+        final visits =
+            available.map((h) => h.visitIndex).whereType<int>().toSet().toList()
+              ..sort();
         final summary = ScorerHeatmapSummary(hits);
         final ranked = summary.ranked;
         final x = summary.x, y = summary.y, spread = summary.spread;
@@ -78,9 +109,92 @@ class _HeatmapState extends State<ScorerHeatmapPage> {
         return AdaptiveContentList(
           children: [
             const Text(
-              'Gespeicherte Einschlagpositionen auf diesem Gerät. Alte Spiele ohne Positionsdaten, Bots und manuell eingegebene Summen sind nicht enthalten. Überwürfe bleiben als tatsächlich geworfene Treffer sichtbar.',
+              'Gespeicherte Einschlagpositionen dieser Auswahl. Profil-Heatmaps können kontogetrennt online synchronisiert werden. Alte Spiele ohne Positionsdaten, Bots und manuell eingegebene Summen sind nicht enthalten. Überwürfe bleiben als tatsächlich geworfene Treffer sichtbar.',
             ),
             const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: area,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Heatmap-Bereich'),
+              items: [
+                for (final value in [
+                  'Alle',
+                  'Scoring',
+                  'Checkout',
+                  'Training',
+                  'Entwicklung',
+                ])
+                  DropdownMenuItem(value: value, child: Text(value)),
+              ],
+              onChanged: (v) => setState(() => area = v!),
+            ),
+            if (area == 'Scoring')
+              const Text(
+                'Ohne bekannte Checkoutversuche. Würfe mit unbekanntem Versuchstatus können enthalten sein.',
+              ),
+            DropdownButtonFormField<String>(
+              initialValue: target,
+              isExpanded: true,
+              itemHeight: null,
+              decoration: const InputDecoration(labelText: 'Anvisiertes Ziel'),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('Alle Ziele / unbekannt'),
+                ),
+                for (final value in targets)
+                  DropdownMenuItem(value: value, child: Text(value)),
+              ],
+              onChanged: (v) => setState(() => target = v),
+            ),
+            DropdownButtonFormField<String>(
+              initialValue: field,
+              isExpanded: true,
+              itemHeight: null,
+              decoration: const InputDecoration(labelText: 'Getroffenes Feld'),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('Alle Felder'),
+                ),
+                for (final value in fields)
+                  DropdownMenuItem(value: value, child: Text(value)),
+              ],
+              onChanged: (v) => setState(() => field = v),
+            ),
+            DropdownButtonFormField<int>(
+              initialValue: dart,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Dartposition in der Aufnahme',
+              ),
+              items: [
+                const DropdownMenuItem<int>(
+                  value: null,
+                  child: Text('Alle Darts / unbekannt'),
+                ),
+                for (final value in [1, 2, 3])
+                  DropdownMenuItem(value: value, child: Text('Dart $value')),
+              ],
+              onChanged: (v) => setState(() => dart = v),
+            ),
+            DropdownButtonFormField<int>(
+              initialValue: visit,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Aufnahme im Leg'),
+              items: [
+                const DropdownMenuItem<int>(
+                  value: null,
+                  child: Text('Alle Aufnahmen / unbekannt'),
+                ),
+                for (final value in visits)
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text('Aufnahme $value'),
+                  ),
+              ],
+              onChanged: (v) => setState(() => visit = v),
+            ),
             DropdownButtonFormField<String>(
               initialValue: names.contains(player) ? player : null,
               isExpanded: true,
@@ -177,6 +291,12 @@ class _HeatmapState extends State<ScorerHeatmapPage> {
                 ),
               ),
             ScorerHeatmapView(hits: hits),
+            HeatmapTargetAnalysis(
+              hits: hits,
+              sessions: selected,
+              favoriteDouble: widget.favoriteDouble,
+              compare: area == 'Entwicklung',
+            ),
             const Text(
               'Rot = hohe, Gelb = mittlere, Blau = geringe Trefferdichte innerhalb dieser Auswahl. Die Farbskala wird je Auswahl angepasst. Bernsteinfarbene Ringe markieren Schätzungen, türkise Ringe Korrekturen.',
             ),

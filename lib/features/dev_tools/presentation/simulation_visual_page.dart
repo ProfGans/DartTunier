@@ -31,17 +31,17 @@ class SimulationVisualPage extends StatelessWidget {
               ])],
             )),
           ],
-          if(stage.matchRecords.any((r)=>!r.bracket.endsWith(' - Liga'))) ...[
+          if(stage.matchRecords.any((r)=>!r.isRoundBased)) ...[
             const SizedBox(height:20),
             Text('Turnierbaum',style:Theme.of(context).textTheme.titleLarge),
             const Text('Verschieben und zoomen. Grün: Sieger weiter · Orange: Verlierer weiter. Die Verbindungen zeigen den tatsächlichen Verlauf der Simulation.'),
             const SizedBox(height:12),
-            SimulationGraph(records:stage.matchRecords.where((r)=>!r.bracket.endsWith(' - Liga')).toList()),
+            SimulationGraph(records:stage.matchRecords.where((r)=>!r.isRoundBased).toList()),
           ],
           const SizedBox(height:20),
           ExpansionTile(title:const Text('Alle gespielten Matches'),children:[for(final record in stage.matchRecords)
             ListTile(title:Text('${record.match.homePlayer?.name ?? 'Freilos'}  ${record.match.hasResult ? record.match.scoreLabel : '-:-'}  ${record.match.awayPlayer?.name ?? 'Freilos'}'),
-              subtitle:Text('Spiel ${record.number} · ${record.bracket} · ${record.bracket.endsWith(' - Liga') ? 'Runde ${record.match.round % 1000}' : knockoutMatchName(record.match, stage.matchRecords.where((r) => r.bracket == record.bracket).map((r) => r.match))}')),
+              subtitle:Text('Spiel ${record.number} · ${record.bracket} · ${record.isRoundBased ? 'Runde ${record.match.round % 1000}' : knockoutMatchName(record.match, stage.matchRecords.where((r) => r.bracket == record.bracket).map((r) => r.match))}')),
           ]),
         ]),
       ]),

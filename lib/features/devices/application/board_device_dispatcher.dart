@@ -29,6 +29,7 @@ class BoardDeviceDispatcher extends ChangeNotifier {
     required this.activeStage,
     BoardDisplayClient? client,
     this.onResult,
+    this.onStart,
     Future<void> Function(String?, CommunityPermission)? authorize,
   }) : _client = client ?? BoardDisplayClient(),
        _authorize = authorize ?? CommunityAccessRepository().require;
@@ -38,6 +39,7 @@ class BoardDeviceDispatcher extends ChangeNotifier {
   final int Function() activeStage;
   final BoardDisplayClient _client;
   final Future<void> Function(Map<String, dynamic> result)? onResult;
+  final Future<void> Function(int board, String matchId)? onStart;
   final connections = <int, BoardDeviceConnection>{};
   List<DevicePresence> get availablePeers => devices.discovery.peers;
   Timer? _timer;
@@ -127,9 +129,30 @@ class BoardDeviceDispatcher extends ChangeNotifier {
       key: connection.key,
       sourceId: devices.settings!.self.id,
       display: onResult != null
-          ? display
-          : BoardDisplay.fromJson({...display.toJson(), 'gameFormat': null}),
+          ? BoardDisplay.fromJson({
+              ...display.toJson(),
+              'allowDeviceStart': display.allowDeviceStart && onStart != null,
+            })
+          : BoardDisplay.fromJson({
+              ...display.toJson(),
+              'gameFormat': null,
+              'allowDeviceStart': false,
+            }),
     );
+    if (result?['kind'] == 'start') {
+      final current = const BoardDisplayProjector().project(
+        tournament,
+        activeStage(),
+      )[display.board];
+      if (onStart != null &&
+          tournament.allowDeviceStart &&
+          current?.state == 'planned' &&
+          current?.matchId == result!['matchId'] &&
+          display.matchId == current?.matchId) {
+        await onStart!(display.board, result['matchId'] as String);
+      }
+      return;
+    }
     if (result != null &&
         display.state == 'running' &&
         result['matchId'] == display.matchId) {

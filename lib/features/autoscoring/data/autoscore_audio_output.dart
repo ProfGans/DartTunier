@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -10,11 +11,41 @@ abstract class AutoscoreAudioOutput {
 }
 
 class LocalAutoscoreAudioOutput implements AutoscoreAudioOutput {
+  LocalAutoscoreAudioOutput() {
+    unawaited(_warmEffects());
+  }
   FlutterTts? _tts;
-  AudioPlayer? _effects;
+  final _effects = <String, AudioPlayer>{};
+  final _preparedEffects = <String, Future<AudioPlayer>>{};
   Process? _speech;
   Future<void>? _initializingSpeech;
   bool _closed = false;
+
+  Future<void> _warmEffects() async {
+    for (final name in ['hit', 'bounce', 'removal']) {
+      if (_closed) return;
+      try {
+        await _prepareEffect(name);
+      } catch (_) {
+        // Retry on playback; report unavailable devices through the controller.
+      }
+    }
+  }
+
+  Future<AudioPlayer> _prepareEffect(String name) =>
+      _preparedEffects.putIfAbsent(name, () async {
+        final player = _effects.putIfAbsent(name, AudioPlayer.new);
+        try {
+          await player.setReleaseMode(ReleaseMode.stop);
+          if (!_closed) {
+            await player.setSourceAsset('autoscoring/audio/$name.wav');
+          }
+          return player;
+        } catch (_) {
+          _preparedEffects.remove(name);
+          rethrow;
+        }
+      });
 
   Future<void> _prepareSpeech() => _initializingSpeech ??= () async {
     final tts = _tts = FlutterTts();
@@ -36,14 +67,11 @@ class LocalAutoscoreAudioOutput implements AutoscoreAudioOutput {
   Future<void> _playEffect(String name, double volume) async {
     if (_closed) return;
     // Effects do not depend on a speech engine being installed.
-    final effects = _effects ??= AudioPlayer();
-    await effects.setReleaseMode(ReleaseMode.stop);
+    final effects = await _prepareEffect(name);
     if (_closed) return;
-    await effects.stop();
-    await effects.play(
-      AssetSource('autoscoring/audio/$name.wav'),
-      volume: volume.clamp(0, 1),
-    );
+    await effects.setVolume(volume.clamp(0, 1));
+    await effects.seek(Duration.zero);
+    if (!_closed) await effects.resume();
   }
 
   @override
@@ -102,6 +130,15 @@ class LocalAutoscoreAudioOutput implements AutoscoreAudioOutput {
         /* Device unavailable. */
       }
     }
-    await _effects?.dispose();
+    for (final prepared in List.of(_preparedEffects.values)) {
+      try {
+        await prepared;
+      } catch (_) {
+        // A failed preload still owns a player which needs disposing.
+      }
+    }
+    for (final player in _effects.values) {
+      await player.dispose();
+    }
   }
 }

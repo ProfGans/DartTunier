@@ -114,7 +114,7 @@ class _DartTournamentAppState extends State<DartTournamentApp>
                     children: [
                       child ?? const SizedBox(),
                       if (_devices.settings?.enabled == true &&
-                          _devices.receiver.display != null)
+                          _devices.boardPresentation.display != null)
                         Positioned.fill(
                           child: Offstage(
                             offstage: !_devices.showDisplay,

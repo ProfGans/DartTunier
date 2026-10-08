@@ -89,8 +89,27 @@ class OrderOfPlayController {
       running: running,
       finished: finished,
       boardCount: tournament.boardCount,
+      blockedBoards: tournament.blockedBoards,
     );
     return BoardSchedule(planned, running, finished, waiting);
+  }
+
+  /// Uses the existing fair queue, but checks availability now, not in a future block.
+  BoardAssignment? suggestForPlayer(CreatedTournament tournament, int stage, TournamentPlayer player) {
+    final schedule = plan(tournament, stage);
+    final busy = {for (final entry in schedule.running) ...entry.players};
+    final identities = player.individuals.map((p) => p.profileId ?? p.name).toSet();
+    if (identities.any(busy.contains)) return null;
+    final occupied = {for (final entry in schedule.running) entry.match.boardNumber};
+    final board = [for (var b = 1; b <= tournament.boardCount; b++) if (!occupied.contains(b) && !tournament.blockedBoards.contains(b)) b].firstOrNull;
+    if (board == null) return null;
+    for (final assignment in schedule.planned) {
+      final entry = assignment.entry;
+      if (!entry.players.any(identities.contains) || entry.players.any(busy.contains)) continue;
+      if (entry.match.homePlayer?.bot != null && entry.match.awayPlayer?.bot != null) continue;
+      return BoardAssignment(entry, 0, board);
+    }
+    return null;
   }
 
   bool start(
@@ -103,7 +122,7 @@ class OrderOfPlayController {
     final candidates = schedule.planned.where(
       (a) => identical(a.entry.match, match),
     );
-    if (candidates.isEmpty || board < 1 || board > tournament.boardCount) {
+    if (candidates.isEmpty || board < 1 || board > tournament.boardCount || tournament.blockedBoards.contains(board) || tournament.completedStageIndexes.contains(stage)) {
       return false;
     }
     final entry = candidates.first.entry;

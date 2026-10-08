@@ -50,6 +50,16 @@ void main() {
     expect(stage.groups[1].players[1], a);
   });
 
+  test('cancelled start with legacy player signature allows swapping', () {
+    final stage = fixture();
+    final match = stage.groups.first.matches.first;
+    match.startedPlayers = 'Spieler 1\u0000Spieler 2';
+    expect(GroupPositionEditor.canEdit(stage), isTrue);
+    expect(GroupPositionEditor.swap(stage, stage.groups.first.players[0],
+      stage.groups.first.players[1]), isTrue);
+    expect(match.startedPlayers, isNull);
+  });
+
   test('blocks all groups for any started, scored or annulled match', () {
     final blockers = <void Function(GroupMatch)>[
       (m) => m.startedAt = DateTime(2026),

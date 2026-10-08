@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'tournament_access.dart';
+import 'imported_tournament_archive.dart';
 import '../../statistics/domain/bot_statistics_privacy.dart';
 import 'tournament_bot.dart';
 import '../../league/domain/league_match.dart';
@@ -449,11 +451,16 @@ class CreatedTournament {
     required this.stages,
     required this.runStages,
     this.leagueMatch,
+    this.importedArchive,
     this.communityId,
     this.countsForRanking = true,
     this.communityRankingIds = const ['default'],
     this.activeStageIndex = 0,
     this.boardCount = 1,
+    this.allowDeviceStart = false,
+    this.access = const TournamentAccessSettings(),
+    this.syncRevision = 0,
+    Set<int>? blockedBoards,
     this.startedAt,
     this.finishedAt,
     this.plannedMinutes,
@@ -463,7 +470,8 @@ class CreatedTournament {
   }) : id = id ?? _newTournamentId(),
        createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now(),
-       completedStageIndexes = completedStageIndexes ?? <int>{};
+       completedStageIndexes = completedStageIndexes ?? <int>{},
+       blockedBoards = blockedBoards ?? <int>{};
 
   factory CreatedTournament.fromJson(Map<String, dynamic> json) {
     return CreatedTournament(
@@ -476,6 +484,8 @@ class CreatedTournament {
       runStages: _runStageListFromJson(json['runStages']),
       leagueMatch: json['leagueMatch'] == null ? null : LeagueMatch.fromJson(
           Map<String, dynamic>.from(json['leagueMatch'] as Map)),
+      importedArchive: json['importedArchive'] == null ? null : ImportedTournamentArchive.fromJson(
+          Map<String, dynamic>.from(json['importedArchive'] as Map)),
       communityId: json['communityId'] as String?,
       countsForRanking: json['countsForRanking'] as bool? ?? true,
       communityRankingIds: json['communityRankingIds'] == null
@@ -483,6 +493,10 @@ class CreatedTournament {
           : List<String>.unmodifiable((json['communityRankingIds'] as List).cast<String>()),
       activeStageIndex: json['activeStageIndex'] as int? ?? 0,
       boardCount: (json['boardCount'] as int? ?? 1).clamp(1, 64),
+      allowDeviceStart: json['allowDeviceStart'] == true,
+      access: TournamentAccessSettings.fromJson(json['access'] as Map<String, dynamic>?),
+      syncRevision: json['syncRevision'] as int? ?? 0,
+      blockedBoards: _intListFromJson(json['blockedBoards']).where((b) => b >= 1 && b <= 64).toSet(),
       startedAt: _dateTimeFromJson(json['startedAt']),
       finishedAt: _dateTimeFromJson(json['finishedAt']),
       plannedMinutes: json['plannedMinutes'] as int?,
@@ -502,11 +516,16 @@ class CreatedTournament {
   final List<TournamentStage> stages;
   final List<TournamentRunStage> runStages;
   final LeagueMatch? leagueMatch;
+  final ImportedTournamentArchive? importedArchive;
   final String? communityId;
   final bool countsForRanking;
   final List<String> communityRankingIds;
   int activeStageIndex;
   int boardCount;
+  bool allowDeviceStart;
+  TournamentAccessSettings access;
+  int syncRevision;
+  final Set<int> blockedBoards;
   DateTime? startedAt, finishedAt;
   int? plannedMinutes, plannedMatches;
   List<int> plannedMatchEndSeconds;
@@ -522,12 +541,18 @@ class CreatedTournament {
       'stages': stages.map((stage) => stage.toJson()).toList(),
       'runStages': runStages.map(_runStageToJson).toList(),
       if (leagueMatch != null) 'leagueMatch': leagueMatch!.toJson(),
+      if (importedArchive != null) 'importedArchive': importedArchive!.toJson(),
       'communityId': communityId,
       if (!countsForRanking) 'countsForRanking': false,
       if (communityRankingIds.length != 1 || communityRankingIds.single != 'default')
         'communityRankingIds': communityRankingIds,
       'activeStageIndex': activeStageIndex,
       'boardCount': boardCount,
+      if (syncRevision != 0) 'syncRevision': syncRevision,
+      'allowDeviceStart': allowDeviceStart,
+      if (access.creatorUserId != null || access.directorUserIds.isNotEmpty || access.resultEntryMode != ResultEntryMode.directors || access.resultUserIds.isNotEmpty)
+        'access': access.toJson(),
+      if (blockedBoards.isNotEmpty) 'blockedBoards': blockedBoards.toList()..sort(),
       'startedAt': startedAt?.toUtc().toIso8601String(),
       'finishedAt': finishedAt?.toUtc().toIso8601String(),
       'plannedMinutes': plannedMinutes,

@@ -10,9 +10,22 @@ class CameraVideoFrame {
     this.height,
     this.rgb, {
     this.dropped = 0,
+    this.ageUs = 0,
+    this.gray,
+    this.colorWidth,
+    this.colorHeight,
+    this.colorImage,
+    this.colorEncodeUs = 0,
   });
   final int cameraId, timestampUs, sequence, width, height, dropped;
+  final int ageUs;
   final Uint8List rgb;
+  final Uint8List? gray;
+  final int? colorWidth, colorHeight;
+  final Uint8List? colorImage;
+  final int colorEncodeUs;
+  int get rgbWidth => colorWidth ?? width;
+  int get rgbHeight => colorHeight ?? height;
   factory CameraVideoFrame.fromMap(Map map) {
     final frame = CameraVideoFrame(
       map['cameraId'] as int,
@@ -22,12 +35,32 @@ class CameraVideoFrame {
       map['height'] as int,
       map['rgb'] as Uint8List,
       dropped: map['dropped'] as int? ?? 0,
+      ageUs: map['ageUs'] as int? ?? 0,
+      gray: map['gray'] as Uint8List?,
+      colorWidth: map['colorWidth'] as int?,
+      colorHeight: map['colorHeight'] as int?,
+      colorImage: map['colorImage'] as Uint8List?,
+      colorEncodeUs: map['colorEncodeUs'] as int? ?? 0,
     );
     if (frame.width < 1 ||
         frame.height < 1 ||
         frame.width > 1280 ||
         frame.height > 2160 ||
-        frame.rgb.length != frame.width * frame.height * 3) {
+        frame.rgbWidth < 1 ||
+        frame.rgbWidth > 1280 ||
+        frame.rgbHeight < 1 ||
+        frame.rgbHeight > 2160 ||
+        (frame.colorImage == null &&
+            frame.rgb.length != frame.rgbWidth * frame.rgbHeight * 3) ||
+        (frame.colorImage != null &&
+            (frame.gray == null ||
+                frame.colorImage!.isEmpty ||
+                frame.colorImage!.length > 16 * 1024 * 1024)) ||
+        (frame.gray != null &&
+            frame.gray!.length != frame.width * frame.height) ||
+        (frame.gray == null &&
+            (frame.rgbWidth != frame.width ||
+                frame.rgbHeight != frame.height))) {
       throw const FormatException('Ungültiger Video-Frame');
     }
     return frame;

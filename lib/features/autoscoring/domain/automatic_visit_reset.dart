@@ -15,6 +15,29 @@ class AutomaticVisitReset {
   List<List<int>>? _regions;
   List<BoardCalibration>? _calibrations;
   List<Map<String, Object>> cameraMetrics = [];
+  final _occupiedCache =
+      Expando<(GrayFrame, List<int>, (double, double), int)>();
+  (GrayFrame, List<int>, (double, double), int) _occupiedInfo(
+    GrayFrame empty,
+    GrayFrame occupied,
+    List<int> region,
+  ) {
+    final cached = _occupiedCache[occupied];
+    if (cached != null &&
+        identical(cached.$1, empty) &&
+        identical(cached.$2, region)) {
+      return cached;
+    }
+    final exposure = _exposure(empty, occupied, region);
+    final result = (
+      empty,
+      region,
+      exposure,
+      _changed(empty, occupied, region, adjustment: exposure),
+    );
+    _occupiedCache[occupied] = result;
+    return result;
+  }
 
   void reset() {
     waitingForEmpty = false;
@@ -77,7 +100,7 @@ class AutomaticVisitReset {
     final quiet = stable || _settledSamples >= 2;
     final occupiedCounts = List.generate(
       3,
-      (i) => _changed(empty[i], occupied[i], _regions![i]),
+      (i) => _occupiedInfo(empty[i], occupied[i], _regions![i]).$4,
     );
     // A bounce leaves no dart behind; an already empty board is not removal.
     if (occupiedCounts.where((count) => count >= 6).length < 2) {
@@ -87,9 +110,13 @@ class AutomaticVisitReset {
     cameraMetrics = [];
     for (var i = 0; i < 3; i++) {
       final before = occupiedCounts[i];
-      final beforeOffset = _exposure(empty[i], occupied[i], _regions![i]);
+      final beforeOffset = _occupiedInfo(
+        empty[i],
+        occupied[i],
+        _regions![i],
+      ).$3;
       final nowOffset = _exposure(empty[i], current[i], _regions![i]);
-      var removed = 0, added = 0, retained = 0;
+      var removed = 0, added = 0, retained = 0, occupiedCovered = 0;
       for (final p in _regions![i]) {
         final wasDart =
             (occupied[i].pixels[p] -
@@ -104,10 +131,38 @@ class AutomaticVisitReset {
         if (wasDart && !isDart) removed++;
         if (!wasDart && isDart) added++;
         if (wasDart && isDart) retained++;
+        // Small shaft movement and new overlapping darts change exact pixels.
+        // Check whether the OLD occupied pixels still have local support;
+        // unrelated new pixels must not replace a genuinely removed shaft.
+        if (wasDart) {
+          var covered = isDart;
+          final x = p % current[i].width, y = p ~/ current[i].width;
+          for (var dy = -1; dy <= 1 && !covered; dy++) {
+            for (var dx = -1; dx <= 1 && !covered; dx++) {
+              final nx = x + dx, ny = y + dy;
+              if (nx < 0 ||
+                  ny < 0 ||
+                  nx >= current[i].width ||
+                  ny >= current[i].height) {
+                continue;
+              }
+              final q = ny * current[i].width + nx;
+              covered =
+                  (current[i].pixels[q] -
+                          (empty[i].pixels[q] * nowOffset.$1 + nowOffset.$2))
+                      .abs() >
+                  25;
+            }
+          }
+          if (covered) occupiedCovered++;
+        }
       }
       final now = retained + added;
       final restored =
-          removed <= max(2, before * .03) && added <= max(2, before * .03);
+          (removed <= max(2, before * .03) && added <= max(2, before * .03)) ||
+          (before >= 6 &&
+              occupiedCovered >= before * .97 &&
+              added <= max(6, before * 3));
       if (restored) restoredViews++;
       cameraMetrics.add({
         'before': before,
@@ -117,6 +172,7 @@ class AutomaticVisitReset {
         'removed': removed,
         'regionPixels': _regions![i].length,
         'occupiedRestored': restored,
+        'occupiedCovered': occupiedCovered,
       });
       final tolerance = max(
         2.0,
@@ -146,11 +202,10 @@ class AutomaticVisitReset {
       waitingForEmpty = true;
     }
     // A hand or moving flight can temporarily resemble removal. Release a
-    // premature latch only when ALL views match the complete occupied board
-    // for three settled captures. Actual partial removal remains locked.
-    _restoredSamples = quiet && removalViews == 0 && restoredViews == 3
-        ? _restoredSamples + 1
-        : 0;
+    // premature latch only when ALL views retain the complete occupied board
+    // for three settled captures. New darts are allowed; a broad hand mask
+    // and genuine partial removal must not release the latch.
+    _restoredSamples = quiet && restoredViews == 3 ? _restoredSamples + 1 : 0;
     if (waitingForEmpty &&
         (dartLimit == null || darts < dartLimit) &&
         _restoredSamples >= 3) {
@@ -246,8 +301,13 @@ class AutomaticVisitReset {
     return (1, offset.abs() <= 60 ? offset : 0);
   }
 
-  int _changed(GrayFrame reference, GrayFrame current, List<int> region) {
-    final exposure = _exposure(reference, current, region);
+  int _changed(
+    GrayFrame reference,
+    GrayFrame current,
+    List<int> region, {
+    (double, double)? adjustment,
+  }) {
+    final exposure = adjustment ?? _exposure(reference, current, region);
     var count = 0;
     for (final i in region) {
       if ((current.pixels[i] -

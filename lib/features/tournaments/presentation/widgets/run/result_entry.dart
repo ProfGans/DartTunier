@@ -4,6 +4,7 @@ import '../../../domain/tournament_models.dart';
 import '../../models/match_result.dart';
 import 'set_result_dialog.dart';
 import '../../../../statistics/domain/match_scorer_summary.dart';
+import '../../../../statistics/presentation/tournament_match_statistics_page.dart';
 
 class MatchResultTile extends StatelessWidget {
   const MatchResultTile({
@@ -29,14 +30,14 @@ class MatchResultTile extends StatelessWidget {
     final scorer = MatchScorerSummary.fromMatch(match);
     String playerLabel(bool home) {
       final name =
-          (home ? match.homePlayer : match.awayPlayer)?.name ?? 'offen';
+          (home ? match.homePlayer : match.awayPlayer)?.name ?? (match.allowsBye ? 'Freilos' : 'offen');
       final average = scorer?.players[home ? 0 : 1].average;
       return average == null
           ? name
           : '$name · Avg ${average.toStringAsFixed(2)}';
     }
 
-    return Container(
+    return MatchStatisticsTapTarget(match: match, child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -65,41 +66,23 @@ class MatchResultTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    playerLabel(true),
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                Text(
+                  playerLabel(true),
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    playerLabel(false),
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                Text(
+                  playerLabel(false),
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _ScoreBadge(
-                      match: match,
-                      onTap: canEdit ? () => onEditResult(match) : null,
+                    Flexible(
+                      child: _ScoreBadge(
+                        match: match,
+                        onTap: match.hasResult ? () => MatchStatisticsTapTarget.open(context, match) : canEdit ? () => onEditResult(match) : null,
+                      ),
                     ),
                     const Spacer(),
                     IconButton.filledTonal(
@@ -130,7 +113,7 @@ class MatchResultTile extends StatelessWidget {
               Expanded(child: Text(playerLabel(true))),
               _ScoreBadge(
                 match: match,
-                onTap: canEdit ? () => onEditResult(match) : null,
+                onTap: match.hasResult ? () => MatchStatisticsTapTarget.open(context, match) : canEdit ? () => onEditResult(match) : null,
               ),
               Expanded(
                 child: Text(playerLabel(false), textAlign: TextAlign.right),
@@ -145,7 +128,7 @@ class MatchResultTile extends StatelessWidget {
           );
         },
       ),
-    );
+    ));
   }
 }
 
@@ -154,9 +137,11 @@ class ResultDialog extends StatefulWidget {
     super.key,
     required this.match,
     this.format = const TournamentGameFormat(),
+    this.allowAdministration = true,
   });
 
   final TournamentGameFormat format;
+  final bool allowAdministration;
 
   final GroupMatch match;
 
@@ -227,7 +212,7 @@ class _ResultDialogState extends State<ResultDialog> {
   @override
   Widget build(BuildContext context) {
     if (widget.format.bestOfSets > 1) {
-      return SetResultDialog(match: widget.match, format: widget.format);
+      return SetResultDialog(match: widget.match, format: widget.format, allowAdministration: widget.allowAdministration);
     }
     return AlertDialog(
       title: const Text('Ergebnis eingeben'),
@@ -280,16 +265,16 @@ class _ResultDialogState extends State<ResultDialog> {
         ],
       ),
       actions: [
-        if (widget.match.homeLegs != null ||
+        if (widget.allowAdministration && (widget.match.homeLegs != null ||
             widget.match.awayLegs != null ||
-            widget.match.isAnnulled)
+            widget.match.isAnnulled))
           TextButton.icon(
             onPressed: () =>
                 Navigator.of(context).pop(const MatchResult.cleared()),
             icon: const Icon(Icons.delete_outline),
             label: const Text('Ergebnis entfernen'),
           ),
-        TextButton.icon(
+        if (widget.allowAdministration) TextButton.icon(
           onPressed: _annul,
           icon: const Icon(Icons.block_outlined),
           label: const Text('Spiel annullieren'),
@@ -343,9 +328,12 @@ class _ScoreBadge extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     final badge = Container(
-      width: match.isAnnulled || match.hasSetScore ? 100 : 64,
+      constraints: BoxConstraints(
+        minWidth: match.isAnnulled || match.hasSetScore ? 100 : 64,
+        minHeight: 48,
+      ),
       alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       decoration: BoxDecoration(
         color: match.isAnnulled
             ? colorScheme.errorContainer
@@ -369,7 +357,7 @@ class _ScoreBadge extends StatelessWidget {
     }
 
     return Tooltip(
-      message: 'Ergebnis eingeben',
+      message: match.hasResult ? 'Spielstatistik öffnen' : 'Ergebnis eingeben',
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
         onTap: onTap,

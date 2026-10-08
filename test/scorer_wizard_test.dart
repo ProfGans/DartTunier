@@ -1,3 +1,4 @@
+import 'support/scorer_setup_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/scorer_page.dart';
@@ -71,6 +72,7 @@ void main() {
       );
       await tester.tap(find.text(add));
       await tester.pumpAndSettle();
+      await scorerSetupReview(tester);
       await reveal(tester, 'Spiel starten');
       await tester.tap(find.text('Spiel starten'));
       await tester.pumpAndSettle();
@@ -104,6 +106,9 @@ void main() {
           ),
         ),
       );
+      await reveal(tester, 'Online-Mitspieler einladen');
+      await tester.tap(find.text('Online-Mitspieler einladen'));
+      await tester.pumpAndSettle();
       await reveal(tester, 'QR-Code & Einladungen öffnen');
       await tester.tap(find.text('QR-Code & Einladungen öffnen'));
       await tester.pumpAndSettle();
@@ -203,6 +208,7 @@ void main() {
         await reveal(tester, 'Gemischtes Spiel');
         await tester.tap(find.text('Gemischtes Spiel'));
         await tester.pumpAndSettle();
+        await scorerSetupNext(tester);
         await reveal(tester, 'Startpunkte');
         final field = find.widgetWithText(TextFormField, 'Startpunkte');
         await tester.ensureVisible(field);
@@ -210,6 +216,7 @@ void main() {
         tester.view.physicalSize = Size(size.height, size.width);
         await tester.pumpAndSettle();
         expect(find.text('301'), findsOneWidget);
+        await scorerSetupReview(tester);
         await reveal(tester, 'Spiel starten');
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());

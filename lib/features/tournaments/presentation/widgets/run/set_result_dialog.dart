@@ -4,7 +4,8 @@ import '../../../domain/set_result_validation.dart';
 import '../../models/match_result.dart';
 
 class SetResultDialog extends StatefulWidget {
-  const SetResultDialog({super.key, required this.match, required this.format});
+  const SetResultDialog({super.key, required this.match, required this.format, this.allowAdministration = true});
+  final bool allowAdministration;
   final GroupMatch match;
   final TournamentGameFormat format;
   @override
@@ -117,13 +118,13 @@ class _SetResultDialogState extends State<SetResultDialog> {
       ),
     ),
     actions: [
-      if (widget.match.hasScore || widget.match.isAnnulled)
+      if (widget.allowAdministration && (widget.match.hasScore || widget.match.isAnnulled))
         TextButton(
           onPressed: () =>
               Navigator.of(context).pop(const MatchResult.cleared()),
           child: const Text('Ergebnis entfernen'),
         ),
-      TextButton(
+      if (widget.allowAdministration) TextButton(
         onPressed: () =>
             Navigator.of(context).pop(const MatchResult.annulled()),
         child: const Text('Spiel annullieren'),

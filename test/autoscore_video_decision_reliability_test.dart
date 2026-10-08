@@ -13,7 +13,23 @@ import 'autoscore_new_video_corrections_test.dart'
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  for (final sample in [('42', 'T5'), ('20', '20'), ('183', '20')]) {
+  for (final sample in [
+    ('102', 'T1'),
+    ('134', '3'),
+    ('42', 'T5'),
+    ('20', '20'),
+    ('183', '20'),
+    ('27', '3'),
+    ('89', 'T20'),
+    ('111', '3'),
+    ('6', 'T20'),
+    ('56', 'T20'),
+    ('99', 'T1'),
+    ('ordner9_2', 'T5'),
+    ('ordner9_56', 'T20'),
+    ('ordner9_68', 'Bouncer'),
+    ('94', 'T20'),
+  ]) {
     test(
       'Real sequence ${sample.$1} counts ${sample.$2} without correction input',
       () {
@@ -45,6 +61,12 @@ void main() {
             low.height,
             low.pixels,
             detail: high.detail ?? high,
+            colorImage:
+                File('$root/kamera_${i + 1}_${name}_farbe.jpg').existsSync()
+                ? File(
+                    '$root/kamera_${i + 1}_${name}_farbe.jpg',
+                  ).readAsBytesSync()
+                : null,
             timestampUs: time,
           );
         }
@@ -99,4 +121,40 @@ void main() {
       },
     );
   }
+  for (final corroborated in [false, true]) {
+    test(
+      'Lost camera retains earlier contact only with endpoint support: $corroborated',
+      () {
+        final engine = TemporalHitDecision();
+        const earlier = FusedHit(Point(-15, -104), 0, 2);
+        const weak = FusedHit(Point(-15, -114), 2.7, 1, forcedDecision: true);
+        engine.observe(earlier);
+        engine.observe(weak);
+        final decision = engine.observe(
+          weak,
+          contactPoints: corroborated ? [const Point(-14.5, -104.2)] : [],
+        );
+        expect(decision!.point, corroborated ? earlier.point : weak.point);
+        expect(engine.selectedIndex, corroborated ? 0 : 2);
+        expect(
+          engine.reason,
+          corroborated ? 'retainedMultiviewContact' : 'consecutiveAgreement',
+        );
+      },
+    );
+  }
+  test(
+    'Endpoint from distant contact never resurrects an unrelated estimate',
+    () {
+      final engine = TemporalHitDecision();
+      const old = FusedHit(Point(-15, -104), 0, 2);
+      const current = FusedHit(Point(30, 30), 2, 1);
+      engine.observe(old);
+      engine.observe(current);
+      expect(
+        engine.observe(current, contactPoints: [old.point])!.point,
+        current.point,
+      );
+    },
+  );
 }

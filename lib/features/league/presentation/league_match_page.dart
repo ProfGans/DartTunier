@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_settings_section.dart';
 import 'package:flutter/material.dart';
 import '../../tournaments/application/tournament_timing.dart';
 import '../../tournaments/presentation/widgets/run/tournament_timing_panel.dart';
@@ -46,6 +47,10 @@ class LeagueMatchPage extends StatefulWidget {
 
 class _LeagueMatchPageState extends State<LeagueMatchPage> {
   final _form = GlobalKey<FormState>();
+  final _rosterSections = List.generate(
+    2,
+    (_) => GlobalKey<SportSettingsSectionState>(),
+  );
   final _name = TextEditingController(text: 'Ligaspiel');
   final _teams = [
     TextEditingController(text: 'Heim'),
@@ -367,7 +372,13 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
   }
 
   Future<void> _create() async {
-    if (_busy || !_form.currentState!.validate()) return;
+    if (_busy) return;
+    if (!_form.currentState!.validate()) {
+      for (final section in _rosterSections) {
+        section.currentState?.expand();
+      }
+      return;
+    }
     try {
       await _refreshInvitations();
       if (!mounted) return;
@@ -529,114 +540,120 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
           key: const ValueKey('league-name'),
           controller: _name,
           maxLength: 200,
-          decoration: const InputDecoration(labelText: 'Name des Ligaspiels', hintText: 'Zum Beispiel: Vereinsliga · 3. Spieltag'),
+          decoration: const InputDecoration(
+            labelText: 'Name des Ligaspiels',
+            hintText: 'Zum Beispiel: Vereinsliga · 3. Spieltag',
+          ),
           validator: _required,
         ),
         const SizedBox(height: 16),
-        const TournamentDevicesSection(),
+        const SportSettingsSection(
+          title: 'Geräte zuordnen',
+          summary: 'Boards und Anzeigen verbinden · optional',
+          icon: Icons.devices_outlined,
+          children: [TournamentDevicesSection()],
+        ),
         _boardControls(),
         AdaptiveTileLayout(
           children: [
             for (var team = 0; team < 2; team++)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
+              SportSettingsSection(
+                key: _rosterSections[team],
+                title: team == 0
+                    ? 'Heimteam & Aufstellung'
+                    : 'Gastteam & Aufstellung',
+                summary:
+                    '${_teams[team].text} · ${_rosters[team].length} Spielerplätze',
+                icon: Icons.groups_outlined,
+                children: [
+                  TextFormField(
+                    controller: _teams[team],
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText: team == 0
+                          ? 'Heimmannschaft'
+                          : 'Gastmannschaft',
+                    ),
+                    validator: _required,
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      TextFormField(
-                        controller: _teams[team],
-                        decoration: InputDecoration(
-                          labelText: team == 0
-                              ? 'Heimmannschaft'
-                              : 'Gastmannschaft',
-                        ),
-                        validator: _required,
+                      OutlinedButton.icon(
+                        onPressed: _busy
+                            ? null
+                            : () => _addRosterPlayer(team, false),
+                        icon: const Icon(Icons.person_add),
+                        label: const Text('Lokalen Spieler hinzufügen'),
                       ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: _busy
-                                ? null
-                                : () => _addRosterPlayer(team, false),
-                            icon: const Icon(Icons.person_add),
-                            label: const Text('Lokalen Spieler hinzufügen'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: _busy
-                                ? null
-                                : () => _addRosterPlayer(team, true),
-                            icon: const Icon(Icons.mail_outline),
-                            label: const Text('Community-Mitglied einladen'),
-                          ),
-                        ],
+                      OutlinedButton.icon(
+                        onPressed: _busy
+                            ? null
+                            : () => _addRosterPlayer(team, true),
+                        icon: const Icon(Icons.mail_outline),
+                        label: const Text('Community-Mitglied einladen'),
                       ),
-                      for (var i = 0; i < _rosters[team].length; i++)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: TextFormField(
-                            controller: _rosters[team][i],
-                            readOnly: _invited.containsKey('$team:$i'),
-                            onChanged: (_) => _profiles.remove('$team:$i'),
-                            validator: _required,
-                            decoration: InputDecoration(
-                              suffixIcon: IconButton(
-                                tooltip: 'Spieler auswählen oder einladen',
-                                onPressed:
-                                    _busy || _invited.containsKey('$team:$i')
-                                    ? null
-                                    : () => _selectPlayer(team, i),
-                                icon: const Icon(Icons.person_add_alt),
-                              ),
-                              labelText: i < 4
-                                  ? 'Stammspieler ${i + 1}'
-                                  : i < 8
-                                  ? 'Ersatzspieler ${i - 3}'
-                                  : 'Aushilfe aus unterklassiger Vereinsmannschaft',
-                            ),
-                          ),
-                        ),
-                      for (var i = 0; i < _rosters[team].length; i++)
-                        if (_invited['$team:$i'] case final row?)
-                          ListTile(
-                            title: Text(
-                              '${row['display_name']} · Platz ${i + 1}',
-                            ),
-                            subtitle: Text(switch (row['status']) {
-                              'accepted' => 'Angenommen',
-                              'declined' => 'Abgelehnt',
-                              _ => 'Einladung ausstehend',
-                            }),
-                            trailing: IconButton(
-                              tooltip: 'Einladung zurückziehen',
-                              onPressed: _busy
-                                  ? null
-                                  : () => _cancelInvitation('$team:$i'),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ),
-                      const SizedBox(height: 12),
-                      if (_rosters[team].length < 9)
-                        TextButton.icon(
-                          onPressed: _busy
-                              ? null
-                              : () => setState(
-                                  () => _rosters[team].add(
-                                    TextEditingController(),
-                                  ),
-                                ),
-                          icon: const Icon(Icons.person_add),
-                          label: Text(
-                            _rosters[team].length < 8
-                                ? 'Ersatzspieler hinzufügen'
-                                : 'Aushilfe hinzufügen',
-                          ),
-                        ),
                     ],
                   ),
-                ),
+                  for (var i = 0; i < _rosters[team].length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: TextFormField(
+                        controller: _rosters[team][i],
+                        readOnly: _invited.containsKey('$team:$i'),
+                        onChanged: (_) => _profiles.remove('$team:$i'),
+                        validator: _required,
+                        decoration: InputDecoration(
+                          suffixIcon: IconButton(
+                            tooltip: 'Spieler auswählen oder einladen',
+                            onPressed: _busy || _invited.containsKey('$team:$i')
+                                ? null
+                                : () => _selectPlayer(team, i),
+                            icon: const Icon(Icons.person_add_alt),
+                          ),
+                          labelText: i < 4
+                              ? 'Stammspieler ${i + 1}'
+                              : i < 8
+                              ? 'Ersatzspieler ${i - 3}'
+                              : 'Aushilfe aus unterklassiger Vereinsmannschaft',
+                        ),
+                      ),
+                    ),
+                  for (var i = 0; i < _rosters[team].length; i++)
+                    if (_invited['$team:$i'] case final row?)
+                      ListTile(
+                        title: Text('${row['display_name']} · Platz ${i + 1}'),
+                        subtitle: Text(switch (row['status']) {
+                          'accepted' => 'Angenommen',
+                          'declined' => 'Abgelehnt',
+                          _ => 'Einladung ausstehend',
+                        }),
+                        trailing: IconButton(
+                          tooltip: 'Einladung zurückziehen',
+                          onPressed: _busy
+                              ? null
+                              : () => _cancelInvitation('$team:$i'),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ),
+                  const SizedBox(height: 12),
+                  if (_rosters[team].length < 9)
+                    TextButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(
+                              () => _rosters[team].add(TextEditingController()),
+                            ),
+                      icon: const Icon(Icons.person_add),
+                      label: Text(
+                        _rosters[team].length < 8
+                            ? 'Ersatzspieler hinzufügen'
+                            : 'Aushilfe hinzufügen',
+                      ),
+                    ),
+                ],
               ),
           ],
         ),
@@ -715,11 +732,14 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
   List<Widget> _games(BuildContext context) {
     final league = _tournament!.leagueMatch!;
     return [
-      TournamentTimingPanel(tournament: _tournament!, onStart: () async {
-        final next = CreatedTournament.fromJson(_tournament!.toJson());
-        next.startedAt ??= DateTime.now();
-        await _save(next, rethrowError: true);
-      }),
+      TournamentTimingPanel(
+        tournament: _tournament!,
+        onStart: () async {
+          final next = CreatedTournament.fromJson(_tournament!.toJson());
+          next.startedAt ??= DateTime.now();
+          await _save(next, rethrowError: true);
+        },
+      ),
       LeagueOverview(league: league),
       TournamentHighlightsButton(tournament: _tournament!),
       ExpansionTile(
@@ -765,7 +785,9 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
         LeagueFixtureCard(
           league: league,
           index: i,
-          averageLabel: MatchScorerSummary.fromMatch(LeagueBoardRuntime(_tournament!).matches[i])?.averageLabel,
+          averageLabel: MatchScorerSummary.fromMatch(
+            LeagueBoardRuntime(_tournament!).matches[i],
+          )?.averageLabel,
           boardLabel: league.games[i].runtime?['boardNumber'] == null
               ? null
               : 'Board ${league.games[i].runtime!['boardNumber']}',

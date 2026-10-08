@@ -1,7 +1,14 @@
+import '../../statistics/data/profile_heatmap_repository.dart';
+import 'widgets/heatmap_target_picker.dart';
+import 'widgets/scorer_play_layout.dart';
 import 'widgets/scorer_scoreboard.dart';
+import 'monitor/scorer_monitor_page.dart';
+import '../application/scorer_monitor_window.dart';
+import '../data/scorer_monitor_preferences.dart';
 import '../../autoscoring/presentation/widgets/dart_correction_dialog.dart';
 import 'checkout_page.dart' show checkoutLabel;
 import '../../autoscoring/application/autoscore_audio_controller.dart';
+import '../../autoscoring/data/autoscore_audio_output.dart';
 import '../../autoscoring/data/autoscore_setup_store.dart';
 import '../../autoscoring/presentation/widgets/autoscore_audio_controls.dart';
 import '../application/scorer_audio_controller.dart';
@@ -42,6 +49,8 @@ class ScorerMatchPage extends StatefulWidget {
     this.onExit,
     this.draft,
     this.remote,
+    this.startInMonitorMode = false,
+    this.audioOutput,
   });
   final ScorerSettings settings;
   final String? accountId;
@@ -51,14 +60,107 @@ class ScorerMatchPage extends StatefulWidget {
   final VoidCallback? onExit;
   final Map<String, dynamic>? draft;
   final RemoteScorerClient? remote;
+  final bool startInMonitorMode;
+  final AutoscoreAudioOutput? audioOutput;
   @override
   State<ScorerMatchPage> createState() => _ScorerMatchPageState();
 }
 
 class _ScorerMatchPageState extends State<ScorerMatchPage> {
   late final ScorerController controller;
+  final _monitor = ScorerMonitorWindow();
+  bool _openingMonitor = false;
+  late bool _deviceMonitor = widget.startInMonitorMode;
+
+  void _showMonitorPage() {
+    if (widget.startInMonitorMode) {
+      setState(() => _deviceMonitor = true);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ScorerMonitorPage(controller: controller),
+      ),
+    );
+  }
+
+  Future<void> _startDefaultMonitor() async {
+    if (widget.startInMonitorMode) return;
+    try {
+      final mode = await ScorerMonitorPreferences().load();
+      if (!mounted || controller.isComplete) return;
+      if (mode == ScorerMonitorStart.inApp) _showMonitorPage();
+      if (mode == ScorerMonitorStart.window) {
+        final platform = Theme.of(context).platform;
+        if (platform == TargetPlatform.windows ||
+            platform == TargetPlatform.macOS ||
+            platform == TargetPlatform.linux) {
+          await _openMonitorWindow();
+        } else {
+          _showMonitorPage();
+        }
+      }
+    } catch (_) {
+      // A preference read must never prevent scoring.
+    }
+  }
+
+  Future<void> _chooseMonitor() async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Monitor-Modus'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'page'),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('Nur Punkte in der App anzeigen'),
+            ),
+          ),
+          if ([
+            TargetPlatform.windows,
+            TargetPlatform.macOS,
+            TargetPlatform.linux,
+          ].contains(Theme.of(context).platform))
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, 'window'),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('Anzeigefenster für zweiten Monitor öffnen'),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (choice == 'page') _showMonitorPage();
+    if (choice == 'window') await _openMonitorWindow();
+  }
+
+  Future<void> _openMonitorWindow() async {
+    if (_openingMonitor) return;
+    _openingMonitor = true;
+    try {
+      await _monitor.open(controller);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Anzeigefenster konnte nicht geöffnet werden. Bitte die Punkteanzeige in der App verwenden.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      _openingMonitor = false;
+    }
+  }
+
   final _cameraPanelKey = GlobalKey();
-  final _audio = AutoscoreAudioController(
+  late final _audio = AutoscoreAudioController(
+    output: widget.audioOutput,
     setupStore: AutoscoreSetupStore.instance,
   );
   late final ScorerAudioController _scorerAudio;
@@ -135,9 +237,11 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
       '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
   final _draftStorage = ScorerDraftStorage();
   Future<void> _saving = Future.value();
+  Future<void> _heatmapSaving = Future.value();
   String? _saveError;
   String? _heatmapError;
   bool _hadHeatmap = false;
+  final _profileHeatmaps = ProfileHeatmapRepository();
 
   void _persistHeatmap() {
     if (controller.hits.isEmpty && !_hadHeatmap) return;
@@ -149,9 +253,16 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
       hits: controller.hits,
       complete: controller.isComplete,
     );
-    _saving = _saving.then((_) async {
+    _heatmapSaving = () async {
       try {
         await ScorerHeatmapRepository().save(session);
+        if (widget.accountId != null && widget.profilePlayerIndex != null) {
+          await _profileHeatmaps.save(
+            widget.accountId!,
+            session,
+            widget.profilePlayerIndex!,
+          );
+        }
         if (mounted) setState(() => _heatmapError = null);
       } catch (_) {
         if (mounted) {
@@ -161,7 +272,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
           );
         }
       }
-    });
+    }();
   }
 
   bool _hadWinner = false;
@@ -197,6 +308,9 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
       visits: controller.statisticsVisits
           .where((v) => settings.participants[v.player].bot == null)
           .toList(),
+      pendingDarts: controller.activePlayer == index
+          ? controller.visit.length
+          : 0,
       winner: controller.winner,
       isDraw: controller.isDraw,
     );
@@ -292,6 +406,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     }
     _persistStatistics();
     await _saving;
+    await _heatmapSaving;
     if (!mounted) return;
     if (_saveError != null || _heatmapError != null) {
       setState(() => _leaving = false);
@@ -301,6 +416,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     setState(() => _mayLeave = true);
     if (widget.accountId != null) {
       unawaited(_statisticsRepository.synchronize(widget.accountId!));
+      unawaited(_profileHeatmaps.synchronize(widget.accountId!));
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.of(context).pop();
@@ -339,6 +455,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
 
   bool _automaticCameraPending = false;
   bool _localCameraOpen = false;
+  bool _showCameraDetails = false;
   bool get _cameraOpen => _isRemote
       ? (widget.remote!.state?['cameraOpen'] == true)
       : _localCameraOpen;
@@ -523,6 +640,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     _scheduleBot();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_checkAutomaticCamera());
+      if (mounted) unawaited(_startDefaultMonitor());
     });
   }
 
@@ -555,6 +673,7 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
 
   @override
   void dispose() {
+    unawaited(_monitor.close());
     _audio.dispose();
     timer?.cancel();
     controller.removeListener(_changed);
@@ -726,6 +845,14 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
           const SizedBox(height: 8),
           Text(c.message),
         ],
+        if (!c.isComplete && !c.isBotTurn && !_isRemote)
+          HeatmapTargetPicker(
+            target: c.intendedTarget,
+            player: c.activePlayer,
+            onChanged: _leaving || _cameraPending
+                ? null
+                : (value) => setState(() => c.intendedTarget = value),
+          ),
         if (!c.isComplete && c.remaining <= 180)
           PersonalizedCheckoutRoutes(
             accountId: widget.accountId,
@@ -739,26 +866,45 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     final pad = Column(
       children: [
         if (_cameraOpen && !_isRemote)
-          ScorerCameraPanel(
-            key: _cameraPanelKey,
-            activity: controller,
-            isInputEnabled: () =>
-                _cameraOpen &&
-                !_leaving &&
-                !_cameraRemoved &&
-                (_cameraPending ||
-                    (!controller.isBotTurn && !controller.isComplete)),
-            dartsLeftProvider: () => controller.dartsLeft,
-            dartsLeft: c.dartsLeft,
-            enabled:
-                !_leaving &&
-                !_cameraRemoved &&
-                (_cameraPending || (!c.isBotTurn && !c.isComplete)),
-            onAccept: _confirmCameraVisit,
-            onPreview: _previewCameraVisit,
-            onLocations: (locations) => _cameraLocations = locations,
-            attempts: _cameraAttempts,
-            onClose: _closeCamera,
+          OutlinedButton.icon(
+            onPressed: () =>
+                setState(() => _showCameraDetails = !_showCameraDetails),
+            icon: Icon(
+              _showCameraDetails
+                  ? Icons.visibility_off
+                  : Icons.edit_location_alt_outlined,
+            ),
+            label: Text(
+              _showCameraDetails
+                  ? 'Autoscoring-Korrektur ausblenden'
+                  : 'Autoscoring aktiv · Darts korrigieren',
+            ),
+          ),
+        if (_cameraOpen && !_isRemote)
+          Visibility(
+            visible: _showCameraDetails,
+            maintainState: true,
+            child: ScorerCameraPanel(
+              key: _cameraPanelKey,
+              activity: controller,
+              isInputEnabled: () =>
+                  _cameraOpen &&
+                  !_leaving &&
+                  !_cameraRemoved &&
+                  (_cameraPending ||
+                      (!controller.isBotTurn && !controller.isComplete)),
+              dartsLeftProvider: () => controller.dartsLeft,
+              dartsLeft: c.dartsLeft,
+              enabled:
+                  !_leaving &&
+                  !_cameraRemoved &&
+                  (_cameraPending || (!c.isBotTurn && !c.isComplete)),
+              onAccept: _confirmCameraVisit,
+              onPreview: _previewCameraVisit,
+              onLocations: (locations) => _cameraLocations = locations,
+              attempts: _cameraAttempts,
+              onClose: _closeCamera,
+            ),
           ),
         if (_cameraRemoved && !_confirmingCamera && !_isRemote)
           FilledButton(
@@ -801,24 +947,32 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
             ],
           ),
         ],
-        ScoreKeypad(
-          key: _scoreKeypadKey,
-          enabled:
-              _inputReady &&
-              !_cameraOpen &&
-              !_leaving &&
-              !c.isComplete &&
-              !c.isBotTurn,
-          remaining: c.remaining,
-          onSubmit: _submit,
-          onBust: _submitBust,
-          onUndo: _inputReady && !_cameraOpen && !_leaving && c.canUndo
-              ? _undo
-              : null,
-        ),
-        const Text(
-          'Summe der Aufnahme eingeben und mit OK bestätigen.\nTastatur: Ziffern, Enter, Rücktaste, Esc.',
-          textAlign: TextAlign.center,
+        Visibility(
+          visible: !_cameraOpen,
+          maintainState: true,
+          child: Column(
+            children: [
+              ScoreKeypad(
+                key: _scoreKeypadKey,
+                enabled:
+                    _inputReady &&
+                    !_cameraOpen &&
+                    !_leaving &&
+                    !c.isComplete &&
+                    !c.isBotTurn,
+                remaining: c.remaining,
+                onSubmit: _submit,
+                onBust: _submitBust,
+                onUndo: _inputReady && !_cameraOpen && !_leaving && c.canUndo
+                    ? _undo
+                    : null,
+              ),
+              const Text(
+                'Summe der Aufnahme eingeben und mit OK bestätigen.\nTastatur: Ziffern, Enter, Rücktaste, Esc.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         Text(
@@ -834,9 +988,15 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
           ),
       ],
     );
-    return PopScope(
-      canPop: _mayLeave || (widget.onExit != null && widget.accountId == null),
+    final scorer = PopScope(
+      canPop:
+          !_deviceMonitor &&
+          (_mayLeave || (widget.onExit != null && widget.accountId == null)),
       onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _deviceMonitor) {
+          setState(() => _deviceMonitor = false);
+          return;
+        }
         if (!didPop) unawaited(_leave());
       },
       child: Scaffold(
@@ -931,50 +1091,43 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
                     : null,
               )
             : SafeArea(
-                child: LayoutBuilder(
-                  builder: (context, constraints) => SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1100),
-                        child: Column(
-                          children: [
-                            constraints.maxWidth >= 900 &&
-                                    MediaQuery.textScalerOf(
-                                          context,
-                                        ).scale(16) <=
-                                        24
-                                ? Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(child: board),
-                                      const SizedBox(width: 24),
-                                      Expanded(child: pad),
-                                    ],
-                                  )
-                                : Column(
-                                    children: [
-                                      board,
-                                      const SizedBox(height: 16),
-                                      pad,
-                                    ],
-                                  ),
-                            const SizedBox(height: 20),
-                            ScorerLegSheet(
-                              settings: widget.settings,
-                              visits: c.statisticsVisits,
-                              leg: c.displayedLeg,
-                              starter: c.legStarter,
-                            ),
-                          ],
-                        ),
+                child: ScorerPlayLayout(
+                  expandScores: _cameraOpen && !_showCameraDetails,
+                  board: board,
+                  input: pad,
+                  toolbar: Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: _chooseMonitor,
+                      icon: const Icon(Icons.monitor),
+                      label: const Text('Monitor-Modus'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(48, 48),
                       ),
                     ),
+                  ),
+                  history: ScorerLegSheet(
+                    settings: widget.settings,
+                    visits: c.statisticsVisits,
+                    leg: c.displayedLeg,
+                    starter: c.legStarter,
                   ),
                 ),
               ),
       ),
+    );
+    // Keep camera recognition and match state mounted behind the display.
+    return Stack(
+      children: [
+        Offstage(offstage: _deviceMonitor, child: scorer),
+        if (_deviceMonitor)
+          Positioned.fill(
+            child: ScorerMonitorPage(
+              controller: controller,
+              onClose: () => setState(() => _deviceMonitor = false),
+            ),
+          ),
+      ],
     );
   }
 }

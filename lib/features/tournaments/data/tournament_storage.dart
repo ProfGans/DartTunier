@@ -34,6 +34,8 @@ class TournamentStorage {
       );
   static Future<void> _syncTail = Future<void>.value();
   static final syncStatus = ValueNotifier<String>('Lokal gespeichert');
+  static final _acknowledgedRevisions = <String, int>{};
+  String? get currentUserId => _userId;
 
   String? get _userId {
     if (_currentUserId != null) return _currentUserId();
@@ -51,7 +53,9 @@ class TournamentStorage {
     final file = await _storageFile();
     if (!await file.exists()) return {};
     final content = await file.readAsString();
-    final decoded = jsonDecode(content);
+    final decoded = content.length >= 256 * 1024
+        ? await compute(jsonDecode, content)
+        : jsonDecode(content);
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('Ungültiger Turnierspeicher');
     }
@@ -84,7 +88,8 @@ class TournamentStorage {
     }
     document['schemaVersion'] = _schemaVersion;
     final temporary = File('${file.path}.tmp');
-    await temporary.writeAsString(jsonEncode(document), flush: true);
+    final encoded = await compute(_encodeTournamentDocument, document);
+    await temporary.writeAsString(encoded, flush: true);
     await temporary.rename(file.path);
   }
 
@@ -114,7 +119,12 @@ class TournamentStorage {
   // v12 adds optional tournament timing and the original planning baseline.
   // v13 stores the original board-scheduled match completion timeline.
   // v16 adds resolved bot profiles. Missing profiles remain human participants.
-  static const _schemaVersion = 16;
+  // v17 adds optional versioned Challonge archives. Earlier records use null.
+  // The existing migration backup preserves the previous storage document.
+  // v18 adds persisted board exclusions. Older tournaments have no blocked boards.
+  // v19 adds tournament-specific directors and result-entry permissions.
+  // v20 adds optional match starts from assigned board devices (default off).
+  static const _schemaVersion = 20;
 
   Future<Map<String, dynamic>> readPlayerStatistics(String accountId) =>
       _locked(() async {
@@ -159,11 +169,28 @@ class TournamentStorage {
       tournament.updatedAt = DateTime.now();
       final index = tournaments.indexWhere((item) => item.id == tournament.id);
       final previous = index < 0 ? null : tournaments[index];
+      final acknowledged = _acknowledgedRevisions['$_userId:${tournament.id}'];
+      if (acknowledged != null && tournament.syncRevision < acknowledged) {
+        tournament.syncRevision = acknowledged;
+      }
       if (tournament.communityId != null || previous?.communityId != null) {
         for (final permission in requiredTournamentPermissions(
           previous?.toJson(),
           tournament.toJson(),
         )) {
+          final previousAccess = previous?.access;
+          final creator =
+              _userId != null && previousAccess?.creatorUserId == _userId;
+          final director =
+              _userId != null &&
+              (previousAccess?.directorUserIds.contains(_userId) ?? false);
+          if (permission == CommunityPermission.leadTournaments &&
+              (creator || director)) {
+            continue;
+          }
+          if (permission == CommunityPermission.editTournaments && creator) {
+            continue;
+          }
           await _check(
             previous?.communityId ?? tournament.communityId!,
             permission,
@@ -241,15 +268,18 @@ class TournamentStorage {
           'payload': tournament.toJson(),
           'is_deleted': false,
         };
+        int? revision;
         if (_upload != null) {
           await _upload(row).timeout(const Duration(seconds: 8));
         } else {
-          await Supabase.instance.client
-              .rpc(
-                'save_community_tournament',
-                params: {'tournament_payload': tournament.toJson()},
-              )
-              .timeout(const Duration(seconds: 8));
+          revision =
+              await Supabase.instance.client
+                      .rpc(
+                        'save_community_tournament_v2',
+                        params: {'tournament_payload': tournament.toJson()},
+                      )
+                      .timeout(const Duration(seconds: 8))
+                  as int;
         }
         await _locked(() async {
           final latest = await _readDocument();
@@ -259,6 +289,17 @@ class TournamentStorage {
           if (jsonEncode(remaining[entry.key]) == jsonEncode(entry.value)) {
             remaining.remove(entry.key);
           }
+          if (revision != null) {
+            _acknowledgedRevisions['$userId:${tournament.id}'] = revision;
+            for (final item in latest['tournaments'] as List? ?? []) {
+              if (item is Map && item['id'] == tournament.id) {
+                item['syncRevision'] = revision;
+              }
+            }
+            if (remaining[entry.key] case final Map pendingEntry) {
+              (pendingEntry['payload'] as Map)['syncRevision'] = revision;
+            }
+          }
           latest['pending'] = remaining;
           await _writeDocument(latest);
           syncStatus.value = remaining.isEmpty
@@ -266,6 +307,10 @@ class TournamentStorage {
               : 'Lokal gespeichert – Synchronisierung ausstehend';
         });
       }
+    } on PostgrestException catch (error) {
+      syncStatus.value = error.code == '40001'
+          ? 'Konflikt: Online gibt es neuere Ergebnisse. Online-Stand laden; lokale Änderungen bleiben bis dahin erhalten.'
+          : 'Synchronisierung abgelehnt. Turnierrechte und Servereinrichtung prüfen. Lokale Änderungen bleiben erhalten.';
     } catch (_) {
       syncStatus.value =
           'Lokal gespeichert – Synchronisierung ausstehend. Automatischer Wiederholungsversuch folgt.';
@@ -301,6 +346,52 @@ class TournamentStorage {
   });
 
   Future<void> deleteTournament(String id) async {
+    await _deleteTournament(id);
+  }
+
+  /// Called only after the user explicitly chooses to discard pending changes.
+  Future<CreatedTournament> loadAuthoritativeTournament(
+    String id,
+    String communityId,
+  ) {
+    final next = _syncTail.then(
+      (_) => _loadAuthoritativeTournament(id, communityId),
+    );
+    _syncTail = next.then<void>((_) {}, onError: (Object error) {});
+    return next;
+  }
+
+  Future<CreatedTournament> _loadAuthoritativeTournament(
+    String id,
+    String communityId,
+  ) async {
+    final row = await Supabase.instance.client
+        .from('tournaments')
+        .select('payload,owner_user_id')
+        .eq('client_tournament_id', id)
+        .eq('community_id', communityId)
+        .eq('is_deleted', false)
+        .single();
+    final payload = Map<String, dynamic>.from(row['payload'] as Map);
+    payload['access'] = {
+      ...?payload['access'] as Map<String, dynamic>?,
+      'creatorUserId': row['owner_user_id'],
+    };
+    final remote = CreatedTournament.fromJson(payload);
+    await _locked(() async {
+      final document = await _readDocument();
+      final list = List<dynamic>.from(document['tournaments'] as List? ?? []);
+      list.removeWhere((t) => t is Map && t['id'] == id);
+      list.add(remote.toJson());
+      document['tournaments'] = list;
+      (document['pending'] as Map?)?.remove(id);
+      _acknowledgedRevisions['$_userId:$id'] = remote.syncRevision;
+      await _writeDocument(document);
+    });
+    return remote;
+  }
+
+  Future<void> _deleteTournament(String id) async {
     await _locked(() async {
       final tournaments = await _loadTournamentsUnlocked();
       final target = tournaments.where((t) => t.id == id).firstOrNull;
@@ -340,3 +431,6 @@ class TournamentStorage {
     return File('${directory.path}${Platform.pathSeparator}tournaments.json');
   }
 }
+
+String _encodeTournamentDocument(Map<String, dynamic> document) =>
+    jsonEncode(document);

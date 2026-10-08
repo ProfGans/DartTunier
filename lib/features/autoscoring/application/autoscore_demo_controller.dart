@@ -13,6 +13,7 @@ class ReviewedAutoscoreThrow {
   String? diagnosticPath;
   bool wasCorrected = false;
   bool ignored = false;
+  String? verificationSource;
   AutoscoreSetupThrow? setupThrow;
   bool get estimated => !wasCorrected && evidence?.hit['needsReview'] == true;
   DartThrowResult? actual;
@@ -83,9 +84,17 @@ class AutoscoreDemoController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setImageLabels(int index, List<Map<String, Object?>> labels) {
+    _history[index].evidence?.hit['cameraTrainingLabels'] = labels;
+    notifyListeners();
+  }
+
   void reset() {
     for (final entry in _history.skip(_visitStart)) {
-      entry.actual ??= entry.detected;
+      if (entry.actual == null) {
+        entry.actual = entry.detected;
+        entry.verificationSource = 'automaticUntouchedOnRemoval';
+      }
       setupStore?.review(entry.setupThrow, corrected: entry.wasCorrected);
     }
     _visitStart = _history.length;
@@ -96,6 +105,7 @@ class AutoscoreDemoController extends ChangeNotifier {
     _history[index].correctedPoint = null;
     _history[index].actual = actual;
     _history[index].wasCorrected = true;
+    _history[index].verificationSource = 'manualCorrection';
     setupStore?.review(_history[index].setupThrow, corrected: true);
     setupStore?.verify(
       _history[index].setupThrow,
@@ -120,6 +130,7 @@ class AutoscoreDemoController extends ChangeNotifier {
   void confirm(int index) {
     if (_history[index].wasCorrected) return;
     _history[index].actual = _history[index].detected;
+    _history[index].verificationSource = 'manualConfirmation';
     setupStore?.review(_history[index].setupThrow, corrected: false);
     setupStore?.verify(
       _history[index].setupThrow,

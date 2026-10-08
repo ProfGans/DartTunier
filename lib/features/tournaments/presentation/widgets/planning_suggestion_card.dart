@@ -47,6 +47,8 @@ class PlanningSuggestionCard extends StatelessWidget {
                     Text('${i+1}. ${suggestion.configurations[i].name}: ${suggestion.stageMatchCounts[i]} Spiele'),
                   if (suggestion.configurations.isNotEmpty)
                     const Text('Mit der Turnierlogik und Boardplanung simuliert. Freilose zählen nicht als Spiele. Bei Mehrfach-KO und Kratzer hängen Spielanzahl und Dauer vom Ergebnisverlauf ab. Zusätzliche Entscheidungsspiele und Pausen können die Dauer verlängern.'),
+                  for (final stage in suggestion.configurations.where((s) => s.groupPlayType == 'swiss'))
+                    Text('Swiss: ${stage.groupRoundRobinRepeats.join(" / ")} Runden. Jede Runde wartet auf sämtliche Partien der vorherigen Runde; die eingestellte Reserve je Rundenwechsel ist enthalten.'),
                   if (suggestion.duration case final duration?) ...[
                     const SizedBox(height: 12),
 

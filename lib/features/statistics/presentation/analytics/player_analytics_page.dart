@@ -14,16 +14,21 @@ class PlayerAnalyticsPage extends StatefulWidget {
     required this.name,
     required this.tournaments,
     this.scorer,
+    this.favoriteDouble = '',
+    this.communityReports = const {},
+    this.communityNames = const {},
     this.heatmapSessions,
     this.community = false,
     this.embedded = false,
     this.header = const [],
     this.footerBuilder,
   });
-  final String name;
+  final String name, favoriteDouble;
   final bool community;
   final StatisticsReport tournaments;
   final StatisticsReport? scorer;
+  final Map<String, StatisticsReport> communityReports;
+  final Map<String, String> communityNames;
   final List<ScorerHeatmapSession>? heatmapSessions;
   final bool embedded;
   final List<Widget> header;
@@ -36,14 +41,40 @@ class _AnalyticsState extends State<PlayerAnalyticsPage> {
   StatisticsPeriod? period;
   String periodLabel = 'Gesamt';
   bool scorer = true;
+  bool communityGames = false;
+  String? selectedCommunity;
   bool? doubles;
   @override
+  void didUpdateWidget(PlayerAnalyticsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (selectedCommunity != null &&
+        !widget.communityReports.containsKey(selectedCommunity)) {
+      selectedCommunity = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final useScorer = scorer && widget.scorer != null;
-    final report = (useScorer ? widget.scorer! : widget.tournaments).filtered(
-      period: period,
-      doubleMatch: doubles,
-    );
+    final useCommunity = communityGames && widget.communityReports.isNotEmpty;
+    final useScorer = !useCommunity && scorer && widget.scorer != null;
+    final communityLabels = {
+      for (final entry in widget.communityReports.entries)
+        for (final o in entry.value.observations)
+          '${o.playerId}:${o.id}':
+              widget.communityNames[entry.key] ?? entry.key,
+    };
+    final communityReport = StatisticsReport([
+      for (final entry in widget.communityReports.entries)
+        if (selectedCommunity == null || entry.key == selectedCommunity)
+          ...entry.value.observations,
+    ]);
+    final report =
+        (useCommunity
+                ? communityReport
+                : useScorer
+                ? widget.scorer!
+                : widget.tournaments)
+            .filtered(period: period, doubleMatch: doubles);
     final body = AdaptiveContentList(
       children: [
         ...widget.header,
@@ -56,25 +87,61 @@ class _AnalyticsState extends State<PlayerAnalyticsPage> {
             period = p;
           }),
         ),
-        if (widget.scorer != null) ...[
+        if (widget.scorer != null || widget.communityReports.isNotEmpty) ...[
           const SizedBox(height: 12),
-          SportSectionNavigation<bool>(
+          SportSectionNavigation<int>(
             label: 'Statistikbereich',
-            selected: useScorer,
-            sections: const [
-              SportSection(true, 'Meine Scorer-Spiele', Icons.sports_score),
-              SportSection(
-                false,
+            selected: useCommunity
+                ? 2
+                : useScorer
+                ? 0
+                : 1,
+            sections: [
+              if (widget.scorer != null)
+                const SportSection(
+                  0,
+                  'Meine Scorer-Spiele',
+                  Icons.sports_score,
+                ),
+              const SportSection(
+                1,
                 'Turnierergebnisse',
                 Icons.emoji_events_outlined,
               ),
+              if (widget.communityReports.isNotEmpty)
+                const SportSection(
+                  2,
+                  'Community-Spiele',
+                  Icons.groups_outlined,
+                ),
             ],
             onChanged: (value) => setState(() {
-              scorer = value;
-              if (value) doubles = null;
+              communityGames = value == 2;
+              scorer = value == 0;
+              if (scorer) doubles = null;
             }),
           ),
         ],
+        if (useCommunity)
+          DropdownButtonFormField<String>(
+            initialValue: selectedCommunity,
+            isExpanded: true,
+            itemHeight: null,
+            isDense: false,
+            decoration: const InputDecoration(labelText: 'Community filtern'),
+            items: [
+              const DropdownMenuItem<String>(
+                value: null,
+                child: Text('Alle Communities'),
+              ),
+              for (final id in widget.communityReports.keys)
+                DropdownMenuItem(
+                  value: id,
+                  child: Text(widget.communityNames[id] ?? 'Community · $id'),
+                ),
+            ],
+            onChanged: (id) => setState(() => selectedCommunity = id),
+          ),
         if (!useScorer) ...[
           const SizedBox(height: 12),
           SportSectionNavigation<int>(
@@ -95,7 +162,9 @@ class _AnalyticsState extends State<PlayerAnalyticsPage> {
         ],
         const SizedBox(height: 12),
         Text(
-          useScorer
+          useCommunity
+              ? 'Deine zugeordneten Community-Begegnungen. Zeitraum, Community und Einzel/Doppel filtern alle Kennzahlen und Detailansichten.'
+              : useScorer
               ? 'Persönlich zugeordnete Scorer-Sitzungen. Laufende Sitzungen tragen Aufnahme-Statistiken bei.'
               : 'Über die gespeicherten Profil-IDs zugeordnete Turnierergebnisse. Nur übertragene Scorer-Aufnahmen ermöglichen Scoring- und Checkoutwerte.',
         ),
@@ -106,7 +175,8 @@ class _AnalyticsState extends State<PlayerAnalyticsPage> {
         const SizedBox(height: 16),
         CockpitHeatmapSection(
           subject: widget.name,
-          community: widget.community,
+          favoriteDouble: widget.favoriteDouble,
+          community: widget.community || useCommunity,
           sessions: useScorer ? widget.heatmapSessions : null,
           period: period,
         ),
@@ -114,7 +184,28 @@ class _AnalyticsState extends State<PlayerAnalyticsPage> {
           report: report,
           title: 'Statistik · ${widget.name}',
         ),
-        ...?widget.footerBuilder?.call(period),
+        if (useCommunity) ...[
+          Text(
+            'Community-Begegnungen · ${report.observations.length}',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          if (report.observations.isEmpty)
+            const Text('Keine eigenen Community-Spiele für diese Auswahl.'),
+          for (final observation in report.observations.reversed)
+            Card(
+              child: ListTile(
+                title: Text(observation.label),
+                subtitle: Text(
+                  '${communityLabels['${observation.playerId}:${observation.id}']} · ${observation.result == 'S'
+                      ? 'Sieg'
+                      : observation.result == 'N'
+                      ? 'Niederlage'
+                      : 'Unentschieden'} · ${observation.estimatedDate ? 'Spielzeit nicht erfasst' : observation.date.toLocal().toString().substring(0, 16)}',
+                ),
+              ),
+            ),
+        ],
+        if (useScorer) ...?widget.footerBuilder?.call(period),
       ],
     );
     return widget.embedded

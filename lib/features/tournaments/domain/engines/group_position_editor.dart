@@ -14,7 +14,6 @@ class GroupPositionEditor {
     (match) =>
         match.startedAt == null &&
         match.finishedAt == null &&
-        match.startedPlayers == null &&
         !match.isAnnulled &&
         match.homeLegs == null &&
         match.awayLegs == null &&
@@ -49,6 +48,7 @@ class GroupPositionEditor {
       match.homePlayer = replace(match.homePlayer);
       match.awayPlayer = replace(match.awayPlayer);
       match.boardNumber = null;
+      match.startedPlayers = null;
     }
     return true;
   }

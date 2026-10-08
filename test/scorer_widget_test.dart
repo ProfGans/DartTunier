@@ -1,3 +1,4 @@
+import 'support/scorer_setup_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/scorer_page.dart';
@@ -97,6 +98,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Gegen Bot spielen'));
       await tester.pumpAndSettle();
+      await scorerSetupReview(tester);
       await tester.scrollUntilVisible(
         find.text('Spiel starten'),
         350,

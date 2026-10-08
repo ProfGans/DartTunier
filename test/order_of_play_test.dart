@@ -38,6 +38,18 @@ CreatedTournament fixture({int boards = 2}) {
 
 void main() {
   const controller = OrderOfPlayController();
+  test('participant suggestion excludes busy opponents and occupied boards', () {
+    final t = fixture();
+    final first = controller.suggestForPlayer(t, 0, t.players.first)!;
+    expect(controller.start(t, 0, first.entry.match, first.board), true);
+    expect(controller.suggestForPlayer(t, 0, t.players.first), isNull);
+    final idle = t.players.firstWhere((p) => !first.entry.players.contains(p.name));
+    final next = controller.suggestForPlayer(t, 0, idle)!;
+    expect(next.board, isNot(first.board));
+    expect(next.entry.players.intersection(first.entry.players), isEmpty);
+    expect(controller.start(t, 0, next.entry.match, next.board), true);
+    expect(controller.suggestForPlayer(t, 0, t.players.last), isNull);
+  });
   test('all matches scheduled once with no board or player conflicts', () {
     for (final boards in [1, 2, 3, 4]) {
       final tournament = fixture(boards: boards);
@@ -118,5 +130,23 @@ void main() {
     expect(match.startedAt, isNull);
     expect(match.finishedAt, isNull);
     expect(match.boardNumber, isNull);
+  });
+  test('early manually entered result replans and survives reopening', () {
+    final tournament = fixture();
+    final pulled = controller.plan(tournament, 0).planned.last.entry;
+    pulled.match.homeLegs = 2;
+    pulled.match.awayLegs = 1;
+    controller.resultRecorded(pulled.match);
+    final restored = CreatedTournament.fromJson(tournament.toJson());
+    final schedule = controller.plan(restored, 0);
+    expect(schedule.finished.length, 1);
+    expect(schedule.planned.length, 14);
+    expect(schedule.planned.first.entry.players.intersection(pulled.players), isEmpty);
+    final finished = schedule.finished.single.match;
+    finished.homeLegs = null;
+    finished.awayLegs = null;
+    controller.resultRecorded(finished);
+    expect(controller.plan(restored, 0).planned.length, 15);
+    expect(controller.plan(restored, 0).finished, isEmpty);
   });
 }

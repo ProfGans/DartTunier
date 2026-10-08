@@ -122,3 +122,148 @@ Validierung: flutter analyze ohne Befunde; 65 Tests aus 14 Suites einschliesslic
 Auf schmalen Gruppenflaechen stehen offene Spiele direkt sichtbar vor der Tabelle. Tabellen/Qualifikation und abgeschlossene Spiele sind getrennte aufklappbare Bereiche. Bei mehreren Gruppen zeigt die mobile Etappenuebersicht eine Gruppenauswahl und nur die ausgewaehlte Gruppe; breite Fenster behalten die Gesamtuebersicht. Gruppenverwaltung ist eingeklappt, eine Etappenauswahl fuer nur eine Etappe entfaellt. Die bestehende Ergebnisbearbeitung und Berechnung bleiben erhalten.
 
 Validierung: flutter analyze ohne Befunde; 18 Tests aus Responsive-, Order-of-Play- und Turniermatrix-Suites sowie ein neuer Gruppen-Test bestanden. Der Gruppen-Test prueft Auswahl-Erhalt bei Mobile/Desktop-Wechsel und aufklappbare abgeschlossene Ergebnisse. Seiten bei 360x800, 800x600 und 1440x900 mit 100/200 Prozent Schrift geprueft. Gerenderte mobile und Desktop-Turnieransichten visuell kontrolliert; keine Sichtpruefung auf physischen Smartphones.
+
+
+## Expertenmodus strukturieren (07.10.2026)
+
+Die freie Turniererstellung nutzt drei nummerierte, aufklappbare Bereiche: Name/Teilnehmer, Turnierablauf und Pruefen/Anlegen. Der erste Bereich ist anfangs offen. Kurzinfos zeigen Teilnehmerzahl, gespeicherte Etappen und Boards auch im geschlossenen Zustand. Spielregeln, individuelle Gruppenoptionen, detaillierte Qualifikation und Gleichstandskriterien oeffnen sich nur bei Bedarf. Eine beschriftete Etappenaktion ergaenzt den bisherigen Icon-Zugang. Felder und vorhandene Berechnungen/Callbacks bleiben erhalten; kein neues Persistenzschema.
+
+ExpertSetupSection ist eine eigene Widget-Library. Untergeordnete Scrollflaechen haben einen separaten PageStorage-Bereich, damit ihre Scrollposition nicht mit dem booleschen Aufklappzustand kollidiert.
+
+Validierung: 23 Tests aus Creation-Entry-, Adaptive-, Responsive- und Turniermatrix-Suites bestanden; sechs Creation-Entry-Faelle nach Verwendung des App-Themes erneut bestanden. Groessen 360x800, 800x600 und 1440x900 bei 100/200 Prozent Schrift; Gruppenzahl bleibt nach Zuklappen/Aufklappen erhalten, Geraetevorbereitung erreichbar. Gerenderte Mobile- und Desktop-Vorschauen unter build/layout_previews/ExpertCreation_* visuell kontrolliert. Keine Pruefung auf physischen Smartphones. flutter analyze meldet zuletzt einen bestehenden Stilhinweis in test/manual_update_card_test.dart:35, keine Befunde in der geaenderten Turniererstellung.
+
+
+## Scorer-Partie als Wizard (07.10.2026)
+
+Die Partieerstellung hat drei Schritte: Teilnehmer, Spielregeln und Pruefen/Starten. ScorerSetupWizard ist eine eigene Widget-Library mit begrenzter Desktop-Breite, scrollbar angeordneten Inhalten, Fortschrittsanzeige und umbrechenden Aktionen. Schrittwechsel setzen die Scrollposition zurueck. Textcontroller und Teilnehmerentwurf bleiben im Seiten-State; Zurueck per Button, Kopfzeile oder Systemnavigation und Rotation behalten Eingaben. Online-Einladungen, individuelle Startpunkte sowie In-Regel/Set-Spiel sind optionale Aufklappbereiche. Anwurf-Auswahl und Zusammenfassung zeigen Spielernamen. Ungueltige Eingaben und doppelte Spieler blockieren das Weitergehen; die bestehende vollstaendige Startvalidierung bleibt erhalten.
+
+Validierung: 52 Tests aus Wizard-, Scorer-, Theo-, Doppel-, Fernsteuerungs- und Responsive-Suites bestanden. Nach finaler Text-/Validierungsanpassung weitere 30 Tests aus Wizard, Audio und Turniermatrix bestanden. Die neue Wizard-Matrix prueft alle Schritte bei 360x800, 800x600, 1440x900 und 100/200 Prozent Schrift, inklusive Rotation, Zurueck, ungueltigen Startpunkten sowie Erhalt von Namen/Punkten. Ein Remote-Start-Test prueft individuelle Punkte, Double In und Best-of-Sets im uebergebenen ScorerSettings. Gerenderte Schritte unter build/layout_previews/ScorerWizard_* auf Mobile/Desktop visuell kontrolliert; keine physischen Smartphones getestet.
+
+Die Responsive-Matrix nutzt injizierbare stille Audioausgaben fuer Autoscorer-, Erkennungs-, Demo- und Scorer-Ansichten. So benoetigt der reine Layout-Test keine nativen Audio-Plugins; die Standardausgabe im Produkt bleibt erhalten. Die Einladungs-Aufklappflaeche hat einen getrennten PageStorage-Bereich fuer untergeordnete Scroll-/Auswahltexte. flutter analyze meldet zuletzt drei Stilhinweise ausserhalb dieser Aenderung: scorer_heatmap_repository.dart:56/120 und test/manual_update_card_test.dart:35.
+
+
+## App-weite Menüprüfung (7. Oktober 2026)
+
+Die Presentation-Bereiche wurden auf lange Formulare, viele gleichzeitige Aktionen,
+fehlende mobile Gruppierung und auf bereits vorhandene kompakte Navigation untersucht:
+Home, Turniere/Planung/Ergebnisse, Scorer/Lobby/Bots/Monitor, Autoscorer/Kamera,
+Spieler/Profil/Statistik, Communities/Ranglisten/Rollen, Kalender/Highlights,
+Geräte/Fernsteuerung, Einstellungen/Backups/Updates, Push und Entwicklungstester.
+Bestehende Sport-Menüs, Bereichsnavigation, fachlich notwendige Tabellen und
+Kamera-Arbeitsflächen bleiben erhalten. Neue Gruppen betreffen folgende Ansichten:
+
+- Bots: Stärke bleibt direkt erreichbar; Streuung sowie Anzeige/Kamera sind optional.
+- Planung: Turnieraufbau offen; Leg-Dauern, Bewertung und Erklärung kompakt.
+  Geöffnete Parameter nutzen auf Desktop mehrere Spalten.
+- Profil: Name/Nationalität direkt; Walk-on/Favoriten und Dart-Komponenten optional.
+- Autoscorer: Kamera-Einstieg vor Statistik; Prüfung und Erfassungsvorgaben gefaltet.
+- Liga: getrennte Heim-/Gastaufstellungen mit Zusammenfassung, Geräte optional.
+- Kalender: optionale Ortsangaben, separates Spielformat; Terminverwaltung im
+  beschrifteten Aktionsmenü, Erinnerung und Turnierstart direkt erreichbar.
+- Rollen: Rechte nach Turnier, Community und weiteren Bereichen gruppiert;
+  bestehende Rollen zeigen eine kompakte Rechte-Zusammenfassung.
+- Highlights: Leistung/Datum direkt; Zuordnung/Notiz optional.
+- Push: durchsuchbare Empfängerauswahl; Auswahl bleibt beim Filtern erhalten.
+- Fernsteuerung: Verbindung zuerst; Verbindungsmodus separat.
+
+`SportSettingsSection` ist eine echte Shared-Widget-Library mit natürlichen Höhen,
+`maintainState`, KeepAlive und eigenem PageStorage für den Inhalt. Dadurch bleiben
+Eingaben und Öffnungszustand beim Scrollen/Resize erhalten und Scroll-Offsets
+kollidieren nicht mit Expansion-Zuständen. Formulare öffnen bei ungültigen Angaben
+betroffene Optionsbereiche; Fachregeln und Speicherformate bleiben unverändert.
+
+Prüfung: `test/menu_declutter_test.dart` ergänzt die vorhandene responsive Matrix
+um kompakte und geöffnete Menüs auf 360×800, 800×600 und 1440×900, jeweils mit
+100/200 % Text. Dazu Scroll-/Resize-Erhalt und bestehende Speicher-/Berechtigungs-
+und Workflow-Tests. Optionale Render-Vorschauen liegen unter
+`build/layout_previews/menu_<Bereich>_<Breite>.png` (Font-Define wie oben).
+Desktop-/Mobil-Renderings geprüft; keine Prüfung auf physischen Geräten.
+
+
+## Turniere: mobile Runde im Vordergrund (7. Oktober 2026)
+
+Turnierkarten zeigen Name, Umfang und Status kompakter. In der Turnierleitung
+stehen Ansicht/Etappe und Partien zuerst; Uhr, Regeln und Elo liegen in
+„Turnierdetails“ unter dem Spielbereich. Gruppenverwaltung folgt den Partien.
+Mobile Gruppenspiele, K.-o., Mini-K.-o. und Spielansicht verwenden eine gemeinsame
+`RoundMatchList`: eine ausgewählte Runde, zuerst eine spielbereite offene Runde,
+mit weiterhin erreichbaren späteren Runden und Ergebnissen. Gruppen-Spieltabelle
+und abgeschlossene Spiele bleiben separat erreichbar. K.-o.-Bäume und Setzung
+sind auf Mobile optional aufklappbar, auf breiten Ansichten direkt sichtbar.
+Die Rundenauswahl wird im PageStorage isoliert gespeichert und über Resize
+wiederhergestellt. Ergebniszeilen verzichten auf zusätzliche Boxen um jeden Namen.
+Order of Play gruppiert fertige/wartende Matches und Erklärung separat.
+
+`test/tournament_mobile_focus_test.dart` prüft die echte Turnierseite mit mehreren
+Runden, Wechsel zur Spielansicht, Resize-Erhalt, mobile K.-o.-Ergebniseingabe,
+optionale Bäume und Mini-K.-o. Zusammen mit den gemeinsamen Layouttests werden
+360×800, 800×600, 1440×900 und 200 % Text abgedeckt. Renderings unter
+`build/layout_previews/tournament_focus_<Breite>_<Skalierung>.png` wurden auf
+Desktop und Mobile visuell geprüft. Physische Geräte wurden nicht geprüft.
+
+
+### Turnieransichten und Form-Finder (08.10.2026)
+
+Spielansicht: offene Spiele und Ergebnisse getrennt, eine gewählte Runde mit adaptiven Match-Spalten. Order of Play: laufende Boards und nächster Block im Fokus; weitere Blöcke, Ergebnisse und Hinweise aufklappbar. Live-Statistik: Kennzahlen, Spieler-/Highlights-Auswahl, Suche, Sortierung und aufklappbare Spielerdetails. Der Form-Finder stellt Teilnehmer, Boards und Dauer vor die optionalen Bereiche Turnierformen, Aufbau/Gruppen und Spielregeln; Berechnen bleibt im Dialog-Fuß erreichbar. Eingaben und Auswahl bleiben beim Auf-/Zuklappen erhalten. Fehlerhafte Gruppengrenzen öffnen den zuständigen Bereich.
+
+`test/tournament_views_overhaul_test.dart` prüft alle vier Ansichten bei 360x800, 800x600 und 1440x900 mit 100/200 Prozent Schrift. Ergebnisfilter, weitere Spielblöcke, Erhalt der Statistik-Suche und der Form-Auswahl werden interaktiv geprüft. Optional entstehen mit `LAYOUT_PREVIEW_FONT` die Bilder `build/layout_previews/views_<Bereich>_<Breite>_<Skalierung>.png`. Mobile-/Desktop-Vorschauen visuell geprüft; keine physischen Geräte geprüft. Responsive-, Order-of-Play-, Live-Statistik-, Gruppenpflicht- und Turniermatrix-Tests ergänzen die Prüfung.
+
+
+### Turnierleitungsübersicht (08.10.2026)
+
+Laufende klassische Turniere öffnen standardmäßig „Turnierleitung“. Bestehende
+Bracket-, Spielplan- und Statistikansichten bleiben über die Turniernavigation
+erreichbar; Liga- und importierte Archivansichten behalten ihre eigenen Abläufe.
+Die Übersicht nutzt die aktive Etappe unabhängig von der zuletzt betrachteten
+Bracket-Etappe. Bekannte offene/erledigte Paarungen, Laufzeit und geschätztes Ende,
+Boards mit Gerätenamen und Übertragungsstatus sowie nächste Spiele und Spielersuche
+verwenden die bestehende Order-of-Play- und Timing-Logik. Zukünftige Qualifikanten
+werden nicht vorhergesagt. Die Suche berücksichtigt auch Teammitglieder.
+
+Ab 1000 Pixel Inhaltsbreite stehen Boards und nächste Spiele nebeneinander;
+schmalere Fenster und große Schrift nutzen „Übersicht“, „Boards“ und „Spiele“.
+Suche und Bereichsauswahl bleiben beim Größenwechsel erhalten. Timer aktualisieren
+Spieldauern alle 15 Sekunden; Gerätestatus folgt dem bestehenden Dispatcher.
+Speicherfehler bieten Wiederholen; der Community-Uploadstatus ist ausdrücklich
+appweit gekennzeichnet. Ohne zugeteiltes Gerät bleibt manuelle Eingabe möglich.
+
+Boardsperren werden in Speicherversion 18 als optionales `blockedBoards` gespeichert.
+Altdaten erhalten eine leere Menge; die vorhandene Migration sichert das vorherige
+Dokument. Spielplanung, manuelle Starts und Spielervorschläge beachten die Sperren,
+auch wenn alle Boards gesperrt sind. Laufende Boards lassen sich nicht sperren.
+Community-Boardsperren benötigen wie andere Turnierkonfiguration das bestehende
+Recht „Turniere bearbeiten“; die lokale und serverseitige Prüfung bleibt erhalten.
+Bei fehlgeschlagener Speicherung wird die Sperränderung zurückgenommen.
+
+`test/tournament_director_test.dart` prüft Planung, Neustart/Migration, Suche,
+Ergebniseingabe, Spielstart, Freigabe, Fehler/Wiederholen und alle drei Bereiche
+bei 360x800, 800x600 und 1440x900 mit 100/200 Prozent Schrift. `DirectorPreview`
+ist zusätzlich Teil der gemeinsamen responsiven Matrix. Renderings unter
+`build/layout_previews/Director_*` wurden auf Desktop und Mobile geprüft.
+Turniermatrix-, Order-of-Play-, Geräte- und Speicherregressionen bestehen.
+Echte verbundene Geräte und physische Smartphone-/Steam-Deck-Tests stehen aus.
+
+### Order of Play: sichtbare Reihenfolge (08.10.2026)
+
+Die geplanten Partien sind jetzt durchgehend in nummerierten Spielblöcken sichtbar. Der erste offene Block ist als „Als Nächstes“ hervorgehoben; weitere Blöcke folgen vertikal mit „Danach“. Parallel geplante Partien bleiben innerhalb eines gemeinsamen Blocks. Spätere Partien haben die beschriftete Aktion „Vorziehen“. Kompakte Match-Zeilen auf breiten Displays und umgebrochene Paarungen auf Mobile ersetzen die ungeordnete Kartenübersicht. Kennzahlen stehen in einer kurzen Statuszeile. Die Reihenfolge und Board-Zuordnungen stammen weiterhin unverändert aus dem BoardSchedulingEngine.
+
+`test/order_of_play_widget_test.dart` prüft zusätzlich die Übereinstimmung aller sichtbaren Paarungen mit der Engine, parallele Spiele auf zwei Boards und die aktualisierte nächste Gruppe nach dem Start beider Boards sowie beim Größenwechsel. Die sechs Größen-/Schriftkombinationen in `test/tournament_views_overhaul_test.dart` prüfen die jederzeit sichtbaren folgenden Blöcke. Mobile und Desktop gerendert und visuell geprüft; physische Geräte nicht geprüft.
+
+Eigene Community-Spiele: `test/community_profile_reports_test.dart` prüft Herkunft, Aliaszuordnung, eigene Teilnehmer, doppelte Snapshots sowie Community-Auswahl und Größenwechsel bei 360x800, 800x600 und 1440x900 mit 200 Prozent Schrift. PNG-Vorschauen sind mit `LAYOUT_PREVIEW_FONT` unter `build/layout_previews/community_profile_filter_<Breite>.png` verfügbar. Authentifizierte Live-Community-Abfragen und physische Geräte sind durch diese Fixturetests nicht geprüft.
+
+### Swiss (08.10.2026)
+
+Swiss-Rundenzahl, Hinweise zur Rundensperre und Tabelle mit Buchholz werden in test/swiss_widget_test.dart bei 360x800, 800x600 und 1440x900 mit 100/200 Prozent Schrift geprüft. Mobile-/Desktop-Renderings unter build/layout_previews/swiss_*.png wurden visuell geprüft. Keine Prüfung auf physischen Geräten.
+
+
+
+### Scorer: Desktop-Höhe nutzen (08.10.2026)
+
+Die Spielansicht wertet Breite und Höhe gemeinsam aus. Bei breiten, ausreichend hohen Fenstern wachsen die Spielstand-Panels und die Eingabetasten mit der verfügbaren Höhe; die Schreibertafel bleibt direkt sichtbar. Kleine Fenster, Querformat und große Schrift verwenden weiterhin natürliche, scrollbar bleibende Inhalte. `ScorerPlaySizing` übermittelt ausschließlich Layout-Maße an Scoreboard und Keypad. Stabile Subtree-Keys erhalten angefangene Zifferneingaben und den Leg-Verlauf beim Wechsel zwischen Desktop und Mobile.
+
+`test/scorer_play_space_test.dart` prüft 360x800, 800x600, 1440x900 und die gemeldete Screenshot-Größe 2537x1301 jeweils bei 100/200 Prozent Schrift. Es prüft die tatsächlichen Panel-/Tastenhöhen, die sichtbare Schreibertafel und Eingabeerhalt beim Größenwechsel. Gerenderte Vorschauen `build/layout_previews/scorer_space_<Breite>_<Skalierung>.png` auf Mobile und Desktop visuell kontrolliert. Keine Prüfung auf physischen Geräten.
+
+### Spielstatistik abgeschlossener Partien (08.10.2026)
+
+Antippen abgeschlossener Ergebniszeilen, Order-of-Play-Karten oder KO-Matches öffnet eine lesende Spielstatistik. Stift-Aktionen bearbeiten weiterhin Ergebnisse. Adaptive Kennzahlenkarten bei 360x800, 800x600 und 1440x900 mit 100/200 Prozent Schrift getestet; Handy und Desktop gerendert und visuell geprüft, keine physischen Geräte. Tests: test/tournament_match_statistics_test.dart; Renderings: build/layout_previews/match_statistics_*.png.
+

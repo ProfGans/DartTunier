@@ -1,3 +1,4 @@
+import '../../../shared/widgets/sport_settings_section.dart';
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -354,17 +355,6 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
       body: !_client.connected
           ? AdaptiveContentList(
               children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Bildschirmspiegelung verwenden'),
-                  subtitle: const Text(
-                    'Aus: eigener Scorer mit synchronisierten Eingaben und Autoscoring-Ergebnissen. Ein: bisherige Bildübertragung für andere App-Bereiche.',
-                  ),
-                  value: _screenMode,
-                  onChanged: _client.connecting || _lookup
-                      ? null
-                      : (value) => setState(() => _screenMode = value),
-                ),
                 if (widget.accountDevice != null) ...[
                   Text(
                     'Mit ${widget.accountDevice!.device.name} über deinen Account verbinden.',
@@ -440,6 +430,26 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                   onPressed: _client.connecting ? null : _connect,
                   icon: const Icon(Icons.phonelink),
                   label: const Text('Verbinden'),
+                ),
+                SportSettingsSection(
+                  title: 'Verbindungsmodus',
+                  summary: _screenMode
+                      ? 'Bildschirmspiegelung aktiv'
+                      : 'Synchronisierter Scorer',
+                  icon: Icons.settings_remote_outlined,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Bildschirmspiegelung verwenden'),
+                      subtitle: const Text(
+                        'Aus: eigener Scorer mit synchronisierten Eingaben und Autoscoring-Ergebnissen. Ein: bisherige Bildübertragung für andere App-Bereiche.',
+                      ),
+                      value: _screenMode,
+                      onChanged: _client.connecting || _lookup
+                          ? null
+                          : (value) => setState(() => _screenMode = value),
+                    ),
+                  ],
                 ),
                 if (_client.connecting) ...[
                   const LinearProgressIndicator(),

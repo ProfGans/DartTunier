@@ -35,6 +35,39 @@ void main() {
     ],
   );
   const location = DartLocation(0, -103, estimated: true);
+  test(
+    'Explicit targets and timestamps survive replay; legacy stays unknown',
+    () {
+      final c = ScorerController(settings)..intendedTarget = 'T20';
+      final time = DateTime.utc(2026, 10, 8, 12);
+      c.throwDart(rules.createTriple(20), location: location, thrownAt: time);
+      c.throwDart(rules.createSingle(20), location: location, thrownAt: time);
+      final restored = ScorerController(settings)
+        ..restoreActions(c.exportActions());
+      expect(restored.hits.first.targetLabel, 'T20');
+      expect(restored.hits.first.thrownAt, time);
+      expect(restored.hits.map((h) => h.dartInVisit), [1, 2]);
+      restored.undo();
+      expect(restored.hits, hasLength(1));
+      final legacy = c
+          .exportActions()
+          .map(
+            (action) => Map<String, dynamic>.from(action)
+              ..remove('thrownAt')
+              ..remove('targetLabel'),
+          )
+          .toList();
+      restored.replaceActions(legacy);
+      expect(
+        restored.hits.every((h) => h.targetLabel == null && h.thrownAt == null),
+        isTrue,
+      );
+      c.throwDart(rules.createSingle(20), location: location);
+      expect(c.intendedTarget, isNull);
+      c.dispose();
+      restored.dispose();
+    },
+  );
   test('Physical centroid and RMS use board coordinates', () {
     final c = ScorerController(settings)
       ..throwDart(

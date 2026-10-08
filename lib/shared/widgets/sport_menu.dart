@@ -130,7 +130,7 @@ class SportActionsMenu extends StatelessWidget {
         children: [
           const Icon(Icons.more_horiz),
           const SizedBox(width: 8),
-          Text(label),
+          Flexible(child: Text(label)),
         ],
       ),
     ),
