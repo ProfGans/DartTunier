@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Community-Einladung · Dart Turnierverwaltung</title>
+<meta name="description" content="Öffne deine Community-Einladung in der Dart Turnierverwaltung.">
+<style>
+  body { margin:0; font:1.1rem/1.6 system-ui,sans-serif; background:#f3faf6; color:#172c25; }
+  main { max-width:38rem; margin:8vh auto; padding:clamp(16px,5vw,40px); }
+  h1 { line-height:1.2; overflow-wrap:anywhere; }
+  a,button { display:inline-block; box-sizing:border-box; min-height:48px; padding:12px 20px; margin:8px 8px 8px 0; border-radius:12px; background:#166d55; color:white; border:0; font:inherit; cursor:pointer; }
+  a:focus-visible,button:focus-visible { outline:3px solid #c27e00; outline-offset:4px; }
+  code { font-size:1.4em; letter-spacing:.1em; }
+  input { box-sizing:border-box; width:100%; padding:12px; font:inherit; border:1px solid #63786e; border-radius:8px; }
+  [hidden] { display:none; }
+</style>
+<main>
+  <h1>Du bist zur Community eingeladen</h1>
+  <p id="invalid" hidden>Dieser Einladungslink ist ungültig. Bitte lass dir einen neuen Link senden.</p>
+  <section id="invitation" hidden>
+    <p>Öffne die Einladung in der installierten Dart Turnierverwaltung und melde dich dort mit deinem Account an.</p>
+    <a id="open">In App öffnen</a>
+    <p>Falls die App nicht geöffnet wird: Starte sie selbst und gib unter „Community beitreten“ diesen Code ein:</p>
+    <p><code id="code"></code></p>
+    <button id="copy" type="button">Code kopieren</button>
+    <p id="status" role="status"></p>
+  </section>
+  <section id="tournament" hidden>
+    <h2 id="title">Turniereinladung</h2>
+    <a id="open-tournament">In App öffnen</a>
+    <p>Ohne App kannst du dich hier anmelden. Die Turnierleitung ordnet deine Anmeldung einem Spieler zu oder legt dich neu an.</p>
+    <form id="registration">
+      <label for="name">Spielername</label>
+      <input id="name" name="name" required maxlength="80" autocomplete="nickname">
+      <button id="submit" type="submit">Am Turnier anmelden</button>
+    </form>
+    <p id="registration-status" role="status"></p>
+  </section>
+</main>
+<script>
+  const codes = new URL(location.href).searchParams.getAll('code');
+  const code = (codes[0] || '').trim().toUpperCase();
+  const tokens = new URL(location.href).searchParams.getAll('tournament');
+  const token = tokens[0] || '';
+  const tournamentValid = codes.length === 0 && tokens.length === 1 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+  const valid = tokens.length === 0 && codes.length === 1 && /^[A-Z0-9]{8}$/.test(code);
+  document.getElementById('invalid').hidden = valid || tournamentValid;
+  document.getElementById('invitation').hidden = !valid;
+  if (valid) {
+    document.getElementById('code').textContent = code;
+    document.getElementById('open').href = 'dartturnier://community/join?code=' + encodeURIComponent(code);
+    document.getElementById('copy').onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(code);
+        document.getElementById('status').textContent = 'Einladungscode kopiert.';
+      } catch (_) {
+        document.getElementById('status').textContent = 'Bitte den angezeigten Code markieren und kopieren.';
+      }
+    };
+  }
+  if (tournamentValid) {
+    document.querySelector('h1').textContent = 'Du bist zum Turnier eingeladen';
+    document.getElementById('tournament').hidden = false;
+    document.getElementById('open-tournament').href = 'dartturnier://tournament/join?token=' + token;
+    const status = document.getElementById('registration-status');
+    const submit = document.getElementById('submit');
+    let requestId = crypto.randomUUID();
+    try {
+      requestId = sessionStorage.getItem('join:' + token) || requestId;
+      sessionStorage.setItem('join:' + token, requestId);
+    } catch (_) {}
+    async function rpc(name, parameters) {
+      const response = await fetch('https://hnsyvqtqxdsbbyrayobv.supabase.co/rest/v1/rpc/' + name, {
+        method:'POST', headers:{'Content-Type':'application/json', 'apikey':'sb_publishable_ED8NE9CWSRclj6lQ2baNqw_JPrpXsQB'},
+        body:JSON.stringify(parameters)
+      });
+      if (!response.ok) throw new Error('Anfrage fehlgeschlagen');
+      return response.json();
+    }
+    submit.disabled = true;
+    rpc('tournament_invitation_info', {invitation_token:token}).then(info => {
+      if (!info) { status.textContent = 'Diese Einladung ist abgelaufen oder nicht mehr verfügbar.'; return; }
+      document.getElementById('title').textContent = info.title;
+      submit.disabled = false;
+    }).catch(() => { status.textContent = 'Einladung konnte nicht geladen werden. Bitte die Seite erneut öffnen.'; });
+    document.getElementById('registration').onsubmit = async event => {
+      event.preventDefault(); submit.disabled = true;
+      try {
+        await rpc('request_tournament_join', {invitation_token:token, player_name:document.getElementById('name').value.trim(), request_key:requestId});
+        status.textContent = 'Anmeldung gesendet. Die Turnierleitung übernimmt die Zuordnung.';
+        document.getElementById('registration').hidden = true;
+      } catch (_) {
+        status.textContent = 'Anmeldung fehlgeschlagen. Bitte Verbindung prüfen und erneut versuchen.';
+        submit.disabled = false;
+      }
+    };
+  }
+</script>
+</html>
