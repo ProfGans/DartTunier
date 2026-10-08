@@ -1,9 +1,27 @@
 import 'dart:convert';
 import 'package:html/parser.dart' as html;
+import 'package:html/dom.dart' show Element;
 import '../domain/challonge_tournament.dart';
 
 /// Normalizes Challonge's public bracket store without executing page scripts.
 class ChallongePublicDocument {
+  static String _participantLabel(Element source) {
+    final cell = source.clone(true);
+    for (final decoration in cell.querySelectorAll(
+      '.label, .badge, .portrait',
+    )) {
+      decoration.remove();
+    }
+    final profile = cell.querySelector('a[href*="/users/"]');
+    if (profile == null) return cell.text.trim();
+    final profileName = profile.text.trim();
+    profile.remove();
+    final tournamentName = cell.text
+        .replaceFirst(RegExp(r'\(\s*\)\s*$'), '')
+        .trim();
+    return tournamentName.isEmpty ? profileName : tournamentName;
+  }
+
   static Map<String, dynamic>? store(String source) {
     for (final script in html.parse(source).querySelectorAll('script')) {
       final text = script.text;
@@ -99,7 +117,7 @@ class ChallongePublicDocument {
       }
     }
 
-    void addMatch(dynamic value, String? group) {
+    void addMatch(dynamic value, String? group, String? groupType) {
       if (value is! Map || value['id'] == null) return;
       player(value['player1'], group);
       player(value['player2'], group);
@@ -119,20 +137,26 @@ class ChallongePublicDocument {
         'loser_id': value['loser_id'],
         'scores_csv': score,
         'group_id': group,
+        'group_type': groupType,
+        'player1_seed': value['player1']?['seed'],
+        'player2_seed': value['player2']?['seed'],
         'started_at': value['underway_at'],
         'completed_at': value['completed_at'],
       };
     }
 
     void bracket(Map b, String? group) {
+      final groupType = group == null
+          ? null
+          : b['tournament']?['tournament_type'] as String?;
       for (final round in (b['matches_by_round'] as Map? ?? const {}).values) {
         for (final m in round as List) {
-          addMatch(m, group);
+          addMatch(m, group, groupType);
         }
       }
-      addMatch(b['third_place_match'], group);
+      addMatch(b['third_place_match'], group, groupType);
       for (final m in b['consolation_matches'] as List? ?? const []) {
-        addMatch(m, group);
+        addMatch(m, group, groupType);
       }
     }
 
@@ -145,14 +169,41 @@ class ChallongePublicDocument {
               .querySelectorAll('tbody tr')) {
         final cells = row.querySelectorAll('td');
         if (cells.length < 2) continue;
-        final cell = cells[1].clone(true);
-        for (final label in cell.querySelectorAll('.label')) {
-          label.remove();
-        }
-        final p = players[ChallongeTournament.normalizedName(cell.text)];
+        final name = _participantLabel(
+          row.querySelector('td.participant') ?? cells[1],
+        );
+        var p = players[ChallongeTournament.normalizedName(name)];
+        // A scorecard's match history also identifies the player when its
+        // rendered label differs from the bracket's display name. Require an
+        // unambiguous intersection rather than guessing from a similar name.
         if (p == null) {
-          throw const FormatException(
-            'Teilnehmer ohne öffentliche Spielkennung. Vollständigen Export verwenden.',
+          Set<String>? candidates;
+          for (final link in row.querySelectorAll('[data-match-id]')) {
+            final match = matches[link.attributes['data-match-id']];
+            if (match == null || match['group_id'] != '${group['name']}') {
+              continue;
+            }
+            final ids = {'${match['player1_id']}', '${match['player2_id']}'};
+            candidates = candidates == null
+                ? ids
+                : candidates.intersection(ids);
+          }
+          if (candidates?.length == 1) {
+            final identified = players.values
+                .where(
+                  (player) =>
+                      '${player['id']}' == candidates!.single ||
+                      (player['group_player_ids'] as List).any(
+                        (id) => '$id' == candidates!.single,
+                      ),
+                )
+                .toList();
+            if (identified.length == 1) p = identified.single;
+          }
+        }
+        if (p == null) {
+          throw FormatException(
+            'Teilnehmer „${name.trim()}“ in ${group['name']} konnte keiner öffentlichen Spielkennung zugeordnet werden (${uri.toString()}).',
           );
         }
         final rank = int.tryParse(cells.first.text.trim());
@@ -165,23 +216,33 @@ class ChallongePublicDocument {
       }
     }
     final ranks = html.parse(standings);
+    final standaloneStandings =
+        (store['groups'] as List? ?? const []).isEmpty &&
+        ['swiss', 'round robin'].contains(metadata['tournament_type']);
     for (final row in ranks.querySelectorAll('table.standings tbody tr')) {
-      final cell = row.querySelector('td.display_name');
+      final cells = row.querySelectorAll('td');
+      final cell =
+          row.querySelector('td.display_name') ??
+          (standaloneStandings ? row.querySelector('td.participant') : null);
       final rank = int.tryParse(
-        row.querySelector('td.rank')?.text.trim() ?? '',
+        row.querySelector('td.rank')?.text.trim() ??
+            (standaloneStandings && cells.isNotEmpty
+                ? cells.first.text.trim()
+                : ''),
       );
       if (cell == null || rank == null) continue;
-      final p = players[ChallongeTournament.normalizedName(cell.text)];
+      final name = _participantLabel(cell);
+      final p = players[ChallongeTournament.normalizedName(name)];
       if (p == null) {
-        throw const FormatException(
-          'Platzierung verweist auf einen unbekannten Teilnehmer.',
+        throw FormatException(
+          'Platzierung für „$name“ verweist auf einen unbekannten Teilnehmer (${uri.toString()}).',
         );
       }
       p['final_rank'] = rank;
     }
     if (!players.values.any((p) => p['final_rank'] != null)) {
-      throw const FormatException(
-        'Die offiziellen Endplatzierungen konnten nicht gelesen werden.',
+      throw FormatException(
+        'Die offiziellen Endplatzierungen konnten nicht gelesen werden (${uri.toString()}, ${metadata['tournament_type']}).',
       );
     }
     final doc = html.parse(source);

@@ -108,7 +108,10 @@ void main() {
       find.byType(ScorerCameraPanel, skipOffstage: false),
     );
     expect(find.byType(ScorerCameraPanel), findsNothing);
-    expect(tester.getSize(find.byType(ScorerScoreboard)).width, greaterThan(1300));
+    expect(
+      tester.getSize(find.byType(ScorerScoreboard)).width,
+      greaterThan(1300),
+    );
     await tester.tap(find.text('Autoscoring aktiv · Darts korrigieren'));
     await tester.pumpAndSettle();
     expect(find.byType(ScorerCameraPanel), findsOneWidget);
@@ -150,7 +153,7 @@ void main() {
       tester.widget<ScoreKeypad>(find.byType(ScoreKeypad)).enabled,
       isTrue,
     );
-    expect(find.textContaining('Summe der Aufnahme eingeben'), findsOneWidget);
+    expect(find.byType(ScoreKeypad), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

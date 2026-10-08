@@ -212,7 +212,7 @@ void main() {
       await storage.saveTournament(loaded);
       expect((await storage.loadTournaments()).single.blockedBoards, {2});
       expect(await File('${file.path}.v17.bak').exists(), isTrue);
-      expect(jsonDecode(await file.readAsString())['schemaVersion'], 20);
+      expect(jsonDecode(await file.readAsString())['schemaVersion'], 22);
     },
   );
   testWidgets('board actions, search and state survive width changes', (

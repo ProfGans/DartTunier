@@ -15,6 +15,9 @@ class ChallongeBrowserPage extends StatefulWidget {
 
 class _ChallongeBrowserPageState extends State<ChallongeBrowserPage> {
   static Future<WebViewEnvironment?>? _windowsEnvironment;
+  // WebView2 can still deliver native callbacks after a route is removed.
+  // Keep one browser alive across the sequential bracket/standings reads.
+  static final _windowsBrowser = InAppWebViewKeepAlive();
   late final Future<WebViewEnvironment?> _environment = _prepareEnvironment();
   Future<WebViewEnvironment?> _prepareEnvironment() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) return null;
@@ -31,9 +34,13 @@ class _ChallongeBrowserPageState extends State<ChallongeBrowserPage> {
   InAppWebViewController? _controller;
   String? _error;
   bool _reading = false;
+  bool _completed = false;
+  bool _ready = false;
   Future<void> _read({bool automatic = false}) async {
     if (automatic && widget.uri.pathSegments.contains('communities')) return;
-    if (_reading || _controller == null) return;
+    if (!mounted || !_ready || _completed || _reading || _controller == null) {
+      return;
+    }
     _reading = true;
     try {
       final source = await _controller!.evaluateJavascript(
@@ -46,7 +53,11 @@ class _ChallongeBrowserPageState extends State<ChallongeBrowserPage> {
                   null ||
               (!automatic &&
                   widget.uri.pathSegments.contains('communities')))) {
-        if (mounted) Navigator.pop(context, source);
+        if (mounted && !_completed) {
+          _completed = true;
+          await _controller!.stopLoading();
+          if (mounted) Navigator.pop(context, source);
+        }
       } else if (!automatic && mounted) {
         setState(
           () => _error =
@@ -114,13 +125,37 @@ class _ChallongeBrowserPageState extends State<ChallongeBrowserPage> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   return InAppWebView(
+                    keepAlive:
+                        !kIsWeb && defaultTargetPlatform == TargetPlatform.windows
+                        ? _windowsBrowser
+                        : null,
                     webViewEnvironment: snapshot.data,
-                    initialUrlRequest: URLRequest(url: WebUri.uri(widget.uri)),
                     initialSettings: InAppWebViewSettings(
                       useShouldOverrideUrlLoading: true,
                     ),
-                    onWebViewCreated: (controller) => _controller = controller,
-                    onLoadStop: (controller, url) => _read(automatic: true),
+                    onWebViewCreated: (controller) async {
+                      if (!mounted || _completed) return;
+                      _controller = controller;
+                      // A kept-alive browser ignores initialUrlRequest on reuse.
+                      _ready = true;
+                      try {
+                        await controller.loadUrl(
+                          urlRequest: URLRequest(url: WebUri.uri(widget.uri)),
+                        );
+                      } catch (_) {
+                        _ready = false;
+                        if (mounted) {
+                          setState(() => _error =
+                              'Die Browserseite konnte nicht geladen werden.');
+                        }
+                      }
+                    },
+                    onLoadStop: (controller, url) {
+                      if (url?.host == widget.uri.host &&
+                          url?.path == widget.uri.path) {
+                        _read(automatic: true);
+                      }
+                    },
                     shouldOverrideUrlLoading: (controller, action) async {
                       if (action.isForMainFrame != true) {
                         return NavigationActionPolicy.ALLOW;

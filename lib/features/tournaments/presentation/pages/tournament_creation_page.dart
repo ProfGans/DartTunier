@@ -39,6 +39,16 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     defaultGroupTieBreakers,
   );
   final List<int> _groupRoundRobinRepeats = [];
+  final List<int?> _groupMaxGamesPerPlayer = [];
+
+  List<int?> _gameLimitsForGroupSizes(List<int> sizes) => [
+    for (var i = 0; i < sizes.length; i++)
+      _playTypesForGroupSizes(sizes)[i] == 'round_robin' && i < _groupMaxGamesPerPlayer.length ? _groupMaxGamesPerPlayer[i] : null,
+  ];
+  void _setGroupGameLimit(int index, int? limit) => setState(() {
+    while (_groupMaxGamesPerPlayer.length <= index) { _groupMaxGamesPerPlayer.add(null); }
+    _groupMaxGamesPerPlayer[index] = limit;
+  });
   final List<String> _groupPlayTypes = [];
   final List<int> _fixedQualifiersByGroup = [];
   int? _manualExtraRank;
@@ -178,7 +188,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     var totalMatches = 0;
     for (var index = 0; index < groupSizes.length; index++) {
       totalMatches += playTypes[index] == 'swiss' ? (groupSizes[index] ~/ 2) * repeats[index] : playTypes[index] == 'round_robin'
-          ? _roundRobinMatchCount(groupSizes[index], repeats[index])
+          ? _roundRobinMatchCount(groupSizes[index], repeats[index], maxGamesPerPlayer: _gameLimitsForGroupSizes(groupSizes)[index])
           : playTypes[index] == 'mini_knockout' && _placementPlaces.isNotEmpty ? groupSizes[index] - 1 + _optionalPlacementMatchCount(groupSizes[index], {..._placementPlaces, if (_requiredRankForCurrentGroup(index, qualificationPlan).isOdd && _requiredRankForCurrentGroup(index, qualificationPlan) >= 3) _requiredRankForCurrentGroup(index, qualificationPlan)}) : _groupEliminationMatchEstimate(
               groupSizes[index],
               _lossLimitForGroupPlayType(playTypes[index]),
@@ -212,7 +222,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         playTypes[index] == 'swiss'
             ? '${groupLabel(index + 1)} ${repeats[index]} Runden · ${(groupSizes[index] ~/ 2) * repeats[index]} Spiele'
             : playTypes[index] == 'round_robin'
-            ? '${groupLabel(index + 1)} ${_roundRobinMatchCount(groupSizes[index], repeats[index])}'
+            ? '${groupLabel(index + 1)} ${_roundRobinMatchCount(groupSizes[index], repeats[index], maxGamesPerPlayer: _gameLimitsForGroupSizes(groupSizes)[index])} Spiele${_gameLimitsForGroupSizes(groupSizes)[index] == null ? '' : ' · maximal ${_gameLimitsForGroupSizes(groupSizes)[index]} pro Spieler'}'
             : '${groupLabel(index + 1)} ${_groupEliminationMatchEstimate(groupSizes[index], _lossLimitForGroupPlayType(playTypes[index]), _requiredRankForCurrentGroup(index, qualificationPlan))}',
     ];
   }
@@ -983,6 +993,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
 
     try {
       final communityRepository = widget.communityId == null ? null : SupabaseCommunityRepository();
+      final currentAccount = await loadCurrentAccount();
       var canCreateCommunityPlayer = false;
       if (widget.communityId != null) {
         final communities = await communityRepository!.loadMyCommunities();
@@ -990,7 +1001,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
           c.ownerUserId == communityRepository.currentUserId);
       }
       final profiles = widget.communityId == null
-          ? await _database.loadPlayerProfiles()
+          ? tournamentPlayerChoices(await _database.loadPlayerProfiles(), currentAccount)
           : [for (final member in effectiveCommunityMembers(
               await SupabaseCommunityRepository().loadMembers(widget.communityId!),
             )) PlayerProfile(
@@ -1008,6 +1019,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         context: context,
         builder: (context) => PlayerProfilePickerDialog(
           profiles: profiles,
+          currentUserId: currentAccount?.id,
           createPlayer: !canCreateCommunityPlayer ? null : (name) async {
             final member = await communityRepository!.createManualMember(widget.communityId!, name);
             return PlayerProfile(id: member.playerProfileId!, userId: null,
@@ -1175,6 +1187,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         groupTieBreakers: _selectedStageType == 'groups'
             ? List.unmodifiable(_groupTieBreakers)
             : defaultGroupTieBreakers,
+        groupMaxGamesPerPlayer: _selectedStageType == 'groups' ? _gameLimitsForGroupSizes(_calculateGroupSizes()) : const [],
         groupDrawOnStart: _selectedStageType == 'groups'
             ? _groupDrawOnStart
             : false,
@@ -1237,6 +1250,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     _groupPlayType = 'round_robin';
     _groupPlayTypes.clear();
     _groupRoundRobinRepeats.clear();
+    _groupMaxGamesPerPlayer.clear();
     _fixedQualifiersByGroup.clear();
     _manualExtraRank = null;
     _manualExtraCount = null;
@@ -1283,6 +1297,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         _groupRoundRobinRepeats
           ..clear()
           ..addAll(stage.groupRoundRobinRepeats);
+        _groupMaxGamesPerPlayer..clear()..addAll(stage.groupMaxGamesPerPlayer);
         _groupTieBreakers
           ..clear()
           ..addAll(stage.groupTieBreakers);
@@ -1299,6 +1314,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         _selectedExtraGroups.clear();
         _groupPlayTypes.clear();
         _groupRoundRobinRepeats.clear();
+    _groupMaxGamesPerPlayer.clear();
         _fixedQualifiersByGroup.clear();
         _manualExtraRank = null;
         _manualExtraCount = null;
@@ -2255,6 +2271,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                           repeats: _roundRobinRepeatsForGroupSizes(groupSizes),
                           onChangeRepeats: _changeGroupRoundRobinRepeats,
                         ),
+                        GroupGameLimitSetup(groupSizes: groupSizes, playTypes: _playTypesForGroupSizes(groupSizes), repeats: _roundRobinRepeatsForGroupSizes(groupSizes), limits: _gameLimitsForGroupSizes(groupSizes), onChanged: _setGroupGameLimit),
                       ],
                       const SizedBox(height: 12),
                     ],

@@ -16,6 +16,8 @@ import 'widgets/theo_average_input.dart';
 import '../application/scorer_lobby_controller.dart';
 import '../data/scorer_lobby_repository.dart';
 import 'lobby/scorer_lobby_panel.dart';
+import '../domain/bull_off.dart';
+import 'bull_off_page.dart';
 
 class ScorerSetupPage extends StatefulWidget {
   const ScorerSetupPage({
@@ -52,6 +54,7 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
   StartRequirement start = StartRequirement.straightIn;
   CheckoutRequirement checkout = CheckoutRequirement.doubleOut;
   int starter = 0;
+  BullOffRule bullOffRule = BullOffRule.none;
   int _step = 0;
   bool loading = false;
   String? error;
@@ -212,13 +215,24 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
           ),
         );
       }
+      var resolvedStarter = starter;
+      if (bullOffRule != BullOffRule.none) {
+        final result = await Navigator.of(context).push<int>(
+          MaterialPageRoute(
+            builder: (_) =>
+                BullOffPage(rule: bullOffRule, players: resolvedParticipants),
+          ),
+        );
+        if (!mounted || result == null) return;
+        resolvedStarter = result;
+      }
       final settings = ScorerSettings(
         startScore: int.parse(score.text),
         bestOfLegs: int.parse(legs.text),
         bestOfSets: int.parse(sets.text),
         startRequirement: start,
         checkoutRequirement: checkout,
-        startingPlayer: starter,
+        startingPlayer: resolvedStarter,
         botThrowDelay: tuning.throwDelay,
         participants: resolvedParticipants,
       );
@@ -436,32 +450,44 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
                 ),
               ],
               if (_step == 1) ...[
-                DropdownButtonFormField<int>(
+                DropdownButtonFormField<BullOffRule>(
+                  initialValue: bullOffRule,
                   isExpanded: true,
                   isDense: false,
                   itemHeight: null,
-                  key: ValueKey(participants.length),
-                  initialValue: starter,
                   decoration: const InputDecoration(
-                    labelText: 'Anwurf · Ergebnis des Ausbullens',
+                    labelText: 'Ausbullen vor dem Spiel',
                   ),
                   items: [
-                    for (var i = 0; i < participants.length; i++)
-                      DropdownMenuItem(
-                        value: i,
-                        child: Text(
-                          participants[i].teamMembers.isEmpty
-                              ? participants[i].name.text
-                              : participants[i].teamMembers.join(' / '),
-                        ),
-                      ),
+                    for (final rule in BullOffRule.values)
+                      DropdownMenuItem(value: rule, child: Text(rule.label)),
                   ],
-                  onChanged: (v) => setState(() => starter = v!),
+                  onChanged: (value) => setState(() => bullOffRule = value!),
                 ),
-                const Text(
-                  'Bei Ausbullen zuerst am Board ausbullen, dann den Gewinner als Anwerfer wählen. '
-                  'Der Anwurf wechselt nach jedem Leg.',
-                ),
+                const SizedBox(height: 12),
+                Text(bullOffRule.description),
+                const SizedBox(height: 24),
+                if (bullOffRule == BullOffRule.none)
+                  DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    isDense: false,
+                    itemHeight: null,
+                    key: ValueKey(participants.length),
+                    initialValue: starter,
+                    decoration: const InputDecoration(labelText: 'Anwerfer'),
+                    items: [
+                      for (var i = 0; i < participants.length; i++)
+                        DropdownMenuItem(
+                          value: i,
+                          child: Text(
+                            participants[i].teamMembers.isEmpty
+                                ? participants[i].name.text
+                                : participants[i].teamMembers.join(' / '),
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => starter = v!),
+                  ),
                 const SizedBox(height: 24),
               ],
               if (_step == 2) _summary(),
@@ -532,6 +558,7 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
         '${score.text} Punkte · ${checkoutLabel(checkout)} · Best of ${legs.text} Legs${sets.text == '1' ? ' · ohne Sets' : ' · Best of ${sets.text} Sets'}',
     children: [
       Text(start == StartRequirement.doubleIn ? 'Double In' : 'Straight In'),
+      Text('Ausbullen: ${bullOffRule.label}'),
       for (var i = 0; i < participants.length; i++)
         ListTile(
           contentPadding: EdgeInsets.zero,
@@ -546,7 +573,7 @@ class _ScorerSetupPageState extends State<ScorerSetupPage> {
                 : participants[i].teamMembers.join(' / '),
           ),
           subtitle: Text(
-            '${i == starter ? 'Anwurf · ' : ''}${participants[i].score.text.isEmpty ? score.text : participants[i].score.text} Startpunkte'
+            '${bullOffRule == BullOffRule.none && i == starter ? 'Anwurf · ' : ''}${participants[i].score.text.isEmpty ? score.text : participants[i].score.text} Startpunkte'
             '${participants[i].bot && participants[i].useTheo ? ' · Theo ${participants[i].average.text}' : ''}',
           ),
         ),

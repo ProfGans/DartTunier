@@ -30,6 +30,7 @@ class CommunityLiveRanking {
     required bool currentYearOnly,
     List<CommunityRankingAction> actions = const [],
     DateTime? now,
+    int? validityMonths,
   }) {
     if (tournament.communityId == null ||
         !tournament.countsForRanking ||
@@ -50,6 +51,7 @@ class CommunityLiveRanking {
               rankingId: rankingId,
               actions: actions,
               now: now,
+      validityMonths: validityMonths,
             )
             .entries
           ..sort((a, b) {

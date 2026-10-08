@@ -7,7 +7,7 @@ class TournamentRunPage extends StatelessWidget {
   final bool openDevicesOnStart;
 
   @override
-  Widget build(BuildContext context) => tournament.importedArchive != null
+  Widget build(BuildContext context) => tournament.importedArchive != null && !tournament.importedArchive!.usesNativeLogic
       ? ChallongeArchivePage(tournament: tournament)
       : TournamentAccessGate(tournament: tournament, builder: (context, access) =>
           _LiveTournamentRunPage(key: ValueKey('${access.canLead}-${access.canEnterResults}-${access.canConfigure}'),
@@ -120,6 +120,64 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
     }
   }
 
+  Future<void> _withdrawPlayer() async {
+    if (!widget.access.canLead) return;
+    final rule = await showDialog<PlayerWithdrawal>(context: context,
+      builder: (_) => PlayerWithdrawalDialog(tournament: widget.tournament));
+    if (rule == null || !mounted) return;
+    try {
+      await TournamentAccessRepository().requireLead(widget.tournament);
+      if (!mounted) return;
+      setState(() {
+        final affected = const OrderOfPlayController().entries(widget.tournament)
+          .where((e) => [e.match.homePlayer, e.match.awayPlayer].any((p) => p != null && PlayerWithdrawalService.key(p) == rule.playerKey))
+          .map((e) => e.stageIndex).toList()..sort();
+        widget.tournament.withdrawals.add(rule);
+        _advanceKnockoutWinners();
+        if (rule.retroactive && affected.isNotEmpty && affected.first < _activeStageIndex) {
+          _activeStageIndex = affected.first;
+          _viewStageIndex = _activeStageIndex;
+          _completedStageIndexes.removeWhere((i) => i >= _activeStageIndex);
+          widget.tournament.completedStageIndexes.removeWhere((i) => i >= _activeStageIndex);
+          widget.tournament.finishedAt = null;
+          for (var i = _activeStageIndex + 1; i < widget.tournament.runStages.length; i++) {
+            final incoming = _advancingPlayersFromStage(widget.tournament.runStages[i - 1]);
+            widget.tournament.runStages[i] = _buildRunStageFromPlayers(widget.tournament.stages[i], incoming);
+          }
+        }
+        _ensureGroupDeciders();
+      });
+      await _saveTournamentProgress(propagateError: true);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Ausstieg konnte nicht sicher gespeichert werden. Bitte Berechtigung prüfen und erneut speichern.')));
+      }
+    }
+  }
+
+  Future<void> _openTournamentInvitations() async {
+    if (!widget.access.canLead) return;
+    var current = widget.tournament;
+    await _saveTournamentProgress(propagateError: true);
+    if (current.communityId != null) await TournamentStorage().synchronize(tournamentId: current.id);
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<bool>(builder: (_) => TournamentInvitationsPage(
+      tournament: current, onAssign: (request, existing) async {
+        await TournamentAccessRepository().requireLead(current);
+        final next = assignTournamentRegistration(current, request, existing);
+        if (next.players.length != current.players.length) {
+          next.runStages[0] = _buildRunStageFromPlayers(next.stages.first, next.players);
+        }
+        await TournamentStorage().saveTournament(next);
+        current = next;
+      })));
+    if (mounted && current != widget.tournament) {
+      Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => TournamentRunPage(tournament: current)));
+    }
+  }
+
   Future<void> _toggleBoardBlock(int board) async {
     await TournamentAccessRepository().requireLead(widget.tournament);
     if (!mounted) return;
@@ -177,38 +235,26 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
     if (mounted) setState(() {});
   }
   BoardDeviceDispatcher? _deviceDispatcher;
-  Future<void> _deviceResults = Future.value();
-  Future<void> _acceptDeviceResult(Map<String, dynamic> result) {
-    final next = _deviceResults.then((_) async {
-      if (!mounted) throw StateError('Turnierleitung geschlossen');
+  late final _resultReceiver = TournamentResultReceiver(
+    tournament: widget.tournament,
+    authorize: () async {
+      if (!mounted || !widget.access.canLead) throw StateError('Turnierleitung nicht verfügbar');
       if (widget.tournament.communityId != null) {
         await TournamentAccessRepository().requireLead(widget.tournament);
       }
-      const importer = DeviceResultImporter();
-      final match = importer.validate(widget.tournament, result);
-      if (match.deviceResult?['matchId'] != result['matchId']) {
-        final previous = GroupMatch.fromJson(match.toJson());
-        importer.apply(match, result, widget.tournament.stages[_activeStageIndex].gameFormat);
-        try {
-          await _runController.saveProgress(tournament: widget.tournament,
-            activeStageIndex: _activeStageIndex, completedStageIndexes: _completedStageIndexes);
-        } catch (_) {
-          match.homeLegs = previous.homeLegs; match.awayLegs = previous.awayLegs;
-          match.homeSets = previous.homeSets; match.awaySets = previous.awaySets;
-          match.deviceResult = previous.deviceResult; match.finishedAt = previous.finishedAt;
-          rethrow;
-        }
-      }
-      if (!mounted) return;
+      if (!mounted) throw StateError('Turnierleitung geschlossen');
+    },
+    save: () => _runController.saveProgress(tournament: widget.tournament,
+      activeStageIndex: _activeStageIndex, completedStageIndexes: _completedStageIndexes),
+    advance: () async {
+      if (!mounted) throw StateError('Turnierleitung geschlossen');
       setState(() { _advanceKnockoutWinners(); _ensureGroupDeciders(); });
       await _simulateReadyBots();
-      await _runController.saveProgress(tournament: widget.tournament,
-        activeStageIndex: _activeStageIndex, completedStageIndexes: _completedStageIndexes);
-    });
-    _deviceResults = next.then<void>((_) {}, onError: (Object error, StackTrace stack) {});
-    return next;
+    },
+  );
+  Future<void> _acceptDeviceResult(Map<String, dynamic> result) async {
+    await _resultReceiver.submit(result);
   }
-
   Future<void> _openBoardDevices() async {
     if (!widget.access.canLead) return;
     try {
@@ -321,6 +367,11 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
   }
 
   Future<void> _editResult(GroupMatch match) async {
+    if (match.withdrawalSignature != null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:
+        Text('Dieses Ergebnis wurde durch die Ausstiegsregel festgelegt.')));
+      return;
+    }
     if (!widget.access.canEnterResults) return;
     if (!widget.access.canLead && match.isResolved) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Korrekturen übernimmt die Turnierleitung.')));
@@ -509,6 +560,20 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
   }
 
   void _advanceKnockoutWinners() {
+    if (widget.tournament.withdrawals.isEmpty) {
+      _advanceWithoutWithdrawals();
+      return;
+    }
+    // Propagate forfeits through newly populated rounds until stable.
+    final limit = widget.tournament.players.length * 8 + 32;
+    for (var i = 0; i < limit; i++) {
+      final changed = const PlayerWithdrawalService().reconcile(widget.tournament);
+      _advanceWithoutWithdrawals();
+      if (!changed && !const PlayerWithdrawalService().reconcile(widget.tournament)) break;
+    }
+  }
+
+  void _advanceWithoutWithdrawals() {
     for (final stage in widget.tournament.runStages) {
       if (stage is KnockoutTournamentRunStage) {
         if (stage.eliminationLossLimit == 2) {
@@ -581,6 +646,15 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
             targetMatch.isAnnulled = false;
           }
           targetMatch.awayPlayer = winner;
+        }
+      }
+      if (widget.tournament.withdrawals.isNotEmpty) {
+        for (var i = 0; i < nextRound.length; i++) {
+          final sources = currentRound.skip(i * 2).take(2).toList();
+          final target = nextRound[i];
+          final resolved = sources.length == 2 && sources.every((m) => m.isResolved);
+          target.allowsBye = resolved && !target.hasPlayers;
+          if (resolved && target.homePlayer == null && target.awayPlayer == null) target.isAnnulled = true;
         }
       }
     }
@@ -1364,13 +1438,17 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
     TournamentGroup group,
     List<String> tieBreakers,
   ) {
-    if (group.playType == 'swiss') return SwissEngine.standings(group);
+    if (group.playType == 'swiss') {
+      final rows = SwissEngine.standings(group);
+      return [...rows.where((s) => PlayerWithdrawalService.policy(widget.tournament, s.player) == null),
+        ...rows.where((s) => PlayerWithdrawalService.policy(widget.tournament, s.player) != null)];
+    }
     final standings = {
       for (final player in group.players) player.name: PlayerStanding(player),
     };
 
     for (final match in group.matches.where(
-      (match) => match.hasResult && !match.isDecider,
+      (match) => match.countsForStatistics && !match.isDecider,
     )) {
       final homePlayer = match.homePlayer!;
       final awayPlayer = match.awayPlayer!;
@@ -1404,6 +1482,9 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
 
     final sorted = standings.values.toList();
     sorted.sort((a, b) {
+      final withdrawn = (PlayerWithdrawalService.policy(widget.tournament, a.player) == null ? 0 : 1)
+          .compareTo(PlayerWithdrawalService.policy(widget.tournament, b.player) == null ? 0 : 1);
+      if (withdrawn != 0) return withdrawn;
       final comparison = _compareStandings(
         a,
         b,
@@ -1475,7 +1556,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
     var bLegs = 0;
 
     for (final match in matches.where(
-      (match) => match.hasResult && !match.isDecider,
+      (match) => match.countsForStatistics && !match.isDecider,
     )) {
       final home = match.homePlayer!;
       final away = match.awayPlayer!;
@@ -1648,6 +1729,11 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
   }
 
   List<TournamentPlayer> _advancingPlayersFromStage(TournamentRunStage stage) {
+    return _advancingPlayersIncludingWithdrawn(stage).where((p) =>
+      PlayerWithdrawalService.policy(widget.tournament, p) == null).toList();
+  }
+
+  List<TournamentPlayer> _advancingPlayersIncludingWithdrawn(TournamentRunStage stage) {
     if (stage is GroupTournamentRunStage) {
       return _advancingPlayersFromGroupStage(stage);
     }
@@ -2291,6 +2377,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
       groupPlayType: stage.groupPlayType,
       groupPlayTypes: stage.groupPlayTypes,
       groupRoundRobinRepeats: stage.groupRoundRobinRepeats,
+      groupMaxGamesPerPlayer: stage.groupMaxGamesPerPlayer,
       groupTieBreakers: stage.groupTieBreakers,
       groupDrawOnStart: stage.groupDrawOnStart,
       groupSlotOrder: stage.type == 'groups'
@@ -2403,6 +2490,12 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage> with Widgets
           SportActionsMenu(
             label: 'Turnier',
             actions: [
+              if (widget.access.canLead && widget.tournament.finishedAt == null)
+                SportMenuAction(label: 'Einladen und Anmeldungen',
+                  icon: Icons.qr_code, onTap: _openTournamentInvitations),
+              if (widget.access.canLead && widget.tournament.finishedAt == null)
+                SportMenuAction(label: 'Spieler aus Turnier entfernen',
+                  icon: Icons.person_remove_outlined, onTap: _withdrawPlayer),
               if (widget.tournament.communityId != null) SportMenuAction(
                 label: 'Online-Stand laden', icon: Icons.refresh, onTap: _reloadOnlineTournament),
               if (widget.tournament.communityId != null && widget.access.canConfigure) SportMenuAction(

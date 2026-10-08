@@ -134,6 +134,7 @@ AutoscoreEvidence? captureAutoscoreEvidence(
       'recognitionStatus': controller.status,
       'recognitionRunning': controller.running,
       'waitingForEmpty': controller.waitingForEmpty,
+      'removalDecision': controller.removalDecisionMetrics,
       'countedThrows': controller.throws.length,
       'decisionReason': controller.decisionReason,
       'tipDecisionReason': controller.tipDecisionReason,

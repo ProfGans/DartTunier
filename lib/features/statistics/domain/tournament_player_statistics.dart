@@ -91,7 +91,7 @@ class TournamentStatisticsCalculator {
               !period.contains(match.finishedAt ?? match.startedAt)) {
             continue;
           }
-          if (!match.hasResult || match.isAnnulled || !match.hasPlayers) {
+          if (!match.countsForStatistics || match.isAnnulled || !match.hasPlayers) {
             continue;
           }
           final players = [match.homePlayer!, match.awayPlayer!];

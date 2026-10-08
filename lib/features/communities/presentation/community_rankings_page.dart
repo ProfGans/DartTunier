@@ -7,6 +7,7 @@ import '../domain/community.dart';
 import '../domain/community_permissions.dart';
 import '../domain/community_ranking.dart';
 import 'community_ranking_page.dart';
+import 'widgets/ranking_rules_dialog.dart';
 
 /// One ranking opens directly; multiple rankings show a selection first.
 class CommunityRankingsPage extends StatefulWidget {
@@ -32,6 +33,21 @@ class _CommunityRankingsPageState extends State<CommunityRankingsPage> {
   late Future<List<CommunityRanking>> _rankings = widget.repository
       .loadRankings(widget.community.id);
   bool _creating = false;
+
+  Future<void> _settings(CommunityRanking ranking, bool nested) async {
+    final result = await showDialog<({bool deleted, int? months})>(context: context,
+      builder: (_) => RankingRulesDialog(ranking: ranking));
+    if (result == null || !mounted) return;
+    try {
+      await widget.repository.saveRankingRules(widget.community.id, ranking.id,
+        validityMonths: result.months, deleted: result.deleted);
+      if (!mounted) return;
+      if (nested) Navigator.of(context).pop();
+      setState(() => _rankings = widget.repository.loadRankings(widget.community.id));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Änderung fehlgeschlagen. Verbindung und Ranglisten-Rechte prüfen.')));
+    }
+  }
 
   Future<void> _create() async {
     final name = await showDialog<String>(
@@ -68,6 +84,9 @@ class _CommunityRankingsPageState extends State<CommunityRankingsPage> {
         key: ValueKey(ranking.id),
         communityName: ranking.name,
         rankingId: ranking.id,
+        validityMonths: ranking.validityMonths,
+        onSettings: widget.permissions.allows(CommunityPermission.manageRankings)
+            ? () => _settings(ranking, showAppBar) : null,
         communityId: widget.community.id,
         repository: widget.repository,
         canManage: widget.permissions.allows(
@@ -115,6 +134,7 @@ class _CommunityRankingsPageState extends State<CommunityRankingsPage> {
                 ? _ranking(rankings.single)
                 : AdaptiveContentList(
                     children: [
+                      if (rankings.isEmpty) const Text('Keine Ranglisten vorhanden. Erstelle eine neue Rangliste, um Turniere zu werten.'),
                       Text(
                         'Ranglisten',
                         style: Theme.of(context).textTheme.titleLarge,

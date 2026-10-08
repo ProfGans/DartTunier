@@ -72,12 +72,35 @@ begin
  return false;
 end; $$;
 
+create function public.league_result_only(o jsonb, n jsonb)
+returns boolean language plpgsql immutable set search_path=public as $$
+declare i int; a jsonb; b jsonb; h int; v int;
+begin
+ if o is null or n is null or o-'games' is distinct from n-'games'
+   or jsonb_typeof(o->'games') is distinct from 'array' or jsonb_typeof(n->'games') is distinct from 'array'
+   or jsonb_array_length(o->'games')<>jsonb_array_length(n->'games') then return false; end if;
+ for i in 0..jsonb_array_length(o->'games')-1 loop
+   a:=o->'games'->i; b:=n->'games'->i;
+   if a is not distinct from b then continue; end if;
+   if a-array['homeLegs','awayLegs','runtime'] is distinct from b-array['homeLegs','awayLegs','runtime']
+     or nullif(a->'homeLegs','null'::jsonb) is not null or nullif(a->'awayLegs','null'::jsonb) is not null
+     or coalesce(b->>'homeLegs','') !~ '^[0-3]$' or coalesce(b->>'awayLegs','') !~ '^[0-3]$' then return false; end if;
+   h:=(b->>'homeLegs')::int; v:=(b->>'awayLegs')::int;
+   if not ((h=3 and v<3) or (v=3 and h<3)) then return false; end if;
+   if coalesce(a->'runtime','{}'::jsonb)-array['homeLegs','awayLegs','finishedAt']
+      is distinct from coalesce(b->'runtime','{}'::jsonb)-array['homeLegs','awayLegs','finishedAt']
+      or b#>'{runtime,homeLegs}' is distinct from b->'homeLegs'
+      or b#>'{runtime,awayLegs}' is distinct from b->'awayLegs' then return false; end if;
+ end loop;
+ return true;
+end; $$;
+
 create or replace function public.enforce_community_tournament_permissions()
 returns trigger language plpgsql security definer set search_path=public as $$
 declare rights text[]; config_old jsonb; config_new jsonb; access_old jsonb; access_new jsonb;
   can_lead boolean; can_edit boolean; member_id text; active int; revision int;
   runtime text[] := array['updatedAt','syncRevision','access','runStages','activeStageIndex','completedStageIndexes',
-    'startedAt','finishedAt','plannedMinutes','plannedMatches','plannedMatchEndSeconds','blockedBoards','allowDeviceStart'];
+    'startedAt','finishedAt','plannedMinutes','plannedMatches','plannedMatchEndSeconds','blockedBoards','allowDeviceStart','leagueMatch'];
 begin
  if auth.uid() is null then raise exception 'Anmeldung erforderlich' using errcode='42501'; end if;
  if tg_op='UPDATE' and (new.owner_user_id<>old.owner_user_id or new.community_id is distinct from old.community_id
@@ -110,7 +133,12 @@ begin
      raise exception 'Keine Bearbeitungsberechtigung' using errcode='42501'; end if;
    if not can_lead and (old.payload-array['updatedAt','syncRevision','access'] is distinct from new.payload-array['updatedAt','syncRevision','access']) then
      -- Configuration editors do not gain the right to change games.
-     if old.payload->'runStages' is distinct from new.payload->'runStages' then
+     if old.payload->'leagueMatch' is distinct from new.payload->'leagueMatch' then
+       if not coalesce(public.can_report_tournament(old.community_id,old.owner_user_id,old.payload),false)
+         or old.payload-array['updatedAt','syncRevision','leagueMatch'] is distinct from new.payload-array['updatedAt','syncRevision','leagueMatch']
+         or not public.league_result_only(old.payload->'leagueMatch',new.payload->'leagueMatch') then
+         raise exception 'Keine Liga-Ergebnisberechtigung' using errcode='42501'; end if;
+     elsif old.payload->'runStages' is distinct from new.payload->'runStages' then
        active := coalesce((old.payload->>'activeStageIndex')::int,0);
        if not coalesce(public.can_report_tournament(old.community_id,old.owner_user_id,old.payload),false)
          or old.payload-array['updatedAt','syncRevision','access','runStages'] is distinct from new.payload-array['updatedAt','syncRevision','access','runStages']
@@ -184,6 +212,36 @@ begin
  update public.tournaments set payload=jsonb_set(t.payload,match_path,m) where id=t.id returning payload into result;
  return result;
 end; $$;
+
+create function public.submit_league_result(target_tournament text, game_index integer,
+ expected_game jsonb, expected_metadata jsonb, home_score integer, away_score integer)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare t public.tournaments; l jsonb; g jsonb; r jsonb; result jsonb;
+begin
+ if auth.uid() is null then raise exception 'Anmeldung erforderlich' using errcode='42501'; end if;
+ perform pg_advisory_xact_lock(hashtextextended(target_tournament,0));
+ select * into t from public.tournaments where client_tournament_id=target_tournament for update;
+ if not found or t.is_deleted or t.community_id is null or not coalesce(public.can_report_tournament(t.community_id,t.owner_user_id,t.payload),false) then
+   raise exception 'Keine Ergebnisberechtigung' using errcode='42501'; end if;
+ l:=t.payload->'leagueMatch';
+ if l is null or l->>'preset' is distinct from 'rhl' or game_index is null or game_index<0
+   or game_index>=jsonb_array_length(l->'games') then raise exception 'Ungueltiges Ligaspiel'; end if;
+ g:=l->'games'->game_index;
+ if g is distinct from expected_game or l-'games' is distinct from expected_metadata then
+   raise exception 'Aufstellung oder Spielstand wurde geaendert' using errcode='40001'; end if;
+ if nullif(g->'homeLegs','null'::jsonb) is not null or nullif(g->'awayLegs','null'::jsonb) is not null
+   or home_score is null or away_score is null or home_score<0 or away_score<0
+   or not ((home_score=3 and away_score<3) or (away_score=3 and home_score<3)) then
+   raise exception 'Ungueltiges oder bereits erfasstes Ergebnis'; end if;
+ r:=coalesce(g->'runtime','{}'::jsonb)||jsonb_build_object('homeLegs',home_score,'awayLegs',away_score,
+   'finishedAt',to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'));
+ g:=g||jsonb_build_object('homeLegs',home_score,'awayLegs',away_score,'runtime',r);
+ update public.tournaments set payload=jsonb_set(t.payload,array['leagueMatch','games',game_index::text],g)
+   where id=t.id returning payload into result;
+ return result;
+end; $$;
+revoke all on function public.league_result_only(jsonb,jsonb), public.submit_league_result(text,integer,jsonb,jsonb,integer,integer) from public,anon;
+grant execute on function public.submit_league_result(text,integer,jsonb,jsonb,integer,integer) to authenticated;
 
 revoke all on function public.tournament_access_settings(jsonb,uuid), public.can_lead_tournament(uuid,uuid,jsonb),
  public.can_report_tournament(uuid,uuid,jsonb), public.valid_tournament_score(jsonb,jsonb,jsonb),

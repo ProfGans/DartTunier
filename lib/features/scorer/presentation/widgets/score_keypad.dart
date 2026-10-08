@@ -72,7 +72,11 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
             ? FilledButton(
                 onPressed: callback,
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: EdgeInsets.symmetric(
+                    vertical: (ScorerPlaySizing.of(context)?.compact ?? false)
+                        ? 4
+                        : 12,
+                  ),
                 ),
                 child: label == '⌫'
                     ? const Tooltip(
@@ -83,9 +87,12 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
                         label,
                         style: TextStyle(
                           fontSize:
-                              ((ScorerPlaySizing.of(context)?.keyHeight ?? 64) /
-                                      4)
-                                  .clamp(24.0, 40.0),
+                              (ScorerPlaySizing.of(context)?.compact ?? false)
+                              ? 20
+                              : ((ScorerPlaySizing.of(context)?.keyHeight ??
+                                            64) /
+                                        4)
+                                    .clamp(24.0, 40.0),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -93,7 +100,11 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
             : OutlinedButton(
                 onPressed: callback,
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: EdgeInsets.symmetric(
+                    vertical: (ScorerPlaySizing.of(context)?.compact ?? false)
+                        ? 4
+                        : 12,
+                  ),
                 ),
                 child: label == '⌫'
                     ? const Tooltip(
@@ -104,9 +115,12 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
                         label,
                         style: TextStyle(
                           fontSize:
-                              ((ScorerPlaySizing.of(context)?.keyHeight ?? 64) /
-                                      4)
-                                  .clamp(24.0, 40.0),
+                              (ScorerPlaySizing.of(context)?.compact ?? false)
+                              ? 20
+                              : ((ScorerPlaySizing.of(context)?.keyHeight ??
+                                            64) /
+                                        4)
+                                    .clamp(24.0, 40.0),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -144,9 +158,12 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
     },
     child: Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(
+          (ScorerPlaySizing.of(context)?.compact ?? false) ? 6 : 12,
+        ),
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final phone = ScorerPlaySizing.of(context)?.compact ?? false;
             final compact =
                 constraints.maxWidth < 420 ||
                 MediaQuery.textScalerOf(context).scale(16) > 24;
@@ -166,7 +183,7 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
                     ),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(phone ? 4 : 12),
                         decoration: BoxDecoration(
                           color: Theme.of(
                             context,
@@ -176,7 +193,7 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            const Text('AUFNAHME · 0–180'),
+                            if (!phone) const Text('AUFNAHME · 0–180'),
                             Text(
                               input.isEmpty ? '—' : input,
                               key: const ValueKey('score-display'),
@@ -186,12 +203,38 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
                         ),
                       ),
                     ),
-                    TextButton(
-                      onPressed: enabled && widget.remaining <= 180
-                          ? () => submit(widget.remaining)
-                          : null,
-                      child: Text('CHECK\n${widget.remaining}'),
-                    ),
+                    if (phone)
+                      PopupMenuButton<int>(
+                        tooltip: 'Schnellpunkte',
+                        enabled: enabled,
+                        itemBuilder: (_) => [
+                          for (final points in [26, 41, 60, 81, 100, 140])
+                            PopupMenuItem(
+                              value: points,
+                              child: Text('$points'),
+                            ),
+                          const PopupMenuItem(
+                            value: -1,
+                            child: Text('Überworfen'),
+                          ),
+                        ],
+                        onSelected: (points) {
+                          if (points == -1) {
+                            setState(() => input = '');
+                            widget.onBust();
+                          } else {
+                            submit(points);
+                          }
+                        },
+                        icon: const Icon(Icons.more_horiz),
+                      ),
+                    if (!phone || widget.remaining <= 180)
+                      TextButton(
+                        onPressed: enabled && widget.remaining <= 180
+                            ? () => submit(widget.remaining)
+                            : null,
+                        child: Text('CHECK\n${widget.remaining}'),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -223,31 +266,41 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
                               })
                             : null,
                       ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      button(
-                        input.isEmpty ? '180' : 'OK',
-                        enabled
-                            ? () => input.isEmpty ? submit(180) : submit()
-                            : null,
-                        primary: true,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final points in [26, 41, 60, 81, 100, 140])
-                        OutlinedButton(
-                          onPressed: enabled ? () => submit(points) : null,
-                          child: Text('$points'),
+                      if (phone)
+                        button(
+                          input.isEmpty ? '180' : 'OK',
+                          enabled
+                              ? () => input.isEmpty ? submit(180) : submit()
+                              : null,
+                          primary: true,
                         ),
                     ],
                   ),
+                  if (!phone) ...[
+                    Row(
+                      children: [
+                        button(
+                          input.isEmpty ? '180' : 'OK',
+                          enabled
+                              ? () => input.isEmpty ? submit(180) : submit()
+                              : null,
+                          primary: true,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final points in [26, 41, 60, 81, 100, 140])
+                          OutlinedButton(
+                            onPressed: enabled ? () => submit(points) : null,
+                            child: Text('$points'),
+                          ),
+                      ],
+                    ),
+                  ],
                 ] else ...[
                   for (var row = 0; row < 3; row++)
                     Row(
@@ -300,15 +353,22 @@ class _ScoreKeypadState extends State<ScoreKeypad> {
                     ],
                   ),
                 ],
-                TextButton(
-                  onPressed: enabled
-                      ? () {
-                          setState(() => input = '');
-                          widget.onBust();
-                        }
-                      : null,
-                  child: const Text('Überworfen'),
-                ),
+                if (!phone)
+                  Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      TextButton(
+                        onPressed: enabled
+                            ? () {
+                                setState(() => input = '');
+                                widget.onBust();
+                              }
+                            : null,
+                        child: const Text('Überworfen'),
+                      ),
+                    ],
+                  ),
               ],
             );
           },

@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../../tournaments/domain/player_withdrawal.dart';
 import 'package:dart_tournament_manager/tournament_workspace.dart'
     show ProductionTournamentRuntime;
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
@@ -9,11 +10,15 @@ class TournamentSimulationScenario {
     required this.playerCount,
     required this.stages,
     this.teamSize = 1,
+    this.withdrawnPlayers = const [],
+    this.withdrawalMode = WithdrawalResultMode.loseOpen,
   });
 
   final String name;
   final int playerCount;
   final int teamSize;
+  final List<int> withdrawnPlayers;
+  final WithdrawalResultMode withdrawalMode;
   final List<SimulationStageSpec> stages;
 }
 
@@ -40,6 +45,7 @@ class SimulationGroupStageSpec extends SimulationStageSpec {
     required this.groupSizes,
     this.playTypes = const [],
     this.roundRobinRepeats = const [],
+    this.maxGamesPerPlayer = const [],
     this.fixedPerGroup = 1,
     this.fixedByGroup = const [],
     this.extraRank = 0,
@@ -50,6 +56,7 @@ class SimulationGroupStageSpec extends SimulationStageSpec {
   final List<int> groupSizes;
   final List<String> playTypes;
   final List<int> roundRobinRepeats;
+  final List<int?> maxGamesPerPlayer;
   final int fixedPerGroup;
   final List<int> fixedByGroup;
   final int extraRank;
@@ -184,6 +191,7 @@ class TournamentSimulationEngine {
             groupPlayType: 'round_robin',
             groupPlayTypes: spec.playTypes,
             groupRoundRobinRepeats: spec.roundRobinRepeats,
+            groupMaxGamesPerPlayer: spec.maxGamesPerPlayer,
             qualifiedParticipantCount: spec.qualifiers,
             fixedQualifiersByGroup: spec.fixedByGroup.isNotEmpty
                 ? spec.fixedByGroup
@@ -236,6 +244,10 @@ class TournamentSimulationEngine {
       runStages: [],
     );
     final runtime = ProductionTournamentRuntime(tournament);
+    for (final index in scenario.withdrawnPlayers) {
+      tournament.withdrawals.add(PlayerWithdrawal(playerKey: players[index].profileId ?? players[index].name,
+        mode: scenario.withdrawalMode, createdAt: DateTime(2026)));
+    }
     var incoming = players;
     final reports = <SimulationStageReport>[];
     for (var index = 0; index < scenario.stages.length; index++) {
@@ -251,6 +263,9 @@ class TournamentSimulationEngine {
       while (true) {
         runtime.advance();
         final all = runtime.matches(stage);
+        for (final match in all.where((m) => m.withdrawalSignature != null && m.isResolved)) {
+          if (recorded.add(match)) records.add(_record(stage, match, records.length + 1, sources));
+        }
         for (final match in all.where(
           (m) =>
               (m.round == 1 || (stage is GroupTournamentRunStage && stage.groups.any((g) => g.playType == 'swiss' && g.matches.contains(m)))) &&

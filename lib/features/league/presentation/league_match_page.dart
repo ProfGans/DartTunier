@@ -1,3 +1,8 @@
+import '../../tournaments/domain/tournament_access.dart';
+import '../../tournaments/data/tournament_access_repository.dart';
+import '../../tournaments/presentation/widgets/tournament_access_gate.dart';
+import '../../tournaments/presentation/widgets/creation/tournament_access_editor.dart';
+import '../data/league_result_repository.dart';
 import '../../../shared/widgets/sport_settings_section.dart';
 import 'package:flutter/material.dart';
 import '../../tournaments/application/tournament_timing.dart';
@@ -34,8 +39,10 @@ class LeagueMatchPage extends StatefulWidget {
     this.invitations,
     this.database,
     this.openDevicesOnStart = false,
+    this.loadAccess,
   });
   final bool openDevicesOnStart;
+  final Future<TournamentAccess> Function()? loadAccess;
   final LeagueInvitationRepository? invitations;
   final LocalAppDatabase? database;
   final CreatedTournament? tournament;
@@ -46,6 +53,9 @@ class LeagueMatchPage extends StatefulWidget {
 }
 
 class _LeagueMatchPageState extends State<LeagueMatchPage> {
+  TournamentAccess _access = const TournamentAccess();
+  TournamentAccessSettings _settings = const TournamentAccessSettings();
+  bool _devicesOpened = false;
   final _form = GlobalKey<FormState>();
   final _rosterSections = List.generate(
     2,
@@ -239,7 +249,8 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
 
   Future<void> _openDevices() async {
     final devices = DevicesScope.maybeOf(context);
-    if (devices == null || _tournament == null) return;
+    if (devices == null || _tournament == null || !_access.canLead) return;
+    await TournamentAccessRepository().requireLead(_tournament!);
     _dispatcher ??= BoardDeviceDispatcher(
       devices: devices,
       tournament: LeagueBoardRuntime(_tournament!).tournament,
@@ -330,9 +341,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.openDevicesOnStart) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _openDevices());
-    }
   }
 
   @override
@@ -353,11 +361,17 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
       _error = null;
     });
     try {
+      if (_tournament != null) {
+        await TournamentAccessRepository().requireLead(_tournament!);
+      }
       await TournamentTiming.prepare(next);
       await _storage.saveTournament(next);
       if (mounted) setState(() => _tournament = next);
       if (_dispatcher != null) {
         _dispatcher!.tournament = LeagueBoardRuntime(next).tournament;
+      }
+      if (next.communityId != null) {
+        await _storage.synchronize(tournamentId: next.id);
       }
     } catch (_) {
       if (mounted) {
@@ -424,12 +438,17 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
         runStages: [],
         leagueMatch: league,
         communityId: widget.communityId,
+        access: _settings.withCreator(_storage.currentUserId),
         boardCount: _boards,
       ),
     );
   }
 
   Future<void> _result(int index) async {
+    if (!_access.canEnterResults ||
+        (!_access.canLead && _tournament!.leagueMatch!.games[index].complete)) {
+      return;
+    }
     final result = await showDialog<(int?, int?)>(
       context: context,
       builder: (context) => AlertDialog(
@@ -459,14 +478,42 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Abbrechen'),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, (null, null)),
-            child: const Text('Ergebnis entfernen'),
-          ),
+          if (_access.canLead)
+            TextButton(
+              onPressed: () => Navigator.pop(context, (null, null)),
+              child: const Text('Ergebnis entfernen'),
+            ),
         ],
       ),
     );
     if (!mounted || result == null) return;
+    if (!_access.canLead) {
+      setState(() => _busy = true);
+      try {
+        final next = await LeagueResultRepository().submit(
+          _tournament!,
+          index,
+          result.$1!,
+          result.$2!,
+        );
+        if (mounted) {
+          setState(() {
+            _tournament = next;
+            _error = null;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(
+            () => _error =
+                'Ergebnis nicht gespeichert. Online-Stand und Berechtigung prüfen.',
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      return;
+    }
     final next = CreatedTournament.fromJson(_tournament!.toJson());
     next.leagueMatch!.games[index].score(result.$1, result.$2);
     final runtime = LeagueBoardRuntime(next);
@@ -494,40 +541,162 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     await _save(next);
   }
 
-  @override
-  Widget build(BuildContext context) => CommunityPermissionGate(
-    communityId: _tournament?.communityId ?? widget.communityId,
-    permission: _tournament == null
-        ? CommunityPermission.createTournaments
-        : CommunityPermission.editTournaments,
-    builder: (context) => PopScope(
-      canPop: !_busy,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            _tournament == null ? 'Neues Ligaspiel' : _tournament!.name,
+  Future<void> _reload() async {
+    if (_busy) return;
+    if (_access.canLead) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Online-Stand laden?'),
+          content: const Text(
+            'Nicht synchronisierte lokale Änderungen werden durch den Online-Stand ersetzt.',
           ),
-        ),
-        body: AdaptiveContentList(
-          children: [
-            const Text(
-              '16 Einzel und 2 Doppel · 501 Single In / Double Out · Best of 5 Legs',
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Abbrechen'),
             ),
-            const SizedBox(height: 12),
-            if (_tournament == null)
-              const Text(
-                'Bearbeitbarer Standardplan: vier Heimspieler gegen vier Gastspieler, danach zwei Doppel. '
-                'Reihenfolge und Aufstellungen vor der Ergebniseingabe mit dem offiziellen Spielbericht abgleichen.',
-              ),
-            const SizedBox(height: 16),
-            if (_error != null)
-              Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            if (_tournament == null) _setup(context) else ..._games(context),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Online-Stand laden'),
+            ),
           ],
         ),
+      );
+      if (confirmed != true) return;
+    }
+    setState(() => _busy = true);
+    try {
+      final next = await _storage.loadAuthoritativeTournament(
+        _tournament!.id,
+        _tournament!.communityId!,
+      );
+      if (mounted) {
+        setState(() {
+          _tournament = next;
+          _error = null;
+        });
+      }
+      if (_dispatcher != null) {
+        _dispatcher!.tournament = LeagueBoardRuntime(next).tournament;
+        await _dispatcher!.publish();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Online-Stand konnte nicht geladen werden.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _editAccess() async {
+    if (!_access.canConfigure || _busy) return;
+    var value = _tournament!.access;
+    final selected = await showDialog<TournamentAccessSettings>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: const Text('Turnierrechte'),
+          scrollable: true,
+          content: SizedBox(
+            width: 620,
+            child: TournamentAccessEditor(
+              communityId: _tournament!.communityId!,
+              value: value,
+              onChanged: (next) => update(() => value = next),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, value),
+              child: const Text('Speichern'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await TournamentAccessRepository().requireConfigure(_tournament!);
+      final next = CreatedTournament.fromJson(_tournament!.toJson())
+        ..access = selected;
+      await _storage.saveTournament(next);
+      if (mounted) setState(() => _tournament = next);
+      await _storage.synchronize(tournamentId: next.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(TournamentStorage.syncStatus.value)),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error = 'Turnierrechte konnten nicht gespeichert werden.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_tournament == null) {
+      return CommunityPermissionGate(
+        communityId: widget.communityId,
+        permission: CommunityPermission.createTournaments,
+        builder: (context) => _content(context),
+      );
+    }
+    return TournamentAccessGate(
+      tournament: _tournament!,
+      load: widget.loadAccess,
+      builder: (context, access) {
+        _access = access;
+        if (access.canLead && widget.openDevicesOnStart && !_devicesOpened) {
+          _devicesOpened = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _openDevices();
+          });
+        }
+        return _content(context);
+      },
+    );
+  }
+
+  Widget _content(BuildContext context) => PopScope(
+    canPop: !_busy,
+    child: Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _tournament == null ? 'Neues Ligaspiel' : _tournament!.name,
+        ),
+      ),
+      body: AdaptiveContentList(
+        children: [
+          const Text(
+            '16 Einzel und 2 Doppel · 501 Single In / Double Out · Best of 5 Legs',
+          ),
+          const SizedBox(height: 12),
+          if (_tournament == null)
+            const Text(
+              'Bearbeitbarer Standardplan: vier Heimspieler gegen vier Gastspieler, danach zwei Doppel. '
+              'Reihenfolge und Aufstellungen vor der Ergebniseingabe mit dem offiziellen Spielbericht abgleichen.',
+            ),
+          const SizedBox(height: 16),
+          if (_error != null)
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          if (_tournament == null) _setup(context) else ..._games(context),
+        ],
       ),
     ),
   );
@@ -677,6 +846,12 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
             icon: const Icon(Icons.refresh),
             label: const Text('Einladungen aktualisieren'),
           ),
+        if (widget.communityId != null)
+          TournamentAccessEditor(
+            communityId: widget.communityId!,
+            value: _settings,
+            onChanged: (value) => setState(() => _settings = value),
+          ),
         FilledButton(
           onPressed: _busy ? null : _create,
           child: const Text('Ligaspiel anlegen'),
@@ -732,31 +907,63 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
   List<Widget> _games(BuildContext context) {
     final league = _tournament!.leagueMatch!;
     return [
-      TournamentTimingPanel(
-        tournament: _tournament!,
-        onStart: () async {
-          final next = CreatedTournament.fromJson(_tournament!.toJson());
-          next.startedAt ??= DateTime.now();
-          await _save(next, rethrowError: true);
-        },
-      ),
+      if (_tournament!.communityId != null) ...[
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _reload,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Online-Stand laden'),
+            ),
+            if (_access.canConfigure)
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _editAccess,
+                icon: const Icon(Icons.admin_panel_settings_outlined),
+                label: const Text('Turnierrechte'),
+              ),
+          ],
+        ),
+        if (_access.canLead)
+          ValueListenableBuilder<String>(
+            valueListenable: TournamentStorage.syncStatus,
+            builder: (_, status, _) => Text(status),
+          ),
+        if (!_access.canLead)
+          Text(
+            _access.canEnterResults
+                ? 'Offene Ergebnisse kannst du online melden. Korrekturen übernimmt die Turnierleitung.'
+                : 'Zuschaueransicht',
+          ),
+      ],
+      if (_access.canLead)
+        TournamentTimingPanel(
+          tournament: _tournament!,
+          onStart: () async {
+            final next = CreatedTournament.fromJson(_tournament!.toJson());
+            next.startedAt ??= DateTime.now();
+            await _save(next, rethrowError: true);
+          },
+        ),
       LeagueOverview(league: league),
       TournamentHighlightsButton(tournament: _tournament!),
-      ExpansionTile(
-        title: const Text('Boards und Geräte'),
-        leading: const Icon(Icons.connected_tv),
-        children: [
-          _boardControls(),
-          const TournamentDevicesSection(),
-          OutlinedButton.icon(
-            onPressed: _busy || DevicesScope.maybeOf(context) == null
-                ? null
-                : _openDevices,
-            icon: const Icon(Icons.connected_tv),
-            label: const Text('Boards und Geräte zuordnen'),
-          ),
-        ],
-      ),
+      if (_access.canLead)
+        ExpansionTile(
+          title: const Text('Boards und Geräte'),
+          leading: const Icon(Icons.connected_tv),
+          children: [
+            _boardControls(),
+            const TournamentDevicesSection(),
+            OutlinedButton.icon(
+              onPressed: _busy || DevicesScope.maybeOf(context) == null
+                  ? null
+                  : _openDevices,
+              icon: const Icon(Icons.connected_tv),
+              label: const Text('Boards und Geräte zuordnen'),
+            ),
+          ],
+        ),
       Align(
         alignment: Alignment.centerLeft,
         child: OutlinedButton.icon(
@@ -792,27 +999,32 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
               ? null
               : 'Board ${league.games[i].runtime!['boardNumber']}',
           actions: [
-            if (!league.games[i].complete &&
+            if (_access.canLead &&
+                !league.games[i].complete &&
                 league.games[i].runtime?['startedAt'] == null)
               OutlinedButton.icon(
                 onPressed: _busy ? null : () => _startGame(i),
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('Starten'),
               ),
-            OutlinedButton(
-              key: ValueKey('league-result-$i'),
-              onPressed: _busy ? null : () => _result(i),
-              child: const Text('Ergebnis'),
-            ),
-            if (!league.games[i].complete &&
+            if (_access.canEnterResults &&
+                (_access.canLead || !league.games[i].complete))
+              OutlinedButton(
+                key: ValueKey('league-result-$i'),
+                onPressed: _busy ? null : () => _result(i),
+                child: const Text('Ergebnis'),
+              ),
+            if (_access.canLead &&
+                !league.games[i].complete &&
                 league.games[i].runtime?['startedAt'] == null)
               OutlinedButton(
                 onPressed: _busy ? null : () => _pairing(i),
                 child: const Text('Aufstellung'),
               ),
-            if (league.games.every(
-              (g) => !g.complete && g.runtime?['startedAt'] == null,
-            )) ...[
+            if (_access.canLead &&
+                league.games.every(
+                  (g) => !g.complete && g.runtime?['startedAt'] == null,
+                )) ...[
               IconButton(
                 tooltip: 'Spiel nach oben',
                 onPressed: _busy || i == 0 ? null : () => _move(i, -1),

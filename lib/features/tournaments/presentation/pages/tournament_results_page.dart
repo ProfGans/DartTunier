@@ -1,4 +1,5 @@
 import '../../../../shared/widgets/sport_menu.dart';
+import 'package:dart_tournament_manager/tournament_workspace.dart' show ProductionTournamentRuntime;
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import '../../domain/engines/placement_engine.dart';
 import '../../domain/knockout_round_names.dart';
@@ -16,7 +17,7 @@ class TournamentResultsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (tournament.importedArchive != null) {
+    if (tournament.importedArchive != null && !tournament.importedArchive!.usesNativeLogic) {
       return ChallongeArchivePage(tournament: tournament);
     }
     final summary = _TournamentResultSummary.fromTournament(tournament);
@@ -27,6 +28,14 @@ class TournamentResultsPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Turnierergebnisse'),
         actions: [
+          if (tournament.importedArchive != null)
+            IconButton(
+              tooltip: 'Mit Challonge vergleichen',
+              icon: const Icon(Icons.compare_arrows),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => ChallongeArchivePage(tournament: tournament),
+              )),
+            ),
           IconButton(
             tooltip: 'Hauptmenue',
             onPressed: () =>
@@ -639,9 +648,13 @@ class _TournamentResultSummary {
     final finalStage = tournament.runStages.isEmpty
         ? null
         : tournament.runStages.last;
+    final native = tournament.importedArchive?.usesNativeLogic == true;
+    final runtime = native ? ProductionTournamentRuntime(tournament) : null;
     final finalStageRanking = finalStage is KnockoutTournamentRunStage
-        ? _knockoutRanking(finalStage)
-        : const <TournamentPlayer>[];
+        ? runtime?.ranking(finalStage, const []) ?? _knockoutRanking(finalStage)
+        : native && finalStage is GroupTournamentRunStage && finalStage.groups.length == 1
+            ? runtime!.standings(finalStage.groups.single, finalStage.tieBreakers).map((s) => s.player).toList()
+            : const <TournamentPlayer>[];
     final ranking = <_PlayerResultStats>[];
     for (final player in finalStageRanking) {
       final entry = stats[player.name];

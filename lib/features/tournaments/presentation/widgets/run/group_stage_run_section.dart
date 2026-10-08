@@ -80,7 +80,12 @@ class _GroupStageRunSectionState extends State<GroupStageRunSection> {
                 const SizedBox(height: 12),
               ],
               if (stage.groups.any((g) => g.playType == 'swiss'))
-                const Padding(padding: EdgeInsets.only(bottom: 12), child: Text('Swiss: Nächste Runde erst nach allen Ergebnissen der vorherigen Runde. Wertung: Punkte, Buchholz (Gegnerpunkte), Leg-Differenz, gewonnene Legs, Startreihenfolge. Freilos: 3 Punkte, kein gespieltes Match.')), 
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Swiss: Nächste Runde erst nach allen Ergebnissen der vorherigen Runde. Wertung: Punkte, Buchholz (Gegnerpunkte), Leg-Differenz, gewonnene Legs, Startreihenfolge. Freilos: 3 Punkte, kein gespieltes Match.',
+                  ),
+                ),
               if (compact && stage.groups.length > 1) ...[
                 DropdownButtonFormField<int>(
                   key: ValueKey('group-$selected'),
@@ -118,15 +123,39 @@ class _GroupStageRunSectionState extends State<GroupStageRunSection> {
                       ),
                     )
                   else
-                    GroupRunSection(
-                      key: ValueKey(stage.groups[index]),
-                      group: stage.groups[index],
-                      groupNumber: index + 1,
-                      qualificationPlan: stage.qualificationPlan,
-                      tieBreakers: stage.tieBreakers,
-                      standings: standingsByGroup[stage.groups[index]]!,
-                      onEditResult: onEditResult,
-                      canEditResults: canEditResults,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (stage.groups[index].playType == 'round_robin' &&
+                            stage.groups[index].players.any(
+                              (p) =>
+                                  stage.groups[index].matches
+                                      .where(
+                                        (m) =>
+                                            m.hasPlayers &&
+                                            (m.homePlayer == p ||
+                                                m.awayPlayer == p),
+                                      )
+                                      .length <
+                                  stage.groups[index].players.length - 1,
+                            ))
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'Begrenzte Gruppenphase · Es werden die geplanten Begegnungen gewertet.',
+                            ),
+                          ),
+                        GroupRunSection(
+                          key: ValueKey(stage.groups[index]),
+                          group: stage.groups[index],
+                          groupNumber: index + 1,
+                          qualificationPlan: stage.qualificationPlan,
+                          tieBreakers: stage.tieBreakers,
+                          standings: standingsByGroup[stage.groups[index]]!,
+                          onEditResult: onEditResult,
+                          canEditResults: canEditResults,
+                        ),
+                      ],
                     ),
               ExpansionTile(
                 key: PageStorageKey('group-setup-${stage.name}'),
@@ -147,7 +176,8 @@ class _GroupStageRunSectionState extends State<GroupStageRunSection> {
               if (stage.qualificationPlan != null &&
                   stage.qualificationPlan!.extraCount > 0 &&
                   stage.groups.every(
-                    (group) => ['round_robin', 'swiss'].contains(group.playType),
+                    (group) =>
+                        ['round_robin', 'swiss'].contains(group.playType),
                   )) ...[
                 const SizedBox(height: 4),
                 BestOfComparisonTable(

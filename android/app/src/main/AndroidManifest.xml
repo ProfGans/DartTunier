@@ -45,6 +45,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="dartturnier" android:host="community" android:path="/join" />
+                <data android:scheme="dartturnier" android:host="tournament" android:path="/join" />
                 <data android:scheme="dartturnier" android:host="scorer" android:path="/join" />
             </intent-filter>
         </activity>

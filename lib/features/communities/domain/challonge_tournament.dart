@@ -88,7 +88,17 @@ class ChallongeTournament {
   String tournamentId(String communityId) =>
       'challonge:${Uri.encodeComponent(communityId)}:$id';
 
-  CreatedTournament convert(String communityId, Map<String, String> profiles) {
+  CreatedTournament convert(
+    String communityId,
+    Map<String, String> profiles, {
+    bool countsForRanking = false,
+    List<String> rankingIds = const [],
+  }) {
+    if (countsForRanking && rankingIds.isEmpty) {
+      throw const FormatException(
+        'Für die Elo-Wertung mindestens eine Rangliste auswählen.',
+      );
+    }
     final players = {
       for (final p in participants)
         '${p['id']}': TournamentPlayer(
@@ -113,7 +123,15 @@ class ChallongeTournament {
     };
     // Only an unambiguous integer score is a leg result. Multi-score matches,
     // walkovers and scores without a result stay faithfully in the archive.
-    for (final m in matches) {
+    final statisticalMatches = matches.indexed.toList()
+      ..sort((a, b) {
+        final stage = (a.$2['group_id'] == null ? 1 : 0).compareTo(
+          b.$2['group_id'] == null ? 1 : 0,
+        );
+        return stage != 0 ? stage : a.$1.compareTo(b.$1);
+      });
+    for (final indexedMatch in statisticalMatches) {
+      final m = indexedMatch.$2;
       final score = RegExp(
         r'^(\d+)-(\d+)$',
       ).firstMatch('${m['scores_csv'] ?? ''}'.trim());
@@ -174,6 +192,9 @@ class ChallongeTournament {
               'started_at',
               'completed_at',
               'group_id',
+              'group_type',
+              'player1_seed',
+              'player2_seed',
             ])
               key: m[key],
           },
@@ -187,8 +208,10 @@ class ChallongeTournament {
       createdAt: DateTime.tryParse('${data['created_at'] ?? ''}'),
       startedAt: DateTime.tryParse('${data['started_at'] ?? ''}'),
       finishedAt: DateTime.tryParse('${data['completed_at'] ?? ''}'),
-      countsForRanking: false,
-      communityRankingIds: const [],
+      countsForRanking: countsForRanking,
+      communityRankingIds: countsForRanking
+          ? rankingIds.toSet().toList()
+          : const [],
       importedArchive: archive,
       stages: const [TournamentStage(name: 'Challonge-Archiv', type: 'groups')],
       runStages: [

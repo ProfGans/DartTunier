@@ -9,7 +9,7 @@ class MatchScorerSummary {
   final List<ScorerPlayerStatistics> players;
 
   static MatchScorerSummary? fromMatch(GroupMatch match) {
-    if (!match.hasResult || !match.hasPlayers || match.isAnnulled) return null;
+    if (!match.countsForStatistics || !match.hasPlayers || match.isAnnulled) return null;
     final raw = withoutBotStatistics(match.deviceResult, {
       if (match.homePlayer?.bot != null) 0,
       if (match.awayPlayer?.bot != null) 1,
@@ -54,7 +54,7 @@ class TournamentScorerHighlights {
   TournamentScorerHighlights(Iterable<GroupMatch> matches) {
     final rows = <String, ScorerHighlightPlayer>{};
     for (final match in matches.toSet()) {
-      if (!match.hasPlayers || !match.hasResult || match.isAnnulled) continue;
+      if (!match.hasPlayers || !match.countsForStatistics || match.isAnnulled) continue;
       completed++;
       final summary = MatchScorerSummary.fromMatch(match);
       if (summary == null) continue;

@@ -112,9 +112,11 @@ class _PanelState extends State<CommunityTournamentEloPanel>
     if (_data?.enabled == false && !_failed && !_loading) {
       return const SizedBox.shrink();
     }
-    final ids = widget.tournament.communityRankingIds;
+    final ids = widget.tournament.communityRankingIds.where((id) => _data == null || _data!.rankings.any((r) => r.id == id)).toList();
+    if (ids.isEmpty) return const SizedBox.shrink();
     final ranking = ids.contains(_ranking) ? _ranking! : ids.first;
     final data = _data;
+    final months = data?.rankings.where((r) => r.id == ranking).firstOrNull?.validityMonths;
     final players = data == null || _loading || _failed || _showLiveRanking
         ? <TournamentEloPlayer>[]
         : const CommunityTournamentElo().calculate(
@@ -123,6 +125,7 @@ class _PanelState extends State<CommunityTournamentEloPanel>
             members: data.members,
             actions: data.actions,
             rankingId: ranking,
+            validityMonths: data.rankings.where((r) => r.id == ranking).firstOrNull?.validityMonths,
             currentYearOnly: _yearOnly,
             activeStage: widget.activeStage,
           );
@@ -174,7 +177,8 @@ class _PanelState extends State<CommunityTournamentEloPanel>
                   ],
                   onChanged: (value) => setState(() => _ranking = value),
                 ),
-                SwitchListTile(
+                if (months != null) Text('Gewertet werden die letzten $months Monate.'),
+                if (months == null) SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Dieses Jahr'),
                   subtitle: Text(
@@ -203,6 +207,7 @@ class _PanelState extends State<CommunityTournamentEloPanel>
                       members: data.members,
                       actions: data.actions,
                       rankingId: ranking,
+            validityMonths: data.rankings.where((r) => r.id == ranking).firstOrNull?.validityMonths,
                       currentYearOnly: _yearOnly,
                     ),
                   )

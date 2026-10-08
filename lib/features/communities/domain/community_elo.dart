@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../../tournaments/application/player_withdrawal_service.dart';
 
 import '../../tournaments/domain/tournament_models.dart';
 import 'community.dart';
@@ -61,9 +62,11 @@ class CommunityEloCalculator {
     required List<CreatedTournament> tournaments,
     required bool currentYearOnly,
     DateTime? now,
+    int? validityMonths,
     String rankingId = defaultCommunityRankingId,
     List<CommunityRankingAction> actions = const [],
   }) {
+    final cutoff = validityMonths == null ? null : rankingCutoff((now ?? DateTime.now()).toLocal(), validityMonths);
     final cutoffYear = (now ?? DateTime.now()).toLocal().year;
     final entries = <String, CommunityEloEntry>{
       for (final member in effectiveCommunityMembers(members))
@@ -87,10 +90,11 @@ class CommunityEloCalculator {
       for (final tournament in ordered)
         if (tournament.countsForRanking &&
             tournament.communityRankingIds.contains(rankingId) &&
-            (!currentYearOnly ||
+            (validityMonths != null || !currentYearOnly ||
                 tournament.createdAt.toLocal().year == cutoffYear))
           for (final match in _matches(tournament).toSet())
-            (tournament: tournament, match: match),
+            if (cutoff == null || !(match.finishedAt ?? tournament.createdAt).toLocal().isBefore(cutoff))
+              (tournament: tournament, match: match),
     ];
     // Elo is sequential: use the actual completion order, not bracket/group
     // order. Keep a stable legacy fallback for results without timestamps.
@@ -130,6 +134,7 @@ class CommunityEloCalculator {
       for (final row in batch) {
         final tournament = row.tournament;
         final match = row.match;
+        if (match.withdrawalIgnored && !match.withdrawalHadResult) continue;
         if (!match.hasResult ||
             match.homePlayer == null ||
             match.awayPlayer == null ||
@@ -160,42 +165,64 @@ class CommunityEloCalculator {
               : 0,
         );
         final awayDelta = -homeDelta;
-        home.rating += homeDelta;
-        away.rating += awayDelta;
-        home.matches++;
-        away.matches++;
+        final homeRule = PlayerWithdrawalService.policy(
+          tournament,
+          match.homePlayer!,
+        );
+        final awayRule = PlayerWithdrawalService.policy(
+          tournament,
+          match.awayPlayer!,
+        );
+        final countHome =
+            (homeRule?.countForRanking ?? true) &&
+            (awayRule?.countOpponentsForRanking ?? true);
+        final countAway =
+            (awayRule?.countForRanking ?? true) &&
+            (homeRule?.countOpponentsForRanking ?? true);
+        if (countHome) {
+          home.rating += homeDelta;
+          home.matches++;
+        }
+        if (countAway) {
+          away.rating += awayDelta;
+          away.matches++;
+        }
         if (draw) {
-          home.draws++;
-          away.draws++;
+          if (countHome) home.draws++;
+          if (countAway) away.draws++;
         } else if (homeWon) {
-          home.wins++;
-          away.losses++;
+          if (countHome) home.wins++;
+          if (countAway) away.losses++;
         } else {
-          away.wins++;
-          home.losses++;
+          if (countAway) away.wins++;
+          if (countHome) home.losses++;
         }
         final score = match.scoreLabel;
-        (history[homeId] ??= []).add(
-          CommunityEloHistoryItem(
-            playedAt: match.finishedAt ?? tournament.createdAt,
-            tournamentName: tournament.name,
-            opponentName: away.player.displayName,
-            score: score,
-            delta: homeDelta,
-            ratingAfter: home.rating,
-          ),
-        );
-        (history[awayId] ??= []).add(
-          CommunityEloHistoryItem(
-            playedAt: match.finishedAt ?? tournament.createdAt,
-            tournamentName: tournament.name,
-            opponentName: home.player.displayName,
-            score:
-                '${match.awayScore}:${match.homeScore}${match.hasSetScore ? ' Sets' : ''}',
-            delta: awayDelta,
-            ratingAfter: away.rating,
-          ),
-        );
+        if (countHome) {
+          (history[homeId] ??= []).add(
+            CommunityEloHistoryItem(
+              playedAt: match.finishedAt ?? tournament.createdAt,
+              tournamentName: tournament.name,
+              opponentName: away.player.displayName,
+              score: score,
+              delta: homeDelta,
+              ratingAfter: home.rating,
+            ),
+          );
+        }
+        if (countAway) {
+          (history[awayId] ??= []).add(
+            CommunityEloHistoryItem(
+              playedAt: match.finishedAt ?? tournament.createdAt,
+              tournamentName: tournament.name,
+              opponentName: home.player.displayName,
+              score:
+                  '${match.awayScore}:${match.homeScore}${match.hasSetScore ? ' Sets' : ''}',
+              delta: awayDelta,
+              ratingAfter: away.rating,
+            ),
+          );
+        }
       }
       if (change != null) {
         final key = aliases[change.playerKey] ?? change.playerKey;

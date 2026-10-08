@@ -102,6 +102,7 @@ List<TournamentGroup> _buildTournamentGroupsForPlayers(
               : _buildRoundRobinMatches(
             groupPlayers,
             repeatCount: _roundRobinRepeatForStage(stage, groupIndex),
+            maxGamesPerPlayer: stage.maxGamesForGroup(groupIndex),
           ),
         ),
       );
@@ -151,15 +152,17 @@ TournamentGroup _buildEliminationTournamentGroup({
 List<GroupMatch> _buildRoundRobinMatches(
   List<TournamentPlayer> players, {
   int repeatCount = 1,
+  int? maxGamesPerPlayer,
 }) {
   return tournamentEngine.buildRoundRobinMatches(
     players,
     repeatCount: repeatCount,
+    maxGamesPerPlayer: maxGamesPerPlayer,
   );
 }
 
-int _roundRobinMatchCount(int groupSize, int repeatCount) {
-  return tournamentEngine.roundRobinMatchCount(groupSize, repeatCount);
+int _roundRobinMatchCount(int groupSize, int repeatCount, {int? maxGamesPerPlayer}) {
+  return tournamentEngine.roundRobinMatchCount(groupSize, repeatCount, maxGamesPerPlayer: maxGamesPerPlayer);
 }
 
 int _groupEliminationMatchEstimate(

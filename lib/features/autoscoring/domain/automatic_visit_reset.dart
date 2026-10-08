@@ -11,6 +11,9 @@ class AutomaticVisitReset {
   int _emptySamples = 0;
   int _settledSamples = 0;
   int _restoredSamples = 0;
+  int _removalSamples = 0;
+  bool _confirmedRemoval = false;
+  Map<String, Object> decisionMetrics = const {};
   List<GrayFrame>? _previous;
   List<List<int>>? _regions;
   List<BoardCalibration>? _calibrations;
@@ -44,6 +47,9 @@ class AutomaticVisitReset {
     _emptySamples = 0;
     _settledSamples = 0;
     _restoredSamples = 0;
+    _removalSamples = 0;
+    _confirmedRemoval = false;
+    decisionMetrics = const {};
     _previous = null;
     _regions = null;
     _calibrations = null;
@@ -106,7 +112,7 @@ class AutomaticVisitReset {
     if (occupiedCounts.where((count) => count >= 6).length < 2) {
       return VisitResetState.playing;
     }
-    var clearViews = 0, removalViews = 0, restoredViews = 0;
+    var clearViews = 0, removalViews = 0, restoredViews = 0, retainedViews = 0;
     cameraMetrics = [];
     for (var i = 0; i < 3; i++) {
       final before = occupiedCounts[i];
@@ -164,6 +170,13 @@ class AutomaticVisitReset {
               occupiedCovered >= before * .97 &&
               added <= max(6, before * 3));
       if (restored) restoredViews++;
+      // Before removal is confirmed, settled retained shafts with a few lost
+      // edge pixels must not require an exact return to the impact frame.
+      if (before >= 6 &&
+          occupiedCovered >= before * .75 &&
+          added <= max(6, before * 3)) {
+        retainedViews++;
+      }
       cameraMetrics.add({
         'before': before,
         'now': now,
@@ -201,18 +214,36 @@ class AutomaticVisitReset {
     if ((dartLimit != null && darts >= dartLimit) || removalViews >= 2) {
       waitingForEmpty = true;
     }
+    _removalSamples = quiet && removalViews >= 2 ? _removalSamples + 1 : 0;
+    if (_removalSamples >= 2) _confirmedRemoval = true;
     // A hand or moving flight can temporarily resemble removal. Release a
     // premature latch only when ALL views retain the complete occupied board
     // for three settled captures. New darts are allowed; a broad hand mask
     // and genuine partial removal must not release the latch.
-    _restoredSamples = quiet && restoredViews == 3 ? _restoredSamples + 1 : 0;
+    final restored =
+        restoredViews == 3 ||
+        (!_confirmedRemoval && removalViews == 0 && retainedViews == 3);
+    _restoredSamples = quiet && restored ? _restoredSamples + 1 : 0;
     if (waitingForEmpty &&
         (dartLimit == null || darts < dartLimit) &&
         _restoredSamples >= 3) {
       waitingForEmpty = false;
       _emptySamples = 0;
       _restoredSamples = 0;
+      _removalSamples = 0;
+      _confirmedRemoval = false;
     }
+    decisionMetrics = {
+      'dartLimit': dartLimit ?? -1,
+      'countedDarts': darts,
+      'quiet': quiet,
+      'removalViews': removalViews,
+      'removalSamples': _removalSamples,
+      'confirmedRemoval': _confirmedRemoval,
+      'restoredViews': restoredViews,
+      'retainedViews': retainedViews,
+      'waitingForEmpty': waitingForEmpty,
+    };
     // Two independently empty views can release one view with small residual
     // board texture, but only after substantial removal and without a shaft.
     var residualRecovery = false;

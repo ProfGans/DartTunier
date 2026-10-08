@@ -124,7 +124,7 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
         );
         final hit = camera.lastHit;
         quality.add(hit);
-        final evidence = captureAutoscoreEvidence(camera);
+        final evidence = captureAutoscoreEvidence(camera, allowPartial: true);
         evidence?.hit.addAll({
           'setupId': setupThrows.last?.setupId,
           'setupName': setupStore.active.name,
@@ -407,8 +407,8 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
     }
   }
 
-  Future<void> _exportDiagnostic() async {
-    final path = diagnostics.path;
+  Future<void> _exportDiagnostic([String? selectedPath]) async {
+    final path = selectedPath ?? diagnostics.path;
     if (path == null) return;
     try {
       final location = await getSaveLocation(
@@ -619,6 +619,10 @@ class _ScorerCameraPanelState extends State<ScorerCameraPanel>
               label: const Text('Letzte Korrektur: Diagnose-ZIP speichern'),
             ),
           ScorerRecognitionQuality(
+            diagnosticPath: diagnostics.pathAt,
+            diagnosticSaving: diagnostics.savingAt,
+            diagnosticError: diagnostics.errorAt,
+            onExportDiagnostic: (i) => _exportDiagnostic(diagnostics.pathAt(i)),
             hits: quality,
             corrected: [
               for (final location in locations) location?.corrected ?? false,

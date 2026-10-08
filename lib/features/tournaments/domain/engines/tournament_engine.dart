@@ -1,4 +1,5 @@
 import '../tournament_models.dart';
+import 'limited_round_robin_engine.dart';
 
 class TournamentEngine {
   const TournamentEngine();
@@ -43,7 +44,15 @@ class TournamentEngine {
   List<GroupMatch> buildRoundRobinMatches(
     List<TournamentPlayer> players, {
     int repeatCount = 1,
+    int? maxGamesPerPlayer,
   }) {
+    if (maxGamesPerPlayer != null) {
+      return LimitedRoundRobinEngine.build(
+        players,
+        maxGamesPerPlayer: maxGamesPerPlayer,
+        repeatCount: repeatCount,
+      );
+    }
     final matches = <GroupMatch>[];
     if (players.length < 2) {
       return matches;
@@ -96,12 +105,24 @@ class TournamentEngine {
     return matches;
   }
 
-  int roundRobinMatchCount(int groupSize, int repeatCount) {
+  int roundRobinMatchCount(
+    int groupSize,
+    int repeatCount, {
+    int? maxGamesPerPlayer,
+  }) {
     if (groupSize < 2) {
       return 0;
     }
 
     final safeRepeatCount = repeatCount < 1 ? 1 : repeatCount;
+    if (maxGamesPerPlayer != null) {
+      if (maxGamesPerPlayer < 1) {
+        throw ArgumentError.value(maxGamesPerPlayer, 'maxGamesPerPlayer');
+      }
+      final maximum = (groupSize - 1) * safeRepeatCount;
+      final games = maxGamesPerPlayer < maximum ? maxGamesPerPlayer : maximum;
+      return groupSize * games ~/ 2;
+    }
     return (groupSize * (groupSize - 1) ~/ 2) * safeRepeatCount;
   }
 }

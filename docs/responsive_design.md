@@ -267,3 +267,21 @@ Die Spielansicht wertet Breite und Höhe gemeinsam aus. Bei breiten, ausreichend
 
 Antippen abgeschlossener Ergebniszeilen, Order-of-Play-Karten oder KO-Matches öffnet eine lesende Spielstatistik. Stift-Aktionen bearbeiten weiterhin Ergebnisse. Adaptive Kennzahlenkarten bei 360x800, 800x600 und 1440x900 mit 100/200 Prozent Schrift getestet; Handy und Desktop gerendert und visuell geprüft, keine physischen Geräte. Tests: test/tournament_match_statistics_test.dart; Renderings: build/layout_previews/match_statistics_*.png.
 
+
+
+### Mini-Triple-KO: Rotation absichern (08.10.2026)
+
+Der Mini-Gruppenbaum bleibt beim Wechsel zwischen kompakter und breiter Ansicht im selben Stateful-Subtree. Horizontale und vertikale Scrollpositionen haben getrennte PageStorage-Schlüssel. Die Gruppenbaum-Ausklappwahl bleibt beim Zurückdrehen erhalten. Die Bracket-Spalten und Karten wachsen mit der Textskalierung, statt bei großer Schrift aus ihren festen Match-Flächen überzulaufen.
+
+Zwei produktive Mini-Triple-KO-Regressionen in `test/tournament_mobile_focus_test.dart` öffnen den echten Gruppenbaum, scrollen darin und drehen mehrfach zwischen 360x800, 900x400, 800x600 und 1440x900 bei 100/200 Prozent Schrift. Sie prüfen Fehlerfreiheit, Erhalt des Scroll-State und unveränderte Teilnehmer. Optional entstehen `build/layout_previews/mini_triple_rotation_<Skalierung>.png`. Der konkrete graue Fehlerbereich aus dem Android-Screenshot konnte ohne Geräte-Log nicht eindeutig zugeordnet werden; die Rotation und der reproduzierte Text-Überlauf sind abgesichert. Keine Prüfung auf dem betroffenen physischen Handy.
+
+### Challonge: native Turnierprüfung (08.10.2026)
+
+ChallongeNativeComparisonPreview ergänzt die gemeinsame Seitenmatrix. test/challonge_native_import_test.dart prüft native Ergebnisnavigation und Vergleich bei 360x800, 800x600 und 1440x900 mit 200 Prozent Schrift. Die Matrix kann mit --dart-define=LAYOUT_PAGE=Challonge auf diese Seiten begrenzt werden; --dart-define=LAYOUT_TRACE=true nennt jede geprüfte Seite. Gefilterte Matrix und adaptive Layouttests bestehen; Mobile-/Desktop-Vorschauen wurden geprüft. Die ungefilterte Matrix bleibt derzeit bei TournamentImportPreview vor den Challonge-Seiten stehen. Keine Prüfung auf physischen Geräten.
+
+
+### Mobile Scorer: Punkte und vollständige Eingabe (08.10.2026)
+
+Die kompakte Handy-Ansicht zeigt nur Format, Spieler/Punkte und Leg-/Set-Stand über dem vollständigen Rechner. Doppelte „Am Wurf“-Hinweise, Average, Heatmap-Ziel, Eingabeerklärung und Speicherhinweise entfallen in diesem Bereich. Verlauf, Heatmap-Wurfziel, Statistik und Monitor-Modus bleiben über „Partie-Details“ in der Kopfzeile erreichbar. Mobile verwendet vier Tastenreihen mit Bestätigen in der untersten Reihe; Schnellpunkte und Überworfen stehen im Eingabemenü. Bei ausreichend Platz bleiben die Punkte oben und die Eingabe unten; bei großer Schrift oder sehr geringer Höhe bleiben natürliche Inhalte scrollbar. Autoscoring blendet den Rechner weiterhin aus.
+
+`test/mobile_scorer_layout_test.dart` prüft ohne Scrollen beide Spieler und alle Rechnertasten bei 320x568, 360x800 und 412x892 mit den Namen ProfGans/Yannick sowie Schnellpunkte und Erhalt angefangener Eingaben beim Drehen. Vorschauen `build/layout_previews/scorer_phone_complete_<Breite>.png` auf dem Handy-Layout visuell geprüft. Die allgemeine Scorer-/Responsive-Matrix sichert 200 Prozent Schrift und Desktop ab. Keine Prüfung auf einem physischen Handy.

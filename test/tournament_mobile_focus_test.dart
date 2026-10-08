@@ -1,3 +1,4 @@
+import 'package:dart_tournament_manager/features/tournaments/modes/triple_ko/triple_ko_engine.dart';
 import 'package:dart_tournament_manager/features/tournaments/presentation/widgets/run/stage_controls.dart';
 import 'package:dart_tournament_manager/features/tournaments/presentation/widgets/run/mini_knockout_group_run_section.dart';
 import 'dart:io';
@@ -119,6 +120,14 @@ void main() {
         });
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
+        if (size.width < 840 || scale > 1) {
+          await tester.tap(find.byType(DropdownButtonFormField<StageViewMode>));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Uebersicht').last);
+        } else {
+          await tester.tap(find.text('Uebersicht'));
+        }
+        await tester.pumpAndSettle();
         expect(find.text('Turnieruhr starten'), findsNothing);
         if (font.isNotEmpty) {
           await tester.runAsync(() async {
@@ -314,4 +323,147 @@ void main() {
     expect(find.text('Gruppenbaum-Vorschau'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'Real mini triple bracket survives portrait landscape portrait text $scale',
+      (tester) async {
+        final directory = Directory.systemTemp.createTempSync(
+          'triple_rotation_',
+        );
+        final previous = PathProviderPlatform.instance;
+        PathProviderPlatform.instance = _Paths(directory.path);
+        addTearDown(() {
+          PathProviderPlatform.instance = previous;
+          directory.deleteSync(recursive: true);
+        });
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(360, 800);
+        addTearDown(tester.view.reset);
+        final players = List.generate(
+          4,
+          (i) => TournamentPlayer.generated(i + 1),
+        );
+        final rounds = TripleKoEngine.build([
+          for (var i = 0; i < 4; i += 2)
+            GroupMatch(
+              homePlayer: players[i],
+              awayPlayer: players[i + 1],
+              round: 1,
+            ),
+        ]);
+        final tournament = CreatedTournament(
+          name: 'Rotation',
+          players: players,
+          stages: const [
+            TournamentStage(
+              name: 'Mini-Triple-KO',
+              type: 'group',
+              groupCount: 1,
+              groupSizes: [4],
+            ),
+          ],
+          runStages: [
+            GroupTournamentRunStage(
+              name: 'Mini-Triple-KO',
+              groupPlayType: 'triple_elimination',
+              qualificationPlan: null,
+              tieBreakers: defaultGroupTieBreakers,
+              groups: [
+                TournamentGroup(
+                  name: 'Gruppe A',
+                  playType: 'triple_elimination',
+                  players: players,
+                  matches: rounds.expand((r) => r).toList(),
+                  knockoutRounds: rounds,
+                ),
+              ],
+            ),
+          ],
+        );
+        final rotationBoundary = GlobalKey();
+        await tester.runAsync(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: buildDartTournamentTheme(),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: RepaintBoundary(
+                key: rotationBoundary,
+                child: TournamentRunPage(tournament: tournament),
+              ),
+            ),
+          );
+          await tester.pump();
+          await StorageAccess.run(() async {});
+        });
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(DropdownButtonFormField<StageViewMode>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Uebersicht').last);
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('Gruppenbaum'),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.ensureVisible(find.text('Gruppenbaum'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Gruppenbaum'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final horizontal = tester
+            .stateList<ScrollableState>(find.byType(Scrollable))
+            .firstWhere(
+              (state) => state.widget.axisDirection == AxisDirection.right,
+            );
+        horizontal.position.jumpTo(
+          horizontal.position.maxScrollExtent.clamp(0, 40).toDouble(),
+        );
+        await tester.pumpAndSettle();
+
+        for (final size in [
+          const Size(900, 400),
+          const Size(360, 800),
+          const Size(800, 600),
+          const Size(1440, 900),
+          const Size(360, 800),
+        ]) {
+          tester.view.physicalSize = size;
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull, reason: 'Rotation to $size');
+          expect(
+            tester
+                .stateList<ScrollableState>(find.byType(Scrollable))
+                .where((state) => identical(state, horizontal)),
+            isNotEmpty,
+          );
+        }
+        if (font.isNotEmpty) {
+          await tester.ensureVisible(find.text('Gruppenbaum'));
+          await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            final render =
+                rotationBoundary.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary;
+            final image = await render.toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            final file = File(
+              'build/layout_previews/mini_triple_rotation_$scale.png',
+            );
+            await file.parent.create(recursive: true);
+            await file.writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+        expect(rounds.first.first.homePlayer, same(players.first));
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
 }

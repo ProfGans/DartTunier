@@ -1,4 +1,5 @@
 import '../../tournaments/domain/tournament_models.dart';
+import '../../tournaments/domain/player_withdrawal.dart';
 import 'tournament_simulation_engine.dart';
 import '../../league/domain/league_match.dart';
 
@@ -11,6 +12,26 @@ LeagueMatch rhlDevelopmentScenario() => LeagueMatch.rhl(
 );
 
 const tournamentDevelopmentScenarios = [
+  TournamentSimulationScenario(name: 'Begrenzte Gruppe: 13 Spieler mit maximal 5 Spielen und Finale', playerCount: 13, stages: [
+    SimulationGroupStageSpec(name: 'Gruppe', qualifiers: 2, groupSizes: [13], maxGamesPerPlayer: [5], fixedPerGroup: 2),
+    SimulationEliminationStageSpec(name: 'Finale', qualifiers: 1, lossLimit: 1),
+  ]),
+  TournamentSimulationScenario(name: 'Begrenzte Gruppe: 12 Spieler mit maximal 5 Spielen', playerCount: 12, stages: [
+    SimulationGroupStageSpec(name: 'Gruppe', qualifiers: 1, groupSizes: [12], maxGamesPerPlayer: [5], fixedPerGroup: 1),
+  ]),
+  TournamentSimulationScenario(name: 'Challonge 37: Siebenergruppe und KO mit Platz 3', playerCount: 7, stages: [
+    SimulationGroupStageSpec(name: 'Gruppe A', qualifiers: 4, groupSizes: [7], fixedPerGroup: 4),
+    SimulationEliminationStageSpec(name: 'KO', qualifiers: 1, lossLimit: 1, placementPlaces: [3]),
+  ]),
+  TournamentSimulationScenario(name: 'Ausstieg: zwei Spieler im KO', playerCount: 8, withdrawnPlayers: [0,7],
+    stages: [SimulationEliminationStageSpec(name: 'KO', qualifiers: 1, lossLimit: 1)]),
+  TournamentSimulationScenario(name: 'Ausstieg: Gruppe und KO', playerCount: 8, withdrawnPlayers: [0], stages: [
+    SimulationGroupStageSpec(name: 'Gruppe', qualifiers: 4, groupSizes: [4,4], fixedPerGroup: 2),
+    SimulationEliminationStageSpec(name: 'KO', qualifiers: 1, lossLimit: 1)]),
+  TournamentSimulationScenario(name: 'Ausstieg: ignorierte Doppel-KO-Spiele', playerCount: 8, withdrawnPlayers: [0], withdrawalMode: WithdrawalResultMode.ignoreOpen,
+    stages: [SimulationEliminationStageSpec(name: 'Doppel KO', qualifiers: 1, lossLimit: 2)]),
+  TournamentSimulationScenario(name: 'Ausstieg: Triple-KO', playerCount: 7, withdrawnPlayers: [0],
+    stages: [SimulationEliminationStageSpec(name: 'Triple KO', qualifiers: 1, lossLimit: 3)]),
   TournamentSimulationScenario(name: 'Swiss mit Freilosen und KO', playerCount: 13, stages: [
     SimulationGroupStageSpec(name: 'Swiss', qualifiers: 4, groupSizes: [13], playTypes: ['swiss'], roundRobinRepeats: [4], fixedPerGroup: 4),
     SimulationEliminationStageSpec(name: 'Finale', qualifiers: 1, lossLimit: 1),

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:url_launcher/url_launcher.dart';
 import 'scorer_controller.dart';
+import 'scorer_monitor_checkouts.dart';
 import '../domain/scorer_monitor_format.dart';
 
 /// Read-only loopback display. No commands, account data or LAN access.
@@ -41,6 +42,8 @@ class ScorerMonitorWindow {
                 for (var i = 0; i < controller.scores.length; i++)
                   {
                     'name': controller.settings.participants[i].name,
+                    'starter': i == controller.legStarter,
+                    'checkouts': monitorCheckouts(controller, i),
                     'legs': controller.legs[i],
                     'sets': controller.sets[i],
                     'score':
@@ -113,6 +116,6 @@ document.onfullscreenchange=()=>{full.textContent=document.fullscreenElement?'Vo
 function controls(){full.classList.remove('hidden');clearTimeout(hide);hide=setTimeout(()=>full.classList.add('hidden'),2500);}
 document.onpointermove=controls;document.onkeydown=controls;controls();
 async function update(){try{const r=await fetch('state',{cache:'no-store'});if(!r.ok)throw Error();const data=await r.json();const encoded=JSON.stringify(data);
-if(encoded!==last){document.querySelector('#format').textContent=data.format;main.replaceChildren();for(const p of data.players){const card=document.createElement('article');card.className=p.active?'active':'';const name=document.createElement('h2');name.textContent=p.name;const score=document.createElement('strong');score.textContent=p.score;const totals=document.createElement('div');totals.className='totals';totals.textContent=p.legs+' Legs · '+p.sets+' Sätze';card.append(name,score,totals);main.append(card);}last=encoded;}status.textContent='';
+if(encoded!==last){document.querySelector('#format').textContent=data.format;main.replaceChildren();for(const p of data.players){const card=document.createElement('article');card.className=p.active?'active':'';const name=document.createElement('h2');name.textContent=p.name;if(p.starter){const dot=document.createElement('span');dot.textContent='● ';dot.title='Anwerfer dieses Legs';dot.style.color='#ffd166';name.prepend(dot);}const score=document.createElement('strong');score.textContent=p.score;const totals=document.createElement('div');totals.className='totals';totals.textContent=p.legs+' Legs · '+p.sets+' Sätze';card.append(name,score,totals);if(p.checkouts.length){score.style.fontSize='clamp(64px,10vw,160px)';const label=document.createElement('div');label.textContent='CHECKOUT';card.append(label);p.checkouts.forEach((route,i)=>{const line=document.createElement('div');line.textContent=route;line.style.fontSize=i===0?'clamp(28px,3vw,48px)':'24px';line.style.color=i===0?'#ffd166':'white';card.append(line);});}main.append(card);}last=encoded;}status.textContent='';
 }catch(e){status.textContent='Verbindung zum Scorer unterbrochen · angezeigter Stand ist nicht live';}setTimeout(update,250);}update();
 </script></html>''';

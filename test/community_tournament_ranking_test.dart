@@ -31,7 +31,7 @@ void main() {
       communityRankingIds: ['training', 'default'],
     );
     expect((await storage.loadTournaments()).single.countsForRanking, isFalse);
-    expect(jsonDecode(await file.readAsString())['schemaVersion'], 20);
+    expect(jsonDecode(await file.readAsString())['schemaVersion'], 22);
     expect(await File('${file.path}.v13.bak').exists(), isTrue);
     await storage.synchronize();
     expect((uploaded.single['payload'] as Map)['countsForRanking'], isFalse);

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/widgets.dart';
 import '../../features/communities/domain/community_invitation.dart';
+import '../../features/tournament_invitations/domain/tournament_invitation.dart';
 
 /// Handles cold starts and links delivered while the application is running.
 class CommunityLinkListener extends StatefulWidget {
@@ -11,9 +12,11 @@ class CommunityLinkListener extends StatefulWidget {
     required this.onInvitation,
     this.links,
     this.initialLink,
+    this.onTournamentInvitation,
   });
   final Widget child;
   final Future<void> Function(String code) onInvitation;
+  final Future<void> Function(String token)? onTournamentInvitation;
   final Stream<Uri>? links;
   final Future<Uri?>? initialLink;
 
@@ -49,6 +52,19 @@ class _CommunityLinkListenerState extends State<CommunityLinkListener> {
   }
 
   void _receive(Uri uri) {
+    final token = TournamentInvitation.parse(uri);
+    if (token != null && widget.onTournamentInvitation != null) {
+      if (!mounted || !_openCodes.add(token)) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          if (mounted) await widget.onTournamentInvitation!(token);
+        } finally {
+          _openCodes.remove(token);
+        }
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+      return;
+    }
     final code = CommunityInvitation.codeFromLink(uri);
     if (!mounted || code == null || !_openCodes.add(code)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) async {

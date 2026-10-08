@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'player_withdrawal.dart';
 import 'tournament_access.dart';
 import 'imported_tournament_archive.dart';
 import '../../statistics/domain/bot_statistics_privacy.dart';
@@ -258,6 +259,7 @@ class TournamentStage {
     this.groupPlayType = 'round_robin',
     this.groupPlayTypes = const [],
     this.groupRoundRobinRepeats = const [],
+    this.groupMaxGamesPerPlayer = const [],
     this.groupTieBreakers = defaultGroupTieBreakers,
     this.groupDrawOnStart = false,
     this.groupSlotOrder = const [],
@@ -289,6 +291,7 @@ class TournamentStage {
       groupPlayType: json['groupPlayType'] as String? ?? 'round_robin',
       groupPlayTypes: _stringListFromJson(json['groupPlayTypes']),
       groupRoundRobinRepeats: _intListFromJson(json['groupRoundRobinRepeats']),
+      groupMaxGamesPerPlayer: _nullableIntListFromJson(json['groupMaxGamesPerPlayer']),
       groupTieBreakers: _stringListFromJson(
         json['groupTieBreakers'],
         fallback: defaultGroupTieBreakers,
@@ -327,6 +330,9 @@ class TournamentStage {
   final String groupPlayType;
   final List<String> groupPlayTypes;
   final List<int> groupRoundRobinRepeats;
+  /// Null means a full round robin; positive values cap actual games, excluding byes.
+  final List<int?> groupMaxGamesPerPlayer;
+  int? maxGamesForGroup(int index) => index >= 0 && index < groupMaxGamesPerPlayer.length ? groupMaxGamesPerPlayer[index] : null;
   final List<String> groupTieBreakers;
   final bool groupDrawOnStart;
   final List<int?> groupSlotOrder;
@@ -357,6 +363,7 @@ class TournamentStage {
       'groupPlayType': groupPlayType,
       'groupPlayTypes': groupPlayTypes,
       'groupRoundRobinRepeats': groupRoundRobinRepeats,
+      'groupMaxGamesPerPlayer': groupMaxGamesPerPlayer,
       'groupTieBreakers': groupTieBreakers,
       'groupDrawOnStart': groupDrawOnStart,
       'groupSlotOrder': groupSlotOrder,
@@ -460,6 +467,7 @@ class CreatedTournament {
     this.allowDeviceStart = false,
     this.access = const TournamentAccessSettings(),
     this.syncRevision = 0,
+    List<PlayerWithdrawal>? withdrawals,
     Set<int>? blockedBoards,
     this.startedAt,
     this.finishedAt,
@@ -471,7 +479,8 @@ class CreatedTournament {
        createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now(),
        completedStageIndexes = completedStageIndexes ?? <int>{},
-       blockedBoards = blockedBoards ?? <int>{};
+       blockedBoards = blockedBoards ?? <int>{},
+       withdrawals = withdrawals ?? [];
 
   factory CreatedTournament.fromJson(Map<String, dynamic> json) {
     return CreatedTournament(
@@ -496,6 +505,7 @@ class CreatedTournament {
       allowDeviceStart: json['allowDeviceStart'] == true,
       access: TournamentAccessSettings.fromJson(json['access'] as Map<String, dynamic>?),
       syncRevision: json['syncRevision'] as int? ?? 0,
+      withdrawals: _mapListFromJson(json['withdrawals'], PlayerWithdrawal.fromJson),
       blockedBoards: _intListFromJson(json['blockedBoards']).where((b) => b >= 1 && b <= 64).toSet(),
       startedAt: _dateTimeFromJson(json['startedAt']),
       finishedAt: _dateTimeFromJson(json['finishedAt']),
@@ -525,6 +535,7 @@ class CreatedTournament {
   bool allowDeviceStart;
   TournamentAccessSettings access;
   int syncRevision;
+  final List<PlayerWithdrawal> withdrawals;
   final Set<int> blockedBoards;
   DateTime? startedAt, finishedAt;
   int? plannedMinutes, plannedMatches;
@@ -534,6 +545,7 @@ class CreatedTournament {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      if (withdrawals.isNotEmpty) 'withdrawals': withdrawals.map((w) => w.toJson()).toList(),
       'name': name,
       'createdAt': createdAt.toUtc().toIso8601String(),
       'updatedAt': updatedAt.toUtc().toIso8601String(),
@@ -711,6 +723,9 @@ class GroupMatch {
     this.finishedAt,
     this.startedPlayers,
     this.deviceResult,
+    this.withdrawalSignature,
+    this.withdrawalIgnored = false,
+    this.withdrawalHadResult = false,
   });
 
   factory GroupMatch.fromJson(Map<String, dynamic> json) {
@@ -736,6 +751,9 @@ class GroupMatch {
         if (_playerFromJson(json['homePlayer'])?.bot != null) 0,
         if (_playerFromJson(json['awayPlayer'])?.bot != null) 1,
       }),
+      withdrawalSignature: json['withdrawalSignature'] as String?,
+      withdrawalIgnored: json['withdrawalIgnored'] == true,
+      withdrawalHadResult: json['withdrawalHadResult'] == true,
     );
   }
 
@@ -749,8 +767,8 @@ class GroupMatch {
   bool get hasSetScore => homeSets != null && awaySets != null;
   int? get homeScore => hasSetScore ? homeSets : homeLegs;
   int? get awayScore => hasSetScore ? awaySets : awayLegs;
-  String get scoreLabel => '$homeScore:$awayScore${hasSetScore ? ' Sets' : ''}';
-  final bool allowsBye;
+  String get scoreLabel => withdrawalIgnored ? 'Nicht gewertet' : '$homeScore:$awayScore${hasSetScore ? ' Sets' : ''}${withdrawalSignature != null && !withdrawalHadResult ? ' · kampflos' : ''}';
+  bool allowsBye;
   final String? placementKey;
   final int? placementRank;
   final String? label;
@@ -761,6 +779,10 @@ class GroupMatch {
   DateTime? finishedAt;
   String? startedPlayers;
   Map<String, dynamic>? deviceResult;
+  String? withdrawalSignature;
+  bool withdrawalIgnored;
+  bool withdrawalHadResult;
+  bool get countsForStatistics => hasResult && !withdrawalIgnored;
 
   bool get hasPlayers => homePlayer != null && awayPlayer != null;
   bool get hasScore => hasPlayers && homeLegs != null && awayLegs != null;
@@ -807,6 +829,9 @@ class GroupMatch {
       'placementRank': placementRank,
       'label': label,
       'isAnnulled': isAnnulled,
+      if (withdrawalSignature != null) 'withdrawalSignature': withdrawalSignature,
+      if (withdrawalIgnored) 'withdrawalIgnored': true,
+      if (withdrawalHadResult) 'withdrawalHadResult': true,
       'isDecider': isDecider,
       'boardNumber': boardNumber,
       'startedAt': startedAt?.toUtc().toIso8601String(),

@@ -134,7 +134,7 @@ class AutoscoringController extends ChangeNotifier {
       contactComparisonMetrics = const {};
   String? lastCaptureError, lastCaptureErrorStack;
   Map<String, Object?> diagnosticEnvironment = {
-    'algorithmRevision': 'measured-boundary-endpoint-2026-10-08',
+    'algorithmRevision': 'confirmed-removal-latch-2026-10-08',
     'operatingSystem': Platform.operatingSystem,
     'operatingSystemVersion': Platform.operatingSystemVersion,
     'dartVersion': Platform.version,
@@ -186,6 +186,7 @@ class AutoscoringController extends ChangeNotifier {
     isMiss: true,
   );
   bool get waitingForEmpty => _visitReset.waitingForEmpty;
+  Map<String, Object> get removalDecisionMetrics => _visitReset.decisionMetrics;
   List<Map<String, Object>> get removalMetrics => _visitReset.cameraMetrics
       .map((metrics) => Map<String, Object>.of(metrics))
       .toList();
@@ -836,6 +837,7 @@ class AutoscoringController extends ChangeNotifier {
       _diagnosticTrace.checkpoint('removal', {
         'state': state.name,
         'cameraMetrics': removalMetrics,
+        'removalDecision': removalDecisionMetrics,
       });
       if (state == VisitResetState.cleared) {
         for (var i = 0; i < 3; i++) {

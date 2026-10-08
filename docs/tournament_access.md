@@ -27,25 +27,31 @@ noch nicht synchronisierte lokale Änderungen erst nach einer Bestätigung.
 
 ## Bereitstellung
 
-`supabase/migrations/20261008120000_tournament_access.sql` muss zusammen mit der
-neuen App ausgerollt werden. Am 08.10.2026 nur lokal getestet, nicht produktiv
-angewendet. Der produktive Server besitzt noch keine `save_community_tournament_v2`.
+`supabase/migrations/20261008120000_tournament_access.sql` wurde am 08.10.2026
+im produktiven Supabase-Projekt `hnsyvqtqxdsbbyrayobv` erfolgreich angewendet.
+Die neuen RPCs, Versionsschutz und der Ausschluss anonymer Aufrufe wurden
+anschließend über den SQL-Editor geprüft. Bestehende Turnierdaten bleiben erhalten.
 Die Migration baut auf `202610020001_community_permissions.sql` auf.
 
-Die neue App verwendet `save_community_tournament_v2` und `submit_tournament_result`.
+Die neue App verwendet `save_community_tournament_v2`, `submit_tournament_result`
+und für RHL `submit_league_result`.
 `syncRevision` verhindert das Überschreiben inzwischen eingegangener Ergebnisse.
 Ältere Clients kennen die Revision nicht; nach einem neuen Online-Schreibvorgang
-können ihre weiteren Uploads abgelehnt werden. Vor Aktivierung alle schreibenden
-Clients aktualisieren. Ausstehende Änderungen nicht durch Zurücksetzen der
+können ihre weiteren Uploads abgelehnt werden. Alle schreibenden
+Clients müssen auf den neuen Build aktualisiert werden. Ausstehende Änderungen nicht durch Zurücksetzen der
 Versionsprüfung erzwingen, sondern den Online-Stand bewusst übernehmen.
 
 Lokales Speicherschema 19 ergänzt die optionalen Rechte und Revisionen;
-die parallel ergänzte Geräte-Startfunktion verwendet bereits Schema 20.
+Die Geräte-Startfunktion verwendet Schema 20; der gemeinsame Entwicklungsstand
+mit Spielerausstiegen verwendet inzwischen Schema 21.
 Alte Dateien werden mit sicheren Standardwerten gelesen und vor Migration gesichert.
 
-Die getrennte RHL-Ligaspielverwaltung und importierte Challonge-Archive verwenden
-ihre bisherigen Abläufe; die zusätzlichen Ergebnisschreiber betreffen die regulären
-Community-Turnieretappen (Gruppen und KO samt Sonderformen).
+Die RHL-Ligaspielverwaltung verwendet dieselben Rechte, einschließlich Auswahl
+bei Erstellung, nachträglicher Rechteverwaltung und Zuschaueransicht.
+Zusätzliche Schreiber dürfen ausschließlich offene Best-of-5-Ergebnisse melden.
+Die Serverprüfung bindet die Meldung an die gespeicherte Paarung und Mannschaften;
+Aufstellungen, Reihenfolge und bereits abgeschlossene Ergebnisse sind geschützt.
+Importierte Challonge-Archive bleiben schreibgeschützt.
 
 ## Prüfung
 
@@ -53,6 +59,8 @@ Community-Turnieretappen (Gruppen und KO samt Sonderformen).
   Rollenwechsel, Rechteentzug, Manipulationen, Ergebnisvalidierung und Konflikte.
 - `flutter test test/tournament_access_test.dart`: Rechtematrix, geschlossene
   Berechtigungsprüfung, eingeschränkter Ergebnisdialog und responsive Auswahl.
+- `flutter test test/league_access_test.dart`: 18 Kombinationen aus Zuschauer,
+  Ergebnisschreiber und Leitung bei 360x800, 800x600 und 1440x900 mit 100/200 % Schrift.
 - Zusätzlich Turniersimulation, gemeinsame Responsive-Matrix, Speichermigration
   und bestehende Community-Turniertests.
 - Mit `--dart-define=LAYOUT_PREVIEW_FONT=C:/Windows/Fonts/segoeui.ttf` entstehen

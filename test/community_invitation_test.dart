@@ -9,7 +9,8 @@ void main() {
     'invitation links round-trip and reject unrelated or malformed links',
     () {
       final link = CommunityInvitation.link(' abcdef23 ');
-      expect(link, 'dartturnier://community/join?code=ABCDEF23');
+      expect(link, 'https://profgans.github.io/DartTunier/invite/?code=ABCDEF23');
+      expect(CommunityInvitation.parseInput('dartturnier://community/join?code=ABCDEF23'), 'ABCDEF23');
       expect(CommunityInvitation.parseInput(link), 'ABCDEF23');
       expect(CommunityInvitation.parseInput('abcdef23'), 'ABCDEF23');
       for (final input in [

@@ -17,6 +17,8 @@ class CommunityRankingPage extends StatefulWidget {
     required this.tournaments,
     this.showAppBar = true,
     this.rankingId = 'default',
+    this.validityMonths,
+    this.onSettings,
     this.communityId,
     this.repository,
     this.canManage = false,
@@ -27,6 +29,8 @@ class CommunityRankingPage extends StatefulWidget {
   final List<CreatedTournament> tournaments;
   final bool showAppBar;
   final String rankingId;
+  final int? validityMonths;
+  final VoidCallback? onSettings;
   final String? communityId;
   final SupabaseCommunityRepository? repository;
   final bool canManage;
@@ -129,6 +133,7 @@ class _CommunityRankingPageState extends State<CommunityRankingPage> {
       tournaments: widget.tournaments,
       currentYearOnly: _currentYearOnly,
       rankingId: widget.rankingId,
+      validityMonths: widget.validityMonths,
       actions: _actions,
     );
     return Scaffold(
@@ -138,6 +143,8 @@ class _CommunityRankingPageState extends State<CommunityRankingPage> {
       body: AdaptiveContentList(
         padding: const EdgeInsets.all(16),
         children: [
+          if (widget.onSettings != null) TextButton.icon(onPressed: widget.onSettings, icon: const Icon(Icons.settings), label: const Text("Ranglisten-Regeln / Löschen")),
+          if (widget.validityMonths != null) Text("Gewertet werden die letzten ${widget.validityMonths} Monate. Ältere Spiele fallen aus der Elo-Berechnung; Startwert: 1000."),
           if (widget.communityId != null)
             Align(
               alignment: Alignment.centerRight,
@@ -153,7 +160,7 @@ class _CommunityRankingPageState extends State<CommunityRankingPage> {
               'Ranglistenverwaltung konnte nicht geladen werden. Bitte erneut versuchen.',
             ),
           if (!_loading && !_failed) ...[
-            SegmentedButton<bool>(
+            if (widget.validityMonths == null) SegmentedButton<bool>(
               segments: const [
                 ButtonSegment(value: true, label: Text('Dieses Jahr')),
                 ButtonSegment(value: false, label: Text('Gesamt')),
@@ -216,6 +223,7 @@ class _CommunityRankingPageState extends State<CommunityRankingPage> {
                                           .displayName] ??
                                   const [],
                               currentYearOnly: _currentYearOnly,
+                              validityMonths: widget.validityMonths,
                             ),
                           ),
                         ),

@@ -25,6 +25,7 @@ class ScorerSettings {
     this.startRequirement = StartRequirement.straightIn,
     this.checkoutRequirement = CheckoutRequirement.doubleOut,
     this.startingPlayer = 0,
+    this.alternateSetStarts = true,
     this.botThrowDelay = const Duration(milliseconds: 650),
     required List<ScorerParticipant> participants,
   }) : participants = List.unmodifiable(participants) {
@@ -47,6 +48,7 @@ class ScorerSettings {
     }
   }
   final int startScore, bestOfLegs, bestOfSets, startingPlayer;
+  final bool alternateSetStarts;
   final Duration botThrowDelay;
   final StartRequirement startRequirement;
   final CheckoutRequirement checkoutRequirement;

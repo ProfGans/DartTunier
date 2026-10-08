@@ -1,3 +1,4 @@
+import 'widgets/scorer_play_sizing.dart';
 import '../../statistics/data/profile_heatmap_repository.dart';
 import 'widgets/heatmap_target_picker.dart';
 import 'widgets/scorer_play_layout.dart';
@@ -798,195 +799,243 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
     }
   }
 
+  void _showPlayDetailsSheet(bool target) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => FractionallySizedBox(
+        heightFactor: .8,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: StatefulBuilder(
+              builder: (context, refresh) => target
+                  ? HeatmapTargetPicker(
+                      target: controller.intendedTarget,
+                      player: controller.activePlayer,
+                      onChanged: _leaving || _cameraPending
+                          ? null
+                          : (value) {
+                              setState(() => controller.intendedTarget = value);
+                              refresh(() {});
+                            },
+                    )
+                  : ScorerLegSheet(
+                      settings: widget.settings,
+                      visits: controller.statisticsVisits,
+                      leg: controller.displayedLeg,
+                      starter: controller.legStarter,
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = controller;
     final statistics = c.statistics;
-    final board = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          '${widget.settings.startScore} · ${checkoutLabel(widget.settings.checkoutRequirement)} · Best of ${widget.settings.bestOfLegs} Legs'
-          '${widget.settings.bestOfSets > 1 ? ' · Best of ${widget.settings.bestOfSets} Sets' : ''}',
-        ),
-        const SizedBox(height: 12),
-        ScorerScoreboard(
-          players: [
-            for (var i = 0; i < widget.settings.participants.length; i++)
-              ScorerScoreboardPlayer(
-                name: widget.settings.participants[i].name,
-                score: i == c.activePlayer && !c.isComplete
-                    ? c.remaining
-                    : c.scores[i],
-                legs: c.legs[i],
-                sets: c.sets[i],
-                average: statistics.players[i].average,
-                active: i == c.activePlayer && !c.isComplete,
-                bot: widget.settings.participants[i].bot != null,
+    final board = Builder(
+      builder: (context) {
+        final compact = ScorerPlaySizing.of(context)?.compact ?? false;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${widget.settings.startScore} · ${checkoutLabel(widget.settings.checkoutRequirement)} · Best of ${widget.settings.bestOfLegs} Legs'
+              '${widget.settings.bestOfSets > 1 ? ' · Best of ${widget.settings.bestOfSets} Sets' : ''}',
+            ),
+            SizedBox(height: compact ? 4 : 12),
+            ScorerScoreboard(
+              players: [
+                for (var i = 0; i < widget.settings.participants.length; i++)
+                  ScorerScoreboardPlayer(
+                    name: widget.settings.participants[i].name,
+                    score: i == c.activePlayer && !c.isComplete
+                        ? c.remaining
+                        : c.scores[i],
+                    legs: c.legs[i],
+                    sets: c.sets[i],
+                    average: statistics.players[i].average,
+                    active: i == c.activePlayer && !c.isComplete,
+                    bot: widget.settings.participants[i].bot != null,
+                  ),
+              ],
+            ),
+            SizedBox(height: compact ? 4 : 12),
+            if (c.isComplete)
+              Text(
+                c.isDraw
+                    ? 'Unentschieden!'
+                    : '${widget.settings.participants[c.winner!].name} gewinnt!',
+                style: Theme.of(context).textTheme.headlineSmall,
+              )
+            else if (!compact) ...[
+              Text(
+                '${c.activeThrower} ist am Wurf${widget.settings.participants[c.activePlayer].isTeam ? ' · ${widget.settings.participants[c.activePlayer].name}' : ''}${c.isBotTurn ? ' · Bot' : ''}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              if (c.isBotTurn) const LinearProgressIndicator(),
+            ],
+            if (c.message.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(c.message),
+            ],
+            if (!compact && !c.isComplete && !c.isBotTurn && !_isRemote)
+              HeatmapTargetPicker(
+                target: c.intendedTarget,
+                player: c.activePlayer,
+                onChanged: _leaving || _cameraPending
+                    ? null
+                    : (value) => setState(() => c.intendedTarget = value),
+              ),
+            if (!compact && !c.isComplete && c.remaining <= 180)
+              PersonalizedCheckoutRoutes(
+                accountId: widget.accountId,
+                enabled: c.activePlayer == widget.profilePlayerIndex,
+                score: c.remaining,
+                dartsLeft: c.dartsLeft,
+                requirement: widget.settings.checkoutRequirement,
               ),
           ],
-        ),
-        const SizedBox(height: 12),
-        if (c.isComplete)
-          Text(
-            c.isDraw
-                ? 'Unentschieden!'
-                : '${widget.settings.participants[c.winner!].name} gewinnt!',
-            style: Theme.of(context).textTheme.headlineSmall,
-          )
-        else ...[
-          Text(
-            '${c.activeThrower} ist am Wurf${widget.settings.participants[c.activePlayer].isTeam ? ' · ${widget.settings.participants[c.activePlayer].name}' : ''}${c.isBotTurn ? ' · Bot' : ''}',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          if (c.isBotTurn) const LinearProgressIndicator(),
-        ],
-        if (c.message.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(c.message),
-        ],
-        if (!c.isComplete && !c.isBotTurn && !_isRemote)
-          HeatmapTargetPicker(
-            target: c.intendedTarget,
-            player: c.activePlayer,
-            onChanged: _leaving || _cameraPending
-                ? null
-                : (value) => setState(() => c.intendedTarget = value),
-          ),
-        if (!c.isComplete && c.remaining <= 180)
-          PersonalizedCheckoutRoutes(
-            accountId: widget.accountId,
-            enabled: c.activePlayer == widget.profilePlayerIndex,
-            score: c.remaining,
-            dartsLeft: c.dartsLeft,
-            requirement: widget.settings.checkoutRequirement,
-          ),
-      ],
+        );
+      },
     );
-    final pad = Column(
-      children: [
-        if (_cameraOpen && !_isRemote)
-          OutlinedButton.icon(
-            onPressed: () =>
-                setState(() => _showCameraDetails = !_showCameraDetails),
-            icon: Icon(
-              _showCameraDetails
-                  ? Icons.visibility_off
-                  : Icons.edit_location_alt_outlined,
-            ),
-            label: Text(
-              _showCameraDetails
-                  ? 'Autoscoring-Korrektur ausblenden'
-                  : 'Autoscoring aktiv · Darts korrigieren',
-            ),
-          ),
-        if (_cameraOpen && !_isRemote)
-          Visibility(
-            visible: _showCameraDetails,
-            maintainState: true,
-            child: ScorerCameraPanel(
-              key: _cameraPanelKey,
-              activity: controller,
-              isInputEnabled: () =>
-                  _cameraOpen &&
-                  !_leaving &&
-                  !_cameraRemoved &&
-                  (_cameraPending ||
-                      (!controller.isBotTurn && !controller.isComplete)),
-              dartsLeftProvider: () => controller.dartsLeft,
-              dartsLeft: c.dartsLeft,
-              enabled:
-                  !_leaving &&
-                  !_cameraRemoved &&
-                  (_cameraPending || (!c.isBotTurn && !c.isComplete)),
-              onAccept: _confirmCameraVisit,
-              onPreview: _previewCameraVisit,
-              onLocations: (locations) => _cameraLocations = locations,
-              attempts: _cameraAttempts,
-              onClose: _closeCamera,
-            ),
-          ),
-        if (_cameraRemoved && !_confirmingCamera && !_isRemote)
-          FilledButton(
-            onPressed: () => _confirmCameraVisit(const []),
-            child: const Text(
-              'Fehlende Darts nachtragen · Aufnahme abschließen',
-            ),
-          ),
-        if (_cameraOpen && _isRemote) ...[
-          const Text(
-            'Autoscoring läuft am Hauptgerät. Erkannte Würfe werden hier angezeigt.',
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final dart
-                  in (widget.remote!.state?['cameraDarts'] as List? ??
-                      const []))
-                Chip(label: Text(dart as String)),
-            ],
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (widget.remote!.state?['cameraPending'] == true)
-                FilledButton(
-                  onPressed: _inputReady
-                      ? () => widget.remote!.command('cameraConfirm')
-                      : null,
-                  child: const Text('Aufnahme übernehmen'),
+    final pad = Builder(
+      builder: (context) {
+        final compact = ScorerPlaySizing.of(context)?.compact ?? false;
+        return Column(
+          children: [
+            if (_cameraOpen && !_isRemote)
+              OutlinedButton.icon(
+                onPressed: () =>
+                    setState(() => _showCameraDetails = !_showCameraDetails),
+                icon: Icon(
+                  _showCameraDetails
+                      ? Icons.visibility_off
+                      : Icons.edit_location_alt_outlined,
                 ),
-              OutlinedButton(
-                onPressed: _inputReady
-                    ? () => widget.remote!.command('cameraClose')
-                    : null,
-                child: const Text('Autoscoring beenden'),
+                label: Text(
+                  _showCameraDetails
+                      ? 'Autoscoring-Korrektur ausblenden'
+                      : 'Autoscoring aktiv · Darts korrigieren',
+                ),
+              ),
+            if (_cameraOpen && !_isRemote)
+              Visibility(
+                visible: _showCameraDetails,
+                maintainState: true,
+                child: ScorerCameraPanel(
+                  key: _cameraPanelKey,
+                  activity: controller,
+                  isInputEnabled: () =>
+                      _cameraOpen &&
+                      !_leaving &&
+                      !_cameraRemoved &&
+                      (_cameraPending ||
+                          (!controller.isBotTurn && !controller.isComplete)),
+                  dartsLeftProvider: () => controller.dartsLeft,
+                  dartsLeft: c.dartsLeft,
+                  enabled:
+                      !_leaving &&
+                      !_cameraRemoved &&
+                      (_cameraPending || (!c.isBotTurn && !c.isComplete)),
+                  onAccept: _confirmCameraVisit,
+                  onPreview: _previewCameraVisit,
+                  onLocations: (locations) => _cameraLocations = locations,
+                  attempts: _cameraAttempts,
+                  onClose: _closeCamera,
+                ),
+              ),
+            if (_cameraRemoved && !_confirmingCamera && !_isRemote)
+              FilledButton(
+                onPressed: () => _confirmCameraVisit(const []),
+                child: const Text(
+                  'Fehlende Darts nachtragen · Aufnahme abschließen',
+                ),
+              ),
+            if (_cameraOpen && _isRemote) ...[
+              const Text(
+                'Autoscoring läuft am Hauptgerät. Erkannte Würfe werden hier angezeigt.',
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final dart
+                      in (widget.remote!.state?['cameraDarts'] as List? ??
+                          const []))
+                    Chip(label: Text(dart as String)),
+                ],
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (widget.remote!.state?['cameraPending'] == true)
+                    FilledButton(
+                      onPressed: _inputReady
+                          ? () => widget.remote!.command('cameraConfirm')
+                          : null,
+                      child: const Text('Aufnahme übernehmen'),
+                    ),
+                  OutlinedButton(
+                    onPressed: _inputReady
+                        ? () => widget.remote!.command('cameraClose')
+                        : null,
+                    child: const Text('Autoscoring beenden'),
+                  ),
+                ],
               ),
             ],
-          ),
-        ],
-        Visibility(
-          visible: !_cameraOpen,
-          maintainState: true,
-          child: Column(
-            children: [
-              ScoreKeypad(
-                key: _scoreKeypadKey,
-                enabled:
-                    _inputReady &&
-                    !_cameraOpen &&
-                    !_leaving &&
-                    !c.isComplete &&
-                    !c.isBotTurn,
-                remaining: c.remaining,
-                onSubmit: _submit,
-                onBust: _submitBust,
-                onUndo: _inputReady && !_cameraOpen && !_leaving && c.canUndo
-                    ? _undo
-                    : null,
+            Visibility(
+              visible: !_cameraOpen,
+              maintainState: true,
+              child: Column(
+                children: [
+                  ScoreKeypad(
+                    key: _scoreKeypadKey,
+                    enabled:
+                        _inputReady &&
+                        !_cameraOpen &&
+                        !_leaving &&
+                        !c.isComplete &&
+                        !c.isBotTurn,
+                    remaining: c.remaining,
+                    onSubmit: _submit,
+                    onBust: _submitBust,
+                    onUndo:
+                        _inputReady && !_cameraOpen && !_leaving && c.canUndo
+                        ? _undo
+                        : null,
+                  ),
+                  if (!compact)
+                    const Text(
+                      'Summe der Aufnahme eingeben und mit OK bestätigen.\nTastatur: Ziffern, Enter, Rücktaste, Esc.',
+                      textAlign: TextAlign.center,
+                    ),
+                ],
               ),
-              const Text(
-                'Summe der Aufnahme eingeben und mit OK bestätigen.\nTastatur: Ziffern, Enter, Rücktaste, Esc.',
+            ),
+            if (!compact) ...[
+              const SizedBox(height: 12),
+              Text(
+                _isRemote
+                    ? 'Die Partie und ihre Statistiken werden am Hauptgerät geführt.'
+                    : 'Beim Verlassen kannst du die Partie zwischenspeichern.',
                 textAlign: TextAlign.center,
               ),
+              if (widget.accountId != null)
+                const Text(
+                  'Erfasste Aufnahmen bleiben in deinem Profil gespeichert.',
+                  textAlign: TextAlign.center,
+                ),
             ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          _isRemote
-              ? 'Die Partie und ihre Statistiken werden am Hauptgerät geführt.'
-              : 'Beim Verlassen kannst du die Partie zwischenspeichern.',
-          textAlign: TextAlign.center,
-        ),
-        if (widget.accountId != null)
-          const Text(
-            'Erfasste Aufnahmen bleiben in deinem Profil gespeichert.',
-            textAlign: TextAlign.center,
-          ),
-      ],
+          ],
+        );
+      },
     );
     final scorer = PopScope(
       canPop:
@@ -1051,10 +1100,35 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
                   : _openAutoscoring,
               icon: const Icon(Icons.videocam_outlined),
             ),
-            IconButton(
-              tooltip: 'Matchstatistik',
-              onPressed: _showStatistics,
-              icon: const Icon(Icons.bar_chart),
+            PopupMenuButton<String>(
+              tooltip: 'Partie-Details',
+              icon: const Icon(Icons.more_vert),
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'statistics',
+                  child: Text('Matchstatistik'),
+                ),
+                const PopupMenuItem(
+                  value: 'history',
+                  child: Text('Schreibertafel · Leg-Verlauf'),
+                ),
+                if (!_isRemote && !c.isComplete && !c.isBotTurn)
+                  const PopupMenuItem(
+                    value: 'target',
+                    child: Text('Heatmap-Wurfziel'),
+                  ),
+                const PopupMenuItem(
+                  value: 'monitor',
+                  child: Text('Monitor-Modus'),
+                ),
+              ],
+              onSelected: (value) {
+                if (value == 'statistics') _showStatistics();
+                if (value == 'monitor') _chooseMonitor();
+                if (value == 'history' || value == 'target') {
+                  _showPlayDetailsSheet(value == 'target');
+                }
+              },
             ),
           ],
         ),

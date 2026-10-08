@@ -6,6 +6,7 @@ import '../tournament_workspace.dart';
 import 'app_theme.dart';
 import '../features/tournaments/application/tournament_sync_service.dart';
 import 'navigation/community_link_listener.dart';
+import '../features/tournament_invitations/presentation/tournament_join_page.dart';
 import '../features/communities/presentation/community_invitation_page.dart';
 import '../features/devices/application/devices_controller.dart';
 import '../features/devices/presentation/devices_scope.dart';
@@ -82,6 +83,13 @@ class _DartTournamentAppState extends State<DartTournamentApp>
       child: DevicesScope(
         controller: _devices,
         child: CommunityLinkListener(
+          onTournamentInvitation: (token) async {
+            await _navigatorKey.currentState?.push(
+              MaterialPageRoute<void>(
+                builder: (_) => TournamentJoinPage(token: token),
+              ),
+            );
+          },
           onInvitation: (code) async {
             await _navigatorKey.currentState?.push(
               MaterialPageRoute<void>(

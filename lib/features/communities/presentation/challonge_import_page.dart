@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../../tournaments/data/tournament_storage.dart';
 import '../application/challonge_import_service.dart';
+import '../application/challonge_native_import.dart';
 import '../data/challonge_client.dart';
 import '../data/challonge_public_reader.dart';
 import '../data/supabase_community_repository.dart';
@@ -12,6 +13,7 @@ import '../domain/community.dart';
 import '../domain/community_permissions.dart';
 import '../domain/community_member_identity.dart';
 import 'challonge_browser_page.dart';
+import 'widgets/community_ranking_picker.dart';
 
 class ChallongeImportPage extends StatefulWidget {
   const ChallongeImportPage({
@@ -58,7 +60,11 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
   final _selected = <String>{};
   final _assignments = <String, String>{};
   Set<String> _existing = {};
+  final _nativeReports = <String, Map<String, dynamic>>{};
+  final _nativeErrors = <String, String>{};
   bool _busy = false;
+  bool _countsForRanking = false;
+  List<String> _rankingIds = ['default'];
   int _revision = 0;
   String? _status, _error;
   @override
@@ -97,7 +103,29 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
     );
     final remote = await widget.repository.loadTournaments(widget.community.id);
     final local = await _storage.loadTournaments();
-    _existing = {...remote.map((t) => t.id), ...local.map((t) => t.id)};
+    _existing = {
+      for (final t in [...remote, ...local])
+        if (t.importedArchive?.usesNativeLogic != false) t.id,
+    };
+    _nativeReports.clear();
+    _nativeErrors.clear();
+    for (final source in sources) {
+      if (_existing.contains(source.tournamentId(widget.community.id))) {
+        continue;
+      }
+      try {
+        final converted = ChallongeNativeImport.convert(
+          source.convert(widget.community.id, {
+            for (final p in source.participants)
+              '${p['id']}': 'preview-${p['id']}',
+          }),
+        );
+        _nativeReports[source.id] =
+            converted.importedArchive!.nativeValidation!;
+      } on FormatException catch (error) {
+        _nativeErrors[source.id] = error.message.toString();
+      }
+    }
     if (mounted) {
       setState(() {
         _preview = {for (final t in sources) t.id: t}.values.toList();
@@ -210,6 +238,9 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
       widget.community.id,
       _preview,
       assignments: _assignments,
+      countsForRanking: _countsForRanking,
+      useNativeLogic: true,
+      rankingIds: _countsForRanking ? _rankingIds : const [],
       progress: (s) {
         if (mounted) setState(() => _status = s);
       },
@@ -358,7 +389,19 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
                   subtitle: Text(
                     _existing.contains(t.tournamentId(widget.community.id))
                         ? 'Bereits importiert – wird übersprungen'
-                        : '${t.participants.length} Teilnehmer · ${t.matches.length} Spiele · ${t.participants.where((p) => p['final_rank'] != null).length} Platzierungen',
+                        : [
+                            '${t.participants.length} Teilnehmer · ${t.matches.length} Spiele · ${t.participants.where((p) => p['final_rank'] != null).length} Platzierungen',
+                            if (_nativeErrors[t.id] != null)
+                              'Native Prüfung fehlgeschlagen: ${_nativeErrors[t.id]}',
+                            if (_nativeReports[t.id] != null)
+                              _nativeReports[t.id]!['status'] == 'matched'
+                                  ? 'Eigene Turnierlogik: verfügbare Platzierungen und Weiterkommen stimmen überein.'
+                                  : 'Eigene Turnierlogik: Abweichungen zu Challonge.',
+                            for (final issue
+                                in _nativeReports[t.id]?['issues'] as List? ??
+                                    const [])
+                              '$issue',
+                          ].join('\n'),
                   ),
                 ),
               for (final entry in names.entries)
@@ -403,10 +446,38 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
                   ),
                 ),
               const Text(
-                'Einzelne ganzzahlige Ergebnisse werden als Legs übernommen. Mehrteilige Ergebnisse und kampflose Siege bleiben im Archiv erhalten. Der Import zählt zunächst nicht für Elo oder Community-Ranglisten.',
+                'Import in die eigene Turnierlogik: Gruppen, K.-o.-Weiterleitung und Platzierungen werden geprüft. Der Ergebnisvergleich ist anschließend über „Mit Challonge vergleichen“ erreichbar. Bestehende Archivimporte werden beim erneuten Import umgestellt. Nicht eindeutig übertragbare Ergebnisse brechen vor dem Speichern ab.',
               ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Für Elo und Community-Ranglisten werten'),
+                subtitle: const Text(
+                  'Gilt für neue und umgestellte Turniere dieses Imports. Historische Ergebnisse werden nach dem Turnierdatum eingerechnet. Ohne Spielzeitangaben werden Gruppenspiele vor K.-o.-Spielen gewertet.',
+                ),
+                value: _countsForRanking,
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _countsForRanking = value),
+              ),
+              if (_countsForRanking)
+                AbsorbPointer(
+                  absorbing: _busy,
+                  child: CommunityRankingPicker(
+                    communityId: widget.community.id,
+                    selectedIds: _rankingIds,
+                    loadRankings: () =>
+                        widget.repository.loadRankings(widget.community.id),
+                    onChanged: (ids) => setState(() => _rankingIds = ids),
+                  ),
+                ),
               FilledButton.icon(
-                onPressed: _busy || pending.isEmpty ? null : _import,
+                onPressed:
+                    _busy ||
+                        pending.isEmpty ||
+                        _nativeErrors.isNotEmpty ||
+                        (_countsForRanking && _rankingIds.isEmpty)
+                    ? null
+                    : _import,
                 icon: const Icon(Icons.file_download_outlined),
                 label: Text(
                   '${pending.length} Turniere und fehlende Mitglieder importieren',

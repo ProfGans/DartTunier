@@ -1,0 +1,635 @@
+# Aktuelle App-Analyse: Features, Probleme und Zukunftsplan
+
+**Prüfstand: 8. Oktober 2026. App-Version im Arbeitsverzeichnis: 0.1.4+17.**
+
+Diese Datei aktualisiert die Analyse vom 3. Oktober. Sie beschreibt den tatsächlich vorliegenden Arbeitsstand einschließlich geänderter und neuer, noch nicht committeter Dateien. Sie ist keine Aussage darüber, welche Funktionen bereits auf allen Nutzergeräten oder auf dem produktiven Supabase-Projekt verfügbar sind.
+
+Die App hat weiterhin 20 oberste Feature-Verzeichnisse, ist innerhalb dieser Bereiche aber deutlich gewachsen. Besonders hinzugekommen sind Schweizer System, Challonge-Archivimport, ein Statistik-Cockpit mit 42 Kennzahlen, SQLite-/Cloud-Profil-Heatmaps, kontinuierliche Windows-Kamerabilder, unabhängige Autoscoring-Prüfserien, Turnierrechte, Gerätestart und neue Abläufe für Ausbullen sowie Spielerausstieg.
+
+Der nächste große Nutzen liegt aus meiner Sicht in stabilen Betriebsabläufen: Tests wieder zuverlässig grün bekommen, Server-/Client-Kompatibilität kontrolliert herstellen, vollständige Datensicherung definieren und den realen Drei-Kamera-/Mehrgerätebetrieb messen. Parallel sind Veranstalterfunktionen wie Anmeldung, Check-in, Schreiberdienste, Druck und Saisonverwaltung sinnvoll.
+
+## 1. Vorgehen und Grenzen
+
+### 1.1 Tatsächlich untersucht
+
+- Projektregeln in `AGENTS.md`, vorheriger Audit, Feature-Verzeichnisse und App-Navigation.
+- Versionsangaben, Speicherverträge, zentrale Modelle, Turnierlauf und Application-Services.
+- Neue Swiss-Engine, Challonge-Import, Rechte/RPC-Anbindung, Spielerausstieg und Ergebnisimport.
+- Scorer, Ausbullen, Monitorfenster, Statistiken und Heatmap-Speicherung.
+- Autoscoring-Controller, Diagnose-/Prüfkonventionen, neue Video-/Transport-/Reset-Dokumentation und lokale Kamera-Erweiterung.
+- Backupliste, Release-Workflow, Teststruktur und aktuelle direkte Flutter-Testläufe.
+- Offizielle Internetquellen zu Turnierbetrieb, Check-in, Trainingsangeboten, Autoerkennung, API-Import, Flutter-Performance und Servermigrationen.
+
+### 1.2 Kennzeichnung
+
+| Kennzeichnung | Bedeutung |
+| --- | --- |
+| Codebefund | Im gelesenen aktuellen Quellcode direkt nachvollziehbar. |
+| Testbefund | In dieser Prüfung tatsächlich beobachtetes Testergebnis. |
+| Dokumentierter Stand | Aus Projektunterlagen; Live-Server oder echte Hardware in diesem Audit nicht erneut geprüft. |
+| Risiko | Plausibles Problem aus einem bestehenden Vertrag oder einer Grenze; kein behaupteter reproduzierter Schaden. |
+| Idee | Geplante Verbesserung, nicht automatisch ein fehlendes oder defektes Feature. |
+
+Die Inventarisierung deckt alle erkennbaren Produktbereiche und wesentlichen Funktionen ab. Sie ersetzt keine Zeile-für-Zeile-Prüfung aller Dateien und keine vollständige Sicherheitsprüfung. Vorhandene Tests belegen ihre jeweiligen Szenarien, nicht sämtliche realen Einsatzbedingungen.
+
+Es gab keine interaktive Desktop-/Smartphone-Sichtprüfung, keine Live-Server-Abfrage, keinen authentifizierten Community-Schreibimport und keinen echten USB-Kamera-/Mehrgeräte-/Push-Test. Insbesondere wurden keine Produktivmigrationen ausgeführt, keine Nachrichten verschickt und keine laufende App ersetzt. Nur der neue Bericht wurde als Projektdatei erstellt.
+
+### 1.3 Arbeitsstand und Versionen
+
+| Gegenstand | Aktuell beobachtet | Konsequenz |
+| --- | --- | --- |
+| App | `pubspec.yaml`: 0.1.4+17 | App-Version und Datenversionen getrennt behandeln. |
+| Git-Basis | Letzter beim Start gelesener Commit `c72e0f8`, Version 0.1.4 | Zahlreiche Änderungen liegen zusätzlich uncommittet vor; Bericht umfasst sie. |
+| Turnierspeicher | Schema 21 | Ältere Apps dürfen neue Daten nicht ungeprüft öffnen. |
+| SQLite | Schema 5 | Enthält nun lokale und persönliche Heatmap-Sitzungen. |
+| Scorer-Draft | Schreiben Version 3, Lesen 1–3 | Aktionsverlauf und optionale Ziele/Positionsdaten berücksichtigen. |
+| Heatmap-Payload | Laut Dokumentation Version 2 | Alte Sitzungen erhalten keine erfundenen Ziele oder Zeiten. |
+| Statistik-Payload | Laut Dokumentation Version 3 | Tatsächliche und geschätzte Wurfzahlen unterscheidbar. |
+| Kameraabhängigkeit | Lokales `packages/camera_windows` | Native Änderungen benötigen Neubuild/Neustart, Hot Reload reicht nicht. |
+
+## 2. Was sich gegenüber dem 3. Oktober geändert hat
+
+| Frühere Einschätzung / Idee | Aktueller Stand | Neue Einordnung |
+| --- | --- | --- |
+| Schweizer System als künftiger Modus | Eigene Swiss-Engine, UI, Finder und gemeinsame Simulationsszenarien vorhanden | Jetzt Regeln erklären, Sonderfälle/Skalierung und Ergebnisrücknahme absichern. |
+| Ausführlichere Statistik / First-9-Average | Cockpit mit 42 Kennzahlen, Detailseiten, Verteilungen, Form, Gegneranalyse vorhanden | Kein neuer Statistik-Grundbau nötig; Datenqualität und Interpretation verbessern. |
+| Heatmaps nur bei echten Positionen | Lokale SQLite-Heatmaps und private Profil-Synchronisation vorhanden | Zielanalyse, Eigentümerschaft, große Archive und Mehrgeräte-Konflikte vertiefen. |
+| Kontinuierliche Frames als Alternative | Windows-Videoerweiterung und begrenzte Framepuffer vorhanden | Tatsächliche Bildrate, Synchronisierung und Latenz auf Hardware nachweisen. |
+| Genauigkeit bisher automatisch bestätigt | Unabhängige Prüfserie zusätzlich zur Alltagsstatistik vorhanden | Verbesserung anerkennen; beide Kennzahlen müssen eindeutig unterscheidbar bleiben. |
+| Ladefehler der Turnierliste unsichtbar | Ladebalken, Fehlertext und Retry vorhanden | Früherer Befund weitgehend behoben; leere Liste erscheint noch gleichzeitig. |
+| Allgemeine Navigation / Hauptmenü | Neue Sport-App-Shell und kompaktere Menügruppen vorhanden | Früheres Layout nicht mehr als aktuelles Inventar verwenden. |
+| Challonge nur mögliche Integration | Öffentliche Browserseite, API/JSON, Vorschau, Namenszuordnung und Archivimport vorhanden | Parser-/Importverlässlichkeit und echte Community-Abnahme priorisieren. |
+| Ausbullen nur als ausgewählter Starter | Eigener WDF-/PDC-DRA-Ablauf mit Botwürfen im Arbeitsstand vorhanden | Mehrparteien-Erweiterung erklären; Kameraanbindung bleibt separat. |
+| Turnierrechte nur allgemeine Community-Rollen | Turnierbezogene Leiter/Ergebnisschreiber und Revisions-RPCs vorhanden | Deployment und alte Clients sind aktuell entscheidend. |
+| No-show/Rückzug nur Vorschlag | Vier Ausstiegs-Wertungsmodi und Ranglistenoptionen im Arbeitsstand | Folgenvorschau, eindeutige IDs und breite Fachtests fehlen als nächste Absicherung. |
+| Desktop-/Linux-Release unklar | Ein Workflow enthält Android und Desktop x64/ARM64-Jobs | Workflowname allein sagt nichts über abgedeckte Plattformen; Hardwareprüfung bleibt offen. |
+| Backups ohne Heatmaps | SQLite-Heatmaps fallen jetzt unter Datenbanksicherung | Fehlende separate Einstellungen/Drafts bleiben ein Befund, Heatmaps nicht pauschal als ungesichert bezeichnen. |
+| Responsive Timeout bei 360 px / 200 % | Aktuelle gemeinsame Matrix: alle 17 Tests bestanden | Alter Einzelbefund nicht mehr als aktuell reproduziert führen. Gesamtsuite separat betrachten. |
+
+## 3. Vollständiges Feature-Inventar nach Produktbereichen
+
+### 3.1 App-Einstieg, Navigation und Einstellungen
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| Bootstrap | App-Einstieg, Initialisierung, Storage-Session und Instanzschutz als eigene Bausteine | Bootstrap weiterhin frei von Fachlogik halten. |
+| Startseite | SportHero, direkte Turniererstellung, Scorerstart, Spielzentrale, Account, Werkzeuge/Verwaltung | Noch keine datenbasierte Übersicht über heutige Termine/laufende Boards. |
+| Adaptive Navigation | Breite Seitenleiste ab ausreichender Breite und passender Textgröße; kompakte Alternative | Im Code breitenabhängig, nicht anhand Betriebssystem; Resize-Zustand gezielt testen. |
+| Gemeinsames Layout | AdaptiveContent, Sport-Menüs, Formular-/Einstellungssektionen, Kennzahlengitter, paginierte Einträge | Konsistenz bei neuen Seiten bewahren; zusätzliche Navigation nicht in jede Seite kopieren. |
+| Einstellungen | Turnierplanung, Datensicherung, Updates, Scorer/Bots | Featurepräferenzen liegen verteilt in mehreren Speichern. |
+| Performance-Diagnose | Optionales `PERFORMANCE_LOG`, Frame-/RSS-Daten ohne Spielernamen | Kein Ersatz für Release- und Hardwareprofiling. |
+
+### 3.2 Accounts, Spieler und Profile
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| Accounts | Lokaler Modus, Supabase-Registrierung/Anmeldung, Sitzung, Abmelden, E-Mail-Passwortreset | Cloudkonfiguration erforderlich; lokale und Online-Identitäten unterscheiden. |
+| Spielerverwaltung | Profile anlegen/bearbeiten/deaktivieren, Auswahl, Profilansicht/Cockpit | Zusammenführen gleicher Personen braucht ausdrückliche Identitätsentscheidung. |
+| Eigener Teilnehmer | Aktueller aktiver Account wird in lokaler Turnierauswahl angeboten, auch ohne zweites lokales Profil | Neue `tournament_player_choices`-Logik schützt vor unnötiger Doppelanlage. |
+| Persönliches Profil | Name, Nationalität, Bild, Walk-on-Song/Spotify, Lieblingsspieler/-doppel | Profilname und historische Turniernamen sind nicht automatisch dieselbe Darstellung. |
+| Dart-Setup | Barrel/Darts, Gewicht, Shafts, Flights, Spitzen, Zusatzangaben | Ausrüstungshistorie und Vergleich mehrerer Setups wären ein Ausbau. |
+| Bildauswahl | Auswahl/Verkleinerung, native Dialoge und Avatar-Darstellung | Native Plattformfunktionen real testen. |
+| Profilabgleich | Accountgetrennter Cache, vorgemerkte Änderungen, Synchronisieren | Profilkonflikte laut Dokumentation mit zuletzt hochgeladenem Stand. |
+
+### 3.3 Turniererstellung und Planung
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| Turnierliste | Karten mit Name, Status Bereit/Läuft/Abgeschlossen, Communityhinweis, Teilnehmer-/Etappenzahl, Ligaergebnis | Suche, Filter, Archiv und abgesichertes Löschen ergänzen. |
+| Teilnehmer | Lokale Profile, eigener Account, Communitymitglieder, Gäste, generierte Namen, Umbenennen | Gastnamensgleichheit ist keine verlässliche Identität. |
+| Teams | Teamteilnehmer/Partnerauswahl und Mannschaftsbelegung | Teamstatistiken nicht als individuelle Würfe ausgeben. |
+| Bots | Einzeln/mehrere bis 128, Theo-Average-Bereich, Stärke bearbeiten, Parameter speichern | Kein Account, keine persönlichen Botprofile/-Highlights; Team-Bots weiterhin gesondert zu entwickeln. |
+| Etappen | Mehrere Modi kombinieren, Etappen bearbeiten, Qualifikation festlegen | Abhängige Folgen bei Änderungen transparent darstellen. |
+| Gruppen | Gruppengrößen, Anzahl, Spieltyp, Wiederholungen, Matchzählung, Qualifikation | Ungleiche Gruppen und Vergleiche fachlich erläutern. |
+| Spielformat | X01-Startpunkte, In/Out, Legs/Sets, Best-of, erlaubte Remis, stufenweise Distanzen, Finalregel | Unterschiedliche Modi erlauben unterschiedliche Kombinationen. |
+| Platzierung | Optionale Plätze und erforderliche Vorrunden/Platzierungsspiele | Nutzer muss zusätzliche Matchlast verstehen können. |
+| Auslosung | Zufall/Seeding, Gruppen-/Bracketvorschauen, Positionen bearbeiten | Reproduzierbaren Los-Seed und Änderungsverlauf anbieten. |
+| Finder | Zeit-/Mindestspielvorgaben, Boards, Modusauswahl einschließlich Swiss, Gruppenpflicht, vollständige Vorschläge | Begrenzte Suche und geschätzte Dauer ausdrücklich anzeigen. |
+| Finder-Performance | Berechnung im eigenen Isolate, Abbruch bei Änderung/Schließen | Große Felder und lange Kombinationen auf schwacher Hardware benchmarken. |
+
+### 3.4 Modi und Turnierlauf
+
+| Modus / Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| Round Robin | Jeder gegen jeden, mehrere Durchläufe, Punkte und Tie-Breaker | Remis abhängig von Leg-/Setformat. |
+| Einfach-KO | Freilose, Runden, Platzierungsspiele, Weiterkommen | Korrekturen können Folgebegegnungen ungültig machen. |
+| Doppel-/Triple-KO | Verlustpfade, Lebens-/Finalregeln, getrennte Bracketbereiche | Große und ungerade Felder benötigen weiterhin gemeinsame Produktionssimulation. |
+| Mini-KO-Gruppen | Mini-Einfach-/Doppel-/Triple-KO in Gruppen, anschließende Qualifikation | Vergleich verschiedener Gruppenstrukturen erklären. |
+| Kratzer | 2–10 Leben und konfigurierbare Finalentscheidung | Eigener Ausscheidungsmodus, kein bloßer Alias für Doppel-KO. |
+| Schweizer System | Punktnahe Gegner, keine Wiederholung, ungerades Freilos, feste Rundenzahl, Buchholz/Leg-Tie-Breaker | Darts-Adaption, kein zertifiziertes vollständiges FIDE-Dutch-Verfahren. |
+| Swiss-Runden | Nächste Runde erst nach Abschluss; vorgezogene Spiele innerhalb der Runde | Korrektur früherer Runde setzt spätere Paarungen/Ergebnisse zurück. |
+| Swiss-Zeitplanung | Boardblöcke pro Runde, fünf Minuten Standardreserve pro Übergang | Rundenzahl konservativ auf `ceil(Teilnehmer/2)` begrenzt; Zeit bleibt Schätzung. |
+| Ergebnisdialoge | Legs/Sets, Validierung, Korrektur/Annullierung, Statistiken | Eingeschränkte Ergebnisschreiber dürfen erste offene Ergebnisse, keine freie Vollstandbearbeitung. |
+| Order of Play | Boardplanung, Spielreihenfolge, Starts, Belegungs-/Spielerkonflikte | Ruhe-/Schreiberdienste und Wartezeitfairness weitere mögliche Regeln. |
+| Turnierleitung | Eigene Leitungsübersicht, Boards, Online-Stand, Rechte, Timing, Statistiken | Zuschauer-/Ergebnisschreiberansicht getrennt. |
+| Mobile-Fokus | Neue Tests/Anpassungen für aktive Bracket-/Spielbereiche | Realer Finger-/Tastaturtest bei großen Bäumen sinnvoll. |
+| Zeit-/Dauerplanung | Ursprüngliche Planungsbasis, Zeitlinie, gemessene Starts/Enden | Bot-Rechenzeit ist keine reale Matchdauer. |
+| Botautomatik | Bot-gegen-Bot über echten Scorercontroller, Rundensperren gegenüber Menschen | Kein bloß erfundenes Endergebnis, aber nicht Teil menschlicher Leistungsstatistik. |
+| Spielerausstieg | Offene/alle Spiele verlieren oder nicht werten, optionale Ranglistenfolgen, dauerhafte Regel | Im aktuellen Arbeitsstand; breite Matrixabdeckung und Rücknahmeprozess prüfen. |
+| Ergebnisimport | Gemeinsamer Validator für Zuweisung, Format, Remis, Sets/Legs, Statistik und Wiederholung | Gerätevariante verlangt Statistik; stale/abweichende Ergebnisse werden zurückgewiesen. |
+
+### 3.5 Community, Turnierrechte und historischer Import
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| Communities | Erstellen, Beitreten, Mitglieder, Profile, Rollen, manuelle Mitglieder und Accountzuordnung | Rechte bleiben serverseitig entscheidend. |
+| Einladungen | Code, QR, eigene App-Links und Einladungsseite | Neue lokale Web-Ausweichseite vorhanden; öffentliche Bereitstellung nicht nachgewiesen. |
+| Gemeinsame Turniere | Import lokaler Turniere, Online-Snapshots, Outbox und wiederholter Abgleich | Alle beteiligten Geräte brauchen kompatible Schreibverträge. |
+| Turnierrechte | Ersteller, explizite Leiter, Community-Leitungsrecht, ausgewählte/alle Ergebnisschreiber | Zusätzliche Leiter dürfen nicht automatisch weitere Leiter ernennen. |
+| Ergebnisse online | Kleine Ergebnis-RPC statt fremdem Vollstand, Mitgliedschaft/Paarung/Formatprüfung | Neue Servermigration laut Dokumentation noch nicht produktiv angewendet. |
+| Revisionsschutz | `syncRevision`, konfliktbewusstes Online-Nachladen mit Bestätigung | Ältere Clients können nach neuem Schreibstand mit Uploadablehnung konfrontiert sein. |
+| Challonge-Zugang | Öffentlicher eingebauter Browser, Community-Link/Einzellink, API/JSON-Alternative | WebView2 unter Windows; Browserprüfung wird nicht automatisiert umgangen. |
+| Importvorschau | Namens-/Aliasabgleich, eindeutige Mitgliedszuordnung, fehlende Mitglieder anlegen | Mehrdeutige Namen benötigen ausdrückliche Entscheidung; Eigentümerrecht für Neumitglieder. |
+| Archiv | Originalmatches/-runden/-scores, Endplätze und Gruppenplätze, historischer Zeitpunkt | Historischen Baum nicht neu aus aktuellen Engines erfinden. |
+| Importwertung | Optional Elo/Ranglisten, standardmäßig aus; eindeutige Legresultate | Mehrteilige/unklare Ergebnisse und kampflose Siege bleiben Archivdaten. |
+| Wiederholbarkeit | Zielcommunity/Challonge-ID als Deduplizierung; Wiederholung überspringt vorhandene Turniere | Keine automatische Neuübernahme geänderter Quelldaten. |
+
+### 3.6 Elo, Trends, Highlights und Kalender
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| Ranglisten | Elo, Jahr/Gesamt, mehrere Ranglisten, Turnierzuordnung/Wertungsschalter | Team-Elo nicht als bereits vorhanden behandeln. |
+| Verlauf/Live | Charts, Live-Paarungsvorschau, Elo-Differenz/Platzänderung, lokale Neuberechnung | Vergleichsbasis ist rekonstruierter Stand ohne aktuelles Turnier, kein fester Start-Snapshot. |
+| Verwaltung | Ranglistenspieler entfernen/resetten/wiederaufnehmen mit eigenem Recht | Ergebnisse und allgemeine Statistiken bleiben separat. |
+| Trends | Zwei Dreimonatszeiträume, Siegquote, mindestens fünf Matches je Zeitraum | Gegner-/Formatwechsel können Formlabel beeinflussen. |
+| Highlights | Automatische und manuelle Einträge, Filter, Korrekturen/Löschmarkierungen | Highlightkorrektur ist keine Ergebnis-/Elo-Korrektur. |
+| Kalender | Monatsraster, Tagfilter, Heute, freie/Turniertermine, Ort, Kopieren/Bearbeiten/Löschen | Noch kein allgemeines Offline-Schreibjournal. |
+| Vorlagen | Boards, geplante Teilnehmerzahl, erste Etappe, Spielformat und Ranglisten | Vollständige mehrstufige Vorlagen weiterhin Ausbau. |
+| Erinnerungen | Persönliche Zeitabstände, geschützter Worker, Batch/Deduplizierung, Android-Zustellung | Letzter dokumentierter Firebase-Konfigurationsblocker nicht live neu geprüft. |
+
+### 3.7 Liga
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| RHL-Aufbau | Heim/Gast, 18 Begegnungen, Einzel/Doppel, Mannschaftspunkte/Legs | Keine frei konfigurierbare vollständige Saisonverwaltung. |
+| Aufstellungen | Lokale Spieler, Communityeinladungen, bestätigte Plätze, Reserven | Offene Einladungen brauchen klaren Abbruch-/Ablaufzustand. |
+| Durchführung | Spiele starten, Boards/Geräte, Partnerkonflikte, Ergebnis-/Statistikkarten | Gleiche Komponenten wie Turnierbetrieb nutzen. |
+| Liga-Rechte | Aktueller Code verwendet Turnierzugriff und `submit_league_result` für eingeschränkte Ergebnisse | Älterer Text in `tournament_access.md`, Liga sei getrennt, ist bereits überholt. |
+| Statistik | Ergebnisbeiträge beider Doppelpartner, gemeinsame Legs, eigene Doppelanteile | Keine individuellen Wurfwerte aus bloßen Mannschaftsergebnissen erfinden. |
+
+### 3.8 Scorer, Bots, Ausbullen und Monitor
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| Freies X01 | Menschen, Bots, gemischt, mehrere Teilnehmer, Startwerte, In/Out, Legs/Sets, Anwerfer | Cricket-/Trainingsmodi noch eigene künftige Engines. |
+| Aufnahme | Zahlenblock/Schnelltasten, Einzeldart-/Autoscoringdaten, Tastatur, Double-In-/Checkoutprüfung, Bust, Undo | Alle Eingabekanäle müssen denselben Matchvertrag erfüllen. |
+| Checkout | Feste Wege 1–180 und 1–3 Darts, Out-Regeln, bis zu fünf Möglichkeiten | Individuelle Präferenzen wären Ergänzung. |
+| Botprofile | Scoring/Finish, Streuung/Tempo, Theo-Average, Tabelle/Fallback und Parameterpersistenz | Tatsächlichen Average als Verteilung ansehen. |
+| Wiederaufnahme | Guest-/Account-Slots, settings/actions, Replay und Versionsprüfung | Ein letzter Zwischenstand ist keine Liste mehrerer benannter Spielstände. |
+| Scorer-Lobby | Einladungen, QR/Code, Kamera, Annahme/Ablehnung, Mitglieder und Ablauf | Gastgebermatch, keine vollständig verteilte Internetpartie. |
+| Ausbullen | Ohne/WDF/PDC-DRA, manuelle menschliche Treffer, Botwürfe, Tiebreaks, Starterwahl | Mehr als zwei Seiten ist gekennzeichnete App-Erweiterung; Kameras nicht angebunden. |
+| Set-Anwerfer | Aktuelle Änderungen und eigener Test für Set-/Starterfolge | Regelsatz explizit darstellen statt stillschweigend voraussetzen. |
+| Monitor | In-App-Anzeige und separates verschiebbares Fenster, Format, Scores, aktive Seite, Legs/Sets, Checkoutwege | Externes Fenster über Loopback und Browser/App-Modus; keine LAN-Zuschauerfreigabe. |
+| Autoscoringintegration | Kameraaufnahme/-korrektur im Scorer, Restanzeige, Bestätigung beim Herausziehen, Diagnose | Provisorische Treffer und bestätigte Aufnahme auseinanderhalten. |
+
+### 3.9 Statistik-Cockpit und Heatmaps
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| Cockpit | 42 Kennzahlen in Ergebnisse, Legs/Sets, Scoring, Checkout, Legqualität, Aktivität/Datenbasis | Bereits großer Funktionsumfang; Interpretation wichtiger als wahllose zusätzliche Zahlen. |
+| Kennzahldetail | Erklärung, Datenbasis, Verlauf, kumulierte Entwicklung, Min/Max, Median, Standardabweichung, Verteilung, Gegner und Einzelwerte | Grafik maximal 30 jüngste Punkte; Liste vollständig/paginiert. |
+| Form | Jüngste fünf gegen fünf vorherige messbare Begegnungen, zehn Ergebnisse, Siegesserie | Kleine Stichproben und Gegnerunterschiede erklären. |
+| Filter | Zeitraum, Einzel/Doppel, bekannte Startpunkte, eigene Community-Spiele und Communityauswahl | Fehlende Matchzeiten bleiben unter Gesamt sichtbar. |
+| Berechnung | Dartgewichtete Averages, Summenquoten, unbekannte Checkoutversuche bleiben unbekannt | Keine Mittelwertbildung über inkompatible Einzelquoten. |
+| Wurfzahl | Tatsächliche Einzeldarts, offene Aufnahmen, Fehlwürfe; getrennte Schätzwerte | Früher Bust kann andere physische als Average-Dartzahl haben. |
+| Historie | Lokale/Cloud-Profilspiele, Community-Turniere, Dublettenschutz nach ID | Private Scorer- und Turniersichten bewusst nicht unkontrolliert addieren. |
+| Heatmap-Daten | Millimeterkoordinaten, Schätz-/Korrekturmarkierungen, Sitzung/Leg/Spieler/Partner | Unlokalisierte Würfe, manuelle Summen und Bots erzeugen keine Punkte. |
+| Heatmapanalyse | Feldanteile, T20/Doppel/Triple, Schwerpunkt/RMS, Scoring/Checkout/Training/Entwicklung | Streuung ist ohne tatsächliches Ziel keine Zielgenauigkeit. |
+| Zielanalyse | Vor Wurf gewähltes Ziel, Dart 1–3, Aufnahme, UTC-Zeit, Nachbarfelder, Lieblingsdoppel, 28-Tage-Vergleich | Zielquoten nur lokalisierter Würfe sind keine vollständige Checkoutquote. |
+| Speicher/Sync | Sitzungs-Upsert in SQLite, private Account-/Session-Daten, Outbox, Accountwechselkontrolle, leere Undo-Sitzung | Zwei Geräte derselben Sitzung: letzter Upload gewinnt; große Payloads noch vollständig. |
+| Community-Privatsphäre | Keine privaten Profilpositionen automatisch in Community veröffentlichen | Freigabemodell für gemeinsame Heatmaps wäre ein neues Produktfeature. |
+
+### 3.10 Geräte, Fernsteuerung und Benachrichtigungen
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| LAN-Erkennung | Stabile ID, Name/Modus, Broadcast/Multicast, direkte bekannte Geräte, Wiederverbindung | Firewall, VLAN/Gast-WLAN und VPN können Erkennung verhindern. |
+| Account-/Gruppengeräte | Registrierung, Mitgliedschaft, getrennte Geräterolle, Entfernen | Registriert ist nicht gleich online/erreichbar. |
+| Pairing | Vergleichszahl, X25519-Austausch, ausdrückliche Bestätigung, Widerruf | Erkennung allein erlaubt keine Steuerung. |
+| Boardanzeige | Nächstes/laufendes Match, strukturierte Regeln, Verbindungsstatus | Leitung und Empfänger müssen für den LAN-Ablauf laufen. |
+| Geräte-Scorer | Matchstart, gesicherte fertige Resultate, wiederholte signierte Rückgabe, Statistiken | Laufende Gerätepartie nach Prozessneustart laut älterer Dokumentation nicht vollständig wiederhergestellt. |
+| Gerätestart | Optionales Starten am zugewiesenen Boardgerät, in Leitungsruntime geprüft | Default aus; gleichzeitige Starts und stale Zuweisungen testen. |
+| Fernsteuerung | Spiegeln der Flutter-Oberfläche, Zoom, Touch/Scroll/Text, QR/IP/Code, Accountzugang, Übernahmebestätigung | Ein Client, LAN, bis vier Bilder/s, keine nativen Dialoge oder Systemoberflächen. |
+| Remote-Schutz | AES-GCM, Richtungs-/Sitzungsschlüssel, Sequenzen, Widerruf, Fokus-/Koordinatenkontrolle | Boardkanal ist ein eigener Vertrag und nicht dadurch mitverschlüsselt. |
+| Push | Sender-/Geräteregistrierung, Android-Empfang, Kalenderworker, Linuxworker | Platform-/Serverkonfiguration; keine echte Zustellabnahme dieses Audits. |
+
+### 3.11 Autoscoring, Hardware und Diagnosen
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| Benannte Setups | Anlegen/Umbenennen, aktuelle Kamera-/Audioauswahl, eigene Statistik | Gleiche Gerätenamen/USB-Reihenfolge bleiben Hardwarethema; frisch kalibrieren. |
+| Kalibrierung | Drei Ansichten, Ring-/Bull-/Nummernerkennung, Referenzen, Perspektive/radiale Korrektur | Akzeptanzgrenzen und Qualität anhand realer Boarddrehung/Licht prüfen. |
+| Windows-Video | Kontinuierliche Frames über lokale Pluginerweiterung, begrenzte Puffer, Synchronisierung, ältere Frames verwerfen | Ankunftszeit am PC ist keine Hardware-Synchronisation. Andere Plattformen besitzen andere Capturewege. |
+| Analyse | Worker für Vergleich/Achsen, Endpunkte, lokale Ring-/Segmentkanten, Kontaktprüfung, zeitliche Entscheidung | Controller enthält weiterhin Teile der rechenintensiven Logik. |
+| Unsicherheit | Schätzungen markieren, fehlende Würfe nachtragen, falsche Meldung entfernen | Eigene Freigabepolitik für Wettbewerb sinnvoll. |
+| Bouncer/Robin Hood | Bouncerheuristik, experimentelle räumliche Kontaktprüfung | Unsichtbarer Abpraller unerkennbar; Robin-Hood-Test kein verlässlicher Hardwarebeweis. |
+| Herausziehen | Vorsichtssperre, bestätigte Entnahme, Leer-Erkennung, Rücknahme unbestätigter Sperre, manueller Reset | Aktuelle Replayfälle prüfen Teilentnahme/Hand/Limit; Langzeittest nötig. |
+| Korrekturen | Feld/Ring oder Position setzen/verschieben, fehlende Position, Verlauf und aktuelle Anzeige | Korrektur verändert nicht automatisch ein Trainingsmodell. |
+| Alltagsstatistik | Unkorrigiert nach Herausziehen zählt als richtig, setupbezogene Zähler | Als „nicht korrigiert“ interpretieren, nicht als unabhängige Genauigkeit. |
+| Prüfserie | Nur ausdrücklich bestätigte/korrigierte Würfe, Fehlmeldungen/fehlende Würfe, Reset/JSON, einseitige 95%-Grenze | Repräsentative unabhängige Stichprobe zusätzlich nötig. |
+| Diagnosen | ZIP, Farb-/Graubilder, vorher/nachher, Sequenzen/GIF, Achsen/Kontakt/Kanten, Timing, Audioübergabe | Export enthält sensible Umgebung/Fotos; Nutzerkontrolle und Größenrotation sinnvoll. |
+| Native Optimierung | Kompakter Grau/RGB-Transport, WIC-PNG, weniger Sperrzeit, Timing des letzten Treffers | Reale Treffer-bis-Sound-Zeit folgt nicht aus einem einzelnen Teilmesswert. |
+| Hintergrundbetrieb | Dokumentierte Capture-/Scorer-Lebenszyklusverbesserungen | Minimiert/fokuslos auf echten Zielgeräten prüfen. |
+
+### 3.12 Persistenz, Backup, Releases und Dev Tools
+
+| Funktion | Aktueller Umfang | Grenze / sinnvolle Weiterentwicklung |
+| --- | --- | --- |
+| JSON | Versioniert, temporärer Austausch/flush, `.bak`/Versionsbackup, neuere Versionen ablehnen | Ganzes Turnierdokument wird weiter geschrieben; Caches/Historie beeinflussen Kosten. |
+| SQLite | Transaktionale Migration, Migrationsbackup, Heatmap-Upserts, Altarchivmigration | Index-/Einzeldartmodell für sehr große Archive noch Ausbau. |
+| Warteschlange/Sperre | Gemeinsamer StorageAccess, Instanz-/Session-Schutz | Lasttests mit Import, Upload, Backup und Kameras kombinieren. |
+| Backup | Vier Dateien, Prüfsummen, konsistentes SQLite, Vorschau/Bestätigung, Journal/Rollback und Neustart | Featureeigene Dateien/SharedPreferences nicht generell erfasst. |
+| Update | Releasekanäle, Download/Prüfung, Android und Desktop-Bundles, aktive Version/Weiterleitung | Reale Upgrade-/Rollbackdaten auf jeder Zielplattform testen. |
+| Plattformen | Android, Windows, Linux x64/ARM64, iOS/macOS-Projektvorbereitung, Linux FFmpeg/OCR/Push | Nicht alle Plattformen funktional gleichwertig; Projektordner ist keine Abnahme. |
+| Workflow | Android- und Desktopjobs im selben Releaseworkflow, ausgewählte Tests | Aktuelle Gesamtsuite/alle Rechte-/Layouttests sind nicht vollständig Releasegate. |
+| Entwicklungstester | Gemeinsame Produktionsruntime, Matrix, Swissszenarien, Zufallsläufe, Baum-/Visualreport | Keine zweite Turnierengine im Simulator einführen. |
+| Performance | Immutable Statistikreports/Caches, Pagination, Isolates, Worker/Backpressure, Profiling-Schalter | Synthetische Verbesserungen nicht als garantierte FPS/Latenz vermarkten. |
+
+## 4. Frühere Befunde erneut bewertet
+
+| Alter Befund | Status am 8. Oktober | Begründung |
+| --- | --- | --- |
+| B01 Ladefehler unsichtbar | Weitgehend verbessert | Fehlertext/Retry/Ladebalken vorhanden; widersprüchlicher Empty-State noch offen. |
+| B02 Löschen ohne Absicherung | Weiter vorhanden | Lokales Kartenmenü ruft Löschcallback direkt auf. Community-Löschung besitzt getrennte Bestätigung. |
+| B03 Unvollständige Backups | Weiter vorhanden, Umfang präzisiert | SQLite-Heatmaps enthalten; Drafts/Setup-/Bot-/Remotepräferenzen nicht pauschal gesichert. |
+| B04 Ungeprüfte Genauigkeit | Wesentlich verbessert | Separate unabhängige Prüfserie vorhanden; Alltagswertung besteht bewusst weiter. |
+| B05 Offene Autoscorefälle | Neu zu differenzieren | Seitdem mehrere Replaylösungen, neue Fälle und Pipelineänderungen. Alte Fehlerliste nicht unverändert kopieren. |
+| B06 Snapshot-Bouncer-Blindstelle | Teilweise verbessert | Kontinuierliche Windowsframes; unsichtbare Bouncer/andere Capturewege bleiben begrenzt. |
+| B07 Boardkanal unverschlüsselt | Weiter vorhanden | HTTP/HMAC im eigenen Boardprotokoll. |
+| B08 Kalenderkonfiguration | Nicht live verifiziert | Dokumentiert fehlendes Firebase-Secret; nicht behaupten, heutiger Server sei erneut geprüft. |
+| B09 Remote-Accountmigration | Nicht live verifiziert | Vorhandene Dokumentation nennt noch offenen Rollout. |
+| B10 Dokumentationsdrift | Weiter vorhanden | Heatmap-, Schema-, Liga-Rechte- und Gerätebeschreibungen widersprechen teils neueren Dateien. |
+| B11 Parts/große Seiten | Weiter vorhanden, gewachsen | 13 Parts; Run/Creation nochmals größer. |
+| B12 Responsive Timeout | Aktuell nicht reproduziert | Alle 17 gemeinsamen Matrix-/Layouttests grün. |
+| B13 Profilkonflikte | Weiter dokumentiert | Last-successful-upload-Vertrag; Heatmaps besitzen ähnliches Mehrgeräteproblem. |
+| B14 Unterschiedliches Offline-Schreiben | Weiter vorhanden | Kalender/Ranglistenverwaltung/Highlights unterscheiden sich von Turnier-/Profil-Outbox. |
+| B15 Trendinterpretation | Weiter relevant | Siegquote ohne vollständige Gegnerbereinigung. |
+| B16 Lobbygast-Historie | Weiter dokumentierte Grenze | Kein Nachweis vollständiger Verteilung privater Sitzung an alle Gäste. |
+| B17 Vorlagen nur erste Etappe | Weiter dokumentierte Grenze | Mehrstufiger Vollaufbau noch kein allgemeiner Vorlagenvertrag. |
+| B18 Hardwareabnahme | Weiter offen | Neue Native-/Rechte-/Heatmapfunktionen erhöhen Abnahmebedarf. |
+| B19 Gesamtsuite rot | Erneut vorhanden | Aktueller Gesamtlauf separat im Prüfprotokoll; andere Fehlerbilder als am 3. Oktober. |
+
+## 5. Aktuelle Probleme und Risiken mit konkreter Handlung
+
+Priorität: **P0** vor Aktivierung des betroffenen Betriebsablaufs, **P1** nächste Stabilitätsrunde, **P2** geplanter Ausbau. Aufwand: **S** begrenzt, **M** mehrere Komponenten, **L** eigenes Vorhaben. Die Einstufung ist meine Empfehlung, keine Aufwandsschätzung in Tagen.
+
+| ID | Befund / Auswirkung | Beleg | Nächster Schritt |
+| --- | --- | --- | --- |
+| A01 | Neue App ruft v2-Turnier-RPC auf; produktiver Server laut aktuellem Rechte-Dokument noch ohne diese RPC. | `tournament_storage.dart` und `docs/tournament_access.md`. Dokumentierter Deploymentstand. | P0/M: vor Freigabe Servercapabilities und Rolloutstatus verifizieren, kompatible Clientgruppe festlegen. |
+| A02 | Alte Clients kennen Revisionsschutz nicht und können Uploadablehnung bekommen. | Rechte-Dokument und `syncRevision`-Code. | P0/M für gemischten Schreibbetrieb: Update-/Konfliktablauf und sichere Online-Übernahme abnehmen. |
+| A03 | Lokaler Löscheintrag ohne Bestätigung/Undo. | `TournamentSummaryCard.onSelected` → Home-Löschcallback. | P1/M: Papierkorb oder Undo, sonst konkreter Bestätigungsdialog. |
+| A04 | Fehler/Laden und „Noch keine Turniere“ können gleichzeitig erscheinen. | Home-FutureBuilder zeigt Empty-State unabhängig vom Fehler-/Ladezweig. | P1/S: Zustände exklusiv darstellen, Zähler bei Fehler nicht als tatsächliche Null ausgeben. |
+| A05 | Backup deckt nur feste vier Speicher ab. | `BackupService.names`; Drafts SharedPreferences, zusätzliche Featuredateien. | P1/M: versioniertes Speicherinventar/Backupmanifest einschließlich Präferenzen; keine Tokens ungeprüft aufnehmen. |
+| A06 | Direkte Analyse endet mit fünf Info-Lints, Exitcode 1. | Tatsächlicher `flutter analyze`-Lauf. | P1/S: Klammer-/Null-aware-Hinweise in Elo, Ausstiegservice und Run-Seite korrigieren. Keine Compilerfehler behaupten. |
+| A07 | Gesamtsuite hat zahlreiche Fehler trotz grüner Kernmatrix. | Aktueller vollständiger Lauf. | P1/L: Fehlerklassen einzeln sortieren; alte Assertions reparieren und echte Regressionen separat prüfen. |
+| A08 | Mehrere Tests erwarten frühere Schemanummern. | SQLite-Test erwartet 4, bekommt 5; Turniertests erwarten 20, bekommen 21. | P1/M: Migrationsinhalt/Backup prüfen und Versionsassertions auf den bewusst neuen Vertrag bringen. |
+| A09 | UI-Tests finden nicht mehr erwartete Beschriftungen/Controls oder laufen in Timeout. | `widget_test`, Draw/Placement/Kratzer/Update-Tests. | P1/M: stabile Keys, richtige Navigation/Sektion, begrenzte Pumps; Timeout nicht pauschal erhöhen. |
+| A10 | Autostart-Test erwartet ScorerCameraPanel, findet keines. | Gesamtlauf `autoscoring_preferences_test`, Fall enabled=true / drei Kameras. | P1/M: geändertes UI gegen tatsächlichen Autostart prüfen; Hardware-/Fehlerzustand einbeziehen. |
+| A11 | Spielerausstieg verwendet Namen als Fallbackidentität. | `PlayerWithdrawalService.key`: `profileId ?? name`. Codebefund. | P1/M: gleiche Gastnamen/Teams können dieselbe Regel treffen; eindeutige Teilnehmer-ID mit Migration planen. |
+| A12 | Ausstieg verändert Ergebnisse/Boards/Folgepfade und Elo; breite unabhängige Abdeckung noch nicht ersichtlich. | Neue Service-/Dialogdateien, keine dedizierte Withdrawal-Testdatei/Simulationsmatrix beim Lesen gefunden. | P1/L: Gruppen/Swiss/KO/Teams/Bots/zweifacher Ausstieg/Reload/Retroaktivität systematisch testen. Einzelne Elo-Tests ersetzen das nicht. |
+| A13 | Dokumentation der Turnierrechte nennt Liga noch getrennt, Code nutzt bereits neue Liga-Ergebnis-RPC. | `league_match_page.dart`, `league_result_repository.dart`, SQL-Migration gegenüber Dokument. | P1/S: Rechte-/Deploymentmatrix für Liga ausdrücklich aktualisieren. |
+| A14 | Turnierdaten Schema 21, Kommentar-/Dokumentationsstände vielfach älter. | Storagekonstante vs v20-Kommentare/Rechte-Dokument. | P1/S: zentrale Schemachronik einschließlich Version 21; alte Featureversionen als historisch kennzeichnen. |
+| A15 | Heatmap-Dokument nennt SharedPreferences/lokal-only, neuere Implementierung SQLite/private Cloud. | `scorer_heatmaps.md` vs `profile_heatmap_storage.md`. | P1/S: eine verbindliche aktuelle Speicherdokumentation statt widersprüchlicher Grundlagen. |
+| A16 | Ganze Turnierdatei bei Änderung/Cache-/Statistikschreiben; Datenvolumen wächst. | `_writeDocument`, Performance-Dokument. | P2/L: Größenmessung, Schreibfrequenz, differenziertes Storage-Modell bei nachgewiesenem Engpass. |
+| A17 | Heatmaps übertragen/lesen ganze Sitzungen. | Profil-Heatmap-Dokument. | P2/L: inkrementelle Dartzeilen/Zeitraumabfragen bei großen Archiven; bestehende Upsert-Identität erhalten. |
+| A18 | Gleichzeitige Heatmapänderung derselben Sitzung auf zwei Geräten nicht zusammengeführt. | Dokumentierter letzter-Upload-Vertrag. | P1/M für Mehrgerätebearbeitung: Revision/Konfliktwarnung oder append-/eventbasierter Merge. |
+| A19 | Allgemeine Heatmap-Namensfilter können gleichnamige Personen zusammenfassen. | Scorer-Heatmap-Dokument; Profilzuordnung separat bereits IDs. | P2/M: lokale Teilnehmer-ID im Archiv, vorhandene Namensfilter als Anzeige behalten. |
+| A20 | Ziel-/Doppelquoten schließen unlokalisierte Würfe aus. | Profil-Heatmap-Dokument. | P1/S: Nenner/fehlende Positionen immer sichtbar; nicht als volle Finishquote beschriften. |
+| A21 | Alltagsgenauigkeit und unabhängige Prüfquote können verwechselt werden. | Autoscore-Setup-/Videodokument und Democontroller. | P1/M: zwei klar beschriftete Zahlen, Prüfstichprobe/Verfahren daneben. Frühere Verbesserung nicht übersehen. |
+| A22 | Bekannte Replay-Erwartungen können falsche Scores bewusst konservieren. | Problemvergleich dokumentiert grüne Tests bekannter Fehler. | P1/M: separate Listen „richtig gelöst“, „bekannte Abweichung“ und „kein Wurf“. |
+| A23 | Optimierungsteilzeiten belegen keine physische Treffer-bis-Sound-Latenz. | Native PNG-/Live-Latenz-/Entnahmeberichte. | P1/L: Release-Hardwaretest mit externem Zeitbezug, P50/P95/P99 und Audio-Onset. |
+| A24 | Dreikamerasynchronisierung basiert auf PC-Ankunft, nicht synchroner Belichtung. | Video-Pipeline-Dokument. | P2/L: Kameraoffset/Jitter messen; erst bei Bedarf hardware-/timestampgestützten Capturepfad. |
+| A25 | Experimentelle 3D-Kontaktprüfung nutzt angenommene Kameraintrinsiken. | Video-Pipeline-Dokument. | P1/L für verlässliche Robin-Hood-Wertung: gemessene Intrinsiken/Extrinsiken und unabhängige Hardwarefälle. |
+| A26 | Ein Bouncer außerhalb aller aufgenommenen Frames bleibt unsichtbar. | Außen-Bouncer-Dokument; Video reduziert nur die Blindstelle. | P2/L: tatsächliche Bildrate/Drops messen, Sensorbedarf anhand Daten entscheiden. |
+| A27 | HTTP-Boardinhalt im LAN unverschlüsselt. | `board_display_client.dart`, README. | P1/L: eigener verschlüsselter Kanal/Protokollmigration; Remote-AES-GCM ist davon getrennt. |
+| A28 | Kalender-Push und Linux-/Remote-Serverfeatures haben unbestätigte Deploymentstände. | Kalender/Linux/Remote-Dokumentation. | P1/M: aktuelle Capabilityprüfung und echte Testzustellung; alten 503 nicht als heutige Messung ausgeben. |
+| A29 | Challonge-DOM und Anzeige-Aliasse können sich verändern. | Parser, öffentliche Browserroute, jüngste Aliasfixes. | P1/M: Format-Fixtures, verständliche Previewfehler, Quelle/Importversion speichern, API bevorzugen wenn verfügbar. |
+| A30 | Wiederholter Import aktualisiert bestehende Archive nicht. | Import-Deduplizierungsvertrag. | P2/M: gezielter Vergleich/Neuimport mit Auswirkungen auf Elo, keine stille Überschreibung. |
+| A31 | 13 Parts und große Presentation-Dateien wachsen weiter. | Run 2648, Creation 2409, Bracket 2201, Creationwidgets 1458 Zeilen beim Lesen. | P1/L: Runtime und echte Controller-Verantwortung extrahieren; Bracket nicht künstlich zerlegen. |
+| A32 | Autoscoringcontroller jetzt 1533 Zeilen, Matchseite 1133. | Dateiumfang beim Lesen. | P2/L: Capture, Entscheidung, Session/Diagnose und UI-Lebenszyklus fachlich sauber trennen. |
+| A33 | Releaseworkflow testet ausgewählte Teilmengen; Analyzer erlaubt Info-Lints. | `.github/workflows/android-release.yml`. | P1/M: Releasegate mit vereinbarter breiter Testmatrix, Schemakompatibilität und Rechtetests. |
+| A34 | Lokale Web-Einladungsseite ist keine nachgewiesene öffentlich nutzbare Ausweichroute. | Neue `web/invite/index.html`; kein Hostingnachweis dieses Audits. | P2/M: veröffentlichte URL, Linkregistrierung und fehlende Installation auf echten Geräten prüfen. |
+| A35 | Markt-/Funktionsbreite übersteigt dokumentierte reale Abnahme. | Neue Native-, Mehrgeräte-, Import- und Syncfeatures mit Hardwaregrenzen. | P1/L: verbindliche Abnahmefälle je Zielplattform und Einsatzprofil. |
+| A36 | Zwei Scorer-Autoscoring-Tests blockieren jeweils bis zum zehnminütigen Testtimeout. | `scorer_autoscoring_test.dart`: Live rest/checkout/removal und Botturns ohne Kamerabestätigung, tatsächlich beobachtet. | P1/M: Async-/Storage-/Widget-Lebenszyklus isolieren und begrenzte Abschlussbedingungen prüfen; Ursache in diesem Audit nicht abschließend bestimmt. |
+
+Große generierte Theo-/Checkouttabellen sind bei der Refactorbewertung nicht mit einer großen zustandsreichen Seite gleichzusetzen. Die Dateigröße allein ist kein Fehler. Entscheidend sind Verantwortlichkeiten, Abhängigkeiten, Lebenszyklus und Testbarkeit.
+
+## 6. Internetrecherche und Übertragung auf diese App
+
+Die recherchierten Produktfunktionen sind Inspiration. Ihre Darstellung durch den Anbieter ist kein unabhängiger Genauigkeits-/Qualitätsbeweis und keine automatische Empfehlung, alles nachzubauen. Quellen wurden am 8. Oktober 2026 abgerufen.
+
+| Quelle / belegter Ansatz | Sinnvolle Übertragung | Bereits vorhanden / offen |
+| --- | --- | --- |
+| DartConnect: Registrierung, Anwesenheitsprüfung, Boardaufrufe, geteilte Veranstalterabläufe | Check-in, Teilnehmer-/Schreiberdienstlisten, Boardaufruf, Veranstalterprobelauf | Boards/Scorer/Rechte vorhanden; durchgängiger Eventbetrieb ausbauen. |
+| Challonge: Check-in-Fenster und registrierte Teilnehmer | Anmeldestatus, Warteliste und verbindliche Anwesenheit vor Auslosung | Import vorhanden, eigene öffentliche Anmeldung ist anderes Feature. |
+| Scolia: koordinatenbasierte Auswertungen und Setup-/Lichtbedingungen | Ziel-/Positionsdaten plus unabhängige Testserie und Setupcheck | Heatmaps/Prüfserie bereits vorhanden; Hardwarebeweis offen. |
+| GoDartsPro: Trainingsspiele und Aufgaben aus früheren Leistungen | Separate Trainingsengines, persönliche Wochenziele, transparenter Trainingsplan | Cockpit/Heatmaps bieten Datenbasis; kein behauptetes automatisches Coaching. |
+| Challonge API v2.1: dokumentierte Turnier-/Match-/Teilnehmerressourcen | Optionale stabile API-Schiene, Quellenversion und Berechtigung trennen | Aktuell Browser/API/JSON; keine automatische Autorisierung weiterer Integrationen. |
+| Flutter: Profilemodus und DevTools-Timeline | Release-/Profilemessungen, echte Hardware, UI/Raster/Heap getrennt | Instrumentierung vorhanden, synthetische Ergebnisse allein reichen nicht. |
+| Supabase: versionierte Migrationen/Umgebungen | Staging, Migrationshistorie, Capabilitycheck, abgestimmter Client-Rollout | Rechte-/Heatmap-/Statistikmigrationen verlangen unterschiedliche Bereitstellung. |
+
+Konkrete Referenzen:
+
+- [DartConnect – Eventbetrieb](https://www.dartconnect.com/events/how-it-works/) beschreibt Online-/Vor-Ort-Registrierung und Anwesenheitsprüfung. [Veranstalterverantwortung](https://www.dartconnect.com/events/responsibilities/) empfiehlt einen gemeinsamen Probelauf. Daraus leite ich die Event-/Abnahmeideen ab.
+- [Challonge – Tournament Check-in](https://kb.challonge.com/en/article/how-to-use-tournament-check-in-tg3c8l/) beschreibt ein definierbares Check-in-Zeitfenster. Daraus folgt für diese App die Trennung von angemeldet und anwesend.
+- [Scolia FAQ](https://scoliadarts.com/faq/) beschreibt positionsbasierte Analysen und Hardware-/Setupaspekte. Das ist eine Anbieterbeschreibung; die Genauigkeit unseres eigenen Autoscorers muss separat gemessen werden.
+- [GoDartsPro – Trainingsangebot](https://www.godartspro.com/gameon/) und [Coach-Roadmap](https://www.godartspro.com/roadmap/) liefern Ideen für modulare Übungen und datenbasierte Trainingsvorschläge.
+- [Offizielle Challonge API-Beschreibung](https://connect.challonge.com/docs.json) dokumentiert v2.1, Ressourcen und Berechtigungsscope. Die vorhandene Integration sollte ihre jeweiligen Quellverträge ausdrücklich versionieren.
+- [Flutter Performanceprofiling](https://docs.flutter.dev/perf/ui-performance) und [DevTools Performance](https://docs.flutter.dev/tools/devtools/performance) stützen die Empfehlung zu echten Profilemessungen und nachvollziehbaren Timelines.
+- [Supabase Migrationen](https://supabase.com/docs/guides/deployment/database-migrations) und [Umgebungen](https://supabase.com/docs/guides/deployment/managing-environments) stützen einen reproduzierbaren Server-/Client-Rollout statt bloßer lokaler SQL-Dateien.
+
+## 7. Umfangreiche Zukunftsliste: 150 priorisierte Aufgaben
+
+Jeder Punkt nennt Nutzen, Priorität und relativen Aufwand. Einige bauen vorhandene Features aus; bereits implementierte Grundfunktionen sind bewusst nicht erneut als fehlend aufgeführt. Große neue Bereiche sollten eigene Feature-Module erhalten.
+
+### 7.1 Stabilität und Alltagsbedienung
+
+1. **P1/S – Turnierzustände:** Laden, Fehler und echte leere Liste exklusiv darstellen; vermeidet widersprüchliche Rückmeldung.
+2. **P1/M – Löschen:** Papierkorb/Undo oder explizite Bestätigung mit Name und Fortschritt; schützt versehentliche Aktion.
+3. **P1/S – Analyse:** Fünf aktuelle Info-Lints korrigieren und direkte Analyse grün halten.
+4. **P1/L – Testpflege:** Schemaassertions, Navigation/Controls, asynchrone Lebenszyklen und Produktfehler getrennt beheben.
+5. **P2/M – Tagesdashboard:** Laufende Turniere, nächste Spiele, heutige Termine, Einladungen und Syncfehler zusammenführen.
+6. **P2/S – Fortsetzen:** Letztes konkretes Turnier/Scorermatch direkt anzeigen statt generischem Einstieg.
+7. **P2/M – Suche:** Turniere nach Name, Status, Datum, Community und Modus finden.
+8. **P2/M – Archiv:** Abschlussarchiv und Favoriten mit klarer Trennung von Papierkorb.
+9. **P2/S – Begriffe:** Einheitliche deutsche Umlaute, Modus-/Turnierleitung-/Scorerbenennung und Kontexthilfe.
+10. **P2/M – Einsteigerablauf:** Demo-Turnier mit geführtem Erstellen, Boardstart, Ergebnis und Abschluss.
+
+### 7.2 Responsive Oberfläche und Zugänglichkeit
+
+11. **P1/M – Tastatur:** Tab/Enter/Escape für zentrale Verwaltung, Scorer, Rechte- und Korrekturdialoge abnehmen.
+12. **P1/M – Screenreader:** Semantik von Kennzahlen, Charts, Brackets und aktiver Scorerseite prüfen.
+13. **P1/M – Touch:** 48-Pixel-Ziele/Tooltips auch in dichter Bracket- und Kameradarstellung sichern.
+14. **P2/M – Kontrast:** Dunkel-/Hochkontrastmodus, Farbsehschwächen und lesbare Unsicherheitsmarker.
+15. **P1/M – Resize:** Laufende Kamera, Partie, Dialog und Formulardraft bei Fensterwechsel/Rotation erhalten.
+16. **P2/M – Kleine Höhe:** Querformat, Bildschirmtastatur und 320-Pixel-Breite gezielt erweitern.
+17. **P2/M – Bracketorientierung:** Aktives Match, Zoom, Minimap und erkennbare Scrollgrenzen.
+18. **P2/S – Diagrammauswahl:** Messpunkte zusätzlich als zugängliche Tabelle und Tastaturauswahl.
+19. **P2/M – Smartphoneaktionen:** Beschriftete Aktionsmenüs statt überfüllter horizontale Werkzeugleisten.
+20. **P1/M – Visuelle Abnahme:** Wiederholbare Desktop-/Mobilebilder und echte Gerätedurchläufe neben Widgettests.
+
+### 7.3 Turnierplanung und Modusregeln
+
+21. **P2/M – Vollvorlagen:** Alle Etappen/Qualifikationen/Regeln speichern, ohne Spieler/Ergebnisse/Pairings.
+22. **P2/M – Findererklärung:** Bewertung, Suchgrenzen und verworfene Vorgaben sichtbar machen.
+23. **P2/M – Dauerband:** Erwartungsbereich plus Mindest-/typische Matchlast und Annahmen.
+24. **P2/M – Liveprognose:** Gemessene Matchdauer statt nur statischer Planungsbasis einbeziehen.
+25. **P2/M – Swisshilfe:** Buchholz, Freilos und Rundengrenze direkt an Einstellungen erklären.
+26. **P1/M – Swisskorrektur:** Vorschau der später zurückgesetzten Paarungen/Ergebnisse mit Bestätigung.
+27. **P2/L – Swissskalierung:** Paarungssuche bei größeren Feldern/ungünstigen Ergebnissen benchmarken.
+28. **P2/M – Losreproduzierbarkeit:** Seed und Ausgangsreihenfolge speichern/exportieren.
+29. **P2/M – Seedingregeln:** Elo/Setzliste mit eingefrorener Grundlage und manueller Abweichungsbegründung.
+30. **P2/L – Neue Varianten:** Zusätzliche Formate erst mit garantierten Paarungs-/Qualifikationsverträgen entwickeln.
+
+### 7.4 Turnierbetrieb, Boards und Rückzug
+
+31. **P1/M – Teilnehmer-ID:** Eindeutige ID für Gäste/Teams statt Namensschlüssel im Ausstieg.
+32. **P1/L – Ausstiegsmatrix:** Vier Wertungsmodi über Gruppen/Swiss/Mehrfach-KO/Teams/Bots/Reload testen.
+33. **P1/M – Folgenvorschau:** Vor Ausstieg betroffene Resultate, Plätze, Gegner und Elo anzeigen.
+34. **P2/M – Rücknahme:** Ausstieg widerrufen mit kontrollierter Wiederherstellung/Abhängigkeiten.
+35. **P2/M – No-showstatus:** Gemeldet/anwesend/abwesend/ausgeschieden als unterschiedliche Zustände.
+36. **P2/L – Ruhezeiten:** Boardplanung mit minimalem Abstand zwischen zwei Einsätzen.
+37. **P2/L – Wartezeitfairness:** Lange Wartende bevorzugen und blockierende Paarungen erklären.
+38. **P2/M – Schreiber:** Zuständigkeit und Belegungskonflikte neben Spielerbelegung.
+39. **P2/M – Boardaufruf:** Aufruf/Bestätigung/Verspätung pro Match mit optionaler Push-Anbindung.
+40. **P2/M – Auditverlauf:** Ergebnis-/Board-/Regeländerungen mit Grund/Bearbeiter/Zeit protokollieren.
+
+### 7.5 Event, Anmeldung und Zuschauer
+
+41. **P2/L – Eventebene:** Mehrere Wettbewerbe eines Abends mit gemeinsamer Teilnehmerbasis.
+42. **P2/M – Anmeldung:** Öffentliche oder eingeladene Registrierung mit Limit/Teilnahmebedingungen.
+43. **P2/M – Warteliste:** Nachrücker und verbindlicher Status vor Auslosung.
+44. **P2/M – Check-in:** Zeitfenster, QR/Kiosk und einfache manuelle Anwesenheitsbestätigung.
+45. **P2/M – Anmeldungsschluss:** Teilnahmebestand einfrieren und Änderungen nachvollziehbar machen.
+46. **P2/M – Zuschauerboards:** Nur-Lesen-Übersicht von Board, Match, Zeit und Ergebnis.
+47. **P2/M – Veröffentlichung:** Opt-in für Namen/Statistiken/Heatmaps und klare Sichtbarkeit.
+48. **P2/M – PDF/Druck:** Brackets, Spielplan, Tabellen und Ergebnisaushang.
+49. **P2/M – Urkunden:** Vorlagen mit Platz/Spieler/Turnier ohne manuelle Nacharbeit.
+50. **P2/M – CSV:** Import-/Exportvorschau, IDs/Dubletten, Fehlerliste und richtige Kodierung.
+
+### 7.6 Community, Rechte und Kalender
+
+51. **P0/M – Servercapabilities:** Erforderliche RPCs/Versionen vor neuem Schreibmodus prüfen.
+52. **P0/M – Rollout:** Schreibende Clients gemeinsam aktualisieren und Outboxkonflikte kontrolliert lösen.
+53. **P1/M – Rechtevorschau:** Pro Rolle und pro Turnier die tatsächlich erlaubten Aktionen erklären.
+54. **P1/L – Widerruftest:** Mitglied entfernt/Recht entzogen während offenem Dialog, Gerätematch und Offlinephase.
+55. **P2/M – Ergebnisschreiberworkflow:** Eigene offene Spiele/Abgabequittung, ohne Vollzugriff auf Leitung.
+56. **P2/M – Kalenderreihe:** Wiederkehrende Termine mit Einzeltermin-Ausnahme.
+57. **P2/M – Zusagen:** Teilnahme/Absage/Plätze für Training und Turniertermine.
+58. **P2/M – Kalenderexport:** iCalendar und persönliche Abonnements.
+59. **P1/M – Erinnerungsstatus:** Konfiguration, geplant, Providerannahme und tatsächliche Anzeige nicht verwechseln.
+60. **P2/M – Einladungsfallback:** Lokale Webseite veröffentlichen und App-/Installationswege real testen.
+
+### 7.7 Challonge und externe Daten
+
+61. **P1/M – Importfixtures:** Echte unterschiedliche DOM-/JSONformate, Aliasse, Gruppen-/Finalkennungen.
+62. **P1/M – Quellenprotokoll:** URL, Quell-ID, Importversion, Datum und Datenvollständigkeit im Archiv.
+63. **P1/M – Mehrdeutige Namen:** Gegenüberstellung mit Profil-ID, Alias und bereits zugeordneten historischen Spielen.
+64. **P2/M – Neuimportvergleich:** Geänderte Quelle gegen bestehenden Stand mit Elo-/Statistikfolgen.
+65. **P2/M – Große Listen:** Pagination, einzelne fehlende Links und nachvollziehbarer Importfortschritt.
+66. **P1/M – Teilabbruch:** Schon angelegte Mitglieder/Turniere und Retrystatus transparent ausweisen.
+67. **P2/M – APIroute:** Offizielle APIvariante versionieren und nur erforderliche Rechte nutzen.
+68. **P2/M – Ergebnisqualität:** „Nur Archiv“, „für Statistik geeignet“, „für Elo geeignet“ je Match erklären.
+69. **P2/L – Teamarchive:** Erst nach eigener Mitglieds-/Wertungsdefinition für historischen Teamimport.
+70. **P2/M – Externe Exporte:** Neutraler JSONvertrag für weitere Quellen statt unkontrollierter Parserkopien.
+
+### 7.8 Liga und Saison
+
+71. **P1/M – Liga-Rechte:** Neue RPC und Clientansichten in Rollen-/Mehrgerätetests abnehmen.
+72. **P2/L – Saison:** Spieltage, Begegnungen, Abschlusstabelle und eigene Saisonidentität.
+73. **P2/L – Ligabaukasten:** Reihenfolge Einzel/Doppel, Punkte und Matchdistanz konfigurierbar.
+74. **P2/M – Mannschaften:** Stammkader/Reserve und wiederverwendbare Aufstellung.
+75. **P2/M – Regeln:** Ersatzspieler-/Mehrfacheinsatz-/Aufstellungsvalidierung vor Spielstart.
+76. **P2/M – Gegenzeichnung:** Heim/Gast bestätigen Ergebnis, Streit/Korrekturprozess bleibt nachvollziehbar.
+77. **P2/M – Spielbericht:** Export mit Aufstellung, Einzel/Doppel, Mannschaftspunkten und Bestätigung.
+78. **P2/M – Zeitstempel:** Tatsächliche Begegnungszeit für Liga-Zeitraumstatistik.
+79. **P2/L – Doppelwürfe:** Partnerrotations-/Einzeldartdaten aus Scorer gezielt übernehmen.
+80. **P2/L – Playoffs/Pokal:** Erst nach stabiler Saisonverwaltung ergänzen.
+
+### 7.9 Scorer, Bot und Ausbullen
+
+81. **P1/M – Draftabnahme:** Absturz/Neustart bei Botzug, offener Aufnahme, Checkout, Undo und Accountwechsel.
+82. **P2/M – Mehrere Drafts:** Benannte lokale Spielstände und sichere Löschung.
+83. **P2/M – Rematch:** Gleiche Teilnehmer/Regeln, Starterrotation und optional neue Botprofile.
+84. **P1/M – Direkter Matchscorer:** Bestehenden Turnier-/Geräteimport als gemeinsame Schnittstelle nutzen.
+85. **P1/M – Setstarter:** Verbindliche Leg-/Setrotation in UI und Regressionen erklären.
+86. **P2/M – Bull-Kamera:** Optional Treffer/Abstand übernehmen, manuelle Entscheidung weiter erlauben.
+87. **P1/M – Bull-Regelhilfe:** WDF/PDC-DRA und Mehrparteien-Erweiterung klar kennzeichnen.
+88. **P2/M – Checkoutpräferenz:** Lieblingsdoppel und gespeicherte Wege optional berücksichtigen.
+89. **P2/M – Botverteilung:** Stichprobenaverage/Finishquote neben theoretischem Zielwert zeigen.
+90. **P2/M – Monitorabnahme:** Zweitmonitor, Fenstergröße, Browser beendet, Loopback und stale Anzeige prüfen.
+
+### 7.10 Neue Trainingsmodule
+
+91. **P2/L – Cricket:** Eigene Engine, Punkte/Schließen, Mehrspieler und passende Statistik.
+92. **P2/M – Bob’s 27:** Separater Trainingsvertrag und persistenter Verlauf.
+93. **P2/M – Around the Clock:** Varianten mit Doppel/Triple/Bull, klare Ziel-/Wurfwertung.
+94. **P2/M – 121:** Checkouttraining mit regelgebundener Fortschrittsfolge.
+95. **P2/M – Doppelserie:** Gewähltes Ziel, echte Versuche, Trefferquote und Serien.
+96. **P2/M – Scoringdrill:** T20/T19-Wechsel, Nachbarfehler und bewusstes Ziel.
+97. **P2/M – Trainingskalender:** Wochenumfang/Ziele und erledigte Einheiten.
+98. **P2/L – Trainingsvorschläge:** Erklärbare Empfehlungen aus belastbaren Messwerten, keine unbegründete Diagnose.
+99. **P2/M – Setupvergleich:** Ausrüstung/Trainingsbedingungen je Sitzung freiwillig dokumentieren.
+100. **P2/M – Wettkampfabgrenzung:** Trainingsdaten optional separat vom Elo-/Ergebnisbetrieb auswerten.
+
+### 7.11 Statistik, Heatmaps und Rangliste
+
+101. **P1/M – Identitätsfilter:** Gegner-/Gast-/Heatmapdaten dauerhaft über IDs statt Namen gruppieren.
+102. **P1/S – Datenbasis:** Anzahl Spiele/Darts, fehlende Werte und Filter überall direkt sichtbar.
+103. **P2/M – Gegnerbereinigung:** Leistungstrend ergänzend zu reiner Siegquote.
+104. **P2/M – Formrobustheit:** Flexible Fenster, Mindeststichprobe und Vergleich ähnlicher Spielformate.
+105. **P1/M – Zielnenner:** Unlokalisierte Würfe und bekannte/fehlende Zielversuche in Heatmapquote ausweisen.
+106. **P2/M – Heatmapvergleich:** Zwei Zeiträume/Setups bei gleicher Auswahl und nachvollziehbarer Farbskala.
+107. **P1/M – Syncrevision:** Gleichzeitige Änderung derselben Heatmapsitzung erkennen.
+108. **P2/L – Große Archive:** Einzeldartzeilen, Indexe/Zeitraumqueries und inkrementeller Upload.
+109. **P2/M – Saisonwertung:** Benannte Saisons/Monatsranglisten auf vorhandenen Mehrfachranglisten.
+110. **P2/L – Alternative Wertung:** Punkte-/Glicko-/Teamwertung erst mit eigener Fachdefinition und Tests.
+
+### 7.12 Autoscoringgenauigkeit und Hardware
+
+111. **P1/M – Kennzahltrennung:** Alltags-Nichtkorrekturquote und echte Prüfquote getrennt darstellen.
+112. **P1/L – Unabhängiges Testset:** Vor Optimierung eingefrorene, repräsentative Würfe über mehrere Setups.
+113. **P1/M – Fehlerkatalog:** Lösbare, bekannte falsche und komplett übersehene Würfe getrennt zählen.
+114. **P1/M – Setupcheck:** Licht, Schärfe, Sichtfeld, Kamerareihenfolge und Ringqualität vor Betrieb.
+115. **P1/L – Echte Latenz:** Externer Zeitbezug vom Einschlag bis Audio-Onset, mit P50/P95/P99.
+116. **P1/M – Drop-/Jitterdaten:** Capture/Buffern/Synchronisieren/Verwerfen pro Kamera sichtbar messen.
+117. **P2/L – Kalibrierlabor:** Intrinsiken, Objektivverzerrung, Montagewinkel und bekannte Messpunkte.
+118. **P1/M – Unsichere Wertung:** Bestätigung vor finaler Wettkampfübernahme, besonders an Drähten.
+119. **P1/L – Dauertest:** Enger Dreierwurf, Teilentnahme, Hand, Rotation, Lichtwechsel, USB-Abbruch.
+120. **P2/L – Sensoroption:** Bouncer-/Vibrationshilfe nur nach Vergleich mit Video und gemessener Blindstelle.
+
+### 7.13 Diagnosen und Performance
+
+121. **P1/M – Timingvertrag:** Bildankunft, Verarbeitung, Callback, Audioübergabe und echten Onset trennen.
+122. **P1/M – Exportkontrolle:** Vorschau/Größenlimit/Rotation für Diagnosebilder, private Umgebungsdaten beachten.
+123. **P2/M – Fehlervergleich:** Diagnose nach Kamera, Licht, Segment, Schaft/Flight und Revision gruppieren.
+124. **P1/M – Native CI:** Plugin-C++/Dart-Transporttests und sauberer Windows-Neubuild.
+125. **P1/M – Workerlast:** Queue-/Backpressure, Stop/Reset, Generationen und spätes Ergebnis abnehmen.
+126. **P2/L – Profiling:** Statistik, Finder, Bracket, Kameras und Fernsteuerung gemeinsam auf Zielhardware.
+127. **P2/M – Speicherbudget:** RSS/Heap und Sitzungs-/Bildcachegrößen über lange Turniere beobachten.
+128. **P2/M – Benchmarkkorpus:** Kleine/mittlere/große Archive mit festen Checksummen und Releaseprofil.
+129. **P2/M – Diagnoseverständnis:** Nutzerpaket mit Revision/Plattform/Syncstatus und erklärten Messgrenzen.
+130. **P2/L – Energie/Temperatur:** ARM64/Steam Deck und Mobilgeräte bei längerem Betrieb messen.
+
+### 7.14 Netzwerk, Geräte und Onlinebetrieb
+
+131. **P1/L – Boardverschlüsselung:** Authentifizierter verschlüsselter Kanal mit Migration und Replaytests.
+132. **P1/M – Netzwerkassistent:** Firewall, IP, Multicast, Gastnetz und direkten Verbindungstest erklären.
+133. **P2/M – Gerätezustände:** Registriert/gefunden/gekoppelt/online/aktives Match sauber unterscheiden.
+134. **P1/M – Doppelstart:** Gerätestart gegen Leitung und zweites Gerät konkurrierend testen.
+135. **P1/M – Ergebnisretry:** Abbruch nach Speichern/vor Bestätigung ohne doppelte Übernahme.
+136. **P2/M – Persistente Zuordnung:** Wiederaufnahme nach Neustart mit geprüfter Identität/Freigabe.
+137. **P2/M – Read-only-Geräte:** Zuschauer-/Monitorzugang strikt von Ergebnissen/Remote bedienen trennen.
+138. **P1/M – Widerruf:** Kontoabmeldung, entfernte Mitgliedschaft und Freigabeende im laufenden LANbetrieb.
+139. **P2/M – Remotequalität:** Bildrate/Skalierung nach Last/Verbindung anpassen; native Dialoggrenzen erklären.
+140. **P2/L – Internetmatch:** Separates Vorhaben für Autorität, Relay, Latenz, Verbindungsabbruch und Konflikte.
+
+### 7.15 Daten, Architektur und Releasequalität
+
+141. **P1/M – Backupmanifest:** Alle vereinbarten Feature-Speicher inventarisieren und versioniert sichern.
+142. **P1/M – Restorematrix:** Neue/alte JSON-/SQLite-/Draftversionen und Teilfehler mit echten Altständen.
+143. **P2/M – Verschlüsseltes Backup:** Optional Passwortschutz plus klare Wiederherstellung.
+144. **P2/M – Sicherungsrotation:** Externe Kopie/Erinnerung und begrenzte lokale Historie.
+145. **P1/L – Runtimeextraktion:** Produktive Turnierlogik als echte Application-Library, Simulator unverändert darauf.
+146. **P1/L – Controller:** Creation/Run-State weiter aus Seiten ziehen, ohne Komplettneuschreibung.
+147. **P1/M – Dokumentationsregister:** Version, Schema, Deployment und Hardwareabnahme pro Feature.
+148. **P1/L – CIgate:** Fach-/Rechte-/Layout-/Migrationschecks vor Release verpflichtend zusammenstellen.
+149. **P1/L – Plattformmatrix:** Windows/Android/Linux x64/ARM64, Installation/Upgrade/Backup/Kamera/Links/Push.
+150. **P2/M – Betriebsanzeige:** Letzter Sync, Outbox, Serverfähigkeit, Datenversion und verständliche Konfliktaktion.
+
+## 8. Empfohlene Umsetzung in Paketen
+
+### Paket A – Aktuellen Stand zuverlässig auslieferbar machen
+
+Enthält A01/A02/A06–A10/A13/A14/A33. Zuerst die neuen Schreibverträge und die tatsächlichen Testfehler verstehen; danach zielgerichtet korrigieren. Versionsassertions dürfen angepasst werden, wenn die Migration selbst geprüft ist. UI-Finderfehler dürfen nicht durch Ausblenden fachlicher Erwartungen „grün“ gemacht werden.
+
+**Fertig, wenn:** direkte Analyse grün; vereinbarte Tests inklusive neuer Rechte/Withdrawal/Heatmap-Migration bestanden; notwendige Serverfähigkeiten geprüft; Altclient-/Outboxverhalten dokumentiert; Release kann mit demselben Datenstand reproduziert werden.
+
+### Paket B – Datenverlust und Fehlbedienung begrenzen
+
+Enthält Löschen/Undo, exklusive Ladezustände, Backupinventar und sichere Konfliktübernahme. SQLite-Heatmaps sind schon im Backup; Ergänzung konzentriert sich auf tatsächlich fehlende Speicher. Kein unkontrolliertes Sichern von Login-/Kopplungssecrets.
+
+**Fertig, wenn:** Wiederherstellung einer vereinbarten Testsitzung liefert Turnier, Profile, Heatmaps, Draft und Präferenzen korrekt; eine unvollständige Wiederherstellung rollt zurück; Löschen ist nachvollziehbar rücknehmbar oder ausdrücklich bestätigt.
+
+### Paket C – Drei-Kamera- und Mehrgeräteabnahme
+
+Enthält unabhängige Prüfserie, echte Timingmessung, USB-Abbruch, Hand/Teilentnahme, Boarddrehung, Lichtwechsel und Leitung-/Geräte-Resultatretry. Neue native PNG-Teilzeiten sind wertvoll, aber keine fertige Latenzgarantie.
+
+**Fertig, wenn:** feste Revision/Hardware dokumentiert; echte Fehlwürfe/Fehlmeldungen/ausgebliebene Würfe gezählt; Daten für Genauigkeit und P95-Latenz vorliegen; keine Doppelzählung bei Abbruch/Retry/Undo; alle Testgrenzen ausdrücklich benannt.
+
+### Paket D – Veranstalterabend vereinfachen
+
+Enthält Tagesdashboard, vollständige Vorlagen, Such-/Archivfunktionen, Check-in, Schreiberdienste, Boardaufruf und Druck. Diese Aufgaben ergänzen die große vorhandene Modusvielfalt um einen durchgängigen Eventablauf.
+
+**Fertig, wenn:** ein Vereinsabend von Anmeldung bis Ergebnisaushang in einem dokumentierten Probelauf ohne manuelle Nebenlisten durchführbar ist; Smartphone und Desktop funktionieren gleichermaßen.
+
+### Paket E – Module langfristig erweitern
+
+Trainingsmodule und Saisonverwaltung sind die sinnvollsten eigenständigen neuen Produktbereiche. Öffentlicher Zuschauerzugang und Internetpartien sind deutlich größere Vernetzungsprojekte. Sie sollten erst nach verlässlichem Rechte-/Sync-/Identitätsmodell folgen.
+
+Architekturarbeit läuft schrittweise parallel: Runtime → Application-State → echte Widget-Libraries. Bestehende Bracketverantwortung zusammenhalten; kein pauschales Zerteilen generierter Tabellen. Jede neue Turnierregel gehört in dieselbe Produktionsengine und gemeinsame Simulation.
+
+## 9. Prüfprotokoll vom 8. Oktober
+
+### 9.1 Analyse
+
+Direkt ausgeführt: `flutter analyze`.
+
+**Ergebnis: Exitcode 1, fünf Info-Hinweise, keine gemeldeten Warning-/Error-Diagnosen.** Laufzeit 6,5 Sekunden laut Analyzer.
+
+- `community_elo.dart:182` und `:192`: `curly_braces_in_flow_control_structures`.
+- `player_withdrawal_service.dart:22`: zweimal `use_null_aware_elements`.
+- `tournament_run_page.dart:138`: `curly_braces_in_flow_control_structures`.
+
+Das sind aktuelle Arbeitsstandbefunde. Frühere Dokumente mit „Analyze ohne Befunde“ beziehen sich auf einen anderen Prüfzeitpunkt und bleiben nicht automatisch gültig.
+
+### 9.2 Verbindliche Kern- und Responsive-Matrix
+
+Direkt ausgeführt:
+
+`flutter test test/tournament_simulation_matrix_test.dart test/adaptive_layout_test.dart test/responsive_pages_test.dart --reporter expanded`
+
+**Ergebnis: 17 bestanden, Exitcode 0, etwa 17 Sekunden.** Einschließlich 360/800/1440 Pixel und 100/200 Prozent Schrift in der Seitenmatrix. Der alte 360-Pixel-Timeout aus der ersten Analyse wurde hier nicht reproduziert. Die Matrix verwendet die produktive Turnierruntime; Swissszenarien sind im gemeinsamen Szenariokatalog vorhanden.
+
+### 9.3 Gesamtsuite
+
+Direkt ausgeführt: `flutter test --reporter expanded`.
+
+**Bis zum Abbruch: 1211 bestanden und 35 fehlgeschlagen laut Testzähler; keine vollständige Abschlussbilanz.** Nach zwei aufeinanderfolgenden zehnminütigen Timeouts wurde der Lauf bei etwa 20:45 Minuten vor Abschluss der verbleibenden Scorer-Autoscoring-Fälle kontrolliert mit Ctrl+C beendet. Der Abbruch ist kein erfolgreiches Suite-Ende; die verbleibenden Tests sind in diesem Lauf nicht abschließend bewertet.
+
+| Beobachtete Fehlergruppe | Beispiele / Messung | Einordnung |
+| --- | --- | --- |
+| Autostart | `autoscoring_preferences_test`: enabled=true, drei Kameras, erwartetes Panel nicht gefunden | Sichtbarkeit/Autostartvertrag gezielt prüfen. |
+| Alte Schemaassertions | Performance-Heatmap 4 statt 5 erwartet; Spielerstatistik/RHL/Director 20 statt 21 erwartet | Versionsdrift belegt; Migration nicht durch bloße Assertionänderung freigeben. |
+| Neue Navigation / fehlende Controls | Draw/Finder, Ligaeinladung, Platzierung, Updatekanal | Finder/Scroll-/Sektionannahmen passen teilweise nicht mehr. |
+| Timeouts / alte Texte | Kratzer, Random-Mode und zahlreiche `widget_test.dart`-Fälle; Hauptmenue/Winners/Losers-Texte nicht gefunden | Test-/Produktursachen noch zu trennen; grüne Fachmatrix spricht gegen pauschalen KO-Fehler. |
+| Scorer-Autoscoring blockiert | `Live rest and inferred checkout attempts commit on removal`, `Bots finish their turns without any camera confirmation` | Beide laufen in `TimeoutException after 0:10:00`; Ursache nicht abschließend bestimmt. |
+
+Nicht alle 35 Fehlfälle wurden einzeln diagnostiziert. Die gesamte Suite sollte nach gezielter Fehlerbehebung erneut mit dokumentiertem Abschluss laufen. Aus dem Teilstand folgt keine pauschale Aussage, alle betroffenen Produktfunktionen seien defekt.
+
+### 9.4 Nicht erneut ausgeführt / nicht nachgewiesen
+
+- SQL-/PGlite-/Edge-Worker-Tests und Live-RLS-Prüfung.
+- Nativer C++-Probe, Windows-/Android-/Linux-Releasebuild und reale Updateinstallation.
+- Echter Challonge-Schreibimport in Zielcommunity, zwei angemeldete Heatmap-/Rechtegeräte.
+- Physischer Kamera-/Bouncer-/Robin-Hood-/Audio-Onset-Test, Push auf Nutzergeräten.
+- Interaktive Sichtprüfung mit realem Smartphone, Steam Deck oder Raspberry Pi.
+
+Diese Grenzen sind offene Abnahmearbeit, keine automatisch bestätigten Fehler. Die vorhandenen Dokumentationsprüfungen wurden als historische Nachweise berücksichtigt und entsprechend gekennzeichnet.
+
+## 10. Wo spätere Arbeit beginnen sollte
+
+| Thema | Zentrale Dateien / Dokumente |
+| --- | --- |
+| Navigation/Liste | `lib/features/home/presentation/home_page.dart`, `lib/app/navigation/sport_app_shell.dart`, `tournament_summary_card.dart` |
+| Persistenz/Backup | `tournament_storage.dart`, `app_database.dart`, `backup_service.dart`, `scorer_draft_storage.dart` |
+| Rechte/Rollout | `docs/tournament_access.md`, `tournament_access_repository.dart`, `20261008120000_tournament_access.sql`, `league_result_repository.dart` |
+| Rückzug | `player_withdrawal_service.dart`, `player_withdrawal.dart`, `player_withdrawal_dialog.dart` |
+| Swiss | `modes/swiss/swiss_engine.dart`, `docs/swiss.md`, gemeinsamer Simulationskatalog |
+| Import | `challonge_import_service.dart`, `challonge_public_document.dart`, `docs/challonge_import.md` |
+| Statistik | `domain/analytics/`, `presentation/analytics/`, `docs/statistics_analytics.md` |
+| Heatmap | `profile_heatmap_repository.dart`, `scorer_heatmap_repository.dart`, `docs/profile_heatmap_storage.md` |
+| Autoscore | `autoscoring_controller.dart`, lokale Kamera-Erweiterung, `docs/autoscore_video_pipeline.md`, aktuelle Diagnoseberichte |
+| Hardware/Performance | `docs/performance.md`, Native-PNG-/Transport-/Entnahmeberichte, Plattformdokumentation |
+
+Der vorherige Audit vom 3. Oktober bleibt als historische Bestandsaufnahme erhalten. Für die aktuelle Planung ist diese Datei maßgeblich; ihre Test-/Deploymentaussagen gelten jeweils für den ausdrücklich genannten Prüfstand.

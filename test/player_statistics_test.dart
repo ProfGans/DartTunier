@@ -146,7 +146,7 @@ void main() {
         (await storage.readPlayerStatistics('account-a'))['game']['pending'],
         true,
       );
-      expect(jsonDecode(await file.readAsString())['schemaVersion'], 20);
+      expect(jsonDecode(await file.readAsString())['schemaVersion'], 22);
       expect(jsonDecode(await file.readAsString())['custom'], 'keep');
       expect(await File('${file.path}.v6.bak').readAsString(), original);
     },

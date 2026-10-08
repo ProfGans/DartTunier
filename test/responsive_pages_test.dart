@@ -6,6 +6,7 @@ import 'statistics_analytics_widget_test.dart'
         CommunityAnalyticsPreview,
         MetricAnalyticsPreview;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'tournament_invitation_widget_test.dart' show TournamentInvitationsPreview, TournamentJoinPreview;
 import 'tournament_director_test.dart' show DirectorPreview;
 import 'community_rankings_test.dart' show rankingFixture;
 import 'community_calendar_test.dart'
@@ -16,6 +17,8 @@ import 'community_live_ranking_test.dart' show LiveRankingPreview;
 import 'community_member_profile_test.dart' show MemberProfilePreview;
 import 'community_tournament_import_test.dart' show TournamentImportPreview;
 import 'challonge_import_test.dart' show ChallongeImportPreview, ChallongeArchivePreview;
+import 'challonge_native_import_test.dart' show ChallongeNativeComparisonPreview;
+import 'limited_round_robin_test.dart' show LimitedGroupSetupPreview;
 import 'player_profile_picker_creation_test.dart'
     show PlayerPickerCreationPreview;
 import 'community_trends_test.dart' show CommunityTrendsPreview;
@@ -218,9 +221,13 @@ void main() {
           const RankingAdminPreview(),
           const LiveRankingPreview(),
           const MemberProfilePreview(),
+          const TournamentInvitationsPreview(),
+          const TournamentJoinPreview(),
           const TournamentImportPreview(),
           const ChallongeImportPreview(),
           const ChallongeArchivePreview(),
+          const ChallongeNativeComparisonPreview(),
+          const LimitedGroupSetupPreview(initialLimit: 5),
           const PlayerPickerCreationPreview(),
           const CommunityTrendsPreview(),
           const ResultsStatisticsPreview(),
@@ -399,6 +406,13 @@ void main() {
             ),
           ),
         ]) {
+          const pageFilter = String.fromEnvironment('LAYOUT_PAGE');
+          if (pageFilter.isNotEmpty && !page.runtimeType.toString().contains(pageFilter)) {
+            continue;
+          }
+          if (const bool.fromEnvironment('LAYOUT_TRACE')) {
+            debugPrint('Layout prüfen: ${page.runtimeType} / $width / $scale');
+          }
           final previewKey = GlobalKey();
           await tester.runAsync(() async {
             await tester.pumpWidget(

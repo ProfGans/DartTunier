@@ -1,4 +1,4 @@
-/// Versioned source results. Historical brackets are never regenerated.
+/// Versioned source evidence, with an optional production-runtime comparison.
 class ImportedTournamentArchive {
   const ImportedTournamentArchive({
     required this.sourceId,
@@ -6,11 +6,14 @@ class ImportedTournamentArchive {
     required this.mode,
     required this.participants,
     required this.matches,
+    this.nativeValidation,
   });
   final String sourceId, url, mode;
   final List<Map<String, dynamic>> participants, matches;
+  final Map<String, dynamic>? nativeValidation;
+  bool get usesNativeLogic => nativeValidation != null;
   factory ImportedTournamentArchive.fromJson(Map<String, dynamic> json) {
-    if (![1, 2].contains(json['version']) || json['source'] != 'challonge') {
+    if (![1, 2, 3].contains(json['version']) || json['source'] != 'challonge') {
       throw const FormatException('Unbekannte Importversion.');
     }
     return ImportedTournamentArchive(
@@ -23,15 +26,19 @@ class ImportedTournamentArchive {
       matches: (json['matches'] as List)
           .map((m) => Map<String, dynamic>.from(m as Map))
           .toList(),
+      nativeValidation: json['nativeValidation'] is Map
+          ? Map<String, dynamic>.from(json['nativeValidation'] as Map)
+          : null,
     );
   }
   Map<String, dynamic> toJson() => {
-    'version': 2,
+    'version': 3,
     'source': 'challonge',
     'sourceId': sourceId,
     'url': url,
     'mode': mode,
     'participants': participants,
     'matches': matches,
+    'nativeValidation': nativeValidation,
   };
 }

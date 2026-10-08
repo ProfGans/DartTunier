@@ -61,7 +61,7 @@ class SwissEngine {
       (m) => beforeRound == null || m.round < beforeRound,
     );
     for (final m in games) {
-      if (m.isAnnulled) continue;
+      if (m.isAnnulled || m.withdrawalIgnored) continue;
       if (!m.hasPlayers) {
         if (m.allowsBye && m.winner != null) rows[m.winner]?.points += 3;
         continue;
@@ -87,7 +87,7 @@ class SwissEngine {
     int buchholz(TournamentPlayer p) => games
         .where(
           (m) =>
-              m.hasResult &&
+              m.countsForStatistics &&
               !m.isAnnulled &&
               (m.homePlayer == p || m.awayPlayer == p),
         )

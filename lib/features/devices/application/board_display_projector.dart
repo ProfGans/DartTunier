@@ -1,4 +1,4 @@
-import 'dart:convert';
+import '../../tournaments/application/tournament_match_assignment.dart';
 import '../../tournaments/application/order_of_play/order_of_play_controller.dart';
 import '../../tournaments/domain/tournament_models.dart';
 import '../domain/board_display.dart';
@@ -71,12 +71,5 @@ class BoardDisplayProjector {
     );
   }
 
-  static String matchId(CreatedTournament tournament, PlayEntry entry) {
-    final index = const OrderOfPlayController()
-        .entries(tournament)
-        .indexWhere((item) => identical(item.match, entry.match));
-    return jsonEncode([tournament.id, index, entry.match.startedAt?.microsecondsSinceEpoch,
-      entry.match.homePlayer?.toJson(), entry.match.awayPlayer?.toJson(),
-      entry.stageIndex < tournament.stages.length ? tournament.stages[entry.stageIndex].gameFormat.toJson() : null]);
-  }
+  static String matchId(CreatedTournament tournament, PlayEntry entry) => TournamentMatchAssignment.id(tournament, entry);
 }

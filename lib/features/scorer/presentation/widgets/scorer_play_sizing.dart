@@ -7,11 +7,15 @@ class ScorerPlaySizing extends InheritedWidget {
     required super.child,
     this.scoreHeight = 0,
     this.keyHeight = 64,
+    this.compact = false,
   });
   final double scoreHeight, keyHeight;
+  final bool compact;
   static ScorerPlaySizing? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<ScorerPlaySizing>();
   @override
   bool updateShouldNotify(ScorerPlaySizing oldWidget) =>
-      scoreHeight != oldWidget.scoreHeight || keyHeight != oldWidget.keyHeight;
+      scoreHeight != oldWidget.scoreHeight ||
+      keyHeight != oldWidget.keyHeight ||
+      compact != oldWidget.compact;
 }

@@ -6,6 +6,7 @@ import 'package:dart_tournament_manager/features/communities/application/challon
 import 'package:dart_tournament_manager/features/communities/data/challonge_client.dart';
 import 'package:dart_tournament_manager/features/communities/domain/challonge_tournament.dart';
 import 'package:dart_tournament_manager/features/communities/domain/community.dart';
+import 'package:dart_tournament_manager/features/communities/domain/community_ranking.dart';
 import 'package:dart_tournament_manager/features/communities/presentation/challonge_import_page.dart';
 import 'package:dart_tournament_manager/features/communities/presentation/challonge_archive_page.dart';
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
@@ -84,6 +85,13 @@ class PreviewChallongeClient extends ChallongeClient {
   ) async => ChallongeTournament(challongeFixture());
 }
 
+class ChallongePreviewRepository extends ImportRepository {
+  @override
+  Future<List<CommunityRanking>> loadRankings(String communityId) async => [
+    CommunityRanking.standard,
+  ];
+}
+
 class ChallongeImportPreview extends StatelessWidget {
   const ChallongeImportPreview({super.key});
   @override
@@ -96,7 +104,7 @@ class ChallongeImportPreview extends StatelessWidget {
       ownerUserId: 'owner',
       createdAt: DateTime(2020),
     ),
-    repository: ImportRepository(),
+    repository: ChallongePreviewRepository(),
     storage: ImportPreviewStorage(),
     client: PreviewChallongeClient(),
   );
@@ -372,6 +380,49 @@ void main() {
         find.text('Anna'),
         200,
         scrollable: find.byType(Scrollable).first,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.scrollUntilVisible(
+        find.byType(Switch),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byType(Checkbox),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        tester
+            .widget<CheckboxListTile>(find.byType(CheckboxListTile).last)
+            .value,
+        isTrue,
+      );
+      await tester.ensureVisible(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.textContaining('Turniere und fehlende Mitglieder importieren'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.ancestor(
+                of: find.textContaining(
+                  'Turniere und fehlende Mitglieder importieren',
+                ),
+                matching: find.byType(FilledButton),
+              ),
+            )
+            .onPressed,
+        isNull,
       );
       expect(tester.takeException(), isNull);
       tester.view.physicalSize = const Size(360, 800);

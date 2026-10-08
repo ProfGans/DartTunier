@@ -84,6 +84,31 @@ Object.assign(tampered.runStages[0].groups[0].matches[0],{homeLegs:2,awayLegs:0,
 await rejected(()=>save(tampered));
 await rejected(()=>report({homeLegs:2,awayLegs:0}));
 await report({homeLegs:2,awayLegs:0},['runStages','1','groups','0','matches','0']);
-console.log('Tournament access: creator, assigned director, reader, reporter, revocation, score validation and conflict tests passed.');
+await as(creator);
+const leagueGame={home:[0],away:[0],homeLegs:null,awayLegs:null};
+const leagueMetadata={version:2,preset:'rhl',homeTeam:'Heim',awayTeam:'Gast',homePlayers:['A'],awayPlayers:['B']};
+await save({...payload,id:'league-access-test',stages:[],runStages:[],access:{...payload.access,directorUserIds:[]},
+ leagueMatch:{...leagueMetadata,games:[leagueGame,leagueGame]}});
+async function leagueReport(home=3,away=1,expected=leagueGame,metadata=leagueMetadata) {
+ return db.query('select public.submit_league_result($1,0,$2,$3,$4,$5) as p',['league-access-test',expected,metadata,home,away]);
+}
+await as(viewer); await rejected(()=>leagueReport());
+await as(outsider); await rejected(()=>leagueReport());
+await as(reporter);
+await rejected(()=>leagueReport(4,0));
+await rejected(()=>leagueReport(3,1,{...leagueGame,home:[1]}));
+await rejected(()=>leagueReport(3,1,leagueGame,{...leagueMetadata,homePlayers:['Changed']}));
+const leagueResult=(await leagueReport()).rows[0].p;
+assert.equal(leagueResult.leagueMatch.games[0].homeLegs,3);
+assert.equal(leagueResult.leagueMatch.games[1].homeLegs,null);
+assert.ok(leagueResult.leagueMatch.games[0].runtime.finishedAt);
+await rejected(()=>leagueReport(3,2,leagueResult.leagueMatch.games[0]));
+const badLeague=structuredClone(leagueResult);
+badLeague.leagueMatch.games[1].home=[1];
+await rejected(()=>save(badLeague));
+await as(creator);
+await save({...leagueResult,access:{...leagueResult.access,resultEntryMode:'directors'}});
+await as(reporter); await rejected(()=>leagueReport());
+console.log('Tournament and RHL access: ownership, directors, spectators, reporters, revocation, validation and conflict tests passed.');
 await db.close();
 

@@ -5,6 +5,26 @@ import 'package:dart_tournament_manager/features/autoscoring/domain/board_geomet
 import 'package:dart_tournament_manager/features/autoscoring/presentation/widgets/scorer_recognition_quality.dart';
 
 void main() {
+  testWidgets('Corrected dart offers its own diagnostic export', (
+    tester,
+  ) async {
+    int? exported;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ScorerRecognitionQuality(
+            hits: const [null, null, null],
+            corrected: const [false, false, true],
+            diagnosticPath: (i) => i == 2 ? 'third.zip' : null,
+            onExportDiagnostic: (i) => exported = i,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Diagnose für Dart 3 speichern'));
+    expect(exported, 2);
+    expect(find.text('Diagnose für Dart 1 speichern'), findsNothing);
+  });
   for (final size in [
     const Size(360, 800),
     const Size(800, 600),

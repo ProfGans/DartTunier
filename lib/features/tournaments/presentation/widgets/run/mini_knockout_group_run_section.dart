@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
 
-class MiniKnockoutGroupRunSection extends StatelessWidget {
+class MiniKnockoutGroupRunSection extends StatefulWidget {
   const MiniKnockoutGroupRunSection({
     super.key,
     required this.group,
@@ -18,6 +18,20 @@ class MiniKnockoutGroupRunSection extends StatelessWidget {
   final ValueChanged<GroupMatch>? onEditResult;
   final bool canEditResults;
 
+  @override
+  State<MiniKnockoutGroupRunSection> createState() =>
+      _MiniKnockoutGroupRunSectionState();
+}
+
+class _MiniKnockoutGroupRunSectionState
+    extends State<MiniKnockoutGroupRunSection> {
+  final _bracketKey = GlobalKey();
+  final _roundsKey = GlobalKey();
+  bool _expanded = false;
+  TournamentGroup get group => widget.group;
+  ValueChanged<GroupMatch>? get onEditResult => widget.onEditResult;
+  bool get canEditResults => widget.canEditResults;
+  Widget get bracket => KeyedSubtree(key: _bracketKey, child: widget.bracket);
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -56,7 +70,7 @@ class MiniKnockoutGroupRunSection extends StatelessWidget {
                 const Text('Keine Paarungen in dieser Gruppe.')
               else if (compact) ...[
                 RoundMatchList(
-                  key: ValueKey(group),
+                  key: _roundsKey,
                   rounds: [
                     ...group.knockoutRounds,
                     if (group.placementMatches.isNotEmpty)
@@ -69,6 +83,8 @@ class MiniKnockoutGroupRunSection extends StatelessWidget {
                   title: 'Gruppenbaum',
                   summary: 'Gesamter Verlauf dieser Gruppe',
                   icon: Icons.account_tree_outlined,
+                  initiallyExpanded: _expanded,
+                  onExpansionChanged: (value) => _expanded = value,
                   children: [bracket],
                 ),
               ] else

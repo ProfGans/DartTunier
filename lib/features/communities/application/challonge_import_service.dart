@@ -2,6 +2,7 @@ import '../../tournaments/domain/tournament_models.dart';
 import '../domain/challonge_tournament.dart';
 import '../domain/community.dart';
 import '../domain/community_member_identity.dart';
+import 'challonge_native_import.dart';
 
 class ChallongeImportService {
   ChallongeImportService({
@@ -32,16 +33,37 @@ class ChallongeImportService {
     String communityId,
     List<ChallongeTournament> sources, {
     Map<String, String> assignments = const {},
+    bool countsForRanking = false,
+    bool useNativeLogic = false,
+    List<String> rankingIds = const [],
     void Function(String)? progress,
   }) async {
+    if (countsForRanking && rankingIds.isEmpty) {
+      throw const FormatException(
+        'Für die Elo-Wertung mindestens eine Rangliste auswählen.',
+      );
+    }
     final members = effectiveCommunityMembers(await loadMembers()).toList();
-    final existing = (await loadTournaments()).map((t) => t.id).toSet();
+    final existing = (await loadTournaments())
+        .where(
+          (t) => !useNativeLogic || t.importedArchive?.usesNativeLogic != false,
+        )
+        .map((t) => t.id)
+        .toSet();
     final pending = {for (final t in sources) t.id: t}.values
         .where((t) => !existing.contains(t.tournamentId(communityId)))
         .toList();
     var needsMembers = false;
     // Validate every assignment before creating the first member.
     for (final t in pending) {
+      if (useNativeLogic) {
+        ChallongeNativeImport.convert(
+          t.convert(communityId, {
+            for (final p in t.participants)
+              '${p['id']}': 'preflight-${p['id']}',
+          }),
+        );
+      }
       final used = <String>{};
       for (final p in t.participants) {
         final name = ChallongeTournament.name(p);
@@ -86,7 +108,15 @@ class ChallongeImportService {
         }
         profiles['${p['id']}'] = member.playerProfileId!;
       }
-      await saveTournament(t.convert(communityId, profiles));
+      final converted = t.convert(
+        communityId,
+        profiles,
+        countsForRanking: countsForRanking,
+        rankingIds: rankingIds,
+      );
+      await saveTournament(
+        useNativeLogic ? ChallongeNativeImport.convert(converted) : converted,
+      );
       count++;
     }
     return count;

@@ -80,6 +80,7 @@ class _AutoscoringPageState extends State<AutoscoringPage>
             'statusBeforeReset': c.status,
             'waitingForEmpty': c.waitingForEmpty,
             'removalMetrics': c.removalMetrics,
+            'removalDecision': c.removalDecisionMetrics,
             'throws': c.throws
                 .map((d) => {'label': d.label, 'points': d.scoredPoints})
                 .toList(),

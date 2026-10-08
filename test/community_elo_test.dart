@@ -26,7 +26,7 @@ void main() {
     expect(mixed.entries.first.rating, 1016);
     expect(mixed.entries.first.matches, 1);
     expect(mixed.history['a'], hasLength(1));
-    final custom = CreatedTournament.fromJson(tournament.toJson()..['communityRankingIds'] = ['training']);
+    final custom = CreatedTournament.fromJson(tournament.toJson()..['id'] = 'training-copy'..['communityRankingIds'] = ['training']);
     expect(custom.communityRankingIds, ['training']);
     expect(CreatedTournament.fromJson(custom.toJson()).communityRankingIds, ['training']);
     expect(const CommunityEloCalculator().calculate(members: [alice, bob], tournaments: [custom], currentYearOnly: false).entries, isEmpty);

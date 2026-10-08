@@ -594,7 +594,7 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
                             )
                           : null,
                       onTap:
-                          tournament.importedArchive != null
+                          tournament.importedArchive != null && !tournament.importedArchive!.usesNativeLogic
                           ? () => Navigator.of(context).push(MaterialPageRoute<void>(
                               builder: (_) => ChallongeArchivePage(tournament: tournament)))
                           : widget.runTournamentBuilder == null

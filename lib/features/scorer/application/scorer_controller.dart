@@ -401,11 +401,13 @@ class ScorerController extends ChangeNotifier {
     legs[activePlayer]++;
     message += ' — Leg gewonnen';
     final config = settings.matchConfig;
+    var setFinished = false;
     if (legs[activePlayer] >= config.legsToWin) {
       if (config.mode == MatchMode.legs) {
         winner = activePlayer;
       } else {
         sets[activePlayer]++;
+        setFinished = true;
         legs = List.filled(scores.length, 0);
         message += ' — Set gewonnen';
         if (sets[activePlayer] >= config.setsToWin) winner = activePlayer;
@@ -417,7 +419,9 @@ class ScorerController extends ChangeNotifier {
         p.startScore ?? settings.startScore,
     ];
     opened = List.filled(scores.length, false);
-    legStarter = (legStarter + 1) % scores.length;
+    legStarter = setFinished && settings.alternateSetStarts
+        ? (settings.startingPlayer + sets.fold<int>(0, (sum, wins) => sum + wins)) % scores.length
+        : (legStarter + 1) % scores.length;
     activePlayer = legStarter;
     intendedTarget = null;
   }

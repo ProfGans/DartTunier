@@ -124,7 +124,7 @@ class TournamentStorage {
   // v18 adds persisted board exclusions. Older tournaments have no blocked boards.
   // v19 adds tournament-specific directors and result-entry permissions.
   // v20 adds optional match starts from assigned board devices (default off).
-  static const _schemaVersion = 20;
+  static const _schemaVersion = 22;
 
   Future<Map<String, dynamic>> readPlayerStatistics(String accountId) =>
       _locked(() async {

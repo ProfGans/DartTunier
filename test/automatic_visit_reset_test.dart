@@ -19,6 +19,39 @@ GrayFrame frame({int brightness = 80, int shafts = 0, int noise = 0}) {
 }
 
 void main() {
+  test(
+    'Confirmed partial removal stays locked despite incomplete shaft restoration',
+    () {
+      final reset = AutomaticVisitReset();
+      final empty = List.generate(3, (_) => frame());
+      final occupied = List.generate(3, (_) => frame(shafts: 3));
+      for (var n = 0; n < 3; n++) {
+        reset.observe(
+          empty: empty,
+          occupied: occupied,
+          current: List.generate(3, (_) => frame(shafts: 2)),
+          stable: true,
+          darts: 2,
+        );
+      }
+      expect(reset.decisionMetrics['confirmedRemoval'], isTrue);
+      final partial = List.generate(3, (_) {
+        final pixels = Uint8List.fromList(frame(shafts: 3, noise: 100).pixels);
+        pixels.fillRange(2400, 2450, 80);
+        return GrayFrame(100, 100, pixels);
+      });
+      for (var n = 0; n < 5; n++) {
+        reset.observe(
+          empty: empty,
+          occupied: occupied,
+          current: partial,
+          stable: true,
+          darts: 2,
+        );
+      }
+      expect(reset.waitingForEmpty, isTrue);
+    },
+  );
   test('A hand covering old shafts cannot release an unfinished visit', () {
     final reset = AutomaticVisitReset();
     final empty = List.generate(3, (_) => frame());

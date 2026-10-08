@@ -1,0 +1,2028 @@
+{
+  "schemaVersion": 8,
+  "capturedAtUtc": "2026-10-08T12:07:00.924886Z",
+  "detected": "Allgemeine Diagnose",
+  "corrected": "Keine Trefferkorrektur",
+  "correctDetection": false,
+  "hit": {
+    "manualMissingReport": false,
+    "environment": {
+      "algorithmRevision": "measured-boundary-endpoint-2026-10-08",
+      "operatingSystem": "windows",
+      "operatingSystemVersion": "\"Windows 10 Home\" 10.0 (Build 26200)",
+      "dartVersion": "3.11.1 (stable) (Tue Feb 24 00:03:07 2026 -0800) on \"windows_x64\"",
+      "buildMode": "release",
+      "appVersion": "0.1.4",
+      "appBuild": "17"
+    },
+    "recognitionStatus": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+    "recognitionRunning": true,
+    "waitingForEmpty": true,
+    "countedThrows": 1,
+    "decisionReason": "deadlineCurrentEstimate",
+    "tipDecisionReason": "insufficientTipViews",
+    "localSegmentBoundary": {
+      "applied": false,
+      "reason": "notSegmentBoundary"
+    },
+    "localRingContact": {
+      "applied": false,
+      "reason": "notUniqueRingBoundary",
+      "boundaryEndpoint": {
+        "applied": false,
+        "reason": "notBoundary"
+      }
+    },
+    "contactCandidateComparison": {
+      "mode": "shadow",
+      "candidateSource": "currentFrameBeforeTemporalSelection",
+      "applied": false,
+      "occlusionIsEstimate": true,
+      "candidateCount": 1,
+      "candidates": [
+        {
+          "xMillimetres": 9.757276214565092,
+          "yMillimetres": -121.51303773011475,
+          "label": "20",
+          "score": 2.7029360002425844,
+          "supportingViews": 1,
+          "cameras": [
+            {
+              "camera": 1,
+              "newContactPixels": 3,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": null,
+              "axisDistanceMillimetres": 7.105427357601002e-15
+            },
+            {
+              "camera": 2,
+              "newContactPixels": 0,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "insufficientEvidence",
+              "weight": 0.4,
+              "endpointDistanceMillimetres": null,
+              "axisDistanceMillimetres": null
+            },
+            {
+              "camera": 3,
+              "newContactPixels": 11,
+              "previouslyOccupiedPixels": 0,
+              "visibility": "newContactVisible",
+              "weight": 1.0,
+              "endpointDistanceMillimetres": 0.41766064844130646,
+              "axisDistanceMillimetres": 1.4210854715202004e-14
+            }
+          ]
+        }
+      ],
+      "preferred": {
+        "xMillimetres": 9.757276214565092,
+        "yMillimetres": -121.51303773011475,
+        "label": "20",
+        "score": 2.7029360002425844,
+        "supportingViews": 1,
+        "cameras": [
+          {
+            "camera": 1,
+            "newContactPixels": 3,
+            "previouslyOccupiedPixels": 0,
+            "visibility": "insufficientEvidence",
+            "weight": 0.4,
+            "endpointDistanceMillimetres": null,
+            "axisDistanceMillimetres": 7.105427357601002e-15
+          },
+          {
+            "camera": 2,
+            "newContactPixels": 0,
+            "previouslyOccupiedPixels": 0,
+            "visibility": "insufficientEvidence",
+            "weight": 0.4,
+            "endpointDistanceMillimetres": null,
+            "axisDistanceMillimetres": null
+          },
+          {
+            "camera": 3,
+            "newContactPixels": 11,
+            "previouslyOccupiedPixels": 0,
+            "visibility": "newContactVisible",
+            "weight": 1.0,
+            "endpointDistanceMillimetres": 0.41766064844130646,
+            "axisDistanceMillimetres": 1.4210854715202004e-14
+          }
+        ]
+      },
+      "margin": null
+    },
+    "recognitionTimeline": [
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602247699,
+            "sequence": 2717,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602232243,
+            "sequence": 2717,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602228200,
+            "sequence": 2717,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.01,
+            "elapsedMilliseconds": 0.01,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 313,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00006944444444444444,
+                  "changedPixels": 17,
+                  "axis": {
+                    "a": -0.9449631970401444,
+                    "b": -0.32717664378691413,
+                    "c": -29.588138056121736,
+                    "confidence": 0.46132388284381703
+                  }
+                },
+                {
+                  "stableSamples": 313,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00008487654320987654,
+                  "changedPixels": 180,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 313,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00007716049382716049,
+                  "changedPixels": 36,
+                  "axis": {
+                    "a": 0.4409055248912129,
+                    "b": -0.89755351824858,
+                    "c": -94.89686309865574,
+                    "confidence": 0.6122501603959445
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 12.602,
+            "elapsedMilliseconds": 12.612,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 226,
+                  "retained": 69,
+                  "added": 157,
+                  "removed": 23,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 76,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2631,
+                  "retained": 1153,
+                  "added": 1478,
+                  "removed": 94,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1230,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 526,
+                  "retained": 173,
+                  "added": 353,
+                  "removed": 18,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 179,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.005,
+            "elapsedMilliseconds": 12.617,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602277882,
+            "sequence": 2718,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602263760,
+            "sequence": 2718,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602259759,
+            "sequence": 2718,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.013,
+            "elapsedMilliseconds": 0.013,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 314,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00011574074074074075,
+                  "changedPixels": 18,
+                  "axis": {
+                    "a": -0.942969064976805,
+                    "b": -0.3328803726517534,
+                    "c": -30.427828393035462,
+                    "confidence": 0.46962072549561257
+                  }
+                },
+                {
+                  "stableSamples": 314,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0001234567901234568,
+                  "changedPixels": 179,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 314,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0001080246913580247,
+                  "changedPixels": 36,
+                  "axis": {
+                    "a": 0.4204386014803331,
+                    "b": -0.90732099192362,
+                    "c": -97.30343751962971,
+                    "confidence": 0.6036368509157791
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 13.739,
+            "elapsedMilliseconds": 13.752,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 224,
+                  "retained": 70,
+                  "added": 154,
+                  "removed": 22,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 76,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2629,
+                  "retained": 1157,
+                  "added": 1472,
+                  "removed": 90,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1230,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 534,
+                  "retained": 175,
+                  "added": 359,
+                  "removed": 16,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 181,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.007,
+            "elapsedMilliseconds": 13.759,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602310702,
+            "sequence": 2719,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602297569,
+            "sequence": 2719,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602308680,
+            "sequence": 2719,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.012,
+            "elapsedMilliseconds": 0.012,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 315,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00009259259259259259,
+                  "changedPixels": 15,
+                  "axis": {
+                    "a": -0.9448061407160863,
+                    "b": -0.32762990776968925,
+                    "c": -29.609659144626598,
+                    "confidence": 0.4693148743837438
+                  }
+                },
+                {
+                  "stableSamples": 315,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00016203703703703703,
+                  "changedPixels": 179,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 315,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00007716049382716049,
+                  "changedPixels": 36,
+                  "axis": {
+                    "a": 0.4570073549196417,
+                    "b": -0.8894629152187025,
+                    "c": -94.89852269329022,
+                    "confidence": 0.5870600136361886
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 13.67,
+            "elapsedMilliseconds": 13.682,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 221,
+                  "retained": 70,
+                  "added": 151,
+                  "removed": 22,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 75,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2640,
+                  "retained": 1159,
+                  "added": 1481,
+                  "removed": 88,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1232,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 533,
+                  "retained": 175,
+                  "added": 358,
+                  "removed": 16,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 182,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.006,
+            "elapsedMilliseconds": 13.688,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602343313,
+            "sequence": 2720,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602343187,
+            "sequence": 2720,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602341094,
+            "sequence": 2720,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.011,
+            "elapsedMilliseconds": 0.011,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 316,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00013117283950617284,
+                  "changedPixels": 18,
+                  "axis": {
+                    "a": -0.9441668198646967,
+                    "b": -0.3294677772811555,
+                    "c": -30.06734010544661,
+                    "confidence": 0.48985933401848547
+                  }
+                },
+                {
+                  "stableSamples": 316,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00011574074074074075,
+                  "changedPixels": 174,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 316,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00009259259259259259,
+                  "changedPixels": 35,
+                  "axis": {
+                    "a": 0.4363056436512521,
+                    "b": -0.8997985248476832,
+                    "c": -95.1066287214422,
+                    "confidence": 0.6102725353053691
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 14.403,
+            "elapsedMilliseconds": 14.414,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 228,
+                  "retained": 69,
+                  "added": 159,
+                  "removed": 23,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 76,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2622,
+                  "retained": 1152,
+                  "added": 1470,
+                  "removed": 95,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1229,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 528,
+                  "retained": 172,
+                  "added": 356,
+                  "removed": 19,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 179,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.005,
+            "elapsedMilliseconds": 14.419,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602376489,
+            "sequence": 2721,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602376468,
+            "sequence": 2721,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602372345,
+            "sequence": 2721,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.013,
+            "elapsedMilliseconds": 0.013,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 317,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00006944444444444444,
+                  "changedPixels": 15,
+                  "axis": {
+                    "a": -0.9445757610953258,
+                    "b": -0.32829351433006704,
+                    "c": -29.775692259213237,
+                    "confidence": 0.45897338526414516
+                  }
+                },
+                {
+                  "stableSamples": 317,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00010030864197530864,
+                  "changedPixels": 175,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 317,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00006944444444444444,
+                  "changedPixels": 38,
+                  "axis": {
+                    "a": 0.4403354877025738,
+                    "b": -0.8978333131877745,
+                    "c": -94.94689402454809,
+                    "confidence": 0.6164784355795074
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 13.985,
+            "elapsedMilliseconds": 13.998,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 230,
+                  "retained": 67,
+                  "added": 163,
+                  "removed": 25,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 74,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2630,
+                  "retained": 1153,
+                  "added": 1477,
+                  "removed": 94,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1229,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 531,
+                  "retained": 174,
+                  "added": 357,
+                  "removed": 17,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 179,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.007,
+            "elapsedMilliseconds": 14.005,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602421849,
+            "sequence": 2722,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602409361,
+            "sequence": 2722,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602402869,
+            "sequence": 2722,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.015,
+            "elapsedMilliseconds": 0.015,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 318,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00008487654320987654,
+                  "changedPixels": 17,
+                  "axis": {
+                    "a": -0.9436772436041402,
+                    "b": -0.3308674355443466,
+                    "c": -30.01698278884757,
+                    "confidence": 0.45826565426080973
+                  }
+                },
+                {
+                  "stableSamples": 318,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00013117283950617284,
+                  "changedPixels": 175,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 318,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00011574074074074075,
+                  "changedPixels": 37,
+                  "axis": {
+                    "a": 0.43844495472554446,
+                    "b": -0.8987580440116879,
+                    "c": -94.89336745444395,
+                    "confidence": 0.6205553857232345
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 15.06,
+            "elapsedMilliseconds": 15.075,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 239,
+                  "retained": 70,
+                  "added": 169,
+                  "removed": 22,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 77,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2641,
+                  "retained": 1152,
+                  "added": 1489,
+                  "removed": 95,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1232,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 528,
+                  "retained": 174,
+                  "added": 354,
+                  "removed": 17,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 182,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.006,
+            "elapsedMilliseconds": 15.081,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602455688,
+            "sequence": 2723,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602439601,
+            "sequence": 2723,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602436164,
+            "sequence": 2723,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.014,
+            "elapsedMilliseconds": 0.014,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 319,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00009259259259259259,
+                  "changedPixels": 17,
+                  "axis": {
+                    "a": -0.9419826175566778,
+                    "b": -0.3356616573591177,
+                    "c": -30.83624488044225,
+                    "confidence": 0.4703328365799017
+                  }
+                },
+                {
+                  "stableSamples": 319,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00011574074074074075,
+                  "changedPixels": 173,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 319,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00009259259259259259,
+                  "changedPixels": 35,
+                  "axis": {
+                    "a": 0.4288541746055407,
+                    "b": -0.903373730481134,
+                    "c": -98.24825237830946,
+                    "confidence": 0.5981587880355155
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 12.724,
+            "elapsedMilliseconds": 12.738,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 235,
+                  "retained": 69,
+                  "added": 166,
+                  "removed": 23,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 77,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2627,
+                  "retained": 1150,
+                  "added": 1477,
+                  "removed": 97,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1231,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 534,
+                  "retained": 172,
+                  "added": 362,
+                  "removed": 19,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 178,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.005,
+            "elapsedMilliseconds": 12.743,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602486644,
+            "sequence": 2724,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602472384,
+            "sequence": 2724,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602468885,
+            "sequence": 2724,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.014,
+            "elapsedMilliseconds": 0.014,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 320,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00009259259259259259,
+                  "changedPixels": 17,
+                  "axis": {
+                    "a": -0.9436482122340899,
+                    "b": -0.33095022518107775,
+                    "c": -30.02587122022365,
+                    "confidence": 0.4497682515672361
+                  }
+                },
+                {
+                  "stableSamples": 320,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0001234567901234568,
+                  "changedPixels": 176,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 320,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0000617283950617284,
+                  "changedPixels": 35,
+                  "axis": {
+                    "a": 0.41853861010945037,
+                    "b": -0.9081990045401114,
+                    "c": -96.84472885135196,
+                    "confidence": 0.6181553825570942
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 13.061,
+            "elapsedMilliseconds": 13.075,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 223,
+                  "retained": 68,
+                  "added": 155,
+                  "removed": 24,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 73,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2658,
+                  "retained": 1164,
+                  "added": 1494,
+                  "removed": 83,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1234,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 528,
+                  "retained": 173,
+                  "added": 355,
+                  "removed": 18,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 182,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.005,
+            "elapsedMilliseconds": 13.08,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602519451,
+            "sequence": 2725,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602504598,
+            "sequence": 2725,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602500581,
+            "sequence": 2725,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.012,
+            "elapsedMilliseconds": 0.012,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 321,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00005401234567901235,
+                  "changedPixels": 15,
+                  "axis": {
+                    "a": -0.942969064976805,
+                    "b": -0.3328803726517534,
+                    "c": -30.427828393035462,
+                    "confidence": 0.4793036270522231
+                  }
+                },
+                {
+                  "stableSamples": 321,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0001080246913580247,
+                  "changedPixels": 183,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 321,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00010030864197530864,
+                  "changedPixels": 36,
+                  "axis": {
+                    "a": 0.4204413892679893,
+                    "b": -0.907319700100468,
+                    "c": -97.2802867681604,
+                    "confidence": 0.6137300049751636
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 12.835,
+            "elapsedMilliseconds": 12.847,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 225,
+                  "retained": 67,
+                  "added": 158,
+                  "removed": 25,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 74,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2640,
+                  "retained": 1157,
+                  "added": 1483,
+                  "removed": 90,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1232,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 529,
+                  "retained": 174,
+                  "added": 355,
+                  "removed": 17,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 181,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.006,
+            "elapsedMilliseconds": 12.853,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602549454,
+            "sequence": 2726,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602537522,
+            "sequence": 2726,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602530938,
+            "sequence": 2726,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.014,
+            "elapsedMilliseconds": 0.014,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 322,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00005401234567901235,
+                  "changedPixels": 17,
+                  "axis": {
+                    "a": -0.942969064976805,
+                    "b": -0.3328803726517534,
+                    "c": -30.427828393035462,
+                    "confidence": 0.4793036270522231
+                  }
+                },
+                {
+                  "stableSamples": 322,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00014660493827160494,
+                  "changedPixels": 175,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 322,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00011574074074074075,
+                  "changedPixels": 37,
+                  "axis": {
+                    "a": 0.42303880667157057,
+                    "b": -0.9061115649024095,
+                    "c": -97.53602409229947,
+                    "confidence": 0.6212493231044637
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 14.012,
+            "elapsedMilliseconds": 14.026,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 223,
+                  "retained": 69,
+                  "added": 154,
+                  "removed": 23,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 74,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2644,
+                  "retained": 1153,
+                  "added": 1491,
+                  "removed": 94,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1232,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 546,
+                  "retained": 176,
+                  "added": 370,
+                  "removed": 15,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 183,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.006,
+            "elapsedMilliseconds": 14.032,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602616124,
+            "sequence": 2728,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602600453,
+            "sequence": 2728,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602594918,
+            "sequence": 2728,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.027,
+            "elapsedMilliseconds": 0.027,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 323,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00006944444444444444,
+                  "changedPixels": 16,
+                  "axis": {
+                    "a": -0.9436482122340899,
+                    "b": -0.33095022518107775,
+                    "c": -30.02587122022365,
+                    "confidence": 0.44527056905156376
+                  }
+                },
+                {
+                  "stableSamples": 323,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00014660493827160494,
+                  "changedPixels": 177,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 323,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00011574074074074075,
+                  "changedPixels": 36,
+                  "axis": {
+                    "a": 0.44418132604010935,
+                    "b": -0.8959369116166885,
+                    "c": -95.07344820219346,
+                    "confidence": 0.6098047554561274
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 14.394,
+            "elapsedMilliseconds": 14.421,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 231,
+                  "retained": 67,
+                  "added": 164,
+                  "removed": 25,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 75,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2628,
+                  "retained": 1148,
+                  "added": 1480,
+                  "removed": 99,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1230,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 525,
+                  "retained": 175,
+                  "added": 350,
+                  "removed": 16,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 183,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.008,
+            "elapsedMilliseconds": 14.429,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      },
+      {
+        "throwsBefore": 1,
+        "frames": [
+          {
+            "timestampMicroseconds": 17602647363,
+            "sequence": 2729,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602631352,
+            "sequence": 2729,
+            "width": 480,
+            "height": 270
+          },
+          {
+            "timestampMicroseconds": 17602628076,
+            "sequence": 2729,
+            "width": 480,
+            "height": 270
+          }
+        ],
+        "stages": [
+          {
+            "phase": "motionAndAxes",
+            "milliseconds": 0.015,
+            "elapsedMilliseconds": 0.015,
+            "state": {
+              "cameras": [
+                {
+                  "stableSamples": 324,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.0000617283950617284,
+                  "changedPixels": 16,
+                  "axis": {
+                    "a": -0.943326799988602,
+                    "b": -0.3318652564268575,
+                    "c": -30.24458969362376,
+                    "confidence": 0.4503925445111772
+                  }
+                },
+                {
+                  "stableSamples": 324,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00008487654320987654,
+                  "changedPixels": 178,
+                  "axis": null
+                },
+                {
+                  "stableSamples": 324,
+                  "stationaryShaft": false,
+                  "changedFraction": 0.00010030864197530864,
+                  "changedPixels": 36,
+                  "axis": {
+                    "a": 0.4227627038543233,
+                    "b": -0.9062404185588843,
+                    "c": -97.57574262438696,
+                    "confidence": 0.6243429297213696
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "phase": "removal",
+            "milliseconds": 14.708,
+            "elapsedMilliseconds": 14.723,
+            "state": {
+              "state": "waitingForEmpty",
+              "cameraMetrics": [
+                {
+                  "before": 92,
+                  "now": 231,
+                  "retained": 71,
+                  "added": 160,
+                  "removed": 21,
+                  "regionPixels": 53863,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 76,
+                  "clear": false
+                },
+                {
+                  "before": 1247,
+                  "now": 2639,
+                  "retained": 1156,
+                  "added": 1483,
+                  "removed": 91,
+                  "regionPixels": 57591,
+                  "occupiedRestored": true,
+                  "occupiedCovered": 1231,
+                  "clear": false
+                },
+                {
+                  "before": 191,
+                  "now": 522,
+                  "retained": 172,
+                  "added": 350,
+                  "removed": 19,
+                  "regionPixels": 54885,
+                  "occupiedRestored": false,
+                  "occupiedCovered": 178,
+                  "clear": false
+                }
+              ]
+            }
+          },
+          {
+            "phase": "remaining",
+            "milliseconds": 0.006,
+            "elapsedMilliseconds": 14.729,
+            "state": {
+              "status": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+              "running": true,
+              "waitingForEmpty": true,
+              "throwsAfter": 1
+            }
+          }
+        ]
+      }
+    ],
+    "lastCaptureError": null,
+    "lastCaptureErrorStack": null,
+    "cameraStatus": "Pfeile herausziehen. Das leere Board wird automatisch erkannt.",
+    "missingCameraImages": 0,
+    "decisionFrames": [
+      {
+        "xMillimetres": 7.069660026040942,
+        "yMillimetres": -123.29877654840139,
+        "views": 2,
+        "supportingViews": 2,
+        "residualMillimetres": 1.4210854715202004e-14,
+        "captureTimestampsMicroseconds": [
+          17586279198,
+          17586279069,
+          17586275548
+        ],
+        "axes": [
+          {
+            "a": -0.9342904483598907,
+            "b": -0.3565127741098124,
+            "c": -37.35247303613468,
+            "confidence": 0.6581901549432383
+          },
+          null,
+          {
+            "a": 0.5339444389302392,
+            "b": -0.8455195657910419,
+            "c": -108.02633366580301,
+            "confidence": 0.9041718747956756
+          }
+        ]
+      },
+      {
+        "xMillimetres": 9.757276214565092,
+        "yMillimetres": -121.51303773011475,
+        "views": 2,
+        "supportingViews": 2,
+        "residualMillimetres": 1.1234667099445444e-14,
+        "captureTimestampsMicroseconds": [
+          17586310243,
+          17586312156,
+          17586306728
+        ],
+        "axes": [
+          {
+            "a": -0.959559555559521,
+            "b": -0.2815057003586506,
+            "c": -24.84392516100351,
+            "confidence": 0.6729859731404614
+          },
+          null,
+          {
+            "a": 0.5370735618088147,
+            "b": -0.8435354107599711,
+            "c": -107.7409252844731,
+            "confidence": 0.8933517190599549
+          }
+        ]
+      }
+    ],
+    "decisionSelectedFrame": null,
+    "alternativesUsed": false,
+    "detailRefined": false,
+    "uncertainRecovery": {
+      "eligible": false
+    },
+    "video": {
+      "continuousVideo": true,
+      "timestampBasis": "hostArrivalMonotonic",
+      "skewMicroseconds": 19052,
+      "discardedForSynchronization": 3,
+      "nativeDroppedFrames": 384,
+      "backlogDroppedBatches": 61,
+      "oldestBufferedAgeMilliseconds": 111.459,
+      "newestBufferedAgeMilliseconds": 15.723,
+      "nativeReadMilliseconds": 9.812,
+      "nativeReadPixelBytes": 11863632
+    },
+    "tipContactConfirmed": false,
+    "spatialContact": null,
+    "tipObservations": [
+      null,
+      null,
+      {
+        "imageX": 0.6329163408913214,
+        "imageY": 0.37830319888734354,
+        "xMillimetres": 9.533306327914596,
+        "yMillimetres": -121.1605070121196,
+        "confidence": 0.8933517190599549
+      }
+    ],
+    "performance": {
+      "liveFrame": {
+        "frameSequences": [
+          2730,
+          2730,
+          2730
+        ],
+        "captureTimestampsMicroseconds": [
+          17602677935,
+          17602664930,
+          17602658883
+        ],
+        "oldestFrameAgeAtNativeReadMilliseconds": 34.775,
+        "newestFrameAgeAtNativeReadMilliseconds": 15.723,
+        "queuedAfterChannelReturnMilliseconds": 63.336,
+        "nativeReadMilliseconds": 9.812,
+        "nativeColorEncodeMilliseconds": [
+          7.374,
+          8.471,
+          7.693
+        ],
+        "nativeEncodedColorViews": 3,
+        "physicalImpactTimestampAvailable": false,
+        "decodeAndColorMilliseconds": 10.179,
+        "axisAnalysisIncludingWorkerMilliseconds": 22.499,
+        "firstShaftEvidenceCaptureTimestampMicroseconds": 17588487321,
+        "shaftEvidenceToCurrentCaptureMilliseconds": 14190.614,
+        "decisionIncludingCallbackMilliseconds": 15.115,
+        "channelReturnToProcessingFinishedMilliseconds": 111.136,
+        "hostArrivalToProcessingFinishedEstimateMilliseconds": 126.859
+      },
+      "lastAcceptedLiveFrame": {
+        "frameSequences": [
+          2239,
+          2239,
+          2239
+        ],
+        "captureTimestampsMicroseconds": [
+          17586310243,
+          17586312156,
+          17586306728
+        ],
+        "oldestFrameAgeAtNativeReadMilliseconds": 33.896,
+        "newestFrameAgeAtNativeReadMilliseconds": 28.468,
+        "queuedAfterChannelReturnMilliseconds": 0.001,
+        "nativeReadMilliseconds": 2.383,
+        "nativeColorEncodeMilliseconds": [
+          8.426,
+          8.177,
+          9.106
+        ],
+        "nativeEncodedColorViews": 3,
+        "physicalImpactTimestampAvailable": false,
+        "decodeAndColorMilliseconds": 1.756,
+        "axisAnalysisIncludingWorkerMilliseconds": 15.273,
+        "firstShaftEvidenceCaptureTimestampMicroseconds": 17586183472,
+        "shaftEvidenceToCurrentCaptureMilliseconds": 128.684,
+        "throwCallbackMilliseconds": 4.475,
+        "decisionIncludingCallbackMilliseconds": 14.451,
+        "channelReturnToProcessingFinishedMilliseconds": 31.49,
+        "hostArrivalToProcessingFinishedEstimateMilliseconds": 59.958
+      },
+      "captureAndDecodeMilliseconds": 2.653,
+      "processingMilliseconds": 14.729,
+      "nextCaptureDelayMilliseconds": 10
+    },
+    "eventType": "generalDiagnostic",
+    "setupId": null,
+    "busy": false,
+    "removalMetrics": [
+      {
+        "before": 92,
+        "now": 231,
+        "retained": 71,
+        "added": 160,
+        "removed": 21,
+        "regionPixels": 53863,
+        "occupiedRestored": false,
+        "occupiedCovered": 76,
+        "clear": false
+      },
+      {
+        "before": 1247,
+        "now": 2639,
+        "retained": 1156,
+        "added": 1483,
+        "removed": 91,
+        "regionPixels": 57591,
+        "occupiedRestored": true,
+        "occupiedCovered": 1231,
+        "clear": false
+      },
+      {
+        "before": 191,
+        "now": 522,
+        "retained": 172,
+        "added": 350,
+        "removed": 19,
+        "regionPixels": 54885,
+        "occupiedRestored": false,
+        "occupiedCovered": 178,
+        "clear": false
+      }
+    ],
+    "availableCameras": [
+      "Iriun Webcam <\\\\?\\root#devgen#{f83e0b20-482a-924b-b185-5ab00f0f8095}#{e5323777-f976-4f5b-9b55-b94699c46e44}\\8da4e6f4fd61466dbca9c8dc67dc7e77>",
+      "NDI Webcam Video 1 <\\\\?\\root#media#0002#{e5323777-f976-4f5b-9b55-b94699c46e44}\\vidsource0>",
+      "NDI Webcam Video 2 <\\\\?\\root#media#0002#{e5323777-f976-4f5b-9b55-b94699c46e44}\\vidsource1>",
+      "NDI Webcam Video 3 <\\\\?\\root#media#0002#{e5323777-f976-4f5b-9b55-b94699c46e44}\\vidsource2>",
+      "NDI Webcam Video 4 <\\\\?\\root#media#0002#{e5323777-f976-4f5b-9b55-b94699c46e44}\\vidsource3>",
+      "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&3390689c&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+      "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&b2dc3c8&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+      "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&1de7746d&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>"
+    ],
+    "cameraStates": [
+      {
+        "deviceName": "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&3390689c&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+        "deviceIndex": 5,
+        "hasImage": true,
+        "calibrated": true,
+        "calibrationMessage": "Gespeicherte Kalibrierung übernommen."
+      },
+      {
+        "deviceName": "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&b2dc3c8&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+        "deviceIndex": 6,
+        "hasImage": true,
+        "calibrated": true,
+        "calibrationMessage": "Gespeicherte Kalibrierung übernommen."
+      },
+      {
+        "deviceName": "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&1de7746d&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+        "deviceIndex": 7,
+        "hasImage": true,
+        "calibrated": true,
+        "calibrationMessage": "Gespeicherte Kalibrierung übernommen."
+      }
+    ],
+    "throws": [
+      {
+        "label": "20",
+        "points": 20
+      }
+    ],
+    "imageContext": "currentStateAtManualReport",
+    "userDescription": "Nach erstem Pfeil kein weiteres Scoriung mehr"
+  },
+  "correctionPosition": null,
+  "cameras": [
+    {
+      "camera": 1,
+      "deviceName": "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&3390689c&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+      "deviceIndex": 5,
+      "cameraId": 2868180013520,
+      "calibrationMessage": "Gespeicherte Kalibrierung übernommen.",
+      "calibrationReused": true,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3855851315780816,
+          "y": 0.24066031944718047
+        },
+        {
+          "x": 0.649008121193908,
+          "y": 0.2932188576190636
+        },
+        {
+          "x": 0.6205895224674722,
+          "y": 0.6801503065983051
+        },
+        {
+          "x": 0.2345529710696016,
+          "y": 0.5385552068568455
+        }
+      ],
+      "lens": {
+        "k1": 0.0,
+        "aspectRatio": 1.0
+      },
+      "calibrationQuality": {},
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [],
+      "axis": null,
+      "changedFraction": 0.0000617283950617284,
+      "referenceChangedFraction": 0.006327160493827161,
+      "lastReferenceChangedFraction": 0.02017746913580247,
+      "stableSamples": 324,
+      "frameTimestampsMicroseconds": [
+        17602376489,
+        17602421849,
+        17602455688,
+        17602486644,
+        17602519451,
+        17602549454,
+        17602616124,
+        17602647363
+      ],
+      "frameSequences": [
+        2721,
+        2722,
+        2723,
+        2724,
+        2725,
+        2726,
+        2728,
+        2729
+      ],
+      "postFrames": [
+        {
+          "timestampMicroseconds": 17586358994,
+          "sequence": 2240
+        },
+        {
+          "timestampMicroseconds": 17586391228,
+          "sequence": 2241
+        },
+        {
+          "timestampMicroseconds": 17586421663,
+          "sequence": 2242
+        },
+        {
+          "timestampMicroseconds": 17586455664,
+          "sequence": 2243
+        }
+      ]
+    },
+    {
+      "camera": 2,
+      "deviceName": "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&b2dc3c8&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+      "deviceIndex": 6,
+      "cameraId": 2868180015056,
+      "calibrationMessage": "Gespeicherte Kalibrierung übernommen.",
+      "calibrationReused": true,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.3318682012430367,
+          "y": 0.6910486466966761
+        },
+        {
+          "x": 0.32791766069745737,
+          "y": 0.29301515458932226
+        },
+        {
+          "x": 0.5985321511366358,
+          "y": 0.23830955990668096
+        },
+        {
+          "x": 0.7389229584567011,
+          "y": 0.5567395274243208
+        }
+      ],
+      "lens": {
+        "k1": 0.0,
+        "aspectRatio": 1.0
+      },
+      "calibrationQuality": {},
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [],
+      "axis": null,
+      "changedFraction": 0.00008487654320987654,
+      "referenceChangedFraction": 0.013155864197530865,
+      "lastReferenceChangedFraction": 0.02031635802469136,
+      "stableSamples": 324,
+      "frameTimestampsMicroseconds": [
+        17602376468,
+        17602409361,
+        17602439601,
+        17602472384,
+        17602504598,
+        17602537522,
+        17602600453,
+        17602631352
+      ],
+      "frameSequences": [
+        2721,
+        2722,
+        2723,
+        2724,
+        2725,
+        2726,
+        2728,
+        2729
+      ],
+      "postFrames": [
+        {
+          "timestampMicroseconds": 17586344961,
+          "sequence": 2240
+        },
+        {
+          "timestampMicroseconds": 17586376129,
+          "sequence": 2241
+        },
+        {
+          "timestampMicroseconds": 17586409199,
+          "sequence": 2242
+        },
+        {
+          "timestampMicroseconds": 17586441461,
+          "sequence": 2243
+        }
+      ]
+    },
+    {
+      "camera": 3,
+      "deviceName": "USB Camera <\\\\?\\usb#vid_0bda&pid_5844&mi_00#b&1de7746d&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global>",
+      "deviceIndex": 7,
+      "cameraId": 2868319063936,
+      "calibrationMessage": "Gespeicherte Kalibrierung übernommen.",
+      "calibrationReused": true,
+      "imageAspectRatio": 1.7777777777777777,
+      "calibration": [
+        {
+          "x": 0.6972072977396722,
+          "y": 0.36830973677228424
+        },
+        {
+          "x": 0.4544482241595873,
+          "y": 0.6981373197641138
+        },
+        {
+          "x": 0.232980321057899,
+          "y": 0.34562399406316335
+        },
+        {
+          "x": 0.46942536709853755,
+          "y": 0.184504932410402
+        }
+      ],
+      "lens": {
+        "k1": 0.0,
+        "aspectRatio": 1.0
+      },
+      "calibrationQuality": {},
+      "detailResolution": {
+        "width": 1280,
+        "height": 720
+      },
+      "axisCandidates": [],
+      "axis": null,
+      "changedFraction": 0.00010030864197530864,
+      "referenceChangedFraction": 0.009799382716049384,
+      "lastReferenceChangedFraction": 0.014953703703703703,
+      "stableSamples": 324,
+      "frameTimestampsMicroseconds": [
+        17602372345,
+        17602402869,
+        17602436164,
+        17602468885,
+        17602500581,
+        17602530938,
+        17602594918,
+        17602628076
+      ],
+      "frameSequences": [
+        2721,
+        2722,
+        2723,
+        2724,
+        2725,
+        2726,
+        2728,
+        2729
+      ],
+      "postFrames": [
+        {
+          "timestampMicroseconds": 17586341021,
+          "sequence": 2240
+        },
+        {
+          "timestampMicroseconds": 17586372244,
+          "sequence": 2241
+        },
+        {
+          "timestampMicroseconds": 17586405210,
+          "sequence": 2242
+        },
+        {
+          "timestampMicroseconds": 17586437637,
+          "sequence": 2243
+        }
+      ]
+    }
+  ]
+}

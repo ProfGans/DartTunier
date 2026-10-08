@@ -42,14 +42,17 @@ void main() {
       <a href="/de/login">Anmelden</a>
       <a href="/de/old_tournament"><strong>Altes Turnier &amp; Finale</strong></a>
       <a href="/de/old_tournament">Altes Turnier</a>
-      <a href="https://club.challonge.com/final">Vereinsfinale</a>
+      <a href="https://club.challonge.com/final"><p class="text fw_bold">Vereinsfinale</p><p>Swiss</p><p>Darts</p><p>Ended</p></a>
       <a href="https://external.test/final">Fremde Seite</a>
+      <a href="/de/connect">API<span>API</span></a>
+      <a href="/de/translate">Hilf beim Übersetzen</a>
     ''',
       );
       final list = await ChallongeClient(
         publicReader: reader,
       ).list('', 'https://challonge.com/de/communities/club/tournaments');
       expect(list.length, 2);
+      expect(list.last['name'], 'Vereinsfinale');
       expect(list.map((t) => t['id']), [
         'https://challonge.com/de/old_tournament',
         'https://club.challonge.com/final',

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dart_tournament_manager/features/communities/data/challonge_public_reader.dart';
+import 'package:dart_tournament_manager/features/communities/application/challonge_native_import.dart';
+import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
 
 // Public bracket fields observed on DCUH202637, 2026-10-08. Images and account metadata omitted.
 void main() {
@@ -141,6 +143,30 @@ void main() {
       );
       expect(tournament.data['started_at'], '2026-09-30T16:30:00.000Z');
       expect(tournament.data['completed_at'], isNull);
+      final native = ChallongeNativeImport.convert(
+        tournament.convert('club', {
+          for (final p in tournament.participants)
+            '${p['id']}': 'member-${p['id']}',
+        }),
+      );
+      expect(native.runStages, hasLength(2));
+      expect(native.activeStageIndex, 1);
+      expect(native.completedStageIndexes, {0, 1});
+      expect(native.runStages.first, isA<GroupTournamentRunStage>());
+      expect(native.runStages.last, isA<KnockoutTournamentRunStage>());
+      final ko = native.runStages.last as KnockoutTournamentRunStage;
+      expect(
+        ko.rounds.expand((r) => r).where((m) => m.hasResult),
+        hasLength(3),
+      );
+      expect(ko.placementMatches.where((m) => m.hasResult), hasLength(1));
+      expect(native.importedArchive!.nativeValidation!['issues'], isEmpty);
+      expect(
+        CreatedTournament.fromJson(
+          native.toJson(),
+        ).importedArchive!.usesNativeLogic,
+        isTrue,
+      );
     },
   );
 }

@@ -138,9 +138,25 @@ class SupabaseCommunityRepository {
       () async => await _client.from('community_rankings')
           .select('id,name').eq('community_id', communityId).order('created_at'),
     );
-    return [CommunityRanking.standard,
-      for (final row in rows) CommunityRanking.fromJson(Map<String, dynamic>.from(row as Map)),
+    final settings = await _cachedRows('ranking-settings-v1:$communityId',
+      () async => await _client.from('community_ranking_settings').select().eq('community_id', communityId));
+    final byId = {for (final row in settings) row['ranking_id']: row};
+    return [
+      for (final row in [{'id': 'default', 'name': 'Standard-Rangliste'}, ...rows])
+        if (byId[row['id']]?['deleted'] != true)
+          CommunityRanking.fromJson({...Map<String,dynamic>.from(row as Map),
+            'validity_months': byId[row['id']]?['validity_months']}),
     ];
+  }
+
+  Future<void> saveRankingRules(String communityId, String rankingId, {int? validityMonths, bool deleted = false}) async {
+    await access.require(communityId, CommunityPermission.manageRankings);
+    await _client.from('community_ranking_settings').upsert({
+      'community_id': communityId, 'ranking_id': rankingId,
+      'validity_months': validityMonths, 'deleted': deleted,
+    });
+    final rows = await _client.from('community_ranking_settings').select().eq('community_id', communityId);
+    await _storage.writeCache('ranking-settings-v1:$communityId', rows);
   }
 
   Future<CommunityRanking> createRanking(String communityId, String name) async {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:html/parser.dart' as html;
 import '../domain/challonge_tournament.dart';
 import 'challonge_public_document.dart';
 
@@ -66,7 +67,14 @@ class ChallongePublicReader {
   }
 
   Future<ChallongeTournament> tournament(String link) async {
-    final uri = validateUrl(link);
+    var uri = validateUrl(link);
+    final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+    if (segments.lastOrNull == 'standings') {
+      uri = uri.replace(
+        path: '/${segments.take(segments.length - 1).join('/')}',
+        query: null,
+      );
+    }
     final content = await _read(uri);
     final store = ChallongePublicDocument.store(content);
     if (store != null) {
@@ -87,10 +95,7 @@ class ChallongePublicReader {
     final uri = validateUrl(link);
     final content = await _read(uri);
     final links = <String, Map<String, dynamic>>{};
-    final anchors = RegExp(
-      r'''<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)</a\s*>''',
-      caseSensitive: false,
-    );
+    final anchors = html.parse(content).querySelectorAll('a[href]');
     const reserved = {
       'communities',
       'users',
@@ -118,11 +123,15 @@ class ChallongePublicReader {
       'organizedplay',
       'terms_of_service',
       'privacy_policy',
+      'translate',
+      'translations',
     };
-    for (final anchor in anchors.allMatches(content)) {
+    for (final anchor in anchors) {
       Uri target;
       try {
-        target = validateUrl(uri.resolve(_text(anchor[1]!)).toString());
+        target = validateUrl(
+          uri.resolve(anchor.attributes['href']!).toString(),
+        );
       } on FormatException {
         continue;
       }
@@ -150,8 +159,19 @@ class ChallongePublicReader {
           target.queryParameters.isNotEmpty) {
         continue;
       }
-      final name = _text(anchor[2]!).trim();
+      final name =
+          (anchor.querySelector('p.fw_bold, h2, h3, h4, h5')?.text ??
+                  anchor.text)
+              .trim()
+              .replaceAll(RegExp(r'\s+'), ' ');
       if (name.isEmpty ||
+          [
+            'apiapi',
+            'api',
+            'hilf beim übersetzen',
+            'help translate',
+            'help us translate',
+          ].contains(name.toLowerCase()) ||
           [
             'Challonge',
             'Anmelden',
@@ -171,15 +191,6 @@ class ChallongePublicReader {
     }
     return links.values.toList();
   }
-
-  static String _text(String html) => html
-      .replaceAll(RegExp('<[^>]*>'), '')
-      .replaceAll('&amp;', '&')
-      .replaceAll('&quot;', '"')
-      .replaceAll('&#39;', "'")
-      .replaceAll('&lt;', '<')
-      .replaceAll('&gt;', '>')
-      .replaceAll('&nbsp;', ' ');
 
   /// Only complete structured records can be imported. Text tables and bracket
   /// drawings do not establish all participants, results and official ranks.

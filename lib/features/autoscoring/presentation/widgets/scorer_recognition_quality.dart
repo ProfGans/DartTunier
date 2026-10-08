@@ -7,9 +7,16 @@ class ScorerRecognitionQuality extends StatelessWidget {
     super.key,
     required this.hits,
     required this.corrected,
+    this.diagnosticPath,
+    this.diagnosticSaving,
+    this.diagnosticError,
+    this.onExportDiagnostic,
   });
   final List<FusedHit?> hits;
   final List<bool> corrected;
+  final String? Function(int)? diagnosticPath, diagnosticError;
+  final bool Function(int)? diagnosticSaving;
+  final ValueChanged<int>? onExportDiagnostic;
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,8 +92,28 @@ class ScorerRecognitionQuality extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(
-              'Dart ${i + 1}: $label${reasons.isEmpty ? '' : '\n${manual ? 'Ursprüngliche Erkennung: ' : ''}$reasons'}',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Dart ${i + 1}: $label${reasons.isEmpty ? '' : '\n${manual ? 'Ursprüngliche Erkennung: ' : ''}$reasons'}',
+                ),
+                if (manual && diagnosticSaving?.call(i) == true)
+                  const Text('Diagnose wird gespeichert …'),
+                if (manual && diagnosticError?.call(i) != null)
+                  Text(diagnosticError!(i)!),
+                if (manual && diagnosticPath?.call(i) != null)
+                  OutlinedButton.icon(
+                    onPressed: onExportDiagnostic == null
+                        ? null
+                        : () => onExportDiagnostic!(i),
+                    icon: const Icon(Icons.save_alt),
+                    label: Text('Diagnose für Dart ${i + 1} speichern'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

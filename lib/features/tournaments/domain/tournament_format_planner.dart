@@ -14,6 +14,7 @@ class TournamentPlanningRequest {
     'triple_knockout': 'Triple-KO',
     'kratzer': 'Kratzer',
     'groups:round_robin': 'Gruppen: Jeder gegen jeden',
+    'groups:limited_round_robin': 'Gruppen: maximal 5 Spiele pro Spieler',
     'groups:swiss': 'Schweizer System',
     'groups:mini_knockout': 'Gruppen: Mini-KO',
     'groups:double_knockout': 'Gruppen: Mini-Doppel-KO',

@@ -18,6 +18,9 @@ class ProductionTournamentRuntime {
   List<TournamentPlayer> qualifiers(TournamentRunStage stage) => _state._advancingPlayersFromStage(stage);
   List<PlayerStanding> standings(TournamentGroup group, List<String> rules) => _state._standingsFor(group, rules);
   List<GroupMatch> matches(TournamentRunStage stage) => _state._matchesForStage(stage);
+  List<TournamentPlayer> ranking(KnockoutTournamentRunStage stage, List<TournamentPlayer> players) => stage.eliminationLossLimit > 1
+      ? _state._multiEliminationRanking(stage.rounds, stage.eliminationLossLimit, fallbackPlayers: players, finalEndsTournament: stage.finalEndsTournament)
+      : _state._knockoutRanking(stage.rounds, stage.placementMatches, fallbackPlayers: players);
 }
 
 class _SimulationRunState extends _TournamentRunPageState {

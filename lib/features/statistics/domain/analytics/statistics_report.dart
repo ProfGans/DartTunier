@@ -391,7 +391,7 @@ class StatisticsAnalytics {
         for (final match in matches) {
           if (!seen.add(match)) continue;
           final matchId = '${t.id}:match:${index++}';
-          if (!match.hasResult || !match.hasPlayers || match.isAnnulled) {
+          if (!match.countsForStatistics || !match.hasPlayers || match.isAnnulled) {
             continue;
           }
           final players = [match.homePlayer!, match.awayPlayer!];

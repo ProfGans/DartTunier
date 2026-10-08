@@ -9,6 +9,7 @@ class SportSettingsSection extends StatefulWidget {
     required this.children,
     this.icon = Icons.tune_outlined,
     this.initiallyExpanded = false,
+    this.onExpansionChanged,
   });
 
   final String title;
@@ -16,6 +17,7 @@ class SportSettingsSection extends StatefulWidget {
   final List<Widget> children;
   final IconData icon;
   final bool initiallyExpanded;
+  final ValueChanged<bool>? onExpansionChanged;
 
   @override
   State<SportSettingsSection> createState() => SportSettingsSectionState();
@@ -46,6 +48,7 @@ class SportSettingsSectionState extends State<SportSettingsSection>
         controller: _controller,
         maintainState: true,
         initiallyExpanded: widget.initiallyExpanded,
+        onExpansionChanged: widget.onExpansionChanged,
         leading: Icon(
           widget.icon,
           color: Theme.of(context).colorScheme.primary,

@@ -1299,7 +1299,7 @@ class _StageList extends StatelessWidget {
         if (_groupPlayTypeForStage(stage, index) == 'swiss')
           '${groupLabel(index + 1)} ${_roundRobinRepeatForStage(stage, index)} Swiss-Runden'
         else if (_groupPlayTypeForStage(stage, index) == 'round_robin')
-          '${groupLabel(index + 1)} ${index < stage.groupRoundRobinRepeats.length ? stage.groupRoundRobinRepeats[index] : 1}x',
+          '${groupLabel(index + 1)} ${index < stage.groupRoundRobinRepeats.length ? stage.groupRoundRobinRepeats[index] : 1}x${stage.maxGamesForGroup(index) == null ? '' : ' · maximal ${stage.maxGamesForGroup(index)} Spiele pro Spieler'}',
     ].join(', ');
 
     return details.isEmpty ? '' : ' - Begegnungen: $details';
@@ -1320,7 +1320,7 @@ class _StageList extends StatelessWidget {
       totalMatches += playType == 'swiss'
           ? (stage.groupSizes[index] ~/ 2) * repeatCount
           : playType == 'round_robin'
-          ? _roundRobinMatchCount(stage.groupSizes[index], repeatCount)
+          ? _roundRobinMatchCount(stage.groupSizes[index], repeatCount, maxGamesPerPlayer: stage.maxGamesForGroup(index))
           : playType == 'mini_knockout' && stage.placementPlaces.isNotEmpty ? stage.groupSizes[index] - 1 + _optionalPlacementMatchCount(stage.groupSizes[index], {...stage.placementPlaces, if (_requiredRankForStoredStageGroup(stage, index).isOdd && _requiredRankForStoredStageGroup(stage, index) >= 3) _requiredRankForStoredStageGroup(stage, index)}) : _groupEliminationMatchEstimate(
               stage.groupSizes[index],
               _lossLimitForGroupPlayType(playType),

@@ -2,16 +2,22 @@ class CommunityInvitation {
   const CommunityInvitation._();
 
   static String link(String code) => Uri(
-    scheme: 'dartturnier',
-    host: 'community',
-    path: '/join',
+    scheme: 'https',
+    host: 'profgans.github.io',
+    path: '/DartTunier/invite/',
     queryParameters: {'code': code.trim().toUpperCase()},
   ).toString();
 
   static String? codeFromLink(Uri uri) {
-    if (uri.scheme != 'dartturnier' ||
-        uri.host != 'community' ||
-        uri.path != '/join' ||
+    final native =
+        uri.scheme == 'dartturnier' &&
+        uri.host == 'community' &&
+        uri.path == '/join';
+    final web =
+        uri.scheme == 'https' &&
+        uri.host == 'profgans.github.io' &&
+        uri.path == '/DartTunier/invite/';
+    if ((!native && !web) ||
         uri.userInfo.isNotEmpty ||
         uri.hasPort ||
         uri.hasFragment ||

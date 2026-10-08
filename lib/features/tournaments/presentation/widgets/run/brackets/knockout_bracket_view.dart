@@ -1232,6 +1232,7 @@ class _BracketTreeLayout extends StatelessWidget {
     this.roundMatches,
     this.sourceMatches,
     this.useBalancedColumnLayout = false,
+    this.scaleApplied = false,
   });
 
   static const double _headerHeight = 34;
@@ -1248,6 +1249,7 @@ class _BracketTreeLayout extends StatelessWidget {
   final double cardHeight;
   final double firstRoundGap;
   final bool useBalancedColumnLayout;
+  final bool scaleApplied;
 
   double _columnContentHeight(int roundIndex) {
     final matchCount = roundCards[roundIndex].length;
@@ -1405,6 +1407,17 @@ class _BracketTreeLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    if (!scaleApplied && scale > 1) {
+      return _BracketTreeLayout(
+        totalRounds: totalRounds, roundTitles: roundTitles, roundCards: roundCards,
+        columnWidth: columnWidth * scale, cardHeight: cardHeight * scale,
+        firstRoundGap: firstRoundGap * scale, roundMatches: roundMatches,
+        sourceMatches: sourceMatches, useBalancedColumnLayout: useBalancedColumnLayout,
+        scaleApplied: true,
+      );
+    }
+
     if (totalRounds == 0 || roundCards.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -1645,12 +1658,14 @@ class _BracketPanViewportState extends State<_BracketPanViewport> {
           child: Scrollbar(
             controller: _verticalController,
             child: SingleChildScrollView(
+              key: const PageStorageKey('bracket-vertical'),
               controller: _verticalController,
               child: Scrollbar(
                 controller: _horizontalController,
                 notificationPredicate: (notification) =>
                     notification.metrics.axis == Axis.horizontal,
                 child: SingleChildScrollView(
+                  key: const PageStorageKey('bracket-horizontal'),
                   controller: _horizontalController,
                   scrollDirection: Axis.horizontal,
                   child: widget.child,

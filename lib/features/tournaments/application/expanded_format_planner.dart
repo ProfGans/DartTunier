@@ -74,7 +74,7 @@ class ExpandedFormatPlanner {
               ),
     ];
     ConfigurationEstimate? estimate(TournamentStage stage) => cache.putIfAbsent(
-      '${stage.type}:${stage.knockoutParticipantCount}:${stage.groupSizes}:${stage.groupPlayType}:${stage.qualifiedParticipantCount}:${stage.knockoutLives}',
+      '${stage.type}:${stage.knockoutParticipantCount}:${stage.groupSizes}:${stage.groupPlayType}:${stage.groupMaxGamesPerPlayer}:${stage.qualifiedParticipantCount}:${stage.knockoutLives}',
       () => const ConfigurationDurationEstimator().preview(
         [stage],
         request.boards,
@@ -230,7 +230,7 @@ class ExpandedFormatPlanner {
             : prefix.last.qualifiedParticipantCount!;
         for (final stage in _stages(count, cap, request.maximumLives)) {
           final mode = stage.type == 'groups'
-              ? 'groups:${stage.groupPlayType}'
+              ? 'groups:${stage.groupMaxGamesPerPlayer.any((limit) => limit != null) ? 'limited_round_robin' : stage.groupPlayType}'
               : stage.type;
           if (request.enabledModes != null &&
               !request.enabledModes!.contains(mode)) {
@@ -324,6 +324,7 @@ class ExpandedFormatPlanner {
       ];
       for (final play in [
         'round_robin',
+        if (sizes.any((size) => size > 6)) 'limited_round_robin',
         'swiss',
         'mini_knockout',
         'double_knockout',
@@ -335,7 +336,7 @@ class ExpandedFormatPlanner {
         }) {
           final target = groups * perGroup;
           if (target >= n || target < 1) continue;
-          final label = play == 'swiss' ? 'Schweizer System' : play == 'round_robin'
+          final label = play == 'limited_round_robin' ? 'maximal 5 Spiele pro Spieler' : play == 'swiss' ? 'Schweizer System' : play == 'round_robin'
               ? 'Jeder gegen jeden'
               : play == 'mini_knockout'
               ? 'Mini-KO'
@@ -347,8 +348,9 @@ class ExpandedFormatPlanner {
             type: 'groups',
             groupCount: groups,
             groupSizes: sizes,
-            groupPlayType: play,
-            groupPlayTypes: List.filled(groups, play),
+            groupPlayType: play == 'limited_round_robin' ? 'round_robin' : play,
+            groupPlayTypes: List.filled(groups, play == 'limited_round_robin' ? 'round_robin' : play),
+            groupMaxGamesPerPlayer: play == 'limited_round_robin' ? List.filled(groups, 5) : const [],
             groupRoundRobinRepeats: List.filled(groups, play == 'swiss' ? min(sizes.last - 1, (log(sizes.last) / log(2)).ceil()) : 1),
             fixedQualifiersByGroup: List.filled(groups, perGroup),
             qualifiedParticipantCount: target,

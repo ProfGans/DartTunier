@@ -59,6 +59,7 @@ class _ScorerPlayLayoutState extends State<ScorerPlayLayout> {
               ? (bounds.maxHeight * .52).clamp(280.0, 720.0)
               : 0,
           keyHeight: 64,
+          compact: !wide,
           child: SingleChildScrollView(
             padding: EdgeInsets.all(padding),
             child: Column(
@@ -82,20 +83,39 @@ class _ScorerPlayLayoutState extends State<ScorerPlayLayout> {
         );
       }
       if (!wide) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.all(padding),
-          child: Column(
-            children: [
-              toolbar,
-              const SizedBox(height: 8),
-              board,
-              const SizedBox(height: 12),
-              input,
-              ExpansionTile(
-                title: const Text('Schreibertafel · Leg-Verlauf'),
-                children: [history],
+        if (scale > 1.3 || bounds.maxHeight < 540) {
+          return ScorerPlaySizing(
+            compact: true,
+            keyHeight: 48,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(padding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [board, const SizedBox(height: 6), input],
               ),
-            ],
+            ),
+          );
+        }
+        return ScorerPlaySizing(
+          compact: true,
+          keyHeight: bounds.maxHeight >= 650
+              ? ((bounds.maxHeight - 340) / 4).clamp(48.0, 100.0)
+              : 48,
+          child: Padding(
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                board,
+                const SizedBox(height: 6),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: SingleChildScrollView(child: input),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       }

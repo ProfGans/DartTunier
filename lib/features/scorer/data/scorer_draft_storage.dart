@@ -14,7 +14,7 @@ class ScorerDraftStorage {
     );
     if (raw == null) return null;
     final data = jsonDecode(raw) as Map<String, dynamic>;
-    if (data['version'] != 1 && data['version'] != 2) {
+    if (data['version'] != 1 && data['version'] != 2 && data['version'] != 3) {
       throw const FormatException('Unbekannte Spielstand-Version');
     }
     return data;
@@ -46,7 +46,7 @@ class ScorerDraftStorage {
     required DateTime playedAt,
     int? profilePlayerIndex,
   }) => {
-    'version': 2,
+    'version': 3,
     'sessionId': sessionId,
     'playedAt': playedAt.toIso8601String(),
     'profilePlayerIndex': profilePlayerIndex,
@@ -59,6 +59,7 @@ class ScorerDraftStorage {
     'bestOfLegs': s.bestOfLegs,
     'bestOfSets': s.bestOfSets,
     'startingPlayer': s.startingPlayer,
+    'alternateSetStarts': s.alternateSetStarts,
     'start': s.startRequirement.name,
     'out': s.checkoutRequirement.name,
     'delay': s.botThrowDelay.inMilliseconds,
@@ -87,6 +88,7 @@ class ScorerDraftStorage {
         bestOfLegs: s['bestOfLegs'] as int,
         bestOfSets: s['bestOfSets'] as int,
         startingPlayer: s['startingPlayer'] as int,
+        alternateSetStarts: s['alternateSetStarts'] as bool? ?? false,
         startRequirement: StartRequirement.values.byName(s['start'] as String),
         checkoutRequirement: CheckoutRequirement.values.byName(
           s['out'] as String,

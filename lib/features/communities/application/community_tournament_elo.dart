@@ -32,6 +32,7 @@ class CommunityTournamentElo {
     required bool currentYearOnly,
     required int activeStage,
     DateTime? now,
+    int? validityMonths,
     List<CommunityRankingAction> actions = const [],
   }) {
     if (tournament.communityId == null ||
@@ -61,6 +62,7 @@ class CommunityTournamentElo {
       rankingId: rankingId,
       currentYearOnly: currentYearOnly,
       now: now,
+      validityMonths: validityMonths,
     );
     final ratings = {
       for (final entry in snapshot.entries)
@@ -96,7 +98,7 @@ class CommunityTournamentElo {
           final entry = next[identity(player)];
           if (value == null ||
               entry == null ||
-              (currentYearOnly &&
+              (validityMonths == null && currentYearOnly &&
                   tournament.createdAt.toLocal().year !=
                       (now ?? DateTime.now()).toLocal().year)) {
             return TournamentEloPlayer(player: player, rating: value);

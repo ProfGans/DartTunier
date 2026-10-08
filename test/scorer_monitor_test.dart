@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,6 +10,7 @@ import 'package:dart_tournament_manager/features/scorer/data/scorer_monitor_pref
 import 'package:dart_tournament_manager/features/scorer/presentation/scorer_match_page.dart';
 import 'package:dart_tournament_manager/features/scorer/presentation/monitor/scorer_monitor_preference_tile.dart';
 import 'package:dart_tournament_manager/features/scorer/application/scorer_controller.dart';
+import 'package:dart_tournament_manager/features/scorer/application/scorer_monitor_checkouts.dart';
 import 'package:dart_tournament_manager/features/scorer/application/scorer_monitor_window.dart';
 import 'package:dart_tournament_manager/features/scorer/domain/scorer_settings.dart';
 import 'package:dart_tournament_manager/features/scorer/domain/x01/x01_rules.dart';
@@ -15,6 +19,112 @@ import 'package:dart_tournament_manager/features/scorer/presentation/monitor/sco
 class _RealHttp extends HttpOverrides {}
 
 void main() {
+  test('Monitor checkout suggestions follow remaining darts', () {
+    final c = ScorerController(
+      ScorerSettings(
+        startScore: 170,
+        participants: const [ScorerParticipant('A'), ScorerParticipant('B')],
+      ),
+    );
+    expect(monitorCheckouts(c, 0), isNotEmpty);
+    c.throwDart(const X01Rules().createTriple(20));
+    expect(monitorCheckouts(c, 0), isNotEmpty);
+    c.throwDart(const X01Rules().createSingle(20));
+    expect(monitorCheckouts(c, 0), isEmpty);
+    expect(monitorCheckouts(c, 1), isNotEmpty);
+    c.dispose();
+  });
+  testWidgets('Monitor marks leg starter and updates after checkout', (
+    tester,
+  ) async {
+    final c = ScorerController(
+      ScorerSettings(
+        startScore: 40,
+        bestOfLegs: 3,
+        participants: const [ScorerParticipant('A'), ScorerParticipant('B')],
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: ScorerMonitorPage(controller: c)),
+    );
+    expect(find.text('CHECKOUT'), findsNWidgets(2));
+    final starter = find
+        .ancestor(
+          of: find.byTooltip('Anwerfer dieses Legs'),
+          matching: find.byType(Wrap),
+        )
+        .first;
+    expect(
+      find.descendant(of: starter, matching: find.text('A')),
+      findsOneWidget,
+    );
+    c.throwDart(const X01Rules().createDouble(20));
+    await tester.pump();
+    expect(
+      find.descendant(of: starter, matching: find.text('B')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    c.dispose();
+  });
+  testWidgets('Two players fill monitor height and scale points', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final c = ScorerController(
+      ScorerSettings(
+        participants: const [
+          ScorerParticipant('Bot 8'),
+          ScorerParticipant('Johannes'),
+        ],
+      ),
+    );
+    final key = GlobalKey();
+    const font = String.fromEnvironment('LAYOUT_PREVIEW_FONT');
+    if (font.isNotEmpty) {
+      await tester.runAsync(
+        () => (FontLoader(
+          'Roboto',
+        )..addFont(File(font).readAsBytes().then(ByteData.sublistView))).load(),
+      );
+    }
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RepaintBoundary(
+          key: key,
+          child: ScorerMonitorPage(controller: c),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final card = find
+        .ancestor(of: find.text('Johannes'), matching: find.byType(Container))
+        .first;
+    expect(tester.getSize(card).height, greaterThan(850));
+    expect(
+      tester.widget<Text>(find.text('501').first).style!.fontSize,
+      greaterThan(300),
+    );
+    expect(tester.takeException(), isNull);
+    if (font.isNotEmpty) {
+      await tester.runAsync(() async {
+        final image =
+            await (key.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary)
+                .toImage();
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File(
+          'build/monitor_fill_preview.png',
+        ).writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+    await tester.pumpWidget(const SizedBox());
+    c.dispose();
+  });
   testWidgets('Monitor is reachable from match and automatically opens once', (
     tester,
   ) async {
@@ -38,7 +148,11 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.byType(ScorerMonitorPage), findsNothing);
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Monitor-Modus'));
+    await tester.tap(find.byTooltip('Partie-Details'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(PopupMenuItem<String>, 'Monitor-Modus'),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Nur Punkte in der App anzeigen'));
     await tester.pumpAndSettle();
@@ -106,9 +220,9 @@ void main() {
       );
       expect(state['players'][0]['score'], 441);
       expect(state['players'][0]['active'], true);
-    expect(state['players'][0]['legs'], 0);
-    expect(state['players'][0]['sets'], 0);
-    expect(state['format'], contains('Best of 3 Legs'));
+      expect(state['players'][0]['legs'], 0);
+      expect(state['players'][0]['sets'], 0);
+      expect(state['format'], contains('Best of 3 Legs'));
       expect((await get(uri.resolve('/state'))).statusCode, 404);
       final post = await client.postUrl(uri.resolve('state'));
       expect((await post.close()).statusCode, 404);

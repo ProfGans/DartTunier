@@ -10,7 +10,7 @@ Set<CommunityPermission> requiredTournamentPermissions(
     throw StateError('Turnierzuordnung ist unveränderlich.');
   }
   const runtime = {'runStages', 'activeStageIndex', 'completedStageIndexes',
-    'startedAt', 'finishedAt', 'plannedMinutes', 'plannedMatches', 'plannedMatchEndSeconds', 'blockedBoards', 'allowDeviceStart'};
+    'startedAt', 'finishedAt', 'plannedMinutes', 'plannedMatches', 'plannedMatchEndSeconds', 'blockedBoards', 'allowDeviceStart', 'leagueMatch'};
   final oldCreator = (old['access'] as Map?)?['creatorUserId'];
   final nextCreator = (next['access'] as Map?)?['creatorUserId'];
   if (oldCreator != nextCreator) throw StateError('Turniererstellung ist unveränderlich.');

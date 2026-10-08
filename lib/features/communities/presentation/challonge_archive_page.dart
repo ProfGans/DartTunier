@@ -25,7 +25,7 @@ class ChallongeArchivePage extends StatelessWidget {
       body: AdaptiveContentList(
         children: [
           Text(
-            'Challonge-Archiv · ${switch (archive.mode) {
+            '${archive.usesNativeLogic ? 'Challonge-Vergleich' : 'Challonge-Archiv'} · ${switch (archive.mode) {
               'single elimination' => 'Einfach-K.-o.',
               'double elimination' => 'Doppel-K.-o.',
               'round robin' => 'Jeder gegen jeden',
@@ -37,6 +37,27 @@ class ChallongeArchivePage extends StatelessWidget {
           const Text('Originalergebnisse und Platzierungen aus Challonge.'),
           if (archive.url.isNotEmpty) SelectableText(archive.url),
           const SizedBox(height: 16),
+          if (archive.nativeValidation != null) ...[
+            Text(
+              'Prüfung mit eigener Turnierlogik',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            Text(
+              archive.nativeValidation!['status'] == 'matched'
+                  ? 'Die berechneten Platzierungen und das Weiterkommen stimmen mit den verfügbaren Challonge-Daten überein.'
+                  : 'Abweichungen zu Challonge wurden festgestellt:',
+            ),
+            for (final issue
+                in archive.nativeValidation!['issues'] as List? ?? const [])
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text('$issue'),
+              ),
+            const Text(
+              'Historische Paarungen und K.-o.-Startplätze werden übernommen; die Auslosung wird damit nicht geprüft.',
+            ),
+            const SizedBox(height: 16),
+          ],
           Text('Platzierungen', style: Theme.of(context).textTheme.titleLarge),
           for (final p in ranks)
             ListTile(
@@ -63,17 +84,18 @@ class ChallongeArchivePage extends StatelessWidget {
                 '${m['group_id'] == null ? '' : '${m['group_id']} · '}Runde ${m['round'] ?? '–'} · ${m['scores_csv'] == null || m['scores_csv'] == '' ? 'Kein Spielstand' : m['scores_csv']}\nSieger: ${players['${m['winner_id']}'] ?? 'Keiner angegeben'}',
               ),
             ),
-          const ExpansionTile(
-            title: Text('Hinweise zum Import'),
-            children: [
-              Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  'Einzelne ganzzahlige Spielstände werden als Legs in die Statistik übernommen. Mehrteilige Ergebnisse und kampflose Siege bleiben im Archiv sichtbar. Der historische Turnierbaum wird nicht neu berechnet.',
+          if (!archive.usesNativeLogic)
+            const ExpansionTile(
+              title: Text('Hinweise zum Import'),
+              children: [
+                Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Einzelne ganzzahlige Spielstände werden als Legs in die Statistik übernommen. Mehrteilige Ergebnisse und kampflose Siege bleiben im Archiv sichtbar. Der historische Turnierbaum wird nicht neu berechnet.',
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );

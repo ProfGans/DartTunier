@@ -5,6 +5,27 @@ import 'package:dart_tournament_manager/features/autoscoring/data/autoscore_diag
 
 void main() {
   test(
+    'Each corrected dart retains its own diagnosis after insertion and removal',
+    () async {
+      final c = ScorerDiagnostics(save: (e, d, a, p) async => '$a.zip');
+      c.record('20', AutoscoreEvidence([], {}));
+      c.record('5', AutoscoreEvidence([], {}));
+      final first = c.correct(0, 'T20', const Point(0, -103));
+      final second = c.correct(1, 'D5', const Point(0, -166));
+      c.insertMissing(0, AutoscoreEvidence([], {}));
+      await Future.wait([first, second]);
+      expect(c.pathAt(0), isNull);
+      expect(c.pathAt(1), 'T20.zip');
+      expect(c.pathAt(2), 'D5.zip');
+      await c.remove(0, const Point(0, 0), null);
+      expect(c.pathAt(0), 'T20.zip');
+      expect(c.pathAt(1), 'D5.zip');
+      c.nextVisit();
+      expect(c.pathAt(0), isNull);
+      c.dispose();
+    },
+  );
+  test(
     'Deletion diagnosis preserves evidence and shifts subsequent corrections',
     () async {
       final calls = <String>[];

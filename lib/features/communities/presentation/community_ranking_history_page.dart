@@ -10,10 +10,12 @@ class CommunityRankingHistoryPage extends StatelessWidget {
     required this.entry,
     required this.history,
     required this.currentYearOnly,
+    this.validityMonths,
   });
   final CommunityEloEntry entry;
   final List<CommunityEloHistoryItem> history;
   final bool currentYearOnly;
+  final int? validityMonths;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -22,7 +24,7 @@ class CommunityRankingHistoryPage extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          '${currentYearOnly ? 'Jahreswertung' : 'Gesamtwertung'} · Aktuell ${entry.rating} Elo',
+          '${validityMonths != null ? 'Letzte $validityMonths Monate' : currentYearOnly ? 'Jahreswertung' : 'Gesamtwertung'} · Aktuell ${entry.rating} Elo',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 12),
