@@ -99,7 +99,7 @@ class _ScorerPlayLayoutState extends State<ScorerPlayLayout> {
         return ScorerPlaySizing(
           compact: true,
           keyHeight: bounds.maxHeight >= 650
-              ? ((bounds.maxHeight - 340) / 4).clamp(48.0, 100.0)
+              ? ((bounds.maxHeight - 380) / 4).clamp(48.0, 96.0)
               : 48,
           child: Padding(
             padding: EdgeInsets.all(padding),
@@ -110,7 +110,7 @@ class _ScorerPlayLayoutState extends State<ScorerPlayLayout> {
                 const SizedBox(height: 6),
                 Expanded(
                   child: Align(
-                    alignment: Alignment.bottomCenter,
+                    alignment: Alignment.topCenter,
                     child: SingleChildScrollView(child: input),
                   ),
                 ),

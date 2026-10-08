@@ -16,10 +16,12 @@ class CheckoutRoutes extends StatelessWidget {
     required this.score,
     this.dartsLeft = 3,
     this.favoriteDouble = '',
+    this.compact = false,
     this.requirement = CheckoutRequirement.doubleOut,
   });
   final int score, dartsLeft;
   final String favoriteDouble;
+  final bool compact;
   final CheckoutRequirement requirement;
   @override
   Widget build(BuildContext context) {
@@ -29,6 +31,29 @@ class CheckoutRoutes extends StatelessWidget {
       dartsLeft: dartsLeft,
       requirement: requirement,
     );
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Checkout · $score Rest',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            if (routes.isEmpty) const Text('Kein Checkout möglich.'),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                for (final route in routes)
+                  Text(route.map((dart) => dart.label).join(' → ')),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

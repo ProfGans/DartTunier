@@ -891,8 +891,9 @@ class _ScorerMatchPageState extends State<ScorerMatchPage> {
                     ? null
                     : (value) => setState(() => c.intendedTarget = value),
               ),
-            if (!compact && !c.isComplete && c.remaining <= 180)
+            if (!c.isComplete && c.remaining <= 180)
               PersonalizedCheckoutRoutes(
+                compact: compact,
                 accountId: widget.accountId,
                 enabled: c.activePlayer == widget.profilePlayerIndex,
                 score: c.remaining,

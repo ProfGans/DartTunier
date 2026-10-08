@@ -21,6 +21,40 @@ void main() {
       )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
     }
   });
+  testWidgets(
+    'Phone shows checkout routes and check next to six quick scores',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 800);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildDartTournamentTheme(),
+          home: ScorerMatchPage(
+            settings: ScorerSettings(
+              startScore: 170,
+              participants: const [
+                ScorerParticipant('Anna'),
+                ScorerParticipant('Ben'),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Checkout · 170 Rest').hitTestable(), findsOneWidget);
+      expect(find.textContaining('T20 → T20 →').hitTestable(), findsOneWidget);
+      expect(find.text('CHECK\n170').hitTestable(), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(ScoreKeypad)).bottom,
+        lessThanOrEqualTo(800),
+      );
+      final check = find.widgetWithText(TextButton, 'CHECK\n170');
+      expect(tester.widget<TextButton>(check).onPressed, isNotNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('mobile touch entry survives switching to desktop and rotation', (
     tester,
   ) async {
@@ -118,6 +152,13 @@ void main() {
           '0',
           'C',
           '180',
+          '26',
+          '41',
+          '60',
+          '81',
+          '100',
+          '140',
+          'CHECK\n501',
         ]) {
           expect(
             find.text(label).hitTestable(),
@@ -152,9 +193,6 @@ void main() {
             image.dispose();
           });
         }
-        await tester.tap(find.byTooltip('Schnellpunkte'));
-        await tester.pumpAndSettle();
-        expect(find.text('Überworfen'), findsOneWidget);
         await tester.tap(find.text('26'));
         await tester.pumpAndSettle();
         expect(find.text('475'), findsOneWidget);
@@ -164,3 +202,4 @@ void main() {
     );
   }
 }
+

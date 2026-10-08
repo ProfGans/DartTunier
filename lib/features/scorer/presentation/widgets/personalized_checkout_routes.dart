@@ -12,11 +12,12 @@ class PersonalizedCheckoutRoutes extends StatefulWidget {
     this.accountId,
     this.enabled = true,
     this.repository,
+    this.compact = false,
   });
   final int score, dartsLeft;
   final CheckoutRequirement requirement;
   final String? accountId;
-  final bool enabled;
+  final bool enabled, compact;
   final PersonalProfileRepository? repository;
   @override
   State<PersonalizedCheckoutRoutes> createState() => _RoutesState();
@@ -58,6 +59,7 @@ class _RoutesState extends State<PersonalizedCheckoutRoutes> {
 
   @override
   Widget build(BuildContext context) => CheckoutRoutes(
+    compact: widget.compact,
     score: widget.score,
     dartsLeft: widget.dartsLeft,
     requirement: widget.requirement,
