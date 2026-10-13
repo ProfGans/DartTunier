@@ -12,6 +12,7 @@ class RemoteSettingsStorage {
       File(
         '${(await getApplicationSupportDirectory()).path}${Platform.pathSeparator}remote_control.json',
       );
+  Future<File> storageFile() => _target();
   Future<RemoteControlSettings> load() => StorageAccess.run(() async {
     final target = await _target();
     if (!await target.exists()) return const RemoteControlSettings();

@@ -13,6 +13,7 @@ import '../../accounts/domain/account_user.dart';
 import '../../tournaments/data/app_database.dart';
 import '../../tournaments/data/tournament_storage.dart';
 import '../../tournaments/domain/tournament_models.dart';
+import '../../community_calendar/domain/community_calendar.dart';
 import '../data/supabase_community_repository.dart';
 import '../domain/community.dart';
 import '../domain/community_member_identity.dart';

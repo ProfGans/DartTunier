@@ -8,6 +8,7 @@ import '../features/tournaments/application/tournament_sync_service.dart';
 import 'navigation/community_link_listener.dart';
 import '../features/tournament_invitations/presentation/tournament_join_page.dart';
 import '../features/communities/presentation/community_invitation_page.dart';
+import '../features/community_calendar/domain/community_calendar.dart';
 import '../features/devices/application/devices_controller.dart';
 import '../features/devices/presentation/devices_scope.dart';
 import '../features/devices/presentation/board_display_view.dart';
