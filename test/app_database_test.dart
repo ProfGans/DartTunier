@@ -121,6 +121,49 @@ void main() {
     );
   });
 
+  test('tracks imported players per community and deletes only unshared ones', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'dart_community_player_profiles_test_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final database = LocalAppDatabase(baseDirectory: directory);
+
+    expect(
+      await database.importCommunityPlayerNames('community-a', [
+        'Anna A',
+        'Berta B',
+      ]),
+      2,
+    );
+    await database.importCommunityPlayerNames('community-b', [
+      'Berta B',
+      'Clara C',
+    ]);
+    expect((await database.loadPlayerProfiles()).map((p) => p.displayName), [
+      'Anna A',
+      'Berta B',
+      'Clara C',
+    ]);
+
+    await database.removeCommunityPlayerProfiles(
+      'community-a',
+      deleteUnsharedPlayers: true,
+    );
+    expect((await database.loadPlayerProfiles()).map((p) => p.displayName), [
+      'Berta B',
+      'Clara C',
+    ]);
+
+    await database.removeCommunityPlayerProfiles(
+      'community-b',
+      deleteUnsharedPlayers: false,
+    );
+    expect((await database.loadPlayerProfiles()).map((p) => p.displayName), [
+      'Berta B',
+      'Clara C',
+    ]);
+  });
+
   test('signs in and signs out an existing local account', () async {
     final directory = await Directory.systemTemp.createTemp(
       'dart_tournament_manager_database_test_',

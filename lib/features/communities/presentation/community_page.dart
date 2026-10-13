@@ -146,13 +146,26 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
   }
 
   void _reload() {
-    _communitiesFuture = widget.repository.loadMyCommunities().timeout(
+    _communitiesFuture = _loadCommunitiesAndSyncPlayers();
+  }
+
+  Future<List<Community>> _loadCommunitiesAndSyncPlayers() async {
+    final communities = await widget.repository.loadMyCommunities().timeout(
       const Duration(seconds: 15),
       onTimeout: () => throw StateError(
         'Der Community-Server antwortet nicht. Bitte pruefe die Verbindung '
         'und versuche es erneut.',
       ),
     );
+    final database = widget.database ?? LocalAppDatabase();
+    for (final community in communities) {
+      final members = await widget.repository.loadMembers(community.id);
+      await database.importCommunityPlayerNames(
+        community.id,
+        effectiveCommunityMembers(members).map((member) => member.displayName),
+      );
+    }
+    return communities;
   }
 
   Future<void> _createCommunity() async {
@@ -177,16 +190,7 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
     );
     if (code == null) return;
     await _run(() async {
-      final joined = await widget.repository.joinCommunity(code);
-      final communities = await widget.repository.loadMyCommunities();
-      final community = communities.where((item) => item.id == joined.id).firstOrNull;
-      if (community != null) {
-        final members = await widget.repository.loadMembers(community.id);
-        await (widget.database ?? LocalAppDatabase()).importCommunityPlayerNames(
-          effectiveCommunityMembers(members).map((member) => member.displayName),
-        );
-      }
-      return joined;
+      return widget.repository.joinCommunity(code);
     });
   }
 
@@ -289,6 +293,7 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
                           builder: (_) => CommunityDetailPage(
                             community: community,
                             repository: widget.repository,
+                            database: widget.database,
                             createTournamentBuilder:
                                 widget.createTournamentBuilder,
                             runTournamentBuilder: widget.runTournamentBuilder,
@@ -322,11 +327,13 @@ class CommunityDetailPage extends StatefulWidget {
     super.key,
     required this.community,
     required this.repository,
+    this.database,
     this.createTournamentBuilder,
     this.runTournamentBuilder,
   });
   final Community community;
   final SupabaseCommunityRepository repository;
+  final LocalAppDatabase? database;
   final CommunityTournamentCreationBuilder? createTournamentBuilder;
   final CommunityTournamentRunBuilder? runTournamentBuilder;
   @override
@@ -349,28 +356,55 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
       widget.runTournamentBuilder;
 
   Future<void> _deleteCommunity() async {
+    var deleteLocalMembers = false;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Community löschen?'),
-        content: Text(
-          '„${community.name}“ und die zugehörigen Community-Daten werden dauerhaft gelöscht. Lokale Turniere und noch nicht synchronisierte Änderungen dieser Community werden ebenfalls entfernt.',
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Community löschen?'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '„${community.name}“ und die zugehörigen Community-Daten werden dauerhaft gelöscht. Lokale Turniere und noch nicht synchronisierte Änderungen dieser Community werden ebenfalls entfernt.',
+                ),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: deleteLocalMembers,
+                  onChanged: (value) => setDialogState(
+                    () => deleteLocalMembers = value ?? false,
+                  ),
+                  title: const Text(
+                    'Auch alle darin enthaltenen Mitglieder aus der lokalen Spielerliste löschen?',
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Community endgültig löschen'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Abbrechen'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Community endgültig löschen'),
-          ),
-        ],
       ),
     );
     if (confirmed != true || !mounted) return;
     try {
       await repository.deleteCommunity(community.id);
+      await (widget.database ?? LocalAppDatabase()).removeCommunityPlayerProfiles(
+        community.id,
+        deleteUnsharedPlayers: deleteLocalMembers,
+      );
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;

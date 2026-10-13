@@ -93,16 +93,13 @@ class _LeaguePlayerPickerState extends State<LeaguePlayerPicker> {
     if (name.text.trim().isEmpty) return;
     setState(() => loading = true);
     try {
-      final player = await database.createPlayerProfile(
-        displayName: name.text.trim(),
-      );
+      final playerName = name.text.trim();
       if (mounted) {
         Navigator.pop(
           context,
           LeaguePlayerChoice(
             TournamentPlayer(
-              name: player.displayName,
-              profileId: player.id,
+              name: playerName,
               isGenerated: false,
             ),
           ),

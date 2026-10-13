@@ -12,7 +12,7 @@ import '../domain/tournament_models.dart';
 class LocalAppDatabase {
   LocalAppDatabase({Directory? baseDirectory}) : _baseDirectory = baseDirectory;
 
-  static const schemaVersion = 5;
+  static const schemaVersion = 6;
   static const _testUserId = '00000000-0000-4000-8000-000000000001';
   static const _currentUserSessionKey = 'current_user_id';
 
@@ -165,6 +165,14 @@ class LocalAppDatabase {
     return StorageAccess.run(() async {
       final database = await _openDatabase();
       try {
+        final activeProfiles = database.select('''
+          SELECT COUNT(*) AS total,
+                 SUM(CASE WHEN id IN (?, ?, ?, ?) THEN 1 ELSE 0 END) AS seeds
+          FROM player_profiles WHERE is_active = 1
+        ''', _seedProfileIds).single;
+        if (activeProfiles['total'] != 4 || activeProfiles['seeds'] != 4) {
+          _deactivateSeedProfiles(database);
+        }
         final rows = database.select('''
         SELECT id, user_id, display_name, country, city, darts_setup_json,
                created_at, is_active
@@ -279,37 +287,47 @@ class LocalAppDatabase {
     });
   }
 
-  Future<int> importCommunityPlayerNames(Iterable<String> names) async {
+  Future<int> importCommunityPlayerNames(
+    String communityId,
+    Iterable<String> names,
+  ) async {
     return StorageAccess.run(() async {
       final database = await _openDatabase();
       try {
         var created = 0;
-        final playerNames = names.map((name) => name.trim()).where((name) => name.isNotEmpty).toList();
+        final playerNames = names
+            .map((name) => name.trim())
+            .where((name) => name.isNotEmpty)
+            .toList();
         if (playerNames.isNotEmpty) _deactivateSeedProfiles(database);
         for (final name in playerNames) {
           final existing = database.select(
             '''SELECT id FROM player_profiles
                WHERE lower(trim(display_name)) = lower(?)
                  AND id NOT IN (?, ?, ?, ?) LIMIT 1''',
-            [
-              name,
-              '00000000-0000-4000-8000-000000000101',
-              '00000000-0000-4000-8000-000000000102',
-              '00000000-0000-4000-8000-000000000103',
-              '00000000-0000-4000-8000-000000000104',
-            ],
+            [name, ..._seedProfileIds],
           );
-          if (existing.isNotEmpty) continue;
-          final now = DateTime.now();
-          final profile = PlayerProfile(
-            id: _newId(), userId: null, displayName: name, country: '',
-            city: '', dartsSetupJson: '', createdAt: now, isActive: true,
-          );
+          String profileId;
+          if (existing.isNotEmpty) {
+            profileId = existing.first['id'] as String;
+            database.execute(
+              'UPDATE player_profiles SET is_active = 1 WHERE id = ?',
+              [profileId],
+            );
+          } else {
+            final now = DateTime.now();
+            profileId = _newId();
+            database.execute('''
+              INSERT INTO player_profiles (
+                id,user_id,display_name,country,city,darts_setup_json,created_at,is_active,source
+              ) VALUES (?,NULL,?,'','','',?,1,'community')
+            ''', [profileId, name, now.toIso8601String()]);
+            created++;
+          }
           database.execute('''
-            INSERT INTO player_profiles (id,user_id,display_name,country,city,darts_setup_json,created_at,is_active)
-            VALUES (?,?,?, ?, ?, ?, ?, 1)
-          ''', [profile.id, null, name, '', '', '', now.toIso8601String()]);
-          created++;
+            INSERT OR IGNORE INTO community_player_profiles(community_id,player_profile_id)
+            VALUES (?,?)
+          ''', [communityId, profileId]);
         }
         return created;
       } finally {
@@ -318,16 +336,63 @@ class LocalAppDatabase {
     });
   }
 
+  Future<void> removeCommunityPlayerProfiles(
+    String communityId, {
+    required bool deleteUnsharedPlayers,
+  }) async {
+    return StorageAccess.run(() async {
+      final database = await _openDatabase();
+      try {
+        final linked = database.select(
+          'SELECT player_profile_id FROM community_player_profiles WHERE community_id = ?',
+          [communityId],
+        );
+        final profileIds = linked.map((row) => row['player_profile_id'] as String).toList();
+        database.execute(
+          'DELETE FROM community_player_profiles WHERE community_id = ?',
+          [communityId],
+        );
+        if (profileIds.isEmpty) return;
+        final placeholders = List.filled(profileIds.length, '?').join(',');
+        if (deleteUnsharedPlayers) {
+          database.execute('''
+            DELETE FROM player_profiles
+            WHERE user_id IS NULL
+              AND id IN ($placeholders)
+              AND NOT EXISTS (
+                SELECT 1 FROM community_player_profiles link
+                WHERE link.player_profile_id = player_profiles.id
+              )
+          ''', profileIds);
+        } else {
+          database.execute('''
+            UPDATE player_profiles SET source = 'local'
+            WHERE source = 'community'
+              AND id IN ($placeholders)
+              AND NOT EXISTS (
+                SELECT 1 FROM community_player_profiles link
+                WHERE link.player_profile_id = player_profiles.id
+              )
+          ''', profileIds);
+        }
+      } finally {
+        database.close();
+      }
+    });
+  }
+
+  static const _seedProfileIds = [
+    '00000000-0000-4000-8000-000000000101',
+    '00000000-0000-4000-8000-000000000102',
+    '00000000-0000-4000-8000-000000000103',
+    '00000000-0000-4000-8000-000000000104',
+  ];
+
   void _deactivateSeedProfiles(Database database) {
-    database.execute('''
-      UPDATE player_profiles SET is_active = 0
-      WHERE id IN (?, ?, ?, ?)
-    ''', [
-      '00000000-0000-4000-8000-000000000101',
-      '00000000-0000-4000-8000-000000000102',
-      '00000000-0000-4000-8000-000000000103',
-      '00000000-0000-4000-8000-000000000104',
-    ]);
+    database.execute(
+      'UPDATE player_profiles SET is_active = 0 WHERE id IN (?, ?, ?, ?)',
+      _seedProfileIds,
+    );
   }
 
   Future<Database> _openDatabase() async {
@@ -387,6 +452,9 @@ class LocalAppDatabase {
           'CREATE TABLE IF NOT EXISTS profile_heatmaps (owner_user_id TEXT NOT NULL, session_id TEXT NOT NULL, payload TEXT NOT NULL, pending INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(owner_user_id, session_id))',
         );
       }
+      if (currentVersion < 6) {
+        _addCommunityPlayerLinks(database);
+      }
       database.execute('PRAGMA user_version = $schemaVersion');
       database.execute('COMMIT');
     } catch (_) {
@@ -425,7 +493,8 @@ class LocalAppDatabase {
         city TEXT,
         darts_setup_json TEXT,
         created_at TEXT NOT NULL,
-        is_active INTEGER NOT NULL DEFAULT 1
+        is_active INTEGER NOT NULL DEFAULT 1,
+        source TEXT NOT NULL DEFAULT 'local'
       );
 
       CREATE TABLE friendships (
@@ -631,6 +700,30 @@ class LocalAppDatabase {
     }
   }
 
+  void _addCommunityPlayerLinks(Database database) {
+    final columns = database.select('PRAGMA table_info(player_profiles)');
+    if (!columns.any((row) => row['name'] == 'source')) {
+      database.execute(
+        "ALTER TABLE player_profiles ADD COLUMN source TEXT NOT NULL DEFAULT 'local'",
+      );
+    }
+    database.execute('''
+      CREATE TABLE IF NOT EXISTS community_player_profiles (
+        community_id TEXT NOT NULL,
+        player_profile_id TEXT NOT NULL REFERENCES player_profiles(id) ON DELETE CASCADE,
+        PRIMARY KEY (community_id, player_profile_id)
+      )
+    ''');
+    database.execute(
+      "UPDATE player_profiles SET source = 'test' WHERE id IN (?, ?, ?, ?)",
+      _seedProfileIds,
+    );
+    database.execute(
+      "UPDATE player_profiles SET source = 'account' WHERE user_id IS NOT NULL AND id NOT IN (?, ?, ?, ?)",
+      _seedProfileIds,
+    );
+  }
+
   void _createSessionSchema(Database database) {
     database.execute('''
       CREATE TABLE IF NOT EXISTS app_session (
@@ -782,8 +875,8 @@ class LocalAppDatabase {
         '''
         INSERT OR IGNORE INTO player_profiles (
           id, user_id, display_name, country, city, darts_setup_json,
-          created_at, is_active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          created_at, is_active, source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'test')
         ''',
         [
           profile.id,

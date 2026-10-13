@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dart_tournament_manager/features/league/data/league_invitation_repository.dart';
@@ -110,6 +112,49 @@ void main() {
       await tester.pumpAndSettle();
       expect(selected!.player.profileId, 'local');
       expect(selected!.inviteUserId, isNull);
+    },
+  );
+  testWidgets(
+    'new roster-only home or guest player is temporary',
+    (tester) async {
+      final directory = await Directory.systemTemp.createTemp(
+        'dart_league_roster_test_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final database = LocalAppDatabase(baseDirectory: directory);
+      LeaguePlayerChoice? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                child: const Text('Öffnen'),
+                onPressed: () async {
+                  selected = await showDialog<LeaguePlayerChoice>(
+                    context: context,
+                    builder: (_) => LeaguePlayerPicker(
+                      repository: FakeInvitations(),
+                      database: database,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Öffnen'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Neuen lokalen Spieler erstellen'),
+        'Gastspieler Eins',
+      );
+      await tester.tap(find.text('Erstellen und hinzufügen'));
+      await tester.pumpAndSettle();
+
+      expect(selected?.player.name, 'Gastspieler Eins');
+      expect(selected?.player.profileId, isNull);
+      expect((await database.loadPlayerProfiles()), hasLength(4));
     },
   );
   testWidgets('community candidate is only adopted after acceptance', (
