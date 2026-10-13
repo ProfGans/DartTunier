@@ -208,7 +208,7 @@ jobs:
           pattern: desktop-*
           merge-multiple: true
           path: dist
-      - name: Create checksums and draft
+      - name: Create stable release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
@@ -223,5 +223,5 @@ jobs:
 
           Vor einem Wechsel eine Datensicherung exportieren. In-App-Updates unterstützen Android, Windows x64 und Linux x64/ARM64; Installation und Neustart werden in der App bestätigt.
           EOF
-          gh release create "$RELEASE_TAG" ./* --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "Dart Turnier $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
+          gh release create "$RELEASE_TAG" ./* --repo "$GITHUB_REPOSITORY" --verify-tag --title "Dart Turnier $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
 
