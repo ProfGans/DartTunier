@@ -1,12 +1,12 @@
 import '../../../../shared/widgets/sport_menu.dart';
-import 'package:dart_tournament_manager/tournament_workspace.dart' show ProductionTournamentRuntime;
+import 'package:dart_tournament_manager/tournament_workspace.dart'
+    show ProductionTournamentRuntime;
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import '../../domain/engines/placement_engine.dart';
 import '../../domain/knockout_round_names.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/tournament_models.dart';
-import '../../../statistics/presentation/tournament_highlights_page.dart';
 import '../../../communities/presentation/challonge_archive_page.dart';
 import '../widgets/results/tournament_results_statistics.dart';
 
@@ -17,7 +17,8 @@ class TournamentResultsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (tournament.importedArchive != null && !tournament.importedArchive!.usesNativeLogic) {
+    if (tournament.importedArchive != null &&
+        !tournament.importedArchive!.usesNativeLogic) {
       return ChallongeArchivePage(tournament: tournament);
     }
     final summary = _TournamentResultSummary.fromTournament(tournament);
@@ -32,9 +33,11 @@ class TournamentResultsPage extends StatelessWidget {
             IconButton(
               tooltip: 'Mit Challonge vergleichen',
               icon: const Icon(Icons.compare_arrows),
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                builder: (_) => ChallongeArchivePage(tournament: tournament),
-              )),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ChallongeArchivePage(tournament: tournament),
+                ),
+              ),
             ),
           IconButton(
             tooltip: 'Hauptmenue',
@@ -97,16 +100,6 @@ class TournamentResultsPage extends StatelessWidget {
                   label: 'Alle Begegnungen',
                   icon: Icons.sports_score,
                   onTap: () => _openMatches(context),
-                ),
-                SportMenuAction(
-                  label: 'Statistik und Highlights',
-                  icon: Icons.auto_awesome,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          TournamentHighlightsPage(tournament: tournament),
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -652,9 +645,14 @@ class _TournamentResultSummary {
     final runtime = native ? ProductionTournamentRuntime(tournament) : null;
     final finalStageRanking = finalStage is KnockoutTournamentRunStage
         ? runtime?.ranking(finalStage, const []) ?? _knockoutRanking(finalStage)
-        : native && finalStage is GroupTournamentRunStage && finalStage.groups.length == 1
-            ? runtime!.standings(finalStage.groups.single, finalStage.tieBreakers).map((s) => s.player).toList()
-            : const <TournamentPlayer>[];
+        : native &&
+              finalStage is GroupTournamentRunStage &&
+              finalStage.groups.length == 1
+        ? runtime!
+              .standings(finalStage.groups.single, finalStage.tieBreakers)
+              .map((s) => s.player)
+              .toList()
+        : const <TournamentPlayer>[];
     final ranking = <_PlayerResultStats>[];
     for (final player in finalStageRanking) {
       final entry = stats[player.name];

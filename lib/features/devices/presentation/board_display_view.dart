@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import '../application/devices_controller.dart';
-import '../application/device_scorer_settings.dart';
-import 'device_scorer_session.dart';
 import 'device_match_end_screen.dart';
 
 class BoardDisplayView extends StatelessWidget {
@@ -24,26 +22,6 @@ class BoardDisplayView extends StatelessWidget {
         onExit: () => controller.setShowDisplay(false),
         onSkip: controller.boardPresentation.skip,
       );
-    }
-    String? scorerError;
-    if (display?.state == 'running' &&
-        display?.matchId != null &&
-        display?.gameFormat != null) {
-      try {
-        deviceScorerSettings(display!);
-        return Navigator(
-          key: ValueKey(display.matchId),
-          onGenerateRoute: (_) => MaterialPageRoute<void>(
-            builder: (_) => DeviceScorerSession(
-              display: display,
-              receiver: controller.receiver,
-              onExit: () => controller.setShowDisplay(false),
-            ),
-          ),
-        );
-      } catch (error) {
-        scorerError = error.toString();
-      }
     }
     return Scaffold(
       appBar: AppBar(
@@ -72,7 +50,6 @@ class BoardDisplayView extends StatelessWidget {
               if (display == null)
                 const Text('Warte auf Spielzuweisung …')
               else ...[
-                if (scorerError != null) Text(scorerError),
                 Text(
                   display.tournamentName,
                   style: Theme.of(context).textTheme.headlineSmall,
@@ -91,6 +68,14 @@ class BoardDisplayView extends StatelessWidget {
                   'finished' => 'Turnier abgeschlossen',
                   _ => 'Warte auf das nächste Spiel',
                 }, style: Theme.of(context).textTheme.headlineMedium),
+                if (display.state == 'running')
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text(
+                      'Das Turnierergebnis wird über die Turnierleitung erfasst.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 const SizedBox(height: 32),
                 if (display.home.isNotEmpty) ...[
                   Text(

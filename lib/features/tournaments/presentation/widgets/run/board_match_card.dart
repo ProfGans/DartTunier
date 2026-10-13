@@ -10,10 +10,8 @@ class BoardMatchCard extends StatelessWidget {
     required this.status,
     this.action,
     this.running = false,
-    this.scorerSummary,
   });
   final String home, away, origin, status;
-  final String? scorerSummary;
   final Widget? action;
   final bool running;
   @override
@@ -56,7 +54,6 @@ class BoardMatchCard extends StatelessWidget {
             Text(away, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 10),
             Text(origin, style: Theme.of(context).textTheme.bodySmall),
-            if (scorerSummary != null) Text(scorerSummary!),
             if (action != null)
               Align(alignment: Alignment.centerRight, child: action!),
           ],

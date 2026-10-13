@@ -3,7 +3,14 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/tournament_models.dart';
 
-enum StageViewMode { director, overview, playOrder, orderOfPlay, statistics }
+enum StageViewMode {
+  director,
+  overview,
+  playOrder,
+  orderOfPlay,
+  statistics,
+  players,
+}
 
 class StageProgressBar extends StatelessWidget {
   const StageProgressBar({
@@ -156,10 +163,15 @@ class StageViewModeSwitch extends StatelessWidget {
       selected: selectedMode,
       onChanged: onModeChanged,
       sections: [
-        if (canLead) const SportSection(StageViewMode.director, 'Turnierleitung', Icons.dashboard_outlined),
+        if (canLead)
+          const SportSection(
+            StageViewMode.director,
+            'Turnierleitung',
+            Icons.dashboard_outlined,
+          ),
         SportSection(
           StageViewMode.overview,
-          'Uebersicht',
+          'Übersicht',
           Icons.view_agenda_outlined,
         ),
         SportSection(
@@ -167,12 +179,18 @@ class StageViewModeSwitch extends StatelessWidget {
           'Spielansicht',
           Icons.format_list_numbered,
         ),
-        if (canLead) const SportSection(
-          StageViewMode.orderOfPlay,
-          'Order of Play',
-          Icons.view_week_outlined,
-        ),
+        if (canLead)
+          const SportSection(
+            StageViewMode.orderOfPlay,
+            'Order of Play',
+            Icons.view_week_outlined,
+          ),
         SportSection(StageViewMode.statistics, 'Statistik', Icons.bar_chart),
+        const SportSection(
+          StageViewMode.players,
+          'Spieler',
+          Icons.groups_outlined,
+        ),
       ],
     ),
   );
@@ -216,7 +234,7 @@ class StageFooter extends StatelessWidget {
           children: [
             Text(
               !isViewingActiveStage
-                  ? 'Vorschau: Ergebnisse und Abschluss sind nur in der aktuellen Etappe "$activeStageName" moeglich.'
+                  ? 'Vorschau: Ergebnisse und Abschluss sind nur in der aktuellen Etappe "$activeStageName" möglich.'
                   : canCompleteStage
                   ? 'Alle Ergebnisse dieser Etappe sind eingetragen.'
                   : 'Trage alle Ergebnisse ein, um die Etappe abzuschliessen.',

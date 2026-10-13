@@ -63,10 +63,16 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
   final _nativeReports = <String, Map<String, dynamic>>{};
   final _nativeErrors = <String, String>{};
   bool _busy = false;
-  bool _countsForRanking = false;
+  bool _countsForRanking = true;
   List<String> _rankingIds = ['default'];
   int _revision = 0;
   String? _status, _error;
+
+  Map<String, String> get _memberNameMappings =>
+      ChallongeTournament.normalizedName(widget.community.name) ==
+          ChallongeTournament.normalizedName('DC Unzenberg Heinzenbach')
+      ? ChallongeImportService.challongeMemberNames
+      : const {};
   @override
   void dispose() {
     _key.dispose();
@@ -210,6 +216,7 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
       CommunityPermission.createTournaments,
     );
     final service = ChallongeImportService(
+      memberNameMappings: _memberNameMappings,
       authorizeMemberCreation: () async {
         if (Supabase.instance.client.auth.currentUser?.id !=
             widget.community.ownerUserId) {
@@ -419,10 +426,11 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
                         child: Text(switch (ChallongeImportService.matching(
                           entry.value,
                           _members,
+                          nameMappings: _memberNameMappings,
                         ).length) {
                           0 => 'Neues Mitglied automatisch anlegen',
                           1 =>
-                            'Automatisch: ${ChallongeImportService.matching(entry.value, _members).single.displayName}',
+                            'Automatisch: ${ChallongeImportService.matching(entry.value, _members, nameMappings: _memberNameMappings).single.displayName}',
                           _ => 'Mehrere Treffer – Mitglied auswählen',
                         }),
                       ),
@@ -452,7 +460,7 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Für Elo und Community-Ranglisten werten'),
                 subtitle: const Text(
-                  'Gilt für neue und umgestellte Turniere dieses Imports. Historische Ergebnisse werden nach dem Turnierdatum eingerechnet. Ohne Spielzeitangaben werden Gruppenspiele vor K.-o.-Spielen gewertet.',
+                  'Gilt für neue und umgestellte Turniere dieses Imports. Die Elo wird anhand von Spielende, Spielbeginn oder Turnierbeginn chronologisch neu berechnet – unabhängig von der Importreihenfolge.',
                 ),
                 value: _countsForRanking,
                 onChanged: _busy

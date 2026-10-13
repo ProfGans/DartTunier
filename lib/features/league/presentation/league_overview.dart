@@ -101,13 +101,11 @@ class LeagueFixtureCard extends StatelessWidget {
     required this.index,
     required this.actions,
     this.boardLabel,
-    this.averageLabel,
   });
   final LeagueMatch league;
   final int index;
   final List<Widget> actions;
   final String? boardLabel;
-  final String? averageLabel;
   @override
   Widget build(BuildContext context) {
     final game = league.games[index];
@@ -188,7 +186,6 @@ class LeagueFixtureCard extends StatelessWidget {
               },
             ),
             const SizedBox(height: 12),
-            if (averageLabel != null) Text(averageLabel!),
             Wrap(spacing: 8, runSpacing: 8, children: actions),
           ],
         ),

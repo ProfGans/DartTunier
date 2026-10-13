@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../domain/tournament_models.dart';
 import '../../models/match_result.dart';
 import 'set_result_dialog.dart';
-import '../../../../statistics/domain/match_scorer_summary.dart';
 import '../../../../statistics/presentation/tournament_match_statistics_page.dart';
 
 class MatchResultTile extends StatelessWidget {
@@ -27,108 +26,117 @@ class MatchResultTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final canEdit = canEditResult && match.hasPlayers;
     final roundLabel = leadingLabel ?? 'Runde ${match.round}';
-    final scorer = MatchScorerSummary.fromMatch(match);
     String playerLabel(bool home) {
-      final name =
-          (home ? match.homePlayer : match.awayPlayer)?.name ?? (match.allowsBye ? 'Freilos' : 'offen');
-      final average = scorer?.players[home ? 0 : 1].average;
-      return average == null
-          ? name
-          : '$name · Avg ${average.toStringAsFixed(2)}';
+      return (home ? match.homePlayer : match.awayPlayer)?.name ??
+          (match.allowsBye ? 'Freilos' : 'offen');
     }
 
-    return MatchStatisticsTapTarget(match: match, child: Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 620 ||
-              MediaQuery.textScalerOf(context).scale(16) > 24) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      roundLabel,
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                    if (originLabel != null)
-                      _MatchOriginChip(label: originLabel!),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  playerLabel(true),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  playerLabel(false),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Flexible(
-                      child: _ScoreBadge(
-                        match: match,
-                        onTap: match.hasResult ? () => MatchStatisticsTapTarget.open(context, match) : canEdit ? () => onEditResult(match) : null,
+    return MatchStatisticsTapTarget(
+      match: match,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          border: Border.all(color: colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 620 ||
+                MediaQuery.textScalerOf(context).scale(16) > 24) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        roundLabel,
+                        style: Theme.of(context).textTheme.labelMedium,
                       ),
-                    ),
-                    const Spacer(),
-                    IconButton.filledTonal(
-                      onPressed: canEdit ? () => onEditResult(match) : null,
-                      icon: const Icon(Icons.edit_outlined),
-                      tooltip: 'Ergebnis',
-                    ),
-                  ],
+                      if (originLabel != null)
+                        _MatchOriginChip(label: originLabel!),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    playerLabel(true),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    playerLabel(false),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: _ScoreBadge(
+                          match: match,
+                          onTap: match.hasResult
+                              ? () => MatchStatisticsTapTarget.open(
+                                  context,
+                                  match,
+                                )
+                              : canEdit
+                              ? () => onEditResult(match)
+                              : null,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton.filledTonal(
+                        onPressed: canEdit ? () => onEditResult(match) : null,
+                        icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Ergebnis',
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                SizedBox(
+                  width: leadingLabel == null ? 74 : 148,
+                  child: Text(
+                    roundLabel,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (originLabel != null) ...[
+                  _MatchOriginChip(label: originLabel!),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(child: Text(playerLabel(true))),
+                _ScoreBadge(
+                  match: match,
+                  onTap: match.hasResult
+                      ? () => MatchStatisticsTapTarget.open(context, match)
+                      : canEdit
+                      ? () => onEditResult(match)
+                      : null,
+                ),
+                Expanded(
+                  child: Text(playerLabel(false), textAlign: TextAlign.right),
+                ),
+                const SizedBox(width: 12),
+                IconButton.filledTonal(
+                  onPressed: canEdit ? () => onEditResult(match) : null,
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: 'Ergebnis',
                 ),
               ],
             );
-          }
-
-          return Row(
-            children: [
-              SizedBox(
-                width: leadingLabel == null ? 74 : 148,
-                child: Text(
-                  roundLabel,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (originLabel != null) ...[
-                _MatchOriginChip(label: originLabel!),
-                const SizedBox(width: 8),
-              ],
-              Expanded(child: Text(playerLabel(true))),
-              _ScoreBadge(
-                match: match,
-                onTap: match.hasResult ? () => MatchStatisticsTapTarget.open(context, match) : canEdit ? () => onEditResult(match) : null,
-              ),
-              Expanded(
-                child: Text(playerLabel(false), textAlign: TextAlign.right),
-              ),
-              const SizedBox(width: 12),
-              IconButton.filledTonal(
-                onPressed: canEdit ? () => onEditResult(match) : null,
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: 'Ergebnis',
-              ),
-            ],
-          );
-        },
+          },
+        ),
       ),
-    ));
+    );
   }
 }
 
@@ -212,7 +220,11 @@ class _ResultDialogState extends State<ResultDialog> {
   @override
   Widget build(BuildContext context) {
     if (widget.format.bestOfSets > 1) {
-      return SetResultDialog(match: widget.match, format: widget.format, allowAdministration: widget.allowAdministration);
+      return SetResultDialog(
+        match: widget.match,
+        format: widget.format,
+        allowAdministration: widget.allowAdministration,
+      );
     }
     return AlertDialog(
       title: const Text('Ergebnis eingeben'),
@@ -265,20 +277,22 @@ class _ResultDialogState extends State<ResultDialog> {
         ],
       ),
       actions: [
-        if (widget.allowAdministration && (widget.match.homeLegs != null ||
-            widget.match.awayLegs != null ||
-            widget.match.isAnnulled))
+        if (widget.allowAdministration &&
+            (widget.match.homeLegs != null ||
+                widget.match.awayLegs != null ||
+                widget.match.isAnnulled))
           TextButton.icon(
             onPressed: () =>
                 Navigator.of(context).pop(const MatchResult.cleared()),
             icon: const Icon(Icons.delete_outline),
             label: const Text('Ergebnis entfernen'),
           ),
-        if (widget.allowAdministration) TextButton.icon(
-          onPressed: _annul,
-          icon: const Icon(Icons.block_outlined),
-          label: const Text('Spiel annullieren'),
-        ),
+        if (widget.allowAdministration)
+          TextButton.icon(
+            onPressed: _annul,
+            icon: const Icon(Icons.block_outlined),
+            label: const Text('Spiel annullieren'),
+          ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Abbrechen'),

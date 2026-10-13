@@ -5,7 +5,10 @@ import '../../backups/presentation/backup_panel.dart';
 import '../../updates/presentation/android_updates_panel.dart';
 import 'package:flutter/material.dart';
 import '../data/planning_settings_storage.dart';
-import '../../scorer/presentation/bot_settings_page.dart';
+import '../../notifications/presentation/push_sender_menu.dart';
+import '../../notifications/presentation/push_device_menu.dart';
+import '../../dev_tools/presentation/dev_tools_page.dart';
+import '../../govee/presentation/govee_hub_page.dart';
 
 import '../../tournaments/domain/tournament_planning_parameters.dart';
 
@@ -24,7 +27,7 @@ class _SettingsPageState extends State<SettingsPage> {
     'Passende Turnierform',
     'Datensicherung',
     'Updates',
-    'Scorer & Bots',
+    'Werkzeuge & Verwaltung',
   ];
 
   @override
@@ -48,7 +51,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       Icons.tune,
                       Icons.backup_outlined,
                       Icons.system_update_outlined,
-                      Icons.smart_toy_outlined,
+                      Icons.tune,
                     ][i],
                   ),
               ],
@@ -62,13 +65,49 @@ class _SettingsPageState extends State<SettingsPage> {
                 _PlanningParametersPanel(),
                 BackupPanel(),
                 AndroidUpdatesPanel(),
-                BotSettingsPanel(),
+                _AdministrationPanel(),
               ],
             ),
           ),
         ],
       ),
     ),
+  );
+}
+
+class _AdministrationPanel extends StatelessWidget {
+  const _AdministrationPanel();
+
+  @override
+  Widget build(BuildContext context) => AdaptiveContentList(
+    padding: const EdgeInsets.all(20),
+    children: [
+      Text(
+        'Werkzeuge & Verwaltung',
+        style: Theme.of(context).textTheme.headlineSmall,
+      ),
+      const SizedBox(height: 16),
+      const PushSenderMenu(),
+      const PushDeviceMenu(),
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.lightbulb_outline),
+          title: const Text('Govee Licht-Hub'),
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const GoveeHubPage())),
+        ),
+      ),
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.science_outlined),
+          title: const Text('Dev Tools'),
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const DevToolsPage())),
+        ),
+      ),
+    ],
   );
 }
 

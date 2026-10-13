@@ -17,11 +17,13 @@ Set<CommunityPermission> requiredTournamentPermissions(
   final required = <CommunityPermission>{};
   for (final key in {...old.keys, ...next.keys}..removeAll({'updatedAt', 'syncRevision'})) {
     if (jsonEncode(old[key]) != jsonEncode(next[key])) {
-      required.add(
-        runtime.contains(key)
+      if (key != 'withdrawals') {
+        required.add(
+          runtime.contains(key)
             ? CommunityPermission.leadTournaments
-            : CommunityPermission.editTournaments,
-      );
+              : CommunityPermission.editTournaments,
+        );
+      }
     }
   }
   return required;

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../../tournaments/domain/tournament_models.dart';
-import '../domain/match_scorer_summary.dart';
 
 /// Read-only details derived from the statistics saved with this match.
 class TournamentMatchStatisticsPage extends StatelessWidget {
@@ -10,13 +9,10 @@ class TournamentMatchStatisticsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final summary = MatchScorerSummary.fromMatch(match);
     final sides = [match.homePlayer, match.awayPlayer];
     final duration = match.startedAt != null && match.finishedAt != null
         ? match.finishedAt!.difference(match.startedAt!)
         : null;
-    String number(double? value) =>
-        value?.toStringAsFixed(2).replaceAll('.', ',') ?? '–';
     return Scaffold(
       appBar: AppBar(title: const Text('Spielstatistik')),
       body: AdaptiveContentList(
@@ -37,62 +33,6 @@ class TournamentMatchStatisticsPage extends StatelessWidget {
               'Spieldauer: ${duration.inMinutes} min ${duration.inSeconds % 60} s',
             ),
           const SizedBox(height: 16),
-          if (summary == null)
-            const Text(
-              'Für dieses Spiel wurden keine Scorer-Aufnahmen gespeichert. Bei manuell eingetragenen Ergebnissen stehen keine Wurfstatistiken zur Verfügung.',
-            ),
-          if (sides.any((p) => p?.bot != null))
-            const Text('Für Bots werden keine Statistiken gespeichert.'),
-          if (summary != null)
-            AdaptiveTileLayout(
-              children: [
-                for (var i = 0; i < sides.length; i++)
-                  if (sides[i]?.bot == null)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              sides[i]?.name ?? 'Spieler',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              '3-Dart-Average: ${number(summary.players[i].average)}',
-                            ),
-                            Text(
-                              'First-9-Average: ${number(summary.players[i].firstNineAverage)}',
-                            ),
-                            Text('Darts: ${summary.players[i].darts}'),
-                            Text('Aufnahmen: ${summary.players[i].visits}'),
-                            Text(
-                              'Höchste Aufnahme: ${summary.players[i].highestScore}',
-                            ),
-                            Text('180er: ${summary.players[i].scores180}'),
-                            Text(
-                              'Höchstes Finish: ${summary.players[i].highestFinish}',
-                            ),
-                            Text(
-                              'Bestes Leg: ${summary.players[i].bestLeg == null ? '–' : '${summary.players[i].bestLeg} Darts'}',
-                            ),
-                            Text(
-                              'Legs gewonnen: ${summary.players[i].legsWon}',
-                            ),
-                            Text('Überworfen: ${summary.players[i].busts}'),
-                            if (match
-                                    .deviceResult?['statistics']?['doubleOut'] ==
-                                true)
-                              Text(
-                                'Checkoutquote: ${summary.players[i].unknownCheckoutVisits > 0 ? 'Unvollständige Angaben' : '${number(summary.players[i].checkoutPercent)} %'}',
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-              ],
-            ),
         ],
       ),
     );

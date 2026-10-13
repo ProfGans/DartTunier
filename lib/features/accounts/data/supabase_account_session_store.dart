@@ -37,12 +37,12 @@ class SupabaseAccountSessionStore implements AccountSessionStore {
     final user = response.user;
     if (user == null) {
       throw const AuthException(
-        'Account wurde angelegt. Bitte bestaetige deine E-Mail und melde dich danach an.',
+        'Account wurde angelegt. Bitte bestätige deine E-Mail und melde dich danach an.',
       );
     }
     if (response.session == null) {
       throw const AuthException(
-        'Account wurde angelegt. Bitte bestaetige deine E-Mail und melde dich danach an.',
+        'Account wurde angelegt. Bitte bestätige deine E-Mail und melde dich danach an.',
       );
     }
 

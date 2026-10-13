@@ -49,7 +49,7 @@ void main() {
       currentYearOnly: false,
       rankingId: 'season',
     );
-    expect(elo.entries.map((e) => e.rating), [1016, 984]);
+    expect(elo.entries.map((e) => e.rating), [1013, 987]);
     expect(elo.entries.map((e) => e.matches), [1, 1]);
   });
   test(

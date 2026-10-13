@@ -102,7 +102,7 @@ void main() {
           snapshot.entries
               .singleWhere((e) => e.player.playerProfileId == winnerId)
               .rating,
-          1016,
+          1013,
         );
         expect(snapshot.entries.fold<int>(0, (sum, e) => sum + e.matches), 2);
         expect(snapshot.history[winnerId], hasLength(1));

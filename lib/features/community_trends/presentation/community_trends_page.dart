@@ -54,7 +54,7 @@ class CommunityTrendsPage extends StatelessWidget {
             'Einordnung nach Ergebnisquote: Siege zählen voll, Unentschieden halb. Ab ±15 Prozentpunkten und mindestens 5 Spielen je Zeitraum entsteht ein Trend. Gegnerstärke und Spielformat können die Quote beeinflussen; dies ist keine Elo-Wertung.',
           ),
           const Text(
-            'Nur gespeicherte Ergebnisse dieser Community. Spiele ohne erfasste Spielzeit fehlen im Zeitvergleich; bei Ligaspielen zählt das Turnierdatum. Scorer-Werte beziehen sich nur auf erfasste Aufnahmen und bestimmen die Kategorie nicht.',
+            'Nur gespeicherte Ergebnisse dieser Community. Spiele ohne erfasste Spielzeit fehlen im Zeitvergleich; bei Ligaspielen zählt das Turnierdatum.',
           ),
           for (final kind in CommunityTrendKind.values) ...[
             const SizedBox(height: 24),

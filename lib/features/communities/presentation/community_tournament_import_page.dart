@@ -104,7 +104,7 @@ class _ImportState extends State<CommunityTournamentImportPage> {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const Text(
-                'Eine Kopie übernimmt Spielplan, Ergebnisse und Scorer-Statistiken. Das lokale Original bleibt erhalten. Bereits importierte Turniere werden nicht erneut angeboten.',
+                'Eine Kopie übernimmt Spielplan und Ergebnisse. Das lokale Original bleibt erhalten. Bereits importierte Turniere werden nicht erneut angeboten.',
               ),
               if (sources.isEmpty)
                 const Padding(

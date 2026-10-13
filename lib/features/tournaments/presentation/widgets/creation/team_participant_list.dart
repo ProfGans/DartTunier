@@ -11,11 +11,9 @@ class TeamParticipantList extends StatelessWidget {
     required this.onRemove,
     required this.onMerge,
     required this.onSplit,
-    this.onEditBot,
   });
   final List<TournamentPlayer> players;
   final ValueChanged<int> onRename, onRemove, onSplit;
-  final ValueChanged<int>? onEditBot;
   final void Function(int source, int target) onMerge;
 
   Future<void> _choosePartner(BuildContext context, int source) async {
@@ -85,19 +83,8 @@ class TeamParticipantList extends StatelessWidget {
                                 Text(
                                   '${players[i].members.length} Spieler · ${players[i].members.map((p) => p.name).join(', ')}',
                                 ),
-                              if (players[i].bot != null)
-                                Text(
-                                  'Bot · Ziel-Average ${players[i].bot!.targetAverage.toStringAsFixed(1)}',
-                                ),
                               Wrap(
                                 children: [
-                                  if (players[i].bot != null &&
-                                      onEditBot != null)
-                                    TextButton.icon(
-                                      onPressed: () => onEditBot!(i),
-                                      icon: const Icon(Icons.tune),
-                                      label: const Text('Bot-Stärke'),
-                                    ),
                                   IconButton(
                                     tooltip: 'Umbenennen',
                                     onPressed: () => onRename(i),

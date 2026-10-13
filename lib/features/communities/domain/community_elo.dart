@@ -8,12 +8,32 @@ import 'community_member_identity.dart';
 import 'community_ranking_action.dart';
 
 const int communityInitialElo = 1000;
-const int communityEloKFactor = 32;
+const int communityNewPlayerKFactor = 25;
+const int communityEstablishedPlayerKFactor = 15;
+const int communityMatchesBeforeEstablished = 10;
+const int communityProRatingThreshold = 2400;
+const int communityEloKFactor = communityEstablishedPlayerKFactor;
 
-int communityEloDelta(int rating, int opponentRating, double score) {
+DateTime _rankingDate(CreatedTournament tournament) =>
+    tournament.startedAt ?? tournament.createdAt;
+
+DateTime _matchDate(CreatedTournament tournament, GroupMatch match) =>
+    match.finishedAt ?? match.startedAt ?? _rankingDate(tournament);
+
+int communityEloDelta(
+  int rating,
+  int opponentRating,
+  double score, {
+  int kFactor = communityEloKFactor,
+}) {
   final expected = 1 / (1 + pow(10, (opponentRating - rating) / 400));
-  return (communityEloKFactor * (score - expected)).round();
+  return (kFactor * (score - expected)).round();
 }
+
+int communityKFactorForMatches(int matches) =>
+    matches < communityMatchesBeforeEstablished
+    ? communityNewPlayerKFactor
+    : communityEstablishedPlayerKFactor;
 
 class CommunityEloEntry {
   CommunityEloEntry({required this.player, this.rating = communityInitialElo});
@@ -33,6 +53,7 @@ class CommunityEloHistoryItem {
     required this.score,
     required this.delta,
     required this.ratingAfter,
+    this.kFactor = communityEloKFactor,
   });
   final DateTime playedAt;
   final String tournamentName;
@@ -40,6 +61,7 @@ class CommunityEloHistoryItem {
   final String score;
   final int delta;
   final int ratingAfter;
+  final int kFactor;
 }
 
 class CommunityEloSnapshot {
@@ -53,7 +75,7 @@ class CommunityEloSnapshot {
   final Set<String> excludedPlayerKeys;
 }
 
-/// Standard Elo expected-score formula with K=32 for community matches.
+/// Standard Elo expected-score formula with a caller-selected player K-factor.
 class CommunityEloCalculator {
   const CommunityEloCalculator();
 
@@ -66,7 +88,9 @@ class CommunityEloCalculator {
     String rankingId = defaultCommunityRankingId,
     List<CommunityRankingAction> actions = const [],
   }) {
-    final cutoff = validityMonths == null ? null : rankingCutoff((now ?? DateTime.now()).toLocal(), validityMonths);
+    final cutoff = validityMonths == null
+        ? null
+        : rankingCutoff((now ?? DateTime.now()).toLocal(), validityMonths);
     final cutoffYear = (now ?? DateTime.now()).toLocal().year;
     final entries = <String, CommunityEloEntry>{
       for (final member in effectiveCommunityMembers(members))
@@ -83,17 +107,20 @@ class CommunityEloCalculator {
         {
           for (final tournament in tournaments) tournament.id: tournament,
         }.values.toList()..sort((a, b) {
-          final time = a.createdAt.compareTo(b.createdAt);
+          final time = _rankingDate(a).compareTo(_rankingDate(b));
           return time != 0 ? time : a.id.compareTo(b.id);
         });
     final pending = [
       for (final tournament in ordered)
         if (tournament.countsForRanking &&
-            tournament.communityRankingIds.contains(rankingId) &&
-            (validityMonths != null || !currentYearOnly ||
-                tournament.createdAt.toLocal().year == cutoffYear))
+            tournament.communityRankingIds.contains(rankingId))
           for (final match in _matches(tournament).toSet())
-            if (cutoff == null || !(match.finishedAt ?? tournament.createdAt).toLocal().isBefore(cutoff))
+            if ((!currentYearOnly ||
+                    validityMonths != null ||
+                    _matchDate(tournament, match).toLocal().year ==
+                        cutoffYear) &&
+                (cutoff == null ||
+                    !_matchDate(tournament, match).toLocal().isBefore(cutoff)))
               (tournament: tournament, match: match),
     ];
     // Elo is sequential: use the actual completion order, not bracket/group
@@ -102,8 +129,8 @@ class CommunityEloCalculator {
       for (var i = 0; i < pending.length; i++) pending[i]: i,
     };
     pending.sort((a, b) {
-      final time = (a.match.finishedAt ?? a.tournament.createdAt).compareTo(
-        b.match.finishedAt ?? b.tournament.createdAt,
+      final time = _matchDate(a.tournament, a.match).compareTo(
+        _matchDate(b.tournament, b.match),
       );
       return time != 0 ? time : legacyOrder[a]!.compareTo(legacyOrder[b]!);
     });
@@ -119,7 +146,7 @@ class CommunityEloCalculator {
           .where(
             (row) =>
                 change == null ||
-                !(row.match.finishedAt ?? row.tournament.createdAt).isAfter(
+                !_matchDate(row.tournament, row.match).isAfter(
                   change.createdAt,
                 ),
           )
@@ -127,7 +154,7 @@ class CommunityEloCalculator {
       pending.removeWhere(
         (row) =>
             change == null ||
-            !(row.match.finishedAt ?? row.tournament.createdAt).isAfter(
+            !_matchDate(row.tournament, row.match).isAfter(
               change.createdAt,
             ),
       );
@@ -155,16 +182,26 @@ class CommunityEloCalculator {
         final awayWon = match.winner == match.awayPlayer;
         final draw = !homeWon && !awayWon && match.homeScore == match.awayScore;
         if (!homeWon && !awayWon && !draw) continue;
+        final homeScore = draw
+            ? .5
+            : homeWon
+            ? 1.0
+            : 0.0;
+        final awayScore = 1 - homeScore;
+        final homeK = communityKFactorForMatches(home.matches);
+        final awayK = communityKFactorForMatches(away.matches);
         final homeDelta = communityEloDelta(
           home.rating,
           away.rating,
-          draw
-              ? .5
-              : homeWon
-              ? 1
-              : 0,
+          homeScore,
+          kFactor: homeK,
         );
-        final awayDelta = -homeDelta;
+        final awayDelta = communityEloDelta(
+          away.rating,
+          home.rating,
+          awayScore,
+          kFactor: awayK,
+        );
         final homeRule = PlayerWithdrawalService.policy(
           tournament,
           match.homePlayer!,
@@ -201,25 +238,27 @@ class CommunityEloCalculator {
         if (countHome) {
           (history[homeId] ??= []).add(
             CommunityEloHistoryItem(
-              playedAt: match.finishedAt ?? tournament.createdAt,
+              playedAt: _matchDate(tournament, match),
               tournamentName: tournament.name,
               opponentName: away.player.displayName,
               score: score,
               delta: homeDelta,
               ratingAfter: home.rating,
+              kFactor: homeK,
             ),
           );
         }
         if (countAway) {
           (history[awayId] ??= []).add(
             CommunityEloHistoryItem(
-              playedAt: match.finishedAt ?? tournament.createdAt,
+              playedAt: _matchDate(tournament, match),
               tournamentName: tournament.name,
               opponentName: home.player.displayName,
               score:
                   '${match.awayScore}:${match.homeScore}${match.hasSetScore ? ' Sets' : ''}',
               delta: awayDelta,
               ratingAfter: away.rating,
+              kFactor: awayK,
             ),
           );
         }

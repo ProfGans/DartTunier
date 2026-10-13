@@ -99,13 +99,22 @@ void main() {
       final reset = action(2, RankingPlayerAction.reset);
       final snapshot = calculate([initial], [reset]);
       expect(snapshot.entries.single.player.playerProfileId, 'b');
-      expect(snapshot.entries.single.rating, 984);
+      expect(snapshot.entries.single.rating, 987);
       expect(snapshot.history['a'], isNull);
       expect(snapshot.history['b'], hasLength(1));
       final next = calculate([initial, completedOn(3)], [reset]);
       final a = next.entries.firstWhere((e) => e.player.playerProfileId == 'a');
       expect(a.matches, 1);
-      expect(a.rating, 1000 + communityEloDelta(1000, 984, 1));
+      expect(
+        a.rating,
+        1000 +
+            communityEloDelta(
+              1000,
+              987,
+              1,
+              kFactor: communityNewPlayerKFactor,
+            ),
+      );
       expect(next.history['a'], hasLength(1));
       expect(
         next.entries.firstWhere((e) => e.player.playerProfileId == 'b').matches,
@@ -125,7 +134,7 @@ void main() {
         [events.first],
       );
       expect(beforeRestore.excludedPlayerKeys, {'a'});
-      expect(beforeRestore.entries.single.rating, 984);
+      expect(beforeRestore.entries.single.rating, 987);
       expect(beforeRestore.entries.single.matches, 1);
       final after = calculate([
         completedOn(1),
@@ -214,7 +223,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byTooltip('Spielerwertung verwalten'), findsNothing);
-    expect(find.textContaining('1016 Elo'), findsOneWidget);
+    expect(find.textContaining('1013 Elo'), findsOneWidget);
   });
   testWidgets('remove confirmation, restore and rejected reset', (
     tester,
@@ -238,7 +247,7 @@ void main() {
     await tester.tap(find.text('Entfernen'));
     await tester.pumpAndSettle();
     expect(repository.events.single.action, RankingPlayerAction.remove);
-    expect(find.textContaining('1016 Elo'), findsNothing);
+    expect(find.textContaining('1013 Elo'), findsNothing);
     await tester.tap(find.text('Spieler ohne Ranglistenplatz verwalten'));
     await tester.pumpAndSettle();
     expect(find.text('Aus dieser Rangliste entfernt'), findsOneWidget);

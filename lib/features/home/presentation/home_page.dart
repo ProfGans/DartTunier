@@ -18,22 +18,21 @@ class _HomePageState extends State<HomePage> {
       Icons.emoji_events_outlined,
       () => _open(const TournamentHomePage(), 1),
     ),
-    SportDestination('Scorer', Icons.sports_score, _openScorer),
     SportDestination(
       'Spieler',
       Icons.groups_outlined,
-      () => _open(const PlayersPage(), 3),
+      () => _open(const PlayersPage(), 2),
     ),
     SportDestination('Community', Icons.hub_outlined, _openCommunity),
     SportDestination(
       'Geräte',
       Icons.devices_outlined,
-      () => _open(const DevicesPage(), 5),
+      () => _open(const DevicesPage(), 4),
     ),
     SportDestination(
       'Einstellungen',
       Icons.settings_outlined,
-      () => _open(const SettingsPage(), 6),
+      () => _open(const SettingsPage(), 5),
     ),
   ];
 
@@ -49,24 +48,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> _openScorer() async {
-    try {
-      final account = await loadCurrentAccount();
-      if (!mounted) return;
-      await _open(ScorerPage(account: account), 2);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Account konnte nicht geladen werden. Bitte erneut versuchen.',
-            ),
-          ),
-        );
-      }
-    }
-  }
-
   void _openCommunity() => _open(
     CommunityPage(
       createTournamentBuilder: (id, name, {preset, title}) =>
@@ -79,12 +60,12 @@ class _HomePageState extends State<HomePage> {
       runTournamentBuilder: (tournament) =>
           TournamentRunPage(tournament: tournament),
     ),
-    4,
+    3,
   );
 
   void _openTournamentArea() => _open(const TournamentHomePage(), 1);
-  void _openPlayersArea() => _open(const PlayersPage(), 3);
-  void _openSettings() => _open(const SettingsPage(), 6);
+  void _openPlayersArea() => _open(const PlayersPage(), 2);
+  void _openSettings() => _open(const SettingsPage(), 5);
   void _openCommunityArea() => _openCommunity();
   Widget _shell(Widget page, int selected) => SportAppShell(
     destinations: _destinations,
@@ -112,7 +93,7 @@ class _HomePageState extends State<HomePage> {
       ),
       body: AdaptiveContentList(
         children: [
-          SportHero(onTournament: _createTournament, onScorer: _openScorer),
+          SportHero(onTournament: _createTournament),
           const SizedBox(height: 28),
           SportMenuGroup(
             title: 'Spielzentrale',
@@ -121,11 +102,6 @@ class _HomePageState extends State<HomePage> {
                 label: 'Turniere',
                 icon: Icons.emoji_events_outlined,
                 onTap: _openTournamentArea,
-              ),
-              SportMenuAction(
-                label: 'Scorer',
-                icon: Icons.sports_score,
-                onTap: _openScorer,
               ),
               SportMenuAction(
                 label: 'Spieler',
@@ -143,28 +119,6 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 10),
           const AccountMenuCard(),
           const SizedBox(height: 20),
-          Card(
-            child: ExpansionTile(
-              title: const Text('Werkzeuge & Verwaltung'),
-              leading: const Icon(Icons.tune),
-              maintainState: true,
-              childrenPadding: const EdgeInsets.all(16),
-              children: [
-                const PushSenderMenu(),
-                const PushDeviceMenu(),
-                const AutoscoreTesterMenuCard(),
-                ListTile(
-                  leading: const Icon(Icons.science_outlined),
-                  title: const Text('Dev Tools'),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const DevToolsPage(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     ),

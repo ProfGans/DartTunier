@@ -81,7 +81,7 @@ void main() {
       reject = false;
       await tester.tap(find.text('Neuen Spieler anlegen'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('2 uebernehmen'));
+      await tester.tap(find.text('2 übernehmen'));
       await tester.pumpAndSettle();
       expect(result!.map((p) => p.id), ['old', 'new']);
     },

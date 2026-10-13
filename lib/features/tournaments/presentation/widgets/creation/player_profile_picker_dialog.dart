@@ -89,7 +89,7 @@ class PlayerProfilePickerDialogState extends State<PlayerProfilePickerDialog> {
       child: AlertDialog(
         insetPadding: const EdgeInsets.all(16),
         contentPadding: const EdgeInsets.all(16),
-        title: const Text('Spieler auswaehlen'),
+        title: const Text('Spieler auswählen'),
         content: SizedBox(
           width: 460,
           child: SingleChildScrollView(
@@ -146,7 +146,9 @@ class PlayerProfilePickerDialogState extends State<PlayerProfilePickerDialog> {
                                     profile.id,
                                     value ?? false,
                                   ),
-                            title: Text('${profile.displayName}${widget.currentUserId != null && (profile.userId == widget.currentUserId || profile.id == widget.currentUserId) ? ' (Du)' : ''}'),
+                            title: Text(
+                              '${profile.displayName}${widget.currentUserId != null && (profile.userId == widget.currentUserId || profile.id == widget.currentUserId) ? ' (Du)' : ''}',
+                            ),
                             subtitle: subtitle.isEmpty ? null : Text(subtitle),
                             controlAffinity: ListTileControlAffinity.leading,
                           );
@@ -164,7 +166,7 @@ class PlayerProfilePickerDialogState extends State<PlayerProfilePickerDialog> {
           FilledButton.icon(
             onPressed: _busy ? null : _submit,
             icon: const Icon(Icons.check),
-            label: Text('${_selectedProfileIds.length} uebernehmen'),
+            label: Text('${_selectedProfileIds.length} übernehmen'),
           ),
         ],
       ),

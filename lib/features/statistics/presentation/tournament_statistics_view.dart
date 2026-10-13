@@ -16,27 +16,22 @@ class TournamentStatisticsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AdaptiveContentList(
     children: [
-      Text(
-        title,
-        style: Theme.of(context).textTheme.headlineSmall,
-      ),
+      Text(title, style: Theme.of(context).textTheme.headlineSmall),
       Text(description),
       const SizedBox(height: 16),
       if (rows.isEmpty)
         const Text('Noch keine abgeschlossenen Begegnungen gespeichert.'),
       for (final row in rows) TournamentStatisticsCard(row: row),
-      const Padding(
-        padding: EdgeInsets.all(16),
-        child: Text(
-          'Average, 180er und Checkoutquote berücksichtigen Spiele mit übertragenen Scorer-Aufnahmen. Reine Leg-/Set-Ergebnisse enthalten diese Daten nicht.',
-        ),
-      ),
     ],
   );
 }
 
 class TournamentStatisticsCard extends StatelessWidget {
-  const TournamentStatisticsCard({super.key, required this.row, this.playerName});
+  const TournamentStatisticsCard({
+    super.key,
+    required this.row,
+    this.playerName,
+  });
   final TournamentPlayerStatistics row;
   final String? playerName;
   @override
@@ -46,7 +41,10 @@ class TournamentStatisticsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(playerName ?? row.name, style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            playerName ?? row.name,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 8),
           Text('${row.tournaments.length} Turniere · ${row.matches} Spiele'),
           Text(
@@ -64,10 +62,6 @@ class TournamentStatisticsCard extends StatelessWidget {
               'Gemeinsame Doppel-Legs: ${row.doublesLegsFor}:${row.doublesLegsAgainst}',
             ),
           ],
-          if (row.average != null)
-            Text(
-              'Average: ${row.average!.toStringAsFixed(2)} · 180er: ${row.scores180} · Checkout: ${row.checkoutPercent?.toStringAsFixed(1) ?? '–'} %',
-            ),
         ],
       ),
     ),

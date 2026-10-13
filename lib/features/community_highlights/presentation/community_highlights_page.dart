@@ -24,17 +24,12 @@ class CommunityHighlightsPage extends StatefulWidget {
 }
 
 class _HighlightsState extends State<CommunityHighlightsPage> {
-  late final _automaticEntries = const CommunityHighlights().automatic(
-    widget.communityId,
-    widget.tournaments,
-  );
   late final _repository = widget.repository ?? CommunityHighlightsRepository();
   List<CommunityHighlight> _saved = [];
   bool _loading = true, _failed = false, _canManage = false, _busy = false;
   String _query = '';
   HighlightCategory? _category;
   String? _player, _tournament;
-  bool? _automatic;
   StatisticsPeriod? _period;
   @override
   void initState() {
@@ -138,7 +133,7 @@ class _HighlightsState extends State<CommunityHighlightsPage> {
   @override
   Widget build(BuildContext context) {
     const service = CommunityHighlights();
-    final all = service.merge(_automaticEntries, _saved);
+    final all = _saved.where((highlight) => !highlight.automatic).toList();
     final players = {
       ...all.map((h) => h.player).where((s) => s.isNotEmpty),
       ?_player,
@@ -154,7 +149,6 @@ class _HighlightsState extends State<CommunityHighlightsPage> {
       player: _player,
       tournament: _tournament,
       period: _period,
-      automatic: _automatic,
     );
     return Scaffold(
       appBar: AppBar(title: const Text('Highlight-Liste')),
@@ -230,23 +224,6 @@ class _HighlightsState extends State<CommunityHighlightsPage> {
                   _tournament,
                   tournaments,
                   (value) => setState(() => _tournament = value),
-                ),
-                DropdownButtonFormField<bool>(
-                  initialValue: _automatic,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Herkunft'),
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('Alle Einträge')),
-                    DropdownMenuItem(
-                      value: true,
-                      child: Text('Aus Scorer-Daten'),
-                    ),
-                    DropdownMenuItem(
-                      value: false,
-                      child: Text('Manuell hinzugefügt'),
-                    ),
-                  ],
-                  onChanged: (value) => setState(() => _automatic = value),
                 ),
               ],
             ),

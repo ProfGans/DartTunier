@@ -47,13 +47,15 @@ class TournamentAccess {
     this.canLead = false,
     this.canEnterResults = false,
     this.canConfigure = false,
+    this.canWithdraw = false,
   });
   static const local = TournamentAccess(
     canLead: true,
     canEnterResults: true,
     canConfigure: true,
+    canWithdraw: true,
   );
-  final bool canLead, canEnterResults, canConfigure;
+  final bool canLead, canEnterResults, canConfigure, canWithdraw;
   static TournamentAccess resolve(
     TournamentAccessSettings settings,
     String? userId,
@@ -71,6 +73,11 @@ class TournamentAccess {
       canConfigure:
           creator || rights.allows(CommunityPermission.editTournaments),
       canEnterResults:
+          lead ||
+          settings.resultEntryMode == ResultEntryMode.members ||
+          (settings.resultEntryMode == ResultEntryMode.selected &&
+              settings.resultUserIds.contains(userId)),
+      canWithdraw:
           lead ||
           settings.resultEntryMode == ResultEntryMode.members ||
           (settings.resultEntryMode == ResultEntryMode.selected &&

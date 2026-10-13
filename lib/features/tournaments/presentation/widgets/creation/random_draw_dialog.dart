@@ -58,8 +58,8 @@ class _RandomDrawDialogState extends State<_RandomDrawDialog>
   bool get _isComplete => _drawnSeeds.length == widget.participantLabels.length;
 
   List<String> get _drawnPlayerNames => [
-        for (final seed in _drawnSeeds) widget.participantLabels[seed - 1],
-      ];
+    for (final seed in _drawnSeeds) widget.participantLabels[seed - 1],
+  ];
 
   List<int> _shuffledRemainingSeeds() {
     return List<int>.from(_remainingSeeds)..shuffle(_random);
@@ -228,9 +228,7 @@ class _RandomDrawDialogState extends State<_RandomDrawDialog>
                                   textAlign: TextAlign.center,
                                   maxLines: 4,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleSmall
+                                  style: Theme.of(context).textTheme.titleSmall
                                       ?.copyWith(fontWeight: FontWeight.w700),
                                 ),
                               ),
@@ -242,7 +240,7 @@ class _RandomDrawDialogState extends State<_RandomDrawDialog>
                           value: widget.participantLabels.isEmpty
                               ? 0
                               : _drawnSeeds.length /
-                                  widget.participantLabels.length,
+                                    widget.participantLabels.length,
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -324,11 +322,11 @@ class _RandomDrawDialogState extends State<_RandomDrawDialog>
         FilledButton.icon(
           onPressed: _isSpinning || _remainingSeeds.isEmpty ? null : _spin,
           icon: const Icon(Icons.casino_outlined),
-          label: Text(_drawnSeeds.isEmpty ? 'Rad drehen' : 'Naechsten ziehen'),
+          label: Text(_drawnSeeds.isEmpty ? 'Rad drehen' : 'Nächsten ziehen'),
         ),
         FilledButton(
           onPressed: _isComplete ? _submit : null,
-          child: const Text('Auslosung uebernehmen'),
+          child: const Text('Auslosung übernehmen'),
         ),
       ],
     );
@@ -403,10 +401,7 @@ class _DrawCandidateList extends StatelessWidget {
                     ),
                   ),
                 if (drawnSeeds.isEmpty)
-                  const ListTile(
-                    dense: true,
-                    title: Text('Noch leer'),
-                  ),
+                  const ListTile(dense: true, title: Text('Noch leer')),
               ],
             ),
           ),
@@ -439,10 +434,7 @@ class _AutoRollControls extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Switch(
-            value: enabled,
-            onChanged: onEnabledChanged,
-          ),
+          Switch(value: enabled, onChanged: onEnabledChanged),
           const Expanded(child: Text('Auto-Roll')),
           SizedBox(
             width: 72,
@@ -489,7 +481,11 @@ class _DrawGroupPreview extends StatelessWidget {
               spacing: 12,
               runSpacing: 12,
               children: [
-                for (var groupIndex = 0; groupIndex < groupSizes.length; groupIndex++)
+                for (
+                  var groupIndex = 0;
+                  groupIndex < groupSizes.length;
+                  groupIndex++
+                )
                   SizedBox(
                     width: 210,
                     child: Container(
@@ -503,16 +499,19 @@ class _DrawGroupPreview extends StatelessWidget {
                         children: [
                           Text(
                             groupLabel(groupIndex + 1),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
+                            style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 8),
-                          for (var slot = 0; slot < groupSizes[groupIndex]; slot++)
+                          for (
+                            var slot = 0;
+                            slot < groupSizes[groupIndex];
+                            slot++
+                          )
                             Builder(
                               builder: (context) {
-                                final hasPlayer = drawnIndex < drawnPlayerNames.length;
+                                final hasPlayer =
+                                    drawnIndex < drawnPlayerNames.length;
                                 final playerName = hasPlayer
                                     ? drawnPlayerNames[drawnIndex]
                                     : 'Platz ${slot + 1}';
@@ -638,15 +637,21 @@ class _DrawWheelPainter extends CustomPainter {
         ..color = isSelected
             ? colorScheme.tertiaryContainer
             : (index.isEven
-                ? colorScheme.primaryContainer
-                : colorScheme.secondaryContainer);
+                  ? colorScheme.primaryContainer
+                  : colorScheme.secondaryContainer);
       canvas.drawArc(rect, index * segmentAngle, segmentAngle, true, paint);
 
       final strokePaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
         ..color = colorScheme.outlineVariant;
-      canvas.drawArc(rect, index * segmentAngle, segmentAngle, true, strokePaint);
+      canvas.drawArc(
+        rect,
+        index * segmentAngle,
+        segmentAngle,
+        true,
+        strokePaint,
+      );
 
       final angle = index * segmentAngle + segmentAngle / 2;
       final innerRadius = radius * 0.35;
@@ -656,7 +661,9 @@ class _DrawWheelPainter extends CustomPainter {
         center.dx + cos(angle) * labelRadius,
         center.dy + sin(angle) * labelRadius,
       );
-      final name = seed - 1 < labels.length ? labels[seed - 1] : 'Spieler $seed';
+      final name = seed - 1 < labels.length
+          ? labels[seed - 1]
+          : 'Spieler $seed';
       final numberPainter = TextPainter(
         text: TextSpan(
           text: name,
@@ -666,8 +673,8 @@ class _DrawWheelPainter extends CustomPainter {
             fontSize: wheelSeeds.length > 22
                 ? 9
                 : wheelSeeds.length > 14
-                    ? 10
-                    : 11,
+                ? 10
+                : 11,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -676,9 +683,7 @@ class _DrawWheelPainter extends CustomPainter {
       )..layout(maxWidth: labelTrackWidth - 12);
       canvas.save();
       canvas.translate(labelOffset.dx, labelOffset.dy);
-      canvas.rotate(
-        angle > pi / 2 && angle < 3 * pi / 2 ? angle + pi : angle,
-      );
+      canvas.rotate(angle > pi / 2 && angle < 3 * pi / 2 ? angle + pi : angle);
       final backgroundRect = RRect.fromRectAndRadius(
         Rect.fromCenter(
           center: Offset.zero,
@@ -693,10 +698,7 @@ class _DrawWheelPainter extends CustomPainter {
       );
       numberPainter.paint(
         canvas,
-        Offset(
-          -numberPainter.width / 2,
-          -numberPainter.height / 2,
-        ),
+        Offset(-numberPainter.width / 2, -numberPainter.height / 2),
       );
       canvas.restore();
     }

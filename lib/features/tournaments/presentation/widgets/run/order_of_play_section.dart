@@ -6,7 +6,6 @@ import '../../../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
 import '../../../application/order_of_play/order_of_play_controller.dart';
 import '../../../domain/tournament_models.dart';
-import '../../../../statistics/domain/match_scorer_summary.dart';
 import '../../../../statistics/presentation/tournament_match_statistics_page.dart';
 
 class OrderOfPlaySection extends StatelessWidget {
@@ -32,21 +31,21 @@ class OrderOfPlaySection extends StatelessWidget {
       child: Text(text, style: Theme.of(context).textTheme.titleLarge),
     );
     Widget row(PlayEntry entry, String detail, {Widget? action}) =>
-        MatchStatisticsTapTarget(match: entry.match, child: BoardMatchCard(
-          home: entry.stageIndex > activeStage
-              ? 'Qualifikation noch offen'
-              : entry.match.homePlayer?.name ?? 'Noch offen',
-          away: entry.stageIndex > activeStage
-              ? 'Qualifikation noch offen'
-              : entry.match.awayPlayer?.name ?? 'Noch offen',
-          origin: entry.origin,
-          status: detail,
-          running: schedule.running.contains(entry),
-          scorerSummary: MatchScorerSummary.fromMatch(
-            entry.match,
-          )?.averageLabel,
-          action: action,
-        ));
+        MatchStatisticsTapTarget(
+          match: entry.match,
+          child: BoardMatchCard(
+            home: entry.stageIndex > activeStage
+                ? 'Qualifikation noch offen'
+                : entry.match.homePlayer?.name ?? 'Noch offen',
+            away: entry.stageIndex > activeStage
+                ? 'Qualifikation noch offen'
+                : entry.match.awayPlayer?.name ?? 'Noch offen',
+            origin: entry.origin,
+            status: detail,
+            running: schedule.running.contains(entry),
+            action: action,
+          ),
+        );
     Widget plannedRow(BoardAssignment assignment, bool next) => PlayQueueMatch(
       key: ObjectKey(assignment.entry.match),
       home: assignment.entry.match.homePlayer?.name ?? 'Noch offen',
@@ -62,7 +61,8 @@ class OrderOfPlaySection extends StatelessWidget {
             occupied.length < tournament.boardCount,
         itemBuilder: (_) => [
           for (var board = 1; board <= tournament.boardCount; board++)
-            if (!occupied.contains(board) && !tournament.blockedBoards.contains(board))
+            if (!occupied.contains(board) &&
+                !tournament.blockedBoards.contains(board))
               PopupMenuItem(
                 value: board,
                 child: SportMenuLabel(
@@ -140,7 +140,11 @@ class OrderOfPlaySection extends StatelessWidget {
               },
             ),
             const SizedBox(height: 12),
-            ParticipantMatchPicker(tournament: tournament, activeStage: activeStage, onChange: onChange),
+            ParticipantMatchPicker(
+              tournament: tournament,
+              activeStage: activeStage,
+              onChange: onChange,
+            ),
             if (schedule.running.isNotEmpty) title('Jetzt auf den Boards'),
             for (final entry in schedule.running)
               row(

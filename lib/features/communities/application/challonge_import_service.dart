@@ -11,23 +11,95 @@ class ChallongeImportService {
     required this.loadTournaments,
     required this.saveTournament,
     this.authorizeMemberCreation,
+    this.memberNameMappings = const {},
   });
   final Future<List<CommunityMember>> Function() loadMembers;
   final Future<CommunityMember> Function(String name) createMember;
   final Future<List<CreatedTournament>> Function() loadTournaments;
   final Future<void> Function(CreatedTournament tournament) saveTournament;
   final Future<void> Function()? authorizeMemberCreation;
+  final Map<String, String> memberNameMappings;
+
+  /// Maps masked Challonge labels to the real community identity. If that
+  /// identity is a guest today, linking the guest to an account later keeps
+  /// all imported results under the same Elo identity.
+  static const challongeMemberNames = <String, String>{
+    'Markus_D': 'Markus Dämgen',
+    'Marvin_S': 'Marvin Stelkyte',
+    'Steve_T': 'Steven Tittel',
+    'Timo_S': 'Timo Schäfer',
+    'Jan_Wa': 'Jan Wald',
+    'Andre_Wi': 'Andre Wilke',
+    'Paddi_Kaspar': 'Patrick Kaspar',
+    'Christian_K': 'Christian Klein',
+    'Max_Re': 'Maximilian Reusch',
+    'Jonas_B': 'Jonas Bung',
+    'Tobi_Be': 'Tobias Beitz',
+    'KKKEVIN_Tsrik': 'Kevin Kirst',
+    'Mike_Ro': 'Michael Rockenbach',
+    'Dietmar_S': 'Dietmar Schneider',
+    'Daniel_Kü': 'Daniel Kühnreich',
+    'Timo_B': 'Timo Brochhagen',
+    'Friedel_D': 'Friedel Dämgen',
+    'Burkhard_H': 'Burkhard Henn',
+    'Bernd_R': 'Bernd Rau',
+    'johannes_r': 'Johannes Rau',
+    'Michael_Le': 'Michael Lemmer',
+    'Juan_B': 'Juan Beitz',
+    'Alex_Sc': 'Alexander Schinko',
+    'Yannick_L': 'Yannick Lorenz',
+  };
+
+  static String realMemberName(
+    String challongeName, {
+    Map<String, String> nameMappings = const {},
+  }) {
+    final normalized = ChallongeTournament.normalizedName(challongeName);
+    return nameMappings.entries
+            .where(
+              (entry) =>
+                  ChallongeTournament.normalizedName(entry.key) == normalized,
+            )
+            .map((entry) => entry.value)
+            .firstOrNull ??
+        challongeName.trim();
+  }
+
   static List<CommunityMember> matching(
     String name,
-    List<CommunityMember> members,
-  ) => effectiveCommunityMembers(members)
-      .where(
-        (m) =>
-            m.playerProfileId != null &&
-            ChallongeTournament.normalizedName(m.displayName) ==
-                ChallongeTournament.normalizedName(name),
-      )
-      .toList();
+    List<CommunityMember> members, {
+    Map<String, String> nameMappings = const {},
+  }) {
+    final effective = effectiveCommunityMembers(members).where(
+      (m) => m.playerProfileId != null,
+    );
+    final realName = realMemberName(name, nameMappings: nameMappings);
+    final normalizedRealName = ChallongeTournament.normalizedName(realName);
+    final matches = effective
+        .where(
+          (m) =>
+              ChallongeTournament.normalizedName(m.displayName) ==
+              normalizedRealName,
+        )
+        .toList();
+    if (matches.isNotEmpty) return matches;
+
+    // The owner was supplied as "Marv" while the Challonge identity maps to
+    // the full real name. Use the unique owner account in that one case.
+    if (normalizedRealName != ChallongeTournament.normalizedName(name) &&
+        normalizedRealName == ChallongeTournament.normalizedName('Marvin Stelkyte')) {
+      final marv = effective
+          .where(
+            (m) =>
+                ChallongeTournament.normalizedName(m.displayName) ==
+                ChallongeTournament.normalizedName('Marv'),
+          )
+          .toList();
+      if (marv.isNotEmpty) return marv;
+      return effective.where((m) => m.role.toLowerCase() == 'owner').toList();
+    }
+    return [];
+  }
 
   Future<int> import(
     String communityId,
@@ -69,7 +141,11 @@ class ChallongeImportService {
         final name = ChallongeTournament.name(p);
         final key = ChallongeTournament.normalizedName(name);
         final explicit = assignments[key];
-        final matches = matching(name, members);
+        final matches = matching(
+          name,
+          members,
+          nameMappings: memberNameMappings,
+        );
         if (explicit == null && matches.length > 1) {
           throw StateError(
             'Mehrere Mitglieder heißen $name. Bitte eindeutig zuordnen.',
@@ -82,7 +158,9 @@ class ChallongeImportService {
           );
         }
         final identity =
-            explicit ?? matches.firstOrNull?.playerProfileId ?? 'new:$key';
+            explicit ??
+            matches.firstOrNull?.playerProfileId ??
+            'new:${ChallongeTournament.normalizedName(realMemberName(name, nameMappings: memberNameMappings))}';
         if (explicit == null && matches.isEmpty) needsMembers = true;
         if (!used.add(identity)) {
           throw StateError(
@@ -100,10 +178,16 @@ class ChallongeImportService {
         final name = ChallongeTournament.name(p);
         final explicit = assignments[ChallongeTournament.normalizedName(name)];
         var member = explicit == null
-            ? matching(name, members).firstOrNull
+            ? matching(
+                name,
+                members,
+                nameMappings: memberNameMappings,
+              ).firstOrNull
             : members.firstWhere((m) => m.playerProfileId == explicit);
         if (member == null) {
-          member = await createMember(name);
+          member = await createMember(
+            realMemberName(name, nameMappings: memberNameMappings),
+          );
           members.add(member);
         }
         profiles['${p['id']}'] = member.playerProfileId!;

@@ -24,34 +24,64 @@ class _KnockoutBracketView extends StatelessWidget {
     if (placementMatches.any((m) => m.placementKey != null)) {
       final edges = PlacementEngine.sources(stage.rounds, placementMatches);
       final rounds = <List<GroupMatch>>[
-        for (final number in placementMatches.map((m) => m.round).toSet().toList()..sort())
+        for (final number
+            in placementMatches.map((m) => m.round).toSet().toList()..sort())
           placementMatches.where((m) => m.round == number).toList(),
       ];
       final numbers = _stageMatchNumbers([...stage.rounds, ...rounds]);
-      String sourceName(PlacementSource source) => '${source.loser ? 'Verlierer' : 'Gewinner'} Spiel ${numbers[source.match] ?? '?'}';
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _KnockoutBracketView(stage: stage, qualifyingRank: qualifyingRank,
-          onEditResult: onEditResult, canEditResults: canEditResults,
-          isEditMode: isEditMode, onSwapSlot: onSwapSlot),
-        const SizedBox(height: 24),
-        const _BracketBandTitle(title: 'Platzierungsspiele'),
-        _BracketTreeLayout(totalRounds: rounds.length, columnWidth: 260, cardHeight: 224,
-          firstRoundGap: 12, useBalancedColumnLayout: true, roundMatches: rounds,
-          sourceMatches: {for (final e in edges.entries) e.key: (first: e.value.home.match, second: e.value.away.match)},
-          roundTitles: [for (var i = 0; i < rounds.length; i++) 'Platzierung · ${knockoutRoundName(i, rounds.length)}'],
-          roundCards: [for (var i = 0; i < rounds.length; i++) [
-            for (var j = 0; j < rounds[i].length; j++) _KnockoutBracketMatchCard(
-              match: rounds[i][j], matchNumber: numbers[rounds[i][j]]!,
-              homeSourceLabel: sourceName(edges[rounds[i][j]]!.home),
-              awaySourceLabel: sourceName(edges[rounds[i][j]]!.away),
-              roundIndex: i, matchIndex: j, totalRounds: rounds.length, qualifyingRank: 0,
-              qualificationLabel: rounds[i][j].label,
-              onEditResult: onEditResult, canEditResult: canEditResults,
-              isEditMode: false,
-            ),
-          ]],
-        ),
-      ]);
+      String sourceName(PlacementSource source) =>
+          '${source.loser ? 'Verlierer' : 'Gewinner'} Spiel ${numbers[source.match] ?? '?'}';
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _KnockoutBracketView(
+            stage: stage,
+            qualifyingRank: qualifyingRank,
+            onEditResult: onEditResult,
+            canEditResults: canEditResults,
+            isEditMode: isEditMode,
+            onSwapSlot: onSwapSlot,
+          ),
+          const SizedBox(height: 24),
+          const _BracketBandTitle(title: 'Platzierungsspiele'),
+          _BracketTreeLayout(
+            totalRounds: rounds.length,
+            columnWidth: 260,
+            cardHeight: 224,
+            firstRoundGap: 12,
+            useBalancedColumnLayout: true,
+            roundMatches: rounds,
+            sourceMatches: {
+              for (final e in edges.entries)
+                e.key: (first: e.value.home.match, second: e.value.away.match),
+            },
+            roundTitles: [
+              for (var i = 0; i < rounds.length; i++)
+                'Platzierung · ${knockoutRoundName(i, rounds.length)}',
+            ],
+            roundCards: [
+              for (var i = 0; i < rounds.length; i++)
+                [
+                  for (var j = 0; j < rounds[i].length; j++)
+                    _KnockoutBracketMatchCard(
+                      match: rounds[i][j],
+                      matchNumber: numbers[rounds[i][j]]!,
+                      homeSourceLabel: sourceName(edges[rounds[i][j]]!.home),
+                      awaySourceLabel: sourceName(edges[rounds[i][j]]!.away),
+                      roundIndex: i,
+                      matchIndex: j,
+                      totalRounds: rounds.length,
+                      qualifyingRank: 0,
+                      qualificationLabel: rounds[i][j].label,
+                      onEditResult: onEditResult,
+                      canEditResult: canEditResults,
+                      isEditMode: false,
+                    ),
+                ],
+            ],
+          ),
+        ],
+      );
     }
     if (stage.eliminationLossLimit == 2) {
       final matchNumbers = _stageMatchNumbers(stage.rounds);
@@ -127,9 +157,15 @@ class _KnockoutBracketView extends StatelessWidget {
       roundTitles: [
         for (var index = 0; index < displayRounds.length; index++)
           stage.eliminationLossLimit == 2
-              ? displayRounds[index].map((m) => knockoutMatchName(m, stage.matches)).toSet().join(' / ')
+              ? displayRounds[index]
+                    .map((m) => knockoutMatchName(m, stage.matches))
+                    .toSet()
+                    .join(' / ')
               : stage.eliminationLossLimit > 1
-              ? displayRounds[index].map((m) => knockoutMatchName(m, stage.matches)).toSet().join(' / ')
+              ? displayRounds[index]
+                    .map((m) => knockoutMatchName(m, stage.matches))
+                    .toSet()
+                    .join(' / ')
               : _singleKnockoutColumnTitle(
                   displayRounds[index],
                   index,
@@ -696,8 +732,8 @@ Map<GroupMatch, ({String? first, String? second})> _doubleSourceLabels(
           : _winnerSourceLabel(winnersFinal.first, matchNumbers),
       second: losersFinal.isEmpty
           ? (winnersRoundCount == 1 && winnersFinal.isNotEmpty
-              ? _loserSourceLabel(winnersFinal.first, matchNumbers)
-              : null)
+                ? _loserSourceLabel(winnersFinal.first, matchNumbers)
+                : null)
           : _winnerSourceLabel(losersFinal.first, matchNumbers),
     );
   }
@@ -819,7 +855,9 @@ Map<GroupMatch, ({GroupMatch? first, GroupMatch? second})> _doubleSourceMatches(
     sources[grandFinal.first] = (
       first: winnersFinal.isEmpty ? null : winnersFinal.first,
       second: losersFinal.isEmpty
-          ? (winnersRoundCount == 1 && winnersFinal.isNotEmpty ? winnersFinal.first : null)
+          ? (winnersRoundCount == 1 && winnersFinal.isNotEmpty
+                ? winnersFinal.first
+                : null)
           : losersFinal.first,
     );
   }
@@ -1103,7 +1141,11 @@ class _TripleEliminationBracketView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var lossCount = 0; lossCount < stage.eliminationLossLimit; lossCount++) ...[
+        for (
+          var lossCount = 0;
+          lossCount < stage.eliminationLossLimit;
+          lossCount++
+        ) ...[
           _BracketBandTitle(title: _lossLevelBracketLabel(lossCount)),
           const SizedBox(height: 8),
           _BracketTreeLayout(
@@ -1125,7 +1167,10 @@ class _TripleEliminationBracketView extends StatelessWidget {
                         roundIndex,
                         _lossLevelRounds(lossCount).length,
                       )
-                    : _bracketRoundTitle(roundIndex, _lossLevelRounds(lossCount).length),
+                    : _bracketRoundTitle(
+                        roundIndex,
+                        _lossLevelRounds(lossCount).length,
+                      ),
             ],
             roundCards: [
               for (
@@ -1152,9 +1197,7 @@ class _TripleEliminationBracketView extends StatelessWidget {
           useBalancedColumnLayout: true,
           roundMatches: [finalMatches],
           sourceMatches: sourceMatches,
-          roundTitles: [
-            for (var i = 0; i < finalMatches.length; i++) 'Finale',
-          ],
+          roundTitles: [for (var i = 0; i < finalMatches.length; i++) 'Finale'],
           roundCards: [_matchCards(finalMatches, 0, 1)],
         ),
       ],
@@ -1219,7 +1262,8 @@ class _BracketBandTitle extends StatelessWidget {
   }
 }
 
-String _bracketRoundTitle(int roundIndex, int totalRounds) => knockoutRoundName(roundIndex, totalRounds);
+String _bracketRoundTitle(int roundIndex, int totalRounds) =>
+    knockoutRoundName(roundIndex, totalRounds);
 
 class _BracketTreeLayout extends StatelessWidget {
   const _BracketTreeLayout({
@@ -1410,10 +1454,15 @@ class _BracketTreeLayout extends StatelessWidget {
     final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
     if (!scaleApplied && scale > 1) {
       return _BracketTreeLayout(
-        totalRounds: totalRounds, roundTitles: roundTitles, roundCards: roundCards,
-        columnWidth: columnWidth * scale, cardHeight: cardHeight * scale,
-        firstRoundGap: firstRoundGap * scale, roundMatches: roundMatches,
-        sourceMatches: sourceMatches, useBalancedColumnLayout: useBalancedColumnLayout,
+        totalRounds: totalRounds,
+        roundTitles: roundTitles,
+        roundCards: roundCards,
+        columnWidth: columnWidth * scale,
+        cardHeight: cardHeight * scale,
+        firstRoundGap: firstRoundGap * scale,
+        roundMatches: roundMatches,
+        sourceMatches: sourceMatches,
+        useBalancedColumnLayout: useBalancedColumnLayout,
         scaleApplied: true,
       );
     }
@@ -1905,79 +1954,80 @@ class _KnockoutBracketMatchCard extends StatelessWidget {
       allowsBye: match.allowsBye,
     );
 
-    return MatchStatisticsTapTarget(match: match, child: Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.account_tree_outlined,
-                size: 16,
-                color: colorScheme.primary,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  _matchTitle(),
-                  style: Theme.of(context).textTheme.labelMedium,
+    return MatchStatisticsTapTarget(
+      match: match,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          border: Border.all(color: colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.account_tree_outlined,
+                  size: 16,
+                  color: colorScheme.primary,
                 ),
-              ),
-              IconButton.filledTonal(
-                constraints: const BoxConstraints.tightFor(
-                  width: 36,
-                  height: 36,
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _matchTitle(),
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
                 ),
-                padding: EdgeInsets.zero,
-                onPressed: canEditResult && match.hasPlayers
-                    ? () => onEditResult(match)
-                    : null,
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                tooltip: 'Ergebnis',
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _BracketPlayerSlot(
-            player: match.homePlayer,
-            average: MatchScorerSummary.fromMatch(match)?.players[0].average,
-            score: match.homePlayer == null ? null : match.homeScore,
-            isWinner:
-                match.hasResult &&
-                _isRealBracketPlayer(match.homePlayer) &&
-                winner == match.homePlayer,
-            label: homeLabel,
-            slotIndex: matchIndex * 2,
-            isEditable: isEditMode && roundIndex == 0,
-            onSwapSlot: onSwapSlot,
-          ),
-          const SizedBox(height: 6),
-          _BracketPlayerSlot(
-            player: match.awayPlayer,
-            average: MatchScorerSummary.fromMatch(match)?.players[1].average,
-            score: match.awayPlayer == null ? null : match.awayScore,
-            isWinner:
-                match.hasResult &&
-                _isRealBracketPlayer(match.awayPlayer) &&
-                winner == match.awayPlayer,
-            label: awayLabel,
-            slotIndex: matchIndex * 2 + 1,
-            isEditable: isEditMode && roundIndex == 0,
-            onSwapSlot: onSwapSlot,
-          ),
-          if (resolvedQualificationLabel != null) ...[
+                IconButton.filledTonal(
+                  constraints: const BoxConstraints.tightFor(
+                    width: 36,
+                    height: 36,
+                  ),
+                  padding: EdgeInsets.zero,
+                  onPressed: canEditResult && match.hasPlayers
+                      ? () => onEditResult(match)
+                      : null,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  tooltip: 'Ergebnis',
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
-            _QualificationMarker(label: resolvedQualificationLabel),
+            _BracketPlayerSlot(
+              player: match.homePlayer,
+              score: match.homePlayer == null ? null : match.homeScore,
+              isWinner:
+                  match.hasResult &&
+                  _isRealBracketPlayer(match.homePlayer) &&
+                  winner == match.homePlayer,
+              label: homeLabel,
+              slotIndex: matchIndex * 2,
+              isEditable: isEditMode && roundIndex == 0,
+              onSwapSlot: onSwapSlot,
+            ),
+            const SizedBox(height: 6),
+            _BracketPlayerSlot(
+              player: match.awayPlayer,
+              score: match.awayPlayer == null ? null : match.awayScore,
+              isWinner:
+                  match.hasResult &&
+                  _isRealBracketPlayer(match.awayPlayer) &&
+                  winner == match.awayPlayer,
+              label: awayLabel,
+              slotIndex: matchIndex * 2 + 1,
+              isEditable: isEditMode && roundIndex == 0,
+              onSwapSlot: onSwapSlot,
+            ),
+            if (resolvedQualificationLabel != null) ...[
+              const SizedBox(height: 8),
+              _QualificationMarker(label: resolvedQualificationLabel),
+            ],
           ],
-        ],
+        ),
       ),
-    ));
+    );
   }
 
   String? _bracketQualificationLabel() {
@@ -2057,7 +2107,6 @@ class _BracketPlayerSlot extends StatelessWidget {
     required this.player,
     required this.score,
     required this.isWinner,
-    this.average,
     this.label,
     this.slotIndex,
     this.isEditable = false,
@@ -2067,7 +2116,6 @@ class _BracketPlayerSlot extends StatelessWidget {
   final TournamentPlayer? player;
   final int? score;
   final bool isWinner;
-  final double? average;
   final String? label;
   final int? slotIndex;
   final bool isEditable;
@@ -2116,12 +2164,6 @@ class _BracketPlayerSlot extends StatelessWidget {
               color: isOpen ? colorScheme.onSurfaceVariant : null,
               fontWeight: FontWeight.bold,
             ),
-          ),
-          if (average != null) Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: Tooltip(message: '3-Dart-Average',
-              child: Text('Avg ${average!.toStringAsFixed(2)}',
-                style: Theme.of(context).textTheme.labelSmall)),
           ),
         ],
       ),

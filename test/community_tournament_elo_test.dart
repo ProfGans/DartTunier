@@ -114,15 +114,16 @@ void main() {
   test('new players preview wins, losses, draws using ranking formula', () {
     final result = calculate(eloTournament());
     expect(result.map((p) => p.rating), [1000, 1000]);
-    expect(result.map((p) => p.win), [16, 16]);
-    expect(result.map((p) => p.loss), [-16, -16]);
+    expect(result.map((p) => p.win), [13, 13]);
+    expect(result.map((p) => p.loss), [-13, -13]);
     expect(result.map((p) => p.draw), [0, 0]);
   });
   test('live results replace saved copy and corrections recompute', () {
     final t = eloTournament(completed: true);
     final result = calculate(t, saved: [eloTournament(completed: true)]);
-    expect(result.map((p) => p.rating), [1016, 984]);
-    expect(result.first.win, communityEloDelta(1016, 984, 1));
+    expect(result.map((p) => p.rating), [1013, 987]);
+    expect(result.first.matchesPlayed, 1);
+    expect(result.first.win, communityEloDelta(1013, 987, 1, kFactor: 25));
     expect(result.first.win, -result.last.loss!);
     expect(result.first.draw, -result.last.draw!);
     expect(calculate(eloTournament(), saved: [t]).first.rating, 1000);
@@ -153,7 +154,7 @@ void main() {
           eloTournament(completed: true),
           members: [alias, eloMembers.last],
         ).first.rating,
-        1016,
+        1013,
       );
       final unranked = CreatedTournament.fromJson(
         t.toJson()..['countsForRanking'] = false,

@@ -121,6 +121,84 @@ class ChallongeArchivePreview extends StatelessWidget {
 }
 
 void main() {
+  test('maps all configured masked Challonge names to real community players', () {
+    expect(ChallongeImportService.challongeMemberNames, hasLength(24));
+    for (final entry in ChallongeImportService.challongeMemberNames.entries) {
+      final target = member(entry.value, 'profile:${entry.key}');
+      expect(
+        ChallongeImportService.realMemberName(
+          entry.key,
+          nameMappings: ChallongeImportService.challongeMemberNames,
+        ),
+        entry.value,
+      );
+      expect(
+        ChallongeImportService.matching(
+          entry.key,
+          [target],
+          nameMappings: ChallongeImportService.challongeMemberNames,
+        ).single.playerProfileId,
+        target.playerProfileId,
+        reason: '${entry.key} should resolve to ${entry.value}',
+      );
+    }
+    final owner = CommunityMember(
+      userId: 'marv-account',
+      playerProfileId: 'marv-profile',
+      displayName: 'Marv',
+      role: 'owner',
+      joinedAt: DateTime(2020),
+    );
+    expect(
+      ChallongeImportService.matching(
+        'Marvin_S',
+        [owner],
+        nameMappings: ChallongeImportService.challongeMemberNames,
+      ).single.userId,
+      'marv-account',
+    );
+  });
+
+  test('imports Challonge results under the mapped real player profiles', () async {
+    final data = challongeFixture();
+    final participants = data['participants'] as List;
+    final masked = ['Markus_D', 'Marvin_S', 'Steve_T'];
+    for (var i = 0; i < participants.length; i++) {
+      (participants[i]['participant'] as Map)['name'] = masked[i];
+    }
+    final communityMembers = [
+      member('Markus Dämgen', 'markus-profile'),
+      member('Marvin Stelkyte', 'marvin-profile'),
+      member('Steven Tittel', 'steven-profile'),
+    ];
+    final saved = <CreatedTournament>[];
+    final created = <String>[];
+    final service = ChallongeImportService(
+      memberNameMappings: ChallongeImportService.challongeMemberNames,
+      loadMembers: () async => communityMembers,
+      createMember: (name) async {
+        created.add(name);
+        return member(name, 'unexpected:$name');
+      },
+      loadTournaments: () async => [],
+      saveTournament: (tournament) async => saved.add(tournament),
+    );
+
+    await service.import(
+      'community',
+      [ChallongeTournament(data)],
+      countsForRanking: true,
+      rankingIds: const ['default'],
+    );
+
+    expect(created, isEmpty);
+    expect(
+      saved.single.players.map((player) => player.profileId),
+      ['markus-profile', 'marvin-profile', 'steven-profile'],
+    );
+    expect(saved.single.countsForRanking, isTrue);
+  });
+
   test(
     'historical archive persists through versioned storage migration',
     () async {

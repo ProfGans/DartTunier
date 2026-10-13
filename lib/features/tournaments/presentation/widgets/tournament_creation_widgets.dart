@@ -154,18 +154,39 @@ class _KnockoutPreview extends StatelessWidget {
             onSwapSlot: onSwapSlot,
           )
         else if (placementPlaces.isNotEmpty)
-          Builder(builder: (context) {
-            final players = [for (var i = 0; i < resolvedParticipantCount; i++)
-              TournamentPlayer(name: i < participantLabels.length ? participantLabels[i] : 'Teilnehmer ${i + 1}', isGenerated: true)];
-            final rounds = _buildKnockoutRoundsForPlayers(players, slotOrder: slots);
-            final placements = PlacementEngine.build(rounds, placementPlaces.where((p) => p < players.length));
-            return _KnockoutBracketView(
-              stage: KnockoutTournamentRunStage(name: 'Vorschau', rounds: rounds),
-              qualifyingRank: 0, placementMatches: placements,
-              onEditResult: (_) {}, canEditResults: false,
-              isEditMode: true, onSwapSlot: onSwapSlot,
-            );
-          })
+          Builder(
+            builder: (context) {
+              final players = [
+                for (var i = 0; i < resolvedParticipantCount; i++)
+                  TournamentPlayer(
+                    name: i < participantLabels.length
+                        ? participantLabels[i]
+                        : 'Teilnehmer ${i + 1}',
+                    isGenerated: true,
+                  ),
+              ];
+              final rounds = _buildKnockoutRoundsForPlayers(
+                players,
+                slotOrder: slots,
+              );
+              final placements = PlacementEngine.build(
+                rounds,
+                placementPlaces.where((p) => p < players.length),
+              );
+              return _KnockoutBracketView(
+                stage: KnockoutTournamentRunStage(
+                  name: 'Vorschau',
+                  rounds: rounds,
+                ),
+                qualifyingRank: 0,
+                placementMatches: placements,
+                onEditResult: (_) {},
+                canEditResults: false,
+                isEditMode: true,
+                onSwapSlot: onSwapSlot,
+              );
+            },
+          )
         else
           _CompactKnockoutPreviewTree(
             bracketSize: resolvedBracketSize,
@@ -233,9 +254,7 @@ class _TripleEliminationPreview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var lossCount = 0; lossCount < lossLimit; lossCount++) ...[
-          _BracketBandTitle(
-            title: _lossLevelBracketLabel(lossCount),
-          ),
+          _BracketBandTitle(title: _lossLevelBracketLabel(lossCount)),
           const SizedBox(height: 8),
           _BracketTreeLayout(
             totalRounds: lossRounds[lossCount].length,
@@ -250,12 +269,17 @@ class _TripleEliminationPreview extends StatelessWidget {
                         roundNumber - 1,
                         lossRounds[lossCount].length,
                       )
-                    : _bracketRoundTitle(roundNumber - 1, lossRounds[lossCount].length),
+                    : _bracketRoundTitle(
+                        roundNumber - 1,
+                        lossRounds[lossCount].length,
+                      ),
             ],
             roundCards: [
-              for (var roundIndex = 0;
-                  roundIndex < lossRounds[lossCount].length;
-                  roundIndex++)
+              for (
+                var roundIndex = 0;
+                roundIndex < lossRounds[lossCount].length;
+                roundIndex++
+              )
                 _previewCardsFor(
                   lossRounds[lossCount][roundIndex],
                   rounds,
@@ -394,9 +418,11 @@ class _DoubleEliminationPreview extends StatelessWidget {
               _bracketRoundTitle(index, winnersRounds.length),
           ],
           roundCards: [
-            for (var roundIndex = 0;
-                roundIndex < winnersRounds.length;
-                roundIndex++)
+            for (
+              var roundIndex = 0;
+              roundIndex < winnersRounds.length;
+              roundIndex++
+            )
               _previewCardsFor(
                 winnersRounds[roundIndex],
                 rounds,
@@ -423,9 +449,11 @@ class _DoubleEliminationPreview extends StatelessWidget {
               _bracketRoundTitle(index, losersRounds.length),
           ],
           roundCards: [
-            for (var roundIndex = 0;
-                roundIndex < losersRounds.length;
-                roundIndex++)
+            for (
+              var roundIndex = 0;
+              roundIndex < losersRounds.length;
+              roundIndex++
+            )
               _previewCardsFor(
                 losersRounds[roundIndex],
                 rounds,
@@ -587,6 +615,7 @@ class _CompactKnockoutPreviewTree extends StatelessWidget {
     );
   }
 }
+
 class _BracketPreviewPlaceholderMatch extends StatelessWidget {
   const _BracketPreviewPlaceholderMatch({
     required this.matchNumber,
@@ -837,13 +866,13 @@ class _GroupQualificationSetup extends StatelessWidget {
     );
     if (fixedTotal > plan.totalQualifiers) {
       return [
-        'Es sind ${fixedTotal - plan.totalQualifiers} feste Plaetze zu viel markiert.',
+        'Es sind ${fixedTotal - plan.totalQualifiers} feste Plätze zu viel markiert.',
       ];
     }
 
     if (plan.extraGroups.length < plan.extraCount) {
       return [
-        'Es fehlen ${plan.extraCount - plan.extraGroups.length} Gruppen fuer den Beste-${plan.extraCount}-Vergleich.',
+        'Es fehlen ${plan.extraCount - plan.extraGroups.length} Gruppen für den Beste-${plan.extraCount}-Vergleich.',
       ];
     }
 
@@ -853,12 +882,12 @@ class _GroupQualificationSetup extends StatelessWidget {
 
     if (selectedCount < plan.totalQualifiers) {
       return [
-        'Es kommen noch ${plan.totalQualifiers - selectedCount} Spieler zu wenig weiter. Erhoehe "Beste-N Weiter" oder markiere feste Plaetze.',
+        'Es kommen noch ${plan.totalQualifiers - selectedCount} Spieler zu wenig weiter. Erhöhe "Beste-N Weiter" oder markiere feste Plätze.',
       ];
     }
 
     return [
-      'Es kommen ${selectedCount - plan.totalQualifiers} Spieler zu viel weiter. Reduziere "Beste-N Weiter" oder feste Plaetze.',
+      'Es kommen ${selectedCount - plan.totalQualifiers} Spieler zu viel weiter. Reduziere "Beste-N Weiter" oder feste Plätze.',
     ];
   }
 
@@ -1048,10 +1077,7 @@ class _GroupEliminationPreviewSection extends StatelessWidget {
 }
 
 class _GroupDrawSetup extends StatelessWidget {
-  const _GroupDrawSetup({
-    required this.enabled,
-    required this.onChanged,
-  });
+  const _GroupDrawSetup({required this.enabled, required this.onChanged});
 
   final bool enabled;
   final ValueChanged<bool> onChanged;
@@ -1162,26 +1188,26 @@ class _GroupEliminationBracketPreview extends StatelessWidget {
     return ClipRect(
       child: switch (lossLimit) {
         3 => _TripleEliminationPreview(
-            bracketSize: bracketSize,
-            slotOrder: slotOrder,
-            participantLabels: participantLabels,
-            qualifyingRank: qualifyingRank,
-            onSwapSlot: (_, _) {},
-          ),
+          bracketSize: bracketSize,
+          slotOrder: slotOrder,
+          participantLabels: participantLabels,
+          qualifyingRank: qualifyingRank,
+          onSwapSlot: (_, _) {},
+        ),
         2 => _DoubleEliminationPreview(
-            bracketSize: bracketSize,
-            slotOrder: slotOrder,
-            participantLabels: participantLabels,
-            qualifyingRank: qualifyingRank,
-            onSwapSlot: (_, _) {},
-          ),
+          bracketSize: bracketSize,
+          slotOrder: slotOrder,
+          participantLabels: participantLabels,
+          qualifyingRank: qualifyingRank,
+          onSwapSlot: (_, _) {},
+        ),
         _ => _CompactKnockoutPreviewTree(
-            bracketSize: bracketSize,
-            slotOrder: slotOrder,
-            participantLabels: participantLabels,
-            onSwapSlot: (_, _) {},
-            qualifyingRank: qualifyingRank,
-          ),
+          bracketSize: bracketSize,
+          slotOrder: slotOrder,
+          participantLabels: participantLabels,
+          onSwapSlot: (_, _) {},
+          qualifyingRank: qualifyingRank,
+        ),
       },
     );
   }
@@ -1232,7 +1258,7 @@ class _InheritedKnockoutSetup extends StatelessWidget {
         Text(
           previousStage == null
               ? 'Start mit allen Spielern'
-              : 'Uebernahme aus vorheriger Etappe',
+              : 'Übernahme aus vorheriger Etappe',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
@@ -1308,9 +1334,15 @@ class _StageList extends StatelessWidget {
   int _stageMatchCount(TournamentStage stage) {
     if (_isKnockoutStageType(stage.type)) {
       return _eliminationMatchEstimate(
-        stage.knockoutParticipantCount ?? 0,
-        stage.lossLimit,
-      ) + (stage.lossLimit == 1 ? _optionalPlacementMatchCount(stage.knockoutParticipantCount ?? 0, stage.placementPlaces) : 0);
+            stage.knockoutParticipantCount ?? 0,
+            stage.lossLimit,
+          ) +
+          (stage.lossLimit == 1
+              ? _optionalPlacementMatchCount(
+                  stage.knockoutParticipantCount ?? 0,
+                  stage.placementPlaces,
+                )
+              : 0);
     }
 
     var totalMatches = 0;
@@ -1320,8 +1352,21 @@ class _StageList extends StatelessWidget {
       totalMatches += playType == 'swiss'
           ? (stage.groupSizes[index] ~/ 2) * repeatCount
           : playType == 'round_robin'
-          ? _roundRobinMatchCount(stage.groupSizes[index], repeatCount, maxGamesPerPlayer: stage.maxGamesForGroup(index))
-          : playType == 'mini_knockout' && stage.placementPlaces.isNotEmpty ? stage.groupSizes[index] - 1 + _optionalPlacementMatchCount(stage.groupSizes[index], {...stage.placementPlaces, if (_requiredRankForStoredStageGroup(stage, index).isOdd && _requiredRankForStoredStageGroup(stage, index) >= 3) _requiredRankForStoredStageGroup(stage, index)}) : _groupEliminationMatchEstimate(
+          ? _roundRobinMatchCount(
+              stage.groupSizes[index],
+              repeatCount,
+              maxGamesPerPlayer: stage.maxGamesForGroup(index),
+            )
+          : playType == 'mini_knockout' && stage.placementPlaces.isNotEmpty
+          ? stage.groupSizes[index] -
+                1 +
+                _optionalPlacementMatchCount(stage.groupSizes[index], {
+                  ...stage.placementPlaces,
+                  if (_requiredRankForStoredStageGroup(stage, index).isOdd &&
+                      _requiredRankForStoredStageGroup(stage, index) >= 3)
+                    _requiredRankForStoredStageGroup(stage, index),
+                })
+          : _groupEliminationMatchEstimate(
               stage.groupSizes[index],
               _lossLimitForGroupPlayType(playType),
               _requiredRankForStoredStageGroup(stage, index),
@@ -1369,7 +1414,11 @@ class _StageList extends StatelessWidget {
             '${stage.knockoutParticipantCount} Teilnehmer, '
             '${stage.knockoutBracketSize}er Feld, '
             '${stage.lossLimit == 3 ? '${stage.knockoutByeCount} automatisch gesetzt' : '${stage.knockoutByeCount} Freilose'}'
-            '${stage.lossLimit > 1 ? stage.finalEndsTournament ? ' - Ein großes Finale entscheidet' : ' - Kratzer-Modus: ${stage.lossLimit} Leben' : ''}'
+            '${stage.lossLimit > 1
+                ? stage.finalEndsTournament
+                      ? ' - Ein großes Finale entscheidet'
+                      : ' - Kratzer-Modus: ${stage.lossLimit} Leben'
+                : ''}'
             '${stage.placementPlaces.isEmpty ? '' : ' - Platzierungsspiele: ${stage.placementPlaces.join(', ')}'}'
             '$seedingText'
             '$drawText'
@@ -1389,9 +1438,10 @@ class _StageList extends StatelessWidget {
     final qualifierText = stage.qualificationSummary == null
         ? ''
         : ' - ${stage.qualificationSummary}';
-    final playTypeText = ' - Spieltypen: ${stage.groupSizes.asMap().entries.map((entry) {
-      return '${groupLabel(entry.key + 1)} ${_groupPlayTypeLabel(_groupPlayTypeForStage(stage, entry.key))}';
-    }).join(', ')}';
+    final playTypeText =
+        ' - Spieltypen: ${stage.groupSizes.asMap().entries.map((entry) {
+          return '${groupLabel(entry.key + 1)} ${_groupPlayTypeLabel(_groupPlayTypeForStage(stage, entry.key))}';
+        }).join(', ')}';
     final repeatText = _repeatDetails(stage);
     final drawText = stage.groupDrawOnStart ? ' - Auslosungsrad aktiv' : '';
     final tieBreakerText =
@@ -1431,10 +1481,13 @@ class _StageList extends StatelessWidget {
               dense: true,
               leading: CircleAvatar(child: Text('${index + 1}')),
               title: Text(stages[index].name),
-              subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(_stageDetails(stages[index])),
-                Text(stages[index].gameFormat.label),
-              ]),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_stageDetails(stages[index])),
+                  Text(stages[index].gameFormat.label),
+                ],
+              ),
               trailing: Wrap(
                 spacing: 4,
                 children: [

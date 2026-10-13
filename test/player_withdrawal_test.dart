@@ -38,7 +38,7 @@ void main() {
     const PlayerWithdrawalService().reconcile(t);
     final result = const CommunityEloCalculator().calculate(members:eloMembers, tournaments:[t], currentYearOnly:false);
     expect(result.entries.map((e)=>e.player.playerProfileId), ['a']);
-    expect(result.entries.single.rating, 1016);
+    expect(result.entries.single.rating, 1013);
   });
   test('ignore-all preserves actual opponent wins but no fake open-game Elo', () {
     final t = eloTournament(completed:true);
@@ -46,7 +46,7 @@ void main() {
     const PlayerWithdrawalService().reconcile(t);
     final result = const CommunityEloCalculator().calculate(members:eloMembers,tournaments:[t],currentYearOnly:false);
     expect(result.entries.single.matches, 1);
-    expect(result.entries.single.rating, 1016);
+    expect(result.entries.single.rating, 1013);
   });
   for (final size in [const Size(360,800), const Size(800,600), const Size(1440,900)]) {
     testWidgets('withdrawal dialog at $size with large text', (tester) async {

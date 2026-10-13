@@ -13,11 +13,13 @@ class TournamentEloPlayer {
     this.win,
     this.loss,
     this.draw,
+    this.matchesPlayed = 0,
   });
   final TournamentPlayer player;
   final int? rating;
   final String? opponent;
   final int? win, loss, draw;
+  final int matchesPlayed;
 }
 
 /// Uses the ranking's identities and replaces its saved copy with live results.
@@ -68,6 +70,10 @@ class CommunityTournamentElo {
       for (final entry in snapshot.entries)
         entry.player.playerProfileId ?? entry.player.displayName: entry.rating,
     };
+    final played = {
+      for (final entry in snapshot.entries)
+        entry.player.playerProfileId ?? entry.player.displayName: entry.matches,
+    };
     String? identity(TournamentPlayer p) =>
         p.isTeam ? null : identities[p.profileId ?? p.name];
     int? rating(TournamentPlayer p) {
@@ -98,27 +104,31 @@ class CommunityTournamentElo {
           final entry = next[identity(player)];
           if (value == null ||
               entry == null ||
-              (validityMonths == null && currentYearOnly &&
+              (validityMonths == null &&
+                  currentYearOnly &&
                   tournament.createdAt.toLocal().year !=
                       (now ?? DateTime.now()).toLocal().year)) {
             return TournamentEloPlayer(player: player, rating: value);
           }
           final home = entry.match.homePlayer!;
           final away = entry.match.awayPlayer!;
-          final isHome = identity(home) == identity(player);
-          final opponent = isHome ? away : home;
+          final opponent = identity(home) == identity(player) ? away : home;
           final other = rating(opponent);
+          final matches = played[identity(player)] ?? 0;
           if (other == null || identity(opponent) == identity(player)) {
             return TournamentEloPlayer(
               player: player,
               rating: value,
               opponent: opponent.name,
+              matchesPlayed: matches,
             );
           }
-          // Derive away deltas from the home calculation, including rounding ties.
-          int delta(double score) => isHome
-              ? communityEloDelta(value, other, score)
-              : -communityEloDelta(other, value, 1 - score);
+          int delta(double score) => communityEloDelta(
+            value,
+            other,
+            score,
+            kFactor: communityKFactorForMatches(matches),
+          );
           final draws =
               entry.stageIndex < tournament.stages.length &&
               tournament.stages[entry.stageIndex].gameFormat.allowsDraws &&
@@ -140,6 +150,7 @@ class CommunityTournamentElo {
             win: delta(1),
             loss: delta(0),
             draw: draws ? delta(.5) : null,
+            matchesPlayed: matches,
           );
         })(),
     ];

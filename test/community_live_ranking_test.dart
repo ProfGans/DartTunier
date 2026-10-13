@@ -192,8 +192,8 @@ void main() {
             find.byType(CommunityLiveRankingView),
           )
           .entries;
-      expect(rows.first.entry.rating, 1016);
-      expect(rows.first.eloChange, 16);
+      expect(rows.first.entry.rating, 1013);
+      expect(rows.first.eloChange, 13);
       expect(loads, 1);
       await tester.binding.setSurfaceSize(const Size(360, 800));
       await tester.pumpAndSettle();

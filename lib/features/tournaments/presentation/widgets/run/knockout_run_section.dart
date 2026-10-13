@@ -59,8 +59,8 @@ class KnockoutRunSection extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           canEditResults
-              ? 'Positionen koennen nur geaendert werden, solange in dieser K.-o.-Etappe noch kein Ergebnis eingetragen ist.'
-              : 'Positionen koennen nur in der aktuellen Etappe bearbeitet werden.',
+              ? 'Positionen können nur geändert werden, solange in dieser K.-o.-Etappe noch kein Ergebnis eingetragen ist.'
+              : 'Positionen können nur in der aktuellen Etappe bearbeitet werden.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ] else if (isEditMode) ...[

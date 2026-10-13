@@ -23,22 +23,19 @@ import 'features/community_calendar/domain/community_calendar.dart';
 import 'features/tournaments/application/tournament_result_receiver.dart';
 import 'shared/widgets/adaptive_content.dart';
 import 'features/league/presentation/league_match_page.dart';
-import 'features/notifications/presentation/push_sender_menu.dart';
-import 'features/notifications/presentation/push_device_menu.dart';
-import 'features/scorer/presentation/scorer_page.dart';
-import 'features/autoscoring/presentation/autoscore_demo_page.dart';
 import 'features/accounts/application/current_account.dart';
 import 'features/tournaments/application/tournament_player_choices.dart';
 import 'features/tournaments/domain/engines/placement_engine.dart';
 import 'features/tournaments/domain/knockout_round_names.dart';
 import 'features/tournaments/domain/group_size_rules.dart';
+import 'features/tournaments/domain/engines/community_group_seeding.dart';
 import 'features/tournaments/modes/triple_ko/triple_ko_engine.dart';
 import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'features/dev_tools/presentation/dev_tools_page.dart';
+import 'package:flutter/services.dart';
 import 'features/settings/presentation/settings_page.dart';
 import 'features/settings/data/planning_settings_storage.dart';
 
@@ -56,21 +53,22 @@ import 'features/devices/application/board_device_dispatcher.dart';
 import 'features/devices/application/board_match_starter.dart';
 import 'features/communities/data/supabase_community_repository.dart';
 import 'features/communities/domain/community_member_identity.dart';
+import 'features/communities/domain/community.dart';
+import 'features/communities/domain/community_ranking_action.dart';
+import 'features/communities/domain/community_elo.dart';
+import 'features/communities/domain/community_ranking.dart';
 import 'features/tournaments/application/tournament_creation_controller.dart';
 import 'features/tournaments/application/tournament_run_controller.dart';
+import 'features/tournaments/application/tournament_export.dart';
 import 'features/tournaments/modes/swiss/swiss_engine.dart';
-import 'features/tournaments/application/tournament_bot_round_simulator.dart';
 import 'features/tournaments/presentation/widgets/creation/tournament_devices_section.dart';
 import 'features/tournaments/presentation/widgets/creation/configuration_duration_bar.dart';
 import 'features/tournaments/presentation/widgets/creation/creation_entry_choices.dart';
 import 'features/tournaments/presentation/widgets/run/tournament_timing_panel.dart';
-import 'features/statistics/presentation/tournament_highlights_page.dart';
 import 'features/statistics/presentation/live_tournament_statistics_section.dart';
-import 'features/statistics/domain/match_scorer_summary.dart';
 import 'features/statistics/presentation/tournament_match_statistics_page.dart';
 import 'features/tournaments/application/expanded_format_planner.dart';
 import 'features/tournaments/presentation/widgets/planning_suggestion_list.dart';
-import 'features/tournaments/presentation/widgets/creation/tournament_bot_dialog.dart';
 import 'features/tournaments/presentation/widgets/creation/team_participant_list.dart';
 import 'features/tournaments/domain/engines/group_position_editor.dart';
 import 'features/tournaments/presentation/widgets/run/group_positions_dialog.dart';
@@ -106,6 +104,3 @@ part 'features/tournaments/presentation/pages/tournament_run_page.dart';
 part 'features/tournaments/presentation/widgets/creation/random_draw_dialog.dart';
 part 'features/tournaments/presentation/widgets/tournament_creation_widgets.dart';
 part 'features/tournaments/presentation/widgets/run/brackets/knockout_bracket_view.dart';
-
-
-

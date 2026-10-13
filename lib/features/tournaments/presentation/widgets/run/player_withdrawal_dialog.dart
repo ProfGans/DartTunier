@@ -4,8 +4,13 @@ import '../../../domain/tournament_models.dart';
 import '../../../application/player_withdrawal_service.dart';
 
 class PlayerWithdrawalDialog extends StatefulWidget {
-  const PlayerWithdrawalDialog({super.key, required this.tournament});
+  const PlayerWithdrawalDialog({
+    super.key,
+    required this.tournament,
+    this.initialPlayer,
+  });
   final CreatedTournament tournament;
+  final TournamentPlayer? initialPlayer;
   @override
   State<PlayerWithdrawalDialog> createState() => _WithdrawalState();
 }
@@ -14,6 +19,12 @@ class _WithdrawalState extends State<PlayerWithdrawalDialog> {
   TournamentPlayer? player;
   WithdrawalResultMode mode = WithdrawalResultMode.loseOpen;
   bool ranking = false, opponents = true;
+  @override
+  void initState() {
+    super.initState();
+    player = widget.initialPlayer;
+  }
+
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Spieler aus Turnier entfernen'),
@@ -27,6 +38,7 @@ class _WithdrawalState extends State<PlayerWithdrawalDialog> {
           DropdownButtonFormField<TournamentPlayer>(
             itemHeight: null,
             isExpanded: true,
+            initialValue: player,
             decoration: const InputDecoration(labelText: 'Spieler / Team'),
             items: [
               for (final p in widget.tournament.players)

@@ -93,9 +93,7 @@ class _EditorState extends State<HighlightEditorPage> {
         maxWidth: 800,
         children: [
           if (widget.highlight?.automatic == true)
-            const Text(
-              'Die Korrektur gilt für die Highlight-Liste. Scorer- und Turnierergebnisse bleiben unverändert.',
-            ),
+            const Text('Die Änderung betrifft nur diese Highlight-Liste.'),
           DropdownButtonFormField<HighlightCategory>(
             initialValue: _category,
             isExpanded: true,

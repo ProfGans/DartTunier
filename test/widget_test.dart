@@ -39,12 +39,12 @@ void main() {
     expect(find.text('Cross seeded'), findsNothing);
 
     await tester.scrollUntilVisible(
-      find.byTooltip('Etappe hinzufuegen'),
+      find.byTooltip('Etappe hinzufügen'),
       -400,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Etappe hinzufuegen'));
+    await tester.tap(find.byTooltip('Etappe hinzufügen'));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
@@ -104,7 +104,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Ziehe Spieler in Runde 1 auf einen anderen Platz oder ein Freilos.'),
+      find.text(
+        'Ziehe Spieler in Runde 1 auf einen anderen Platz oder ein Freilos.',
+      ),
       findsOneWidget,
     );
   });
@@ -172,7 +174,9 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('double knockout run starts with round one title', (tester) async {
+  testWidgets('double knockout run starts with round one title', (
+    tester,
+  ) async {
     final players = List.generate(
       8,
       (index) => TournamentPlayer.generated(index + 1),
@@ -221,7 +225,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Eliminationsplan - Aus nach 2 Niederlagen'), findsOneWidget);
+    expect(
+      find.text('Eliminationsplan - Aus nach 2 Niederlagen'),
+      findsOneWidget,
+    );
     expect(find.text('Halbfinale'), findsWidgets);
     expect(find.text('Winners Bracket'), findsOneWidget);
     expect(find.text('Losers Bracket'), findsOneWidget);
@@ -452,7 +459,9 @@ void main() {
     expect(find.text('2'), findsWidgets);
   });
 
-  testWidgets('triple knockout run shows separate loss brackets', (tester) async {
+  testWidgets('triple knockout run shows separate loss brackets', (
+    tester,
+  ) async {
     final players = List.generate(
       4,
       (index) => TournamentPlayer.generated(index + 1),
@@ -487,12 +496,8 @@ void main() {
                 label: '0 Niederlagen Runde 1',
               ),
             ],
-            [
-              GroupMatch(round: 2, label: '1 Niederlage Runde 1'),
-            ],
-            [
-              GroupMatch(round: 3, label: '2 Niederlagen Runde 1'),
-            ],
+            [GroupMatch(round: 2, label: '1 Niederlage Runde 1')],
+            [GroupMatch(round: 3, label: '2 Niederlagen Runde 1')],
           ],
         ),
       ],
@@ -613,12 +618,17 @@ void main() {
         .expand((round) => round)
         .where((match) => match.label == '1 Niederlage Runde 1')
         .toList();
-    final droppedPlayers = firstLossRound.expand((match) => [match.homePlayer, match.awayPlayer]).whereType<TournamentPlayer>().toSet();
+    final droppedPlayers = firstLossRound
+        .expand((match) => [match.homePlayer, match.awayPlayer])
+        .whereType<TournamentPlayer>()
+        .toSet();
     expect(droppedPlayers, {players[9], players[8]});
     final realMatch = firstLossRound.singleWhere((match) => match.hasPlayers);
-    expect({realMatch.homePlayer, realMatch.awayPlayer}, {players[9], players[8]});
+    expect(
+      {realMatch.homePlayer, realMatch.awayPlayer},
+      {players[9], players[8]},
+    );
     expect(realMatch.hasResult, isFalse);
-
   });
 
   testWidgets('sets round robin repeats per group', (tester) async {
@@ -658,12 +668,12 @@ void main() {
     expect(find.text('9 Spiele in dieser Etappe'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.byTooltip('Etappe hinzufuegen'),
+      find.byTooltip('Etappe hinzufügen'),
       -400,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Etappe hinzufuegen'));
+    await tester.tap(find.byTooltip('Etappe hinzufügen'));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
@@ -692,10 +702,7 @@ void main() {
         TournamentGroup(
           name: groupLabel(groupIndex + 1),
           playType: 'round_robin',
-          players: [
-            players[groupIndex * 2],
-            players[groupIndex * 2 + 1],
-          ],
+          players: [players[groupIndex * 2], players[groupIndex * 2 + 1]],
           matches: [
             GroupMatch(
               homePlayer: players[groupIndex * 2],
@@ -787,12 +794,12 @@ void main() {
     );
 
     await tester.scrollUntilVisible(
-      find.byTooltip('Etappe hinzufuegen'),
+      find.byTooltip('Etappe hinzufügen'),
       -400,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Etappe hinzufuegen'));
+    await tester.tap(find.byTooltip('Etappe hinzufügen'));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
@@ -842,7 +849,10 @@ void main() {
     await tester.tap(find.text('Mini-KO in der Gruppe').last);
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const ValueKey('group-count-field')), '1');
+    await tester.enterText(
+      find.byKey(const ValueKey('group-count-field')),
+      '1',
+    );
     await tester.scrollUntilVisible(
       find.byKey(
         const ValueKey('group-qualifier-count-field'),
@@ -863,12 +873,12 @@ void main() {
     expect(tester.takeException(), isNull);
 
     await tester.scrollUntilVisible(
-      find.byTooltip('Etappe hinzufuegen'),
+      find.byTooltip('Etappe hinzufügen'),
       -400,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Etappe hinzufuegen'));
+    await tester.tap(find.byTooltip('Etappe hinzufügen'));
     await tester.pumpAndSettle();
 
     await tester.dragUntilVisible(
@@ -884,10 +894,7 @@ void main() {
     expect(find.text('Platzierung', skipOffstage: false), findsOneWidget);
     expect(find.text('Spiel um Platz 3', skipOffstage: false), findsOneWidget);
     expect(
-      find.text(
-        'Sieger weiter / Verlierer Platz 3',
-        skipOffstage: false,
-      ),
+      find.text('Sieger weiter / Verlierer Platz 3', skipOffstage: false),
       findsNWidgets(2),
     );
     expect(tester.takeException(), isNull);
@@ -929,7 +936,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('group-play-type-2-round_robin')));
+    await tester.tap(
+      find.byKey(const ValueKey('group-play-type-2-round_robin')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mini-KO').last);
     await tester.pumpAndSettle();
@@ -944,12 +953,12 @@ void main() {
     );
 
     await tester.scrollUntilVisible(
-      find.byTooltip('Etappe hinzufuegen'),
+      find.byTooltip('Etappe hinzufügen'),
       -400,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Etappe hinzufuegen'));
+    await tester.tap(find.byTooltip('Etappe hinzufügen'));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
@@ -995,12 +1004,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.byTooltip('Etappe hinzufuegen'),
+      find.byTooltip('Etappe hinzufügen'),
       -400,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Etappe hinzufuegen'));
+    await tester.tap(find.byTooltip('Etappe hinzufügen'));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
@@ -1071,12 +1080,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.byTooltip('Etappe hinzufuegen'),
+      find.byTooltip('Etappe hinzufügen'),
       -400,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Etappe hinzufuegen'));
+    await tester.tap(find.byTooltip('Etappe hinzufügen'));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
@@ -1130,12 +1139,23 @@ void main() {
     expect(find.text('Neues Turnier'), findsOneWidget);
     expect(find.text('Turniername'), findsOneWidget);
     expect(find.text('Turnierformat'), findsNothing);
-    await tester.scrollUntilVisible(find.byKey(const ValueKey('stage-type-field')), 400,
-      scrollable: find.byType(Scrollable).first);
-    expect(find.descendant(of: find.byKey(const ValueKey('stage-type-field')), matching: find.text('Gruppenphase')), findsOneWidget);
-    tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('stage-type-field')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('stage-type-field')),
+        matching: find.text('Gruppenphase'),
+      ),
+      findsOneWidget,
+    );
+    tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position
+        .jumpTo(0);
     await tester.pumpAndSettle();
-
 
     await tester.enterText(find.widgetWithText(TextField, 'Anzahl'), '9');
     await tester.tap(find.text('Spieler erzeugen'));
@@ -1381,12 +1401,21 @@ void main() {
         300,
         scrollable: find.byType(Scrollable).last,
       );
-      await Scrollable.ensureVisible(tester.element(find.text('-:-').first), alignment: 0.5);
+      await Scrollable.ensureVisible(
+        tester.element(find.text('-:-').first),
+        alignment: 0.5,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('-:-').first);
       await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const ValueKey('home-legs-field')), '3');
-      await tester.enterText(find.byKey(const ValueKey('away-legs-field')), '${remaining % 3}');
+      await tester.enterText(
+        find.byKey(const ValueKey('home-legs-field')),
+        '3',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('away-legs-field')),
+        '${remaining % 3}',
+      );
       await tester.tap(find.text('Speichern'));
       await tester.pumpAndSettle();
     }
@@ -1406,11 +1435,15 @@ void main() {
     expect(find.text('Finale'), findsOneWidget);
   });
 
-  testWidgets('account menu card registers and signs out', (tester) async {
+  testWidgets('account menu card registers and opens profile entry', (
+    tester,
+  ) async {
     final store = _FakeAccountSessionStore();
 
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: AccountMenuCard(store: store))),
+      MaterialApp(
+        home: Scaffold(body: AccountMenuCard(store: store)),
+      ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -1423,7 +1456,10 @@ void main() {
       find.widgetWithText(TextField, 'E-Mail'),
       'theo.widget@example.local',
     );
-    await tester.enterText(find.widgetWithText(TextField, 'Passwort'), 'secret1');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Passwort'),
+      'secret1',
+    );
     expect(find.widgetWithText(TextField, 'Land'), findsNothing);
     expect(find.widgetWithText(TextField, 'Stadt'), findsNothing);
     expect(find.widgetWithText(TextField, 'Dart-Setup'), findsNothing);
@@ -1438,10 +1474,8 @@ void main() {
     expect(find.text('Theo'), findsOneWidget);
     expect(find.text('theo.widget@example.local'), findsOneWidget);
 
-    await tester.tap(find.text('Abmelden'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Anmelden'), findsOneWidget);
+    expect(find.text('Mein Profil und Statistiken öffnen'), findsOneWidget);
+    expect(find.text('Abmelden'), findsNothing);
   });
 }
 

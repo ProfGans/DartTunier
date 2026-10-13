@@ -99,7 +99,8 @@ class RoundRobinRepeatsSetup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (groupSizes.isEmpty || !playTypes.any((t) => t == 'round_robin' || t == 'swiss')) {
+    if (groupSizes.isEmpty ||
+        !playTypes.any((t) => t == 'round_robin' || t == 'swiss')) {
       return const SizedBox.shrink();
     }
 
@@ -111,14 +112,18 @@ class RoundRobinRepeatsSetup extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         if (playTypes.contains('swiss'))
-          const Text('Swiss: feste Rundenzahl, maximal die aufgerundete halbe Teilnehmerzahl je Gruppe. Die nächste Runde wartet auf alle Ergebnisse.'),
+          const Text(
+            'Swiss: feste Rundenzahl, maximal die aufgerundete halbe Teilnehmerzahl je Gruppe. Die nächste Runde wartet auf alle Ergebnisse.',
+          ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
             for (var index = 0; index < groupSizes.length; index++)
-              if (index < playTypes.length && (playTypes[index] == 'round_robin' || playTypes[index] == 'swiss'))
+              if (index < playTypes.length &&
+                  (playTypes[index] == 'round_robin' ||
+                      playTypes[index] == 'swiss'))
                 Container(
                   padding: const EdgeInsets.only(left: 10),
                   decoration: BoxDecoration(
@@ -145,7 +150,11 @@ class RoundRobinRepeatsSetup extends StatelessWidget {
                         icon: const Icon(Icons.remove),
                         tooltip: 'Weniger Spiele',
                       ),
-                      Text(playTypes[index] == 'swiss' ? '${repeats[index]} Runden' : '${repeats[index]}x'),
+                      Text(
+                        playTypes[index] == 'swiss'
+                            ? '${repeats[index]} Runden'
+                            : '${repeats[index]}x',
+                      ),
                       IconButton(
                         key: ValueKey('round-robin-repeat-plus-${index + 1}'),
                         constraints: const BoxConstraints.tightFor(
@@ -153,7 +162,12 @@ class RoundRobinRepeatsSetup extends StatelessWidget {
                           height: 48,
                         ),
                         padding: EdgeInsets.zero,
-                        onPressed: playTypes[index] == 'swiss' && repeats[index] >= SwissEngine.maximumRounds(groupSizes[index]) ? null : () => onChangeRepeats(index, 1),
+                        onPressed:
+                            playTypes[index] == 'swiss' &&
+                                repeats[index] >=
+                                    SwissEngine.maximumRounds(groupSizes[index])
+                            ? null
+                            : () => onChangeRepeats(index, 1),
                         icon: const Icon(Icons.add),
                         tooltip: 'Mehr Spiele',
                       ),
@@ -213,7 +227,10 @@ class GroupPlayTypeSetup extends StatelessWidget {
                   ),
                   items: const [
                     DropdownMenuItem(value: 'round_robin', child: Text('Liga')),
-                    DropdownMenuItem(value: 'swiss', child: Text('Schweizer System')),
+                    DropdownMenuItem(
+                      value: 'swiss',
+                      child: Text('Schweizer System'),
+                    ),
                     DropdownMenuItem(
                       value: 'mini_knockout',
                       child: Text('Mini-KO'),
@@ -379,7 +396,7 @@ class QualificationRuleSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final plan = qualificationPlan;
     if (plan == null) {
-      return const Text('Keine gueltige Anzahl Weiterkommende.');
+      return const Text('Keine gültige Anzahl Weiterkommende.');
     }
 
     return Wrap(
@@ -395,7 +412,7 @@ class QualificationRuleSummary extends StatelessWidget {
         if (plan.extraCount > 0)
           Chip(
             label: Text(
-              'Beste ${plan.extraCount} der ${plan.extraRank}. Plaetze',
+              'Beste ${plan.extraCount} der ${plan.extraRank}. Plätze',
             ),
           ),
         if (plan.extraCount > 0 && plan.extraGroups.isNotEmpty)

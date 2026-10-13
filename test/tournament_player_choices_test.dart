@@ -82,7 +82,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Johannes (Du)'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('1 uebernehmen'));
+        await tester.tap(find.text('1 übernehmen'));
         await tester.pumpAndSettle();
         expect(selected!.single.id, account.id);
         expect(selected!.single.displayName, 'Johannes');

@@ -33,8 +33,10 @@ void main() {
     expect(resolve('director').canLead, isTrue);
     expect(resolve('director').canConfigure, isFalse);
     expect(resolve('reporter').canEnterResults, isTrue);
+    expect(resolve('reporter').canWithdraw, isTrue);
     expect(resolve('reporter').canLead, isFalse);
     expect(resolve('viewer').canEnterResults, isFalse);
+    expect(resolve('viewer').canWithdraw, isFalse);
     expect(resolve(null).canLead, isFalse);
     expect(resolve('creator', member: false).canLead, isFalse);
     expect(resolve('director', member: false).canLead, isFalse);

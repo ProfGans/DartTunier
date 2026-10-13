@@ -1,14 +1,12 @@
 import '../../personal_profile/data/personal_profile_repository.dart';
 import '../data/profile_heatmap_repository.dart';
 import '../domain/analytics/community_profile_reports.dart';
-import '../../../shared/widgets/sport_menu.dart';
 import '../data/scorer_heatmap_repository.dart';
 import '../domain/cockpit_heatmap_selection.dart';
 import '../domain/analytics/statistics_report.dart';
 import 'analytics/player_analytics_page.dart';
 import '../../personal_profile/presentation/personal_profile_section.dart';
 import 'package:flutter/material.dart';
-import '../../scorer/presentation/scorer_page.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../../accounts/domain/account_user.dart';
 import '../../accounts/data/supabase_account_config.dart';
@@ -20,9 +18,15 @@ import '../data/player_statistics_repository.dart';
 import '../domain/saved_scorer_match.dart';
 
 class PlayerProfilePage extends StatefulWidget {
-  const PlayerProfilePage({super.key, required this.account, this.repository});
+  const PlayerProfilePage({
+    super.key,
+    required this.account,
+    this.repository,
+    this.onSignOut,
+  });
   final AccountUser account;
   final PlayerStatisticsRepository? repository;
+  final Future<void> Function()? onSignOut;
   @override
   State<PlayerProfilePage> createState() => _PlayerProfilePageState();
 }
@@ -187,14 +191,11 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
                 ],
               );
             }
-            final (allHistory, tournaments, heatmaps) = snapshot.data!;
-            String number(double? value) => value?.toStringAsFixed(2) ?? '—';
+            final (_, tournaments, _) = snapshot.data!;
             return PlayerAnalyticsPage(
               embedded: true,
               name: widget.account.displayName,
               favoriteDouble: favoriteDouble,
-              scorer: const StatisticsAnalytics().scorer(allHistory),
-              heatmapSessions: heatmaps,
               communityNames: communityNames,
               communityReports: communityProfileReports(
                 tournaments: tournaments,
@@ -213,77 +214,24 @@ class _PlayerProfilePageState extends State<PlayerProfilePage> {
                 ),
                 Text(widget.account.email),
                 const SizedBox(height: 16),
-                SportMenuGroup(
-                  title: 'Mit meinem Profil',
-                  actions: [
-                    SportMenuAction(
-                      label: 'Scorer mit meinem Profil starten',
-                      icon: Icons.sports_score,
-                      onTap: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => ScorerPage(account: widget.account),
-                          ),
-                        );
-                        if (mounted) setState(() => content = _load());
-                      },
-                    ),
-                  ],
-                ),
-                Text(repository.status),
-                Text(profileHeatmaps.status),
                 if (notice != null) Text(notice!),
               ],
-              footerBuilder: (period) {
-                final history = allHistory
-                    .where((m) => period == null || period.contains(m.playedAt))
-                    .toList();
-                return [
+              footerBuilder: (_) => [
+                const SizedBox(height: 24),
+                if (widget.onSignOut != null) ...[
                   const SizedBox(height: 24),
-                  if (history.every((m) => m.visits.isEmpty))
-                    const Text('Keine Aufnahmen im gewählten Zeitraum.'),
-                  Text(
-                    'Gespeicherte Spiele',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final navigator = Navigator.of(context);
+                      await widget.onSignOut!.call();
+                      if (!mounted) return;
+                      navigator.pop();
+                    },
+                    icon: const Icon(Icons.logout_outlined),
+                    label: const Text('Abmelden'),
                   ),
-                  for (final match in history.where((m) => m.visits.isNotEmpty))
-                    Card(
-                      child: ListTile(
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => PlayerAnalyticsPage(
-                                name: match.names.join(' · '),
-                                favoriteDouble: favoriteDouble,
-                                scorer: const StatisticsAnalytics().scorer([
-                                  match,
-                                ]),
-                                heatmapSessions: heatmaps
-                                    .where((s) => s.id == match.id)
-                                    .toList(),
-                                tournaments: const StatisticsAnalytics()
-                                    .tournaments([]),
-                              ),
-                            ),
-                          );
-                        },
-                        title: Text(match.names.join(' · ')),
-                        subtitle: Text(
-                          '${match.playedAt.toLocal().toString().substring(0, 16)}\n'
-                          '${match.isDraw
-                              ? 'Unentschieden'
-                              : match.winner == null
-                              ? 'Nicht beendet'
-                              : match.winner == match.playerIndex
-                              ? 'Gewonnen'
-                              : 'Verloren'} · '
-                          'Average: ${number(match.statistics.average)} · 180er: ${match.statistics.scores180}',
-                        ),
-                      ),
-                    ),
-                ];
-              },
+                ],
+              ],
             );
           },
         ),

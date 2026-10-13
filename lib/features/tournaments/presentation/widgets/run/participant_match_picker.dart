@@ -14,7 +14,7 @@ class ParticipantMatchPicker extends StatelessWidget {
     if (suggestion == null) {
       await showDialog<void>(context: context, builder: (context) => AlertDialog(
         title: Text(player.name),
-        content: const Text('Momentan kein spielbares Match: Spieler oder Gegner spielen bereits, alle Boards sind belegt oder es steht keine offene Begegnung fest. Bot-Spiele werden automatisch simuliert.'),
+        content: const Text('Momentan gibt es kein freies Match: Spieler oder Gegner spielen bereits, alle Boards sind belegt oder es steht keine offene Begegnung fest.'),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Schließen'))],
       ));
       return;

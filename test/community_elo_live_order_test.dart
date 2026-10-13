@@ -41,7 +41,7 @@ void main() {
             activeStage: 0,
           )
           .first;
-      expect(before.rating, 1016);
+      expect(before.rating, 1013);
       final expected =
           before.rating! +
           (score.$1 == score.$2
@@ -95,7 +95,7 @@ void main() {
             .entries
             .singleWhere((e) => e.player.playerProfileId == 'a')
             .rating,
-        1016,
+        1013,
       );
     });
   }

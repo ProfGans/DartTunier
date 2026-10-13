@@ -52,7 +52,7 @@ class CommunityRankingHistoryPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Aus ranglistenrelevanten Community-Spielen im ausgewählten Zeitraum. Startwert: 1000 Elo.',
+                  'Startwert: 1000 Elo · K=25 bis einschließlich 9 gewertete Spiele, danach K=15. Pro beginnt ab 2400 Elo; der K-Faktor bleibt 15.',
                 ),
               ],
             ),
@@ -80,7 +80,7 @@ class CommunityRankingHistoryPage extends StatelessWidget {
                       '${item.tournamentName} · ${item.playedAt.day.toString().padLeft(2, '0')}.${item.playedAt.month.toString().padLeft(2, '0')}.${item.playedAt.year}',
                     ),
                     Text(
-                      '${item.delta >= 0 ? '+' : ''}${item.delta} · ${item.ratingAfter} Elo',
+                      '${item.delta >= 0 ? '+' : ''}${item.delta} Elo · ${item.ratingAfter} Elo gesamt · K=${item.kFactor}',
                     ),
                   ],
                 ),

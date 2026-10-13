@@ -5,8 +5,6 @@ import '../../domain/analytics/statistics_report.dart';
 import '../../domain/statistics_period.dart';
 import '../statistics_period_filter.dart';
 import 'statistics_dashboard.dart';
-import '../heatmap/cockpit_heatmap_section.dart';
-import '../../data/scorer_heatmap_repository.dart';
 
 class PlayerAnalyticsPage extends StatefulWidget {
   const PlayerAnalyticsPage({
@@ -17,7 +15,6 @@ class PlayerAnalyticsPage extends StatefulWidget {
     this.favoriteDouble = '',
     this.communityReports = const {},
     this.communityNames = const {},
-    this.heatmapSessions,
     this.community = false,
     this.embedded = false,
     this.header = const [],
@@ -29,7 +26,6 @@ class PlayerAnalyticsPage extends StatefulWidget {
   final StatisticsReport? scorer;
   final Map<String, StatisticsReport> communityReports;
   final Map<String, String> communityNames;
-  final List<ScorerHeatmapSession>? heatmapSessions;
   final bool embedded;
   final List<Widget> header;
   final List<Widget> Function(StatisticsPeriod? period)? footerBuilder;
@@ -173,13 +169,6 @@ class _AnalyticsState extends State<PlayerAnalyticsPage> {
             'Scorer-Spiele und Turnierergebnisse werden getrennt ausgewertet, damit ein übertragenes Spiel nicht doppelt zählt.',
           ),
         const SizedBox(height: 16),
-        CockpitHeatmapSection(
-          subject: widget.name,
-          favoriteDouble: widget.favoriteDouble,
-          community: widget.community || useCommunity,
-          sessions: useScorer ? widget.heatmapSessions : null,
-          period: period,
-        ),
         StatisticsDashboard(
           report: report,
           title: 'Statistik · ${widget.name}',

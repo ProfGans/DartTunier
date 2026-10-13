@@ -27,6 +27,12 @@ class _DashboardState extends State<StatisticsDashboard>
     super.build(context);
     final report = widget.report;
     final form = report.form;
+    final visibleMetrics = statisticsMetrics
+        .where(
+          (metric) =>
+              metric.category != 'Scoring' && metric.category != 'Checkout',
+        )
+        .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -76,9 +82,7 @@ class _DashboardState extends State<StatisticsDashboard>
                     'Letzte ${form.length} Spiele · ältestes links · ${report.winningStreak} Siege in Folge',
                   ),
                 ],
-                Text(
-                  '${report.observations.length} erfasste Begegnungen/Sitzungen · ${report.observations.where((o) => o.values.containsKey('visits')).length} mit Scorer-Aufnahmen',
-                ),
+                Text('${report.observations.length} gespeicherte Begegnungen'),
                 if (report.observations.any((o) => o.estimatedDate))
                   const Text(
                     'Ältere Ergebnisse ohne Spielzeit erscheinen nur unter Gesamt. Ihr Verlauf und ihre Reihenfolge orientieren sich am Turnierdatum.',
@@ -101,8 +105,7 @@ class _DashboardState extends State<StatisticsDashboard>
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final group
-                in statisticsMetrics.map((m) => m.category).toSet())
+            for (final group in visibleMetrics.map((m) => m.category).toSet())
               ChoiceChip(
                 label: Text(group),
                 selected: category == group,
@@ -114,7 +117,7 @@ class _DashboardState extends State<StatisticsDashboard>
         AdaptiveTileLayout(
           minTileWidth: 330,
           children: [
-            for (final metric in statisticsMetrics.where(
+            for (final metric in visibleMetrics.where(
               (m) => m.category == category,
             ))
               Card(

@@ -123,9 +123,9 @@ void main() {
         if (size.width < 840 || scale > 1) {
           await tester.tap(find.byType(DropdownButtonFormField<StageViewMode>));
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Uebersicht').last);
+          await tester.tap(find.text('Übersicht').last);
         } else {
-          await tester.tap(find.text('Uebersicht'));
+          await tester.tap(find.text('Übersicht'));
         }
         await tester.pumpAndSettle();
         expect(find.text('Turnieruhr starten'), findsNothing);
@@ -403,7 +403,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byType(DropdownButtonFormField<StageViewMode>));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Uebersicht').last);
+        await tester.tap(find.text('Übersicht').last);
         await tester.pumpAndSettle();
         await tester.scrollUntilVisible(
           find.text('Gruppenbaum'),

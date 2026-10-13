@@ -121,7 +121,7 @@ class BestOfComparisonTable extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Beste ${plan.extraCount} der ${plan.extraRank}. Plaetze',
+            'Beste ${plan.extraCount} der ${plan.extraRank}. Plätze',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),

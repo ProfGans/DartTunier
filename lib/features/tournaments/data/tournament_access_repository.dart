@@ -39,4 +39,12 @@ class TournamentAccessRepository {
       );
     }
   }
+
+  Future<void> requireWithdraw(CreatedTournament t) async {
+    if (!(await load(t)).canWithdraw) {
+      throw StateError(
+        'Keine Berechtigung, Spieler aus diesem Turnier zu droppen.',
+      );
+    }
+  }
 }

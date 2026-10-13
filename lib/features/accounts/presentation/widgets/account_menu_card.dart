@@ -76,9 +76,13 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
     _reloadAccount();
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PlayerProfilePage(account: account),
+        builder: (_) => PlayerProfilePage(
+          account: account,
+          onSignOut: _store.signOutCurrentAccount,
+        ),
       ),
     );
+    if (mounted) _reloadAccount();
   }
 
   Future<void> _sendPasswordReset(String email) async {
@@ -86,7 +90,7 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
     if (normalizedEmail.isEmpty ||
         !normalizedEmail.contains('@') ||
         !normalizedEmail.contains('.')) {
-      _showError('Bitte gib zuerst eine gueltige E-Mail-Adresse ein.');
+      _showError('Bitte gib zuerst eine gültige E-Mail-Adresse ein.');
       return;
     }
 
@@ -130,14 +134,6 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
     _reloadAccount();
   }
 
-  Future<void> _signOut() async {
-    await _store.signOutCurrentAccount();
-    if (!mounted) {
-      return;
-    }
-    _reloadAccount();
-  }
-
   Future<T?> _runAccountAction<T>(Future<T> Function() action) async {
     try {
       return await action();
@@ -171,7 +167,7 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
             'nur lokal verwendet hast, erstelle bitte einen Online-Account.';
       }
       if (error.code == 'email_not_confirmed') {
-        return 'Bitte bestaetige zuerst deine E-Mail-Adresse.';
+        return 'Bitte bestätige zuerst deine E-Mail-Adresse.';
       }
       if (error.code == 'user_already_exists' ||
           error.message.toLowerCase().contains('already registered')) {
@@ -221,16 +217,17 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
               label: 'Mein Profil und Statistiken öffnen',
               description: account.email,
               icon: Icons.account_circle_outlined,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => PlayerProfilePage(account: account),
-                ),
-              ),
-            ),
-            SportMenuAction(
-              label: 'Abmelden',
-              icon: Icons.logout_outlined,
-              onTap: _signOut,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => PlayerProfilePage(
+                      account: account,
+                      onSignOut: _store.signOutCurrentAccount,
+                    ),
+                  ),
+                );
+                if (mounted) _reloadAccount();
+              },
             ),
           ],
         );
@@ -279,7 +276,7 @@ class _AccountDialogState extends State<_AccountDialog> {
     }
     if (!email.contains('@') || !email.contains('.')) {
       setState(() {
-        _errorText = 'Bitte gib eine gueltige E-Mail ein.';
+        _errorText = 'Bitte gib eine gültige E-Mail ein.';
       });
       return;
     }
@@ -304,7 +301,7 @@ class _AccountDialogState extends State<_AccountDialog> {
     final email = _emailController.text.trim();
     if (!email.contains('@') || !email.contains('.')) {
       setState(() {
-        _errorText = 'Bitte gib zuerst eine gueltige E-Mail ein.';
+        _errorText = 'Bitte gib zuerst eine gültige E-Mail ein.';
       });
       return;
     }

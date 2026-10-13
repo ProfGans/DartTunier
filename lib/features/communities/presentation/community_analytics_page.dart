@@ -1,5 +1,4 @@
 import '../../../shared/widgets/paged_entries.dart';
-import '../../statistics/presentation/heatmap/cockpit_heatmap_section.dart';
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../../statistics/domain/analytics/statistics_report.dart';
@@ -45,8 +44,14 @@ class _CommunityAnalyticsState extends State<CommunityAnalyticsPage> {
   bool? doubles;
   @override
   Widget build(BuildContext context) {
+    final metrics = statisticsMetrics
+        .where(
+          (item) => item.category != 'Scoring' && item.category != 'Checkout',
+        )
+        .toList();
+    final selectedMetricIndex = metricIndex < metrics.length ? metricIndex : 0;
     final report = all.filtered(period: period, doubleMatch: doubles);
-    final metric = statisticsMetrics[metricIndex];
+    final metric = metrics[selectedMetricIndex];
     final players = {
       for (final player in widget.data.players) player.id: player.name,
       for (final o in report.observations) o.playerId: o.name,
@@ -75,7 +80,7 @@ class _CommunityAnalyticsState extends State<CommunityAnalyticsPage> {
         ...widget.actions,
         Text(widget.name, style: Theme.of(context).textTheme.headlineSmall),
         const Text(
-          'Für jede Kennzahl: Spielervergleich, Form, Verlauf und ausführliche Einzelwerte. Ausschließlich Ergebnisse dieser Community; private Scorer-Spiele werden nicht veröffentlicht.',
+          'Für jede Kennzahl: Spielervergleich, Form, Verlauf und ausführliche Einzelwerte. Berücksichtigt werden Begegnungen dieser Community.',
         ),
         StatisticsPeriodFilter(
           selected: periodLabel,
@@ -101,21 +106,13 @@ class _CommunityAnalyticsState extends State<CommunityAnalyticsPage> {
           ],
         ),
         const SizedBox(height: 16),
-        CockpitHeatmapSection(
-          subject: widget.name,
-          community: true,
-          period: period,
-        ),
         DropdownButtonFormField<int>(
-          initialValue: metricIndex,
+          initialValue: selectedMetricIndex,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'Kennzahl vergleichen'),
           items: [
-            for (var i = 0; i < statisticsMetrics.length; i++)
-              DropdownMenuItem(
-                value: i,
-                child: Text(statisticsMetrics[i].title),
-              ),
+            for (var i = 0; i < metrics.length; i++)
+              DropdownMenuItem(value: i, child: Text(metrics[i].title)),
           ],
           onChanged: (i) {
             if (i != null) setState(() => metricIndex = i);
@@ -143,13 +140,13 @@ class _CommunityAnalyticsState extends State<CommunityAnalyticsPage> {
           ),
         ],
         const Text(
-          'Quoten werden gewichtet berechnet. Unterschiedliche Spielzahlen, Startpunktzahlen und fehlende Scorer-Daten beim Vergleich beachten. Zählwerte sind keine Spielstärke-Rangliste.',
+          'Quoten werden gewichtet berechnet. Unterschiedliche Spielzahlen und Startpunktzahlen beim Vergleich beachten. Zählwerte sind keine Spielstärke-Rangliste.',
         ),
         const SizedBox(height: 16),
         if (report.observations.isEmpty)
           const Text('Keine erfassten Begegnungen im gewählten Zeitraum.'),
         PagedEntries<({String id, String name, StatisticsReport report})>(
-          key: ValueKey('$periodLabel-$period-$doubles-$metricIndex'),
+          key: ValueKey('$periodLabel-$period-$doubles-$selectedMetricIndex'),
           entries: ranked,
           builder: (player) => Card(
             child: Padding(

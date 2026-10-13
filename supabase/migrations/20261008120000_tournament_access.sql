@@ -100,7 +100,7 @@ returns trigger language plpgsql security definer set search_path=public as $$
 declare rights text[]; config_old jsonb; config_new jsonb; access_old jsonb; access_new jsonb;
   can_lead boolean; can_edit boolean; member_id text; active int; revision int;
   runtime text[] := array['updatedAt','syncRevision','access','runStages','activeStageIndex','completedStageIndexes',
-    'startedAt','finishedAt','plannedMinutes','plannedMatches','plannedMatchEndSeconds','blockedBoards','allowDeviceStart','leagueMatch'];
+    'startedAt','finishedAt','plannedMinutes','plannedMatches','plannedMatchEndSeconds','blockedBoards','allowDeviceStart','leagueMatch','withdrawals'];
 begin
  if auth.uid() is null then raise exception 'Anmeldung erforderlich' using errcode='42501'; end if;
  if tg_op='UPDATE' and (new.owner_user_id<>old.owner_user_id or new.community_id is distinct from old.community_id
@@ -138,6 +138,10 @@ begin
          or old.payload-array['updatedAt','syncRevision','leagueMatch'] is distinct from new.payload-array['updatedAt','syncRevision','leagueMatch']
          or not public.league_result_only(old.payload->'leagueMatch',new.payload->'leagueMatch') then
          raise exception 'Keine Liga-Ergebnisberechtigung' using errcode='42501'; end if;
+     elsif old.payload->'withdrawals' is distinct from new.payload->'withdrawals' then
+       if not coalesce(public.can_report_tournament(old.community_id,old.owner_user_id,old.payload),false)
+         or old.payload-array['updatedAt','syncRevision','access','withdrawals'] is distinct from new.payload-array['updatedAt','syncRevision','access','withdrawals'] then
+         raise exception 'Keine Berechtigung zum Droppen von Spielern' using errcode='42501'; end if;
      elsif old.payload->'runStages' is distinct from new.payload->'runStages' then
        active := coalesce((old.payload->>'activeStageIndex')::int,0);
        if not coalesce(public.can_report_tournament(old.community_id,old.owner_user_id,old.payload),false)

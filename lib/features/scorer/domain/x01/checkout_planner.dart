@@ -2203,7 +2203,7 @@ class CheckoutPlanner {
         'Direkter BULL-Rest $remainingScore.',
         'Leave-Qualitaet wie im Checkout Rechner: BULL = +${doublePreference(rules.createBull())}',
         'Tiefer guter Rest: +${_lowLeaveDepthBonus(remainingScore)}',
-        'Garantiertes Finish ueber ${finishRoute.map((entry) => entry.label).join(' | ')}: +${finishScore ~/ 10}',
+        'Garantiertes Finish über ${finishRoute.map((entry) => entry.label).join(' | ')}: +${finishScore ~/ 10}',
         'Basis fuer direktes Finish-Leave: +180',
         'Gesamt: +$bonus',
       ];
@@ -2214,7 +2214,7 @@ class CheckoutPlanner {
         'Direktes Doppel-Leave $remainingScore Rest.',
         'Leave-Qualitaet wie im Checkout Rechner: ${doubleThrow.label} = +${doublePreference(doubleThrow)}',
         'Tiefer guter Rest: +${_lowLeaveDepthBonus(remainingScore)}',
-        'Garantiertes Finish ueber ${finishRoute.map((entry) => entry.label).join(' | ')}: +${finishScore ~/ 10}',
+        'Garantiertes Finish über ${finishRoute.map((entry) => entry.label).join(' | ')}: +${finishScore ~/ 10}',
         'Basis fuer direktes Finish-Leave: +220',
         'Gesamt: +$bonus',
       ];

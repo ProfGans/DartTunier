@@ -7,6 +7,7 @@ import '../domain/community.dart';
 import '../domain/community_statistics.dart';
 import 'community_player_statistics_page.dart';
 import 'widgets/community_account_profile.dart';
+import 'widgets/community_member_elo_card.dart';
 
 class CommunityMemberProfilePage extends StatefulWidget {
   const CommunityMemberProfilePage({
@@ -143,6 +144,8 @@ class _ProfileState extends State<CommunityMemberProfilePage> {
                           .filtered(players: {id}),
                       title: 'Statistik · ${player.name}',
                     ),
+                    const SizedBox(height: 16),
+                    CommunityMemberEloCard(data: data, member: member),
                     FilledButton.icon(
                       icon: const Icon(Icons.query_stats),
                       label: const Text('Persönliche Statistik öffnen'),

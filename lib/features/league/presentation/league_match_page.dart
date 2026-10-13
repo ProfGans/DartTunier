@@ -28,7 +28,6 @@ import 'league_pairing_dialog.dart';
 import '../../statistics/domain/tournament_player_statistics.dart';
 import '../../statistics/presentation/tournament_statistics_view.dart';
 import '../../statistics/presentation/tournament_highlights_page.dart';
-import '../../statistics/domain/match_scorer_summary.dart';
 
 class LeagueMatchPage extends StatefulWidget {
   const LeagueMatchPage({
@@ -992,9 +991,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
         LeagueFixtureCard(
           league: league,
           index: i,
-          averageLabel: MatchScorerSummary.fromMatch(
-            LeagueBoardRuntime(_tournament!).matches[i],
-          )?.averageLabel,
           boardLabel: league.games[i].runtime?['boardNumber'] == null
               ? null
               : 'Board ${league.games[i].runtime!['boardNumber']}',

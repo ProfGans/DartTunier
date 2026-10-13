@@ -13,7 +13,7 @@ class CommunityLiveRankingView extends StatelessWidget {
       children: [
         Text('Live-Rangliste', style: Theme.of(context).textTheme.titleLarge),
         const Text(
-          'Vergleich mit derselben Rangliste ohne Ergebnisse dieses Turniers. Lokal erfasste und vom Geräte-Scorer übernommene Ergebnisse aktualisieren die Anzeige. Gleich viel Elo bedeutet den gleichen Platz.',
+          'Vergleich mit derselben Rangliste ohne Ergebnisse dieses Turniers. Lokal erfasste und synchronisierte Ergebnisse aktualisieren die Anzeige. Gleich viel Elo bedeutet den gleichen Platz.',
         ),
         const SizedBox(height: 12),
         if (entries.isEmpty)

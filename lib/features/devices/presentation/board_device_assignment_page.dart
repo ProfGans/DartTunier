@@ -121,7 +121,7 @@ class _BoardDeviceAssignmentPageState extends State<BoardDeviceAssignmentPage> {
         padding: const EdgeInsets.all(24),
         children: [
           Text(
-            'Pro Board ein Gerät verbinden. Beim Start eines Spiels in der Turnierleitung öffnet sich dort der X01-Scorer mit Namen und Spielformat. Ergebnisse und Aufnahmen kommen automatisch zurück. '
+            'Pro Board ein Gerät verbinden. Das Gerät zeigt die zugewiesene Begegnung an; Ergebnisse werden in der Turnierleitung erfasst. '
             '${widget.dispatcher.tournament.communityId == null ? 'Lokale Turniere benötigen dafür keinen Account und keine Community. ' : 'Dafür werden Gerätezuweisung und Turnierleitungsrecht benötigt. '}'
             'Das Zielgerät benötigt weder einen Account noch eine Gruppenmitgliedschaft; der Gerätemodus und die bestätigte Kopplung genügen. Die Turnieransicht muss geöffnet bleiben.',
           ),

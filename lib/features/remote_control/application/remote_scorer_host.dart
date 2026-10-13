@@ -93,7 +93,7 @@ class RemoteScorerHost extends ChangeNotifier {
       'settings': ScorerDraftStorage.encodeSettings(_controller!.settings),
       'actions': _controller!.exportActions(),
     },
-    if (_completed != null) ..._completed!,
+    ...?_completed,
     'commandId': commandId,
     'error': error,
   };

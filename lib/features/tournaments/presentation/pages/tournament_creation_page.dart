@@ -43,10 +43,15 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
 
   List<int?> _gameLimitsForGroupSizes(List<int> sizes) => [
     for (var i = 0; i < sizes.length; i++)
-      _playTypesForGroupSizes(sizes)[i] == 'round_robin' && i < _groupMaxGamesPerPlayer.length ? _groupMaxGamesPerPlayer[i] : null,
+      _playTypesForGroupSizes(sizes)[i] == 'round_robin' &&
+              i < _groupMaxGamesPerPlayer.length
+          ? _groupMaxGamesPerPlayer[i]
+          : null,
   ];
   void _setGroupGameLimit(int index, int? limit) => setState(() {
-    while (_groupMaxGamesPerPlayer.length <= index) { _groupMaxGamesPerPlayer.add(null); }
+    while (_groupMaxGamesPerPlayer.length <= index) {
+      _groupMaxGamesPerPlayer.add(null);
+    }
     _groupMaxGamesPerPlayer[index] = limit;
   });
   final List<String> _groupPlayTypes = [];
@@ -60,13 +65,21 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   final Set<int> _placementPlaces = {};
   bool _finalEndsTournament = true;
   int _kratzerLives = 3;
-  int get _selectedLossLimit => _selectedStageType == 'kratzer' || (!_finalEndsTournament && _isKnockoutStageType(_selectedStageType) && _selectedStageType != 'single_knockout') ? _kratzerLives : _lossLimitForStageType(_selectedStageType);
+  int get _selectedLossLimit =>
+      _selectedStageType == 'kratzer' ||
+          (!_finalEndsTournament &&
+              _isKnockoutStageType(_selectedStageType) &&
+              _selectedStageType != 'single_knockout')
+      ? _kratzerLives
+      : _lossLimitForStageType(_selectedStageType);
   String _selectedStageType = 'groups';
   String _knockoutSeedingMode = 'cross';
   bool _groupDrawOnStart = false;
+  String _communityGroupSeedingMode = 'none';
   bool _knockoutDrawOnStart = false;
   bool _stageNameWasEdited = false;
   bool _isOpeningPlayerPicker = false;
+  bool _isCreatingTournament = false;
   TournamentGameFormat _stageGameFormat = const TournamentGameFormat();
 
   @override
@@ -119,8 +132,13 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     return [
       for (var index = 0; index < groupSizes.length; index++)
         (_playTypesForGroupSizes(groupSizes)[index] == 'swiss'
-          ? (index < _groupRoundRobinRepeats.length ? _groupRoundRobinRepeats[index] : 3).clamp(1, SwissEngine.maximumRounds(groupSizes[index]))
-          : index < _groupRoundRobinRepeats.length ? _groupRoundRobinRepeats[index] : 1),
+            ? (index < _groupRoundRobinRepeats.length
+                      ? _groupRoundRobinRepeats[index]
+                      : 3)
+                  .clamp(1, SwissEngine.maximumRounds(groupSizes[index]))
+            : index < _groupRoundRobinRepeats.length
+            ? _groupRoundRobinRepeats[index]
+            : 1),
     ];
   }
 
@@ -176,9 +194,15 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   int _currentStageMatchCount() {
     if (_isKnockoutStageType(_selectedStageType)) {
       return _eliminationMatchEstimate(
-        _knockoutParticipantCount() ?? 0,
-        _selectedLossLimit,
-      ) + (_selectedLossLimit == 1 ? _optionalPlacementMatchCount(_knockoutParticipantCount() ?? 0, _placementPlaces) : 0);
+            _knockoutParticipantCount() ?? 0,
+            _selectedLossLimit,
+          ) +
+          (_selectedLossLimit == 1
+              ? _optionalPlacementMatchCount(
+                  _knockoutParticipantCount() ?? 0,
+                  _placementPlaces,
+                )
+              : 0);
     }
 
     final groupSizes = _calculateGroupSizes();
@@ -187,9 +211,28 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     final qualificationPlan = _groupQualificationPlan();
     var totalMatches = 0;
     for (var index = 0; index < groupSizes.length; index++) {
-      totalMatches += playTypes[index] == 'swiss' ? (groupSizes[index] ~/ 2) * repeats[index] : playTypes[index] == 'round_robin'
-          ? _roundRobinMatchCount(groupSizes[index], repeats[index], maxGamesPerPlayer: _gameLimitsForGroupSizes(groupSizes)[index])
-          : playTypes[index] == 'mini_knockout' && _placementPlaces.isNotEmpty ? groupSizes[index] - 1 + _optionalPlacementMatchCount(groupSizes[index], {..._placementPlaces, if (_requiredRankForCurrentGroup(index, qualificationPlan).isOdd && _requiredRankForCurrentGroup(index, qualificationPlan) >= 3) _requiredRankForCurrentGroup(index, qualificationPlan)}) : _groupEliminationMatchEstimate(
+      totalMatches += playTypes[index] == 'swiss'
+          ? (groupSizes[index] ~/ 2) * repeats[index]
+          : playTypes[index] == 'round_robin'
+          ? _roundRobinMatchCount(
+              groupSizes[index],
+              repeats[index],
+              maxGamesPerPlayer: _gameLimitsForGroupSizes(groupSizes)[index],
+            )
+          : playTypes[index] == 'mini_knockout' && _placementPlaces.isNotEmpty
+          ? groupSizes[index] -
+                1 +
+                _optionalPlacementMatchCount(groupSizes[index], {
+                  ..._placementPlaces,
+                  if (_requiredRankForCurrentGroup(
+                        index,
+                        qualificationPlan,
+                      ).isOdd &&
+                      _requiredRankForCurrentGroup(index, qualificationPlan) >=
+                          3)
+                    _requiredRankForCurrentGroup(index, qualificationPlan),
+                })
+          : _groupEliminationMatchEstimate(
               groupSizes[index],
               _lossLimitForGroupPlayType(playTypes[index]),
               _requiredRankForCurrentGroup(index, qualificationPlan),
@@ -208,8 +251,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         _selectedLossLimit == 3
             ? '$byeCount automatisch gesetzt'
             : '$byeCount Freilose',
-        if (_selectedLossLimit > 1)
-          '$_selectedLossLimit Niederlage(n) bis Aus',
+        if (_selectedLossLimit > 1) '$_selectedLossLimit Niederlage(n) bis Aus',
       ];
     }
 
@@ -397,9 +439,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     if (placeCompare != 0) {
       return placeCompare;
     }
-    final groupCompare = (a.groupNumber ?? 999).compareTo(
-      b.groupNumber ?? 999,
-    );
+    final groupCompare = (a.groupNumber ?? 999).compareTo(b.groupNumber ?? 999);
     if (groupCompare != 0) {
       return groupCompare;
     }
@@ -731,8 +771,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < breakpoint *
-            (MediaQuery.textScalerOf(context).scale(16) / 16)) {
+        if (constraints.maxWidth <
+            breakpoint * (MediaQuery.textScalerOf(context).scale(16) / 16)) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -863,7 +903,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
             .where((groupNumber) => eligibleGroups.contains(groupNumber))
             .toList()
           ..sort();
-    final extraGroups = manualExtraGroups.isNotEmpty || !_autoAdjustQualification
+    final extraGroups =
+        manualExtraGroups.isNotEmpty || !_autoAdjustQualification
         ? manualExtraGroups
         : automaticExtraGroups;
 
@@ -957,13 +998,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     });
   }
 
-  Future<void> _configureBots([int? index]) async {
-    final bots=await showDialog<List<TournamentPlayer>>(context:context,
-      builder:(_)=>TournamentBotDialog(players:_players,editPlayer:index==null?null:_players[index]));
-    if(bots==null || !mounted) return;
-    setState(() { if(index==null) { _players.addAll(bots); } else { _players[index]=bots.single; } });
-  }
-
   void _generatePlayers() {
     final requestedCount = int.tryParse(_playerCountController.text);
     if (requestedCount == null || requestedCount < 1) {
@@ -992,23 +1026,41 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     });
 
     try {
-      final communityRepository = widget.communityId == null ? null : SupabaseCommunityRepository();
+      final communityRepository = widget.communityId == null
+          ? null
+          : SupabaseCommunityRepository();
       final currentAccount = await loadCurrentAccount();
       var canCreateCommunityPlayer = false;
       if (widget.communityId != null) {
         final communities = await communityRepository!.loadMyCommunities();
-        canCreateCommunityPlayer = communities.any((c) => c.id == widget.communityId &&
-          c.ownerUserId == communityRepository.currentUserId);
+        canCreateCommunityPlayer = communities.any(
+          (c) =>
+              c.id == widget.communityId &&
+              c.ownerUserId == communityRepository.currentUserId,
+        );
       }
       final profiles = widget.communityId == null
-          ? tournamentPlayerChoices(await _database.loadPlayerProfiles(), currentAccount)
-          : [for (final member in effectiveCommunityMembers(
-              await SupabaseCommunityRepository().loadMembers(widget.communityId!),
-            )) PlayerProfile(
-              id: member.playerProfileId!, userId: member.userId,
-              displayName: member.displayName, country: '', city: '',
-              dartsSetupJson: '', createdAt: member.joinedAt, isActive: true,
-            )];
+          ? tournamentPlayerChoices(
+              await _database.loadPlayerProfiles(),
+              currentAccount,
+            )
+          : [
+              for (final member in effectiveCommunityMembers(
+                await SupabaseCommunityRepository().loadMembers(
+                  widget.communityId!,
+                ),
+              ))
+                PlayerProfile(
+                  id: member.playerProfileId!,
+                  userId: member.userId,
+                  displayName: member.displayName,
+                  country: '',
+                  city: '',
+                  dartsSetupJson: '',
+                  createdAt: member.joinedAt,
+                  isActive: true,
+                ),
+            ];
       if (!mounted) {
         return;
       }
@@ -1020,12 +1072,24 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         builder: (context) => PlayerProfilePickerDialog(
           profiles: profiles,
           currentUserId: currentAccount?.id,
-          createPlayer: !canCreateCommunityPlayer ? null : (name) async {
-            final member = await communityRepository!.createManualMember(widget.communityId!, name);
-            return PlayerProfile(id: member.playerProfileId!, userId: null,
-              displayName: member.displayName, country: '', city: '', dartsSetupJson: '',
-              createdAt: member.joinedAt, isActive: true);
-          },
+          createPlayer: !canCreateCommunityPlayer
+              ? null
+              : (name) async {
+                  final member = await communityRepository!.createManualMember(
+                    widget.communityId!,
+                    name,
+                  );
+                  return PlayerProfile(
+                    id: member.playerProfileId!,
+                    userId: null,
+                    displayName: member.displayName,
+                    country: '',
+                    city: '',
+                    dartsSetupJson: '',
+                    createdAt: member.joinedAt,
+                    isActive: true,
+                  );
+                },
           selectedProfileIds: {
             for (final player in _players.expand((p) => p.individuals))
               if (player.profileId != null) player.profileId!,
@@ -1043,13 +1107,19 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
           ..clear()
           ..addAll(guestPlayers)
           ..addAll(
-            selectedProfiles.map(
-              (profile) => TournamentPlayer(
-                profileId: profile.id,
-                name: profile.displayName,
-                isGenerated: false,
-              ),
-            ).where((p) => !guestPlayers.expand((t) => t.individuals).any((m) => m.profileId == p.profileId)),
+            selectedProfiles
+                .map(
+                  (profile) => TournamentPlayer(
+                    profileId: profile.id,
+                    name: profile.displayName,
+                    isGenerated: false,
+                  ),
+                )
+                .where(
+                  (p) => !guestPlayers
+                      .expand((t) => t.individuals)
+                      .any((m) => m.profileId == p.profileId),
+                ),
           );
       });
     } catch (_) {
@@ -1061,7 +1131,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Spieler konnten nicht aus der Datenbank geladen werden.'),
+          content: Text(
+            'Spieler konnten nicht aus der Datenbank geladen werden.',
+          ),
         ),
       );
     }
@@ -1081,7 +1153,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         _players.removeAt(source);
       });
     } on ArgumentError catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${e.message}')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${e.message}')));
     }
   }
 
@@ -1111,29 +1185,66 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   }
 
   Widget _placementSelection() {
-    final sizes = _selectedStageType == 'groups' ? _calculateGroupSizes() : <int>[_knockoutParticipantCount() ?? 0];
+    final sizes = _selectedStageType == 'groups'
+        ? _calculateGroupSizes()
+        : <int>[_knockoutParticipantCount() ?? 0];
     final maximum = sizes.fold<int>(0, (a, b) => a > b ? a : b);
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Optionale Platzierungsspiele'),
-      const Text('Mehrere Plätze auswählbar. Nötige Vorrunden werden automatisch ergänzt. In Mini-KO-Gruppen gilt die Auswahl je Gruppe.'),
-      Wrap(spacing: 8, children: [for (var place = 3; place < maximum; place += 2)
-        FilterChip(label: Text('Platz $place'), selected: _placementPlaces.contains(place),
-          onSelected: (selected) => setState(() { if (selected) { _placementPlaces.add(place); } else { _placementPlaces.remove(place); } })),
-      ]),
-      if (maximum < 4) const Text('Ab 4 Teilnehmern verfügbar.'),
-      const SizedBox(height: 12),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Optionale Platzierungsspiele'),
+        const Text(
+          'Mehrere Plätze auswählbar. Nötige Vorrunden werden automatisch ergänzt. In Mini-KO-Gruppen gilt die Auswahl je Gruppe.',
+        ),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (var place = 3; place < maximum; place += 2)
+              FilterChip(
+                label: Text('Platz $place'),
+                selected: _placementPlaces.contains(place),
+                onSelected: (selected) => setState(() {
+                  if (selected) {
+                    _placementPlaces.add(place);
+                  } else {
+                    _placementPlaces.remove(place);
+                  }
+                }),
+              ),
+          ],
+        ),
+        if (maximum < 4) const Text('Ab 4 Teilnehmern verfügbar.'),
+        const SizedBox(height: 12),
+      ],
+    );
   }
 
   void _saveStage() {
-    if (_selectedStageType == 'groups' && !hasValidGroupSizes(_calculateGroupSizes())) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Jede Gruppe benötigt mindestens 3 Spieler. Bitte weniger Gruppen wählen oder Spieler ergänzen.')));
+    if (_selectedStageType == 'groups' &&
+        !hasValidGroupSizes(_calculateGroupSizes())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Jede Gruppe benötigt mindestens 3 Spieler. Bitte weniger Gruppen wählen oder Spieler ergänzen.',
+          ),
+        ),
+      );
       return;
     }
     if (_stageGameFormat.bestOfLegs.isEven &&
-        (_stageGameFormat.bestOfSets > 1 || _selectedStageType != 'groups' ||
-         !['round_robin', 'swiss'].contains(_groupPlayType) || _groupPlayTypes.any((type) => !['round_robin', 'swiss'].contains(type)))) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gerade Leg-Längen sind nur für Jeder-gegen-jeden oder Swiss ohne Sets möglich.')));
+        (_stageGameFormat.bestOfSets > 1 ||
+            _selectedStageType != 'groups' ||
+            !['round_robin', 'swiss'].contains(_groupPlayType) ||
+            _groupPlayTypes.any(
+              (type) => !['round_robin', 'swiss'].contains(type),
+            ))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Gerade Leg-Längen sind nur für Jeder-gegen-jeden oder Swiss ohne Sets möglich.',
+          ),
+        ),
+      );
       return;
     }
     final stageName = _stageNameController.text.trim();
@@ -1156,88 +1267,94 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   }
 
   TournamentStage _currentStageConfiguration() {
-      final latestGroupStage = _latestGroupStage();
-      final groupQualificationPlan = _selectedStageType == 'groups'
-          ? _groupQualificationPlan()
-          : null;
-      final inheritedQualificationPlan = _isKnockoutStageType(_selectedStageType)
-          ? _storedGroupQualificationPlan(latestGroupStage)
-          : null;
-      return TournamentStage(
-        name: _stageNameController.text.trim(),
-        type: _selectedStageType,
-        placementPlaces: (_selectedStageType == 'single_knockout' || _selectedStageType == 'groups') ? (_placementPlaces.toList()..sort()) : const [],
-        finalEndsTournament: _selectedStageType != 'kratzer' && _finalEndsTournament,
-        knockoutLives: _isKnockoutStageType(_selectedStageType) ? _selectedLossLimit : null,
-        groupCount: _selectedStageType == 'groups'
-            ? _calculateGroupSizes().length
-            : null,
-        groupSizes: _selectedStageType == 'groups'
-            ? _calculateGroupSizes()
-            : const [],
-        groupPlayType: _selectedStageType == 'groups'
-            ? _groupPlayType
-            : 'round_robin',
-        groupPlayTypes: _selectedStageType == 'groups'
-            ? _playTypesForGroupSizes(_calculateGroupSizes())
-            : const [],
-        groupRoundRobinRepeats: _selectedStageType == 'groups'
-            ? _roundRobinRepeatsForGroupSizes(_calculateGroupSizes())
-            : const [],
-        groupTieBreakers: _selectedStageType == 'groups'
-            ? List.unmodifiable(_groupTieBreakers)
-            : defaultGroupTieBreakers,
-        groupMaxGamesPerPlayer: _selectedStageType == 'groups' ? _gameLimitsForGroupSizes(_calculateGroupSizes()) : const [],
-        groupDrawOnStart: _selectedStageType == 'groups'
-            ? _groupDrawOnStart
-            : false,
-        groupSlotOrder: const [],
-        knockoutParticipantCount: _isKnockoutStageType(_selectedStageType)
-            ? _knockoutParticipantCount()
-            : null,
-        knockoutBracketSize: _isKnockoutStageType(_selectedStageType)
-            ? _knockoutBracketSize()
-            : null,
-        knockoutByeCount: _isKnockoutStageType(_selectedStageType)
-            ? _knockoutByeCount()
-            : 0,
-        knockoutSlotOrder: _isKnockoutStageType(_selectedStageType)
-            ? (_knockoutDrawOnStart &&
-                      _effectiveKnockoutSeedingMode() == 'random'
-                  ? const []
-                  : _knockoutSlotOrder())
-            : const [],
-        knockoutSeedingMode: _isKnockoutStageType(_selectedStageType)
-            ? _effectiveKnockoutSeedingMode()
-            : 'cross',
-        knockoutDrawOnStart: _isKnockoutStageType(_selectedStageType)
-            ? _knockoutDrawOnStart &&
-                _effectiveKnockoutSeedingMode() == 'random'
-            : false,
-        qualifiersByGroup: _selectedStageType == 'groups'
-            ? groupQualificationPlan?.extraGroups ?? const []
-            : const [],
+    final latestGroupStage = _latestGroupStage();
+    final groupQualificationPlan = _selectedStageType == 'groups'
+        ? _groupQualificationPlan()
+        : null;
+    final inheritedQualificationPlan = _isKnockoutStageType(_selectedStageType)
+        ? _storedGroupQualificationPlan(latestGroupStage)
+        : null;
+    return TournamentStage(
+      name: _stageNameController.text.trim(),
+      type: _selectedStageType,
+      placementPlaces:
+          (_selectedStageType == 'single_knockout' ||
+              _selectedStageType == 'groups')
+          ? (_placementPlaces.toList()..sort())
+          : const [],
+      finalEndsTournament:
+          _selectedStageType != 'kratzer' && _finalEndsTournament,
+      knockoutLives: _isKnockoutStageType(_selectedStageType)
+          ? _selectedLossLimit
+          : null,
+      groupCount: _selectedStageType == 'groups'
+          ? _calculateGroupSizes().length
+          : null,
+      groupSizes: _selectedStageType == 'groups'
+          ? _calculateGroupSizes()
+          : const [],
+      groupPlayType: _selectedStageType == 'groups'
+          ? _groupPlayType
+          : 'round_robin',
+      groupPlayTypes: _selectedStageType == 'groups'
+          ? _playTypesForGroupSizes(_calculateGroupSizes())
+          : const [],
+      groupRoundRobinRepeats: _selectedStageType == 'groups'
+          ? _roundRobinRepeatsForGroupSizes(_calculateGroupSizes())
+          : const [],
+      groupTieBreakers: _selectedStageType == 'groups'
+          ? List.unmodifiable(_groupTieBreakers)
+          : defaultGroupTieBreakers,
+      groupMaxGamesPerPlayer: _selectedStageType == 'groups'
+          ? _gameLimitsForGroupSizes(_calculateGroupSizes())
+          : const [],
+      groupDrawOnStart: _selectedStageType == 'groups'
+          ? _groupDrawOnStart
+          : false,
+      groupSlotOrder: const [],
+      knockoutParticipantCount: _isKnockoutStageType(_selectedStageType)
+          ? _knockoutParticipantCount()
+          : null,
+      knockoutBracketSize: _isKnockoutStageType(_selectedStageType)
+          ? _knockoutBracketSize()
+          : null,
+      knockoutByeCount: _isKnockoutStageType(_selectedStageType)
+          ? _knockoutByeCount()
+          : 0,
+      knockoutSlotOrder: _isKnockoutStageType(_selectedStageType)
+          ? (_knockoutDrawOnStart && _effectiveKnockoutSeedingMode() == 'random'
+                ? const []
+                : _knockoutSlotOrder())
+          : const [],
+      knockoutSeedingMode: _isKnockoutStageType(_selectedStageType)
+          ? _effectiveKnockoutSeedingMode()
+          : 'cross',
+      knockoutDrawOnStart: _isKnockoutStageType(_selectedStageType)
+          ? _knockoutDrawOnStart && _effectiveKnockoutSeedingMode() == 'random'
+          : false,
+      qualifiersByGroup: _selectedStageType == 'groups'
+          ? groupQualificationPlan?.extraGroups ?? const []
+          : const [],
       fixedQualifiersByGroup: _selectedStageType == 'groups'
-            ? groupQualificationPlan?.fixedByGroup ?? const []
-            : const [],
-        extraQualifierRank: _selectedStageType == 'groups'
-            ? groupQualificationPlan?.extraRank
-            : null,
-        extraQualifierCount: _selectedStageType == 'groups'
-            ? groupQualificationPlan?.extraCount
-            : null,
-        qualificationAutoAdjust: _selectedStageType == 'groups'
-            ? _autoAdjustQualification
-            : true,
-        qualifiedParticipantCount: _selectedStageType == 'groups'
-            ? groupQualificationPlan?.totalQualifiers
-            : null,
-        qualificationSummary: _selectedStageType == 'groups'
-            ? groupQualificationPlan?.summary
-            : inheritedQualificationPlan?.summary,
-        gameFormat: _stageGameFormat,
-      );
-
+          ? groupQualificationPlan?.fixedByGroup ?? const []
+          : const [],
+      extraQualifierRank: _selectedStageType == 'groups'
+          ? groupQualificationPlan?.extraRank
+          : null,
+      extraQualifierCount: _selectedStageType == 'groups'
+          ? groupQualificationPlan?.extraCount
+          : null,
+      qualificationAutoAdjust: _selectedStageType == 'groups'
+          ? _autoAdjustQualification
+          : true,
+      qualifiedParticipantCount: _selectedStageType == 'groups'
+          ? groupQualificationPlan?.totalQualifiers
+          : null,
+      qualificationSummary: _selectedStageType == 'groups'
+          ? groupQualificationPlan?.summary
+          : inheritedQualificationPlan?.summary,
+      gameFormat: _stageGameFormat,
+    );
   }
 
   void _resetStageForm() {
@@ -1273,7 +1390,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     setState(() {
       _editingStageIndex = index;
       _selectedStageType = stage.type;
-      _placementPlaces..clear()..addAll(stage.placementPlaces);
+      _placementPlaces
+        ..clear()
+        ..addAll(stage.placementPlaces);
       _finalEndsTournament = stage.finalEndsTournament;
       _kratzerLives = stage.lossLimit;
       _stageNameController.text = stage.name;
@@ -1297,7 +1416,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         _groupRoundRobinRepeats
           ..clear()
           ..addAll(stage.groupRoundRobinRepeats);
-        _groupMaxGamesPerPlayer..clear()..addAll(stage.groupMaxGamesPerPlayer);
+        _groupMaxGamesPerPlayer
+          ..clear()
+          ..addAll(stage.groupMaxGamesPerPlayer);
         _groupTieBreakers
           ..clear()
           ..addAll(stage.groupTieBreakers);
@@ -1314,7 +1435,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         _selectedExtraGroups.clear();
         _groupPlayTypes.clear();
         _groupRoundRobinRepeats.clear();
-    _groupMaxGamesPerPlayer.clear();
+        _groupMaxGamesPerPlayer.clear();
         _fixedQualifiersByGroup.clear();
         _manualExtraRank = null;
         _manualExtraCount = null;
@@ -1358,21 +1479,41 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     );
     if (suggestion == null || !mounted) return;
     if (suggestion.configurations.isNotEmpty) {
-      if (_players.isNotEmpty && _players.length != suggestion.participantCount) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Die Spielerzahl im Finder muss zu den ausgewählten Spielern passen.')));
+      if (_players.isNotEmpty &&
+          _players.length != suggestion.participantCount) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Die Spielerzahl im Finder muss zu den ausgewählten Spielern passen.',
+            ),
+          ),
+        );
         return;
       }
       setState(() {
         if (_players.isEmpty && widget.communityId == null) {
-          _players.addAll(List.generate(suggestion.participantCount, (i)=>TournamentPlayer.generated(i+1)));
+          _players.addAll(
+            List.generate(
+              suggestion.participantCount,
+              (i) => TournamentPlayer.generated(i + 1),
+            ),
+          );
         }
-        _stages..clear()..addAll(suggestion.configurations);
-        _plannedBoardCount = suggestion.boardCount.clamp(1,64);
+        _stages
+          ..clear()
+          ..addAll(suggestion.configurations);
+        _plannedBoardCount = suggestion.boardCount.clamp(1, 64);
         _playerCountController.text = '${suggestion.participantCount}';
         _resetStageForm();
         _showEntryChoices = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vorschlag übernommen. Spieler, Etappen und Spielformate bleiben bearbeitbar.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Vorschlag übernommen. Spieler, Etappen und Spielformate bleiben bearbeitbar.',
+          ),
+        ),
+      );
       return;
     }
     // Preserve selected players; local drafts can start with named placeholders.
@@ -1380,19 +1521,37 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         ? _players.length
         : suggestion.participantCount;
     final groups = suggestion.stages.first.groupCount;
-    final sizes = List.generate(groups, (index) => inferredPlayerCount ~/ groups + (index < inferredPlayerCount % groups ? 1 : 0));
+    final sizes = List.generate(
+      groups,
+      (index) =>
+          inferredPlayerCount ~/ groups +
+          (index < inferredPlayerCount % groups ? 1 : 0),
+    );
     if (groups > 0 && !hasValidGroupSizes(sizes)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Der Vorschlag passt nicht zur aktuellen Spielerzahl: mindestens 3 Spieler je Gruppe erforderlich.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Der Vorschlag passt nicht zur aktuellen Spielerzahl: mindestens 3 Spieler je Gruppe erforderlich.',
+          ),
+        ),
+      );
       return;
     }
-    final qualifiersByGroup = [for (final size in sizes) min(size, suggestion.qualifiersPerGroup)];
-    final qualifierCount = qualifiersByGroup.fold<int>(0, (sum, value) => sum + value);
+    final qualifiersByGroup = [
+      for (final size in sizes) min(size, suggestion.qualifiersPerGroup),
+    ];
+    final qualifierCount = qualifiersByGroup.fold<int>(
+      0,
+      (sum, value) => sum + value,
+    );
     setState(() {
       if (_players.isEmpty && widget.communityId == null) {
-        _players.addAll(List.generate(
-          inferredPlayerCount,
-          (index) => TournamentPlayer.generated(index + 1),
-        ));
+        _players.addAll(
+          List.generate(
+            inferredPlayerCount,
+            (index) => TournamentPlayer.generated(index + 1),
+          ),
+        );
       }
       _stageGameFormat = suggestion.stages.first.format;
       _plannedBoardCount = suggestion.boardCount.clamp(1, 64);
@@ -1400,42 +1559,64 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       _groupCountController.text = '$groups';
       _stages
         ..clear()
-        ..add(groups == 0 ? TournamentStage(
-          name: 'K.-o.-Finale', type: 'single_knockout',
-          knockoutParticipantCount: inferredPlayerCount,
-          knockoutBracketSize: _plannerNextPowerOfTwo(inferredPlayerCount),
-          knockoutByeCount: _plannerNextPowerOfTwo(inferredPlayerCount) - inferredPlayerCount,
-          gameFormat: suggestion.stages.first.format,
-        ) : TournamentStage(
-          name: groups == 1 ? 'Ligaphase' : 'Gruppenphase',
-          type: 'groups',
-          groupCount: groups,
-          groupSizes: sizes,
-          groupPlayType: 'round_robin',
-          groupPlayTypes: List.filled(groups, 'round_robin'),
-          groupRoundRobinRepeats: List.filled(groups, 1),
-          qualifiedParticipantCount: groups == 1 ? null : qualifierCount,
-          fixedQualifiersByGroup: groups == 1 ? const [] : qualifiersByGroup,
-          qualificationSummary: groups == 1 ? null : 'Bis zu ${suggestion.qualifiersPerGroup} Beste jeder Gruppe',
-          gameFormat: suggestion.stages.first.format,
-        ));
+        ..add(
+          groups == 0
+              ? TournamentStage(
+                  name: 'K.-o.-Finale',
+                  type: 'single_knockout',
+                  knockoutParticipantCount: inferredPlayerCount,
+                  knockoutBracketSize: _plannerNextPowerOfTwo(
+                    inferredPlayerCount,
+                  ),
+                  knockoutByeCount:
+                      _plannerNextPowerOfTwo(inferredPlayerCount) -
+                      inferredPlayerCount,
+                  gameFormat: suggestion.stages.first.format,
+                )
+              : TournamentStage(
+                  name: groups == 1 ? 'Ligaphase' : 'Gruppenphase',
+                  type: 'groups',
+                  groupCount: groups,
+                  groupSizes: sizes,
+                  groupPlayType: 'round_robin',
+                  groupPlayTypes: List.filled(groups, 'round_robin'),
+                  groupRoundRobinRepeats: List.filled(groups, 1),
+                  qualifiedParticipantCount: groups == 1
+                      ? null
+                      : qualifierCount,
+                  fixedQualifiersByGroup: groups == 1
+                      ? const []
+                      : qualifiersByGroup,
+                  qualificationSummary: groups == 1
+                      ? null
+                      : 'Bis zu ${suggestion.qualifiersPerGroup} Beste jeder Gruppe',
+                  gameFormat: suggestion.stages.first.format,
+                ),
+        );
       if (suggestion.stages.length > 1) {
-        _stages.add(TournamentStage(
-          name: 'K.-o.-Finale',
-          type: 'single_knockout',
-          knockoutParticipantCount: qualifierCount,
-          knockoutBracketSize: _plannerNextPowerOfTwo(qualifierCount),
-          knockoutByeCount: _plannerNextPowerOfTwo(qualifierCount) - qualifierCount,
-          gameFormat: suggestion.stages.last.format,
-        ));
+        _stages.add(
+          TournamentStage(
+            name: 'K.-o.-Finale',
+            type: 'single_knockout',
+            knockoutParticipantCount: qualifierCount,
+            knockoutBracketSize: _plannerNextPowerOfTwo(qualifierCount),
+            knockoutByeCount:
+                _plannerNextPowerOfTwo(qualifierCount) - qualifierCount,
+            gameFormat: suggestion.stages.last.format,
+          ),
+        );
       }
       _resetStageForm();
     });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(_players.isEmpty
-          ? 'Vorschlag übernommen. Bitte zuerst die Community-Spieler auswählen.'
-          : 'Vorschlag übernommen. Du kannst Spieler, Etappen und Spielformate weiter anpassen.'),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _players.isEmpty
+              ? 'Vorschlag übernommen. Bitte zuerst die Community-Spieler auswählen.'
+              : 'Vorschlag übernommen. Du kannst Spieler, Etappen und Spielformate weiter anpassen.',
+        ),
+      ),
+    );
     setState(() => _showEntryChoices = false);
   }
 
@@ -1448,8 +1629,18 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   }
 
   Future<void> _createTournament() async {
-    if (_stages.any((stage) => stage.type == 'groups' && !hasValidGroupSizes(stage.groupSizes))) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Jede Gruppe benötigt mindestens 3 Spieler. Bitte die Etappen anpassen.')));
+    if (_isCreatingTournament) return;
+    if (_stages.any(
+      (stage) =>
+          stage.type == 'groups' && !hasValidGroupSizes(stage.groupSizes),
+    )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Jede Gruppe benötigt mindestens 3 Spieler. Bitte die Etappen anpassen.',
+          ),
+        ),
+      );
       return;
     }
     if (_stages.isEmpty || _players.isEmpty) {
@@ -1457,17 +1648,20 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     }
 
     late final CreatedTournament tournament;
+    setState(() => _isCreatingTournament = true);
     try {
       final controller = const TournamentCreationController();
       final name = _tournamentNameController.text.trim().isEmpty
           ? 'Neues Turnier'
           : _tournamentNameController.text.trim();
-      final runStages = _buildRunStages();
+      final stages = await _stagesWithCommunitySeeding();
+      if (!mounted) return;
+      final runStages = _buildRunStages(stages);
       if (widget.communityId case final String communityId) {
         tournament = await controller.createCommunityTournament(
           name: name,
           players: _players,
-          stages: _stages,
+          stages: stages,
           runStages: runStages,
           communityId: communityId,
           access: _tournamentAccess,
@@ -1480,14 +1674,17 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
           boardCount: _plannedBoardCount,
           name: name,
           players: _players,
-          stages: _stages,
+          stages: stages,
           runStages: runStages,
         );
       }
     } catch (error) {
       if (!mounted) return;
+      setState(() => _isCreatingTournament = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Turnier konnte nicht gespeichert werden: $error')),
+        SnackBar(
+          content: Text('Turnier konnte nicht gespeichert werden: $error'),
+        ),
       );
       return;
     }
@@ -1495,11 +1692,74 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     if (!mounted) {
       return;
     }
+    setState(() => _isCreatingTournament = false);
     Navigator.of(context).pushReplacement<void, void>(
       MaterialPageRoute<void>(
         builder: (_) => TournamentRunPage(tournament: tournament),
       ),
     );
+  }
+
+  Future<List<TournamentStage>> _stagesWithCommunitySeeding() async {
+    if (widget.communityId == null || _communityGroupSeedingMode == 'none') {
+      return List.unmodifiable(_stages);
+    }
+    final groupStageIndex = _stages.indexWhere(
+      (stage) => stage.type == 'groups',
+    );
+    if (groupStageIndex != 0) return List.unmodifiable(_stages);
+    final stage = _stages[groupStageIndex];
+    final mode = _communityGroupSeedingMode == 'strength'
+        ? CommunityGroupSeedingMode.strengthSplit
+        : CommunityGroupSeedingMode.mixed;
+    if (mode == CommunityGroupSeedingMode.strengthSplit &&
+        stage.groupSizes.length != 2) {
+      throw StateError(
+        'Stärkegruppen sind nur mit genau zwei Gruppen möglich.',
+      );
+    }
+    final repository = SupabaseCommunityRepository();
+    final values = await Future.wait<Object>([
+      repository.loadMembers(widget.communityId!),
+      repository.loadTournaments(widget.communityId!),
+      repository.loadRankings(widget.communityId!),
+      repository.loadRankingActions(widget.communityId!),
+    ]);
+    final rankings = values[2] as List<CommunityRanking>;
+    if (_communityRankingIds.isEmpty) {
+      throw StateError(
+        'Wähle für die Ranglistensetzung mindestens eine Rangliste aus.',
+      );
+    }
+    final rankingId = _communityRankingIds.first;
+    final ranking = rankings.where((item) => item.id == rankingId).firstOrNull;
+    final snapshot = const CommunityEloCalculator().calculate(
+      members: values[0] as List<CommunityMember>,
+      tournaments: values[1] as List<CreatedTournament>,
+      actions: values[3] as List<CommunityRankingAction>,
+      rankingId: rankingId,
+      currentYearOnly: false,
+      validityMonths: ranking?.validityMonths,
+    );
+    final ratings = {
+      for (final entry in snapshot.entries)
+        if (entry.player.playerProfileId != null) ...{
+          entry.player.playerProfileId!: entry.rating,
+          for (final alias in entry.player.aliasProfileIds) alias: entry.rating,
+        },
+    };
+    final order = const CommunityGroupSeeding().order(
+      players: _players,
+      groupSizes: stage.groupSizes,
+      ratingsByProfileId: ratings,
+      mode: mode,
+    );
+    final updated = List<TournamentStage>.from(_stages);
+    updated[groupStageIndex] = TournamentStage.fromJson({
+      ...stage.toJson(),
+      'groupSlotOrder': order,
+    });
+    return List.unmodifiable(updated);
   }
 
   List<TournamentRunStage> _buildRunStages([List<TournamentStage>? stages]) {
@@ -1548,10 +1808,10 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                 slotOrder: stage.knockoutSlotOrder,
               )
             : lossLimit == 2
-                ? _buildDoubleEliminationRounds(
-                    participants,
-                    slotOrder: stage.knockoutSlotOrder,
-                  )
+            ? _buildDoubleEliminationRounds(
+                participants,
+                slotOrder: stage.knockoutSlotOrder,
+              )
             : _buildTripleEliminationRounds(
                 participants,
                 lossLimit: lossLimit,
@@ -1561,8 +1821,22 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
           KnockoutTournamentRunStage(
             name: stage.name,
             rounds: rounds,
-            placementMatches:
-                lossLimit == 1 ? stage.placementPlaces.isEmpty ? _buildPlacementMatches(participants.length, requiredRank) : PlacementEngine.build(rounds, {...stage.placementPlaces.where((p) => p < participants.length), if (requiredRank >= 3 && requiredRank.isOdd && requiredRank < participants.length) requiredRank}) : const [],
+            placementMatches: lossLimit == 1
+                ? stage.placementPlaces.isEmpty
+                      ? _buildPlacementMatches(
+                          participants.length,
+                          requiredRank,
+                        )
+                      : PlacementEngine.build(rounds, {
+                          ...stage.placementPlaces.where(
+                            (p) => p < participants.length,
+                          ),
+                          if (requiredRank >= 3 &&
+                              requiredRank.isOdd &&
+                              requiredRank < participants.length)
+                            requiredRank,
+                        })
+                : const [],
             eliminationLossLimit: lossLimit,
             finalEndsTournament: stage.finalEndsTournament,
           ),
@@ -1737,7 +2011,11 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
             _slotOrderAvoidsByePair(slotOrder)
         ? List<int?>.from(slotOrder)
         : _automaticKnockoutSlotOrder(players.length, bracketSize);
-    return _buildTripleEliminationRoundsFromSlots(players, slots, lossLimit: lossLimit);
+    return _buildTripleEliminationRoundsFromSlots(
+      players,
+      slots,
+      lossLimit: lossLimit,
+    );
   }
 
   void _advanceKnockoutWinnersInRounds(List<List<GroupMatch>> rounds) {
@@ -1845,12 +2123,13 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         ..addAll(fixed);
       if (_autoAdjustQualification) {
         final safeTotal = fixed.fold<int>(0, (sum, value) => sum + value);
-        final currentExtraCount = plan.extraCount == 0 &&
-                _selectedExtraGroups.isNotEmpty
+        final currentExtraCount =
+            plan.extraCount == 0 && _selectedExtraGroups.isNotEmpty
             ? 1
             : plan.extraCount.clamp(0, _selectedExtraGroups.length).toInt();
         _bestOfQualifierCountController.text = '$currentExtraCount';
-        _groupQualifierCountController.text = '${safeTotal + currentExtraCount}';
+        _groupQualifierCountController.text =
+            '${safeTotal + currentExtraCount}';
       }
     });
   }
@@ -1869,8 +2148,11 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
 
   @override
   Widget build(BuildContext context) {
-    return CommunityPermissionGate(communityId: widget.communityId,
-      permission: CommunityPermission.createTournaments, builder: _buildAuthorized);
+    return CommunityPermissionGate(
+      communityId: widget.communityId,
+      permission: CommunityPermission.createTournaments,
+      builder: _buildAuthorized,
+    );
   }
 
   Widget _buildAuthorized(BuildContext context) {
@@ -1955,8 +2237,12 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                         setState(() => _countsForRanking = value),
                   ),
                 if (widget.communityId != null)
-                  TournamentAccessEditor(communityId: widget.communityId!, value: _tournamentAccess,
-                    onChanged: (value) => setState(() => _tournamentAccess = value)),
+                  TournamentAccessEditor(
+                    communityId: widget.communityId!,
+                    value: _tournamentAccess,
+                    onChanged: (value) =>
+                        setState(() => _tournamentAccess = value),
+                  ),
                 if (widget.communityId != null && _countsForRanking)
                   CommunityRankingPicker(
                     communityId: widget.communityId!,
@@ -1990,12 +2276,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                       IconButton.filled(
                         onPressed: _addPlayer,
                         icon: const Icon(Icons.add),
-                        tooltip: 'Spieler hinzufuegen',
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => _configureBots(),
-                        icon: const Icon(Icons.smart_toy_outlined),
-                        label: const Text('Bots hinzufügen'),
+                        tooltip: 'Spieler hinzufügen',
                       ),
                       OutlinedButton.icon(
                         onPressed: _isOpeningPlayerPicker
@@ -2009,7 +2290,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                                 ),
                               )
                             : const Icon(Icons.playlist_add_check_outlined),
-                        label: const Text('Auswaehlen'),
+                        label: const Text('Auswählen'),
                       ),
                     ],
                   ),
@@ -2038,7 +2319,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                   onRemove: _removePlayer,
                   onMerge: _mergePlayers,
                   onSplit: _splitTeam,
-                  onEditBot: (index) => _configureBots(index),
                 ),
                 const SizedBox(height: 32),
               ],
@@ -2076,7 +2356,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                       _editingStageIndex == null ? Icons.add : Icons.check,
                     ),
                     tooltip: _editingStageIndex == null
-                        ? 'Etappe hinzufuegen'
+                        ? 'Etappe hinzufügen'
                         : 'Etappe speichern',
                   ),
                 ),
@@ -2201,7 +2481,10 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                       prefixIcon: Icon(Icons.sports_score_outlined),
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'swiss', child: Text('Schweizer System')),
+                      DropdownMenuItem(
+                        value: 'swiss',
+                        child: Text('Schweizer System'),
+                      ),
                       DropdownMenuItem(
                         value: 'round_robin',
                         child: Text('Jeder gegen jeden'),
@@ -2246,6 +2529,54 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                     breakpoint: 520,
                   ),
                   const SizedBox(height: 12),
+                  if (widget.communityId != null &&
+                      (_editingStageIndex ?? _stages.length) == 0) ...[
+                    Text(
+                      'Gruppen nach Rangliste einteilen',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Die aktuelle Community-Rangliste wird beim Anlegen des Turniers verwendet.',
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Keine Sortierung'),
+                          selected: _communityGroupSeedingMode == 'none',
+                          onSelected: (_) => setState(
+                            () => _communityGroupSeedingMode = 'none',
+                          ),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Gemischte Gruppen'),
+                          selected: _communityGroupSeedingMode == 'mixed',
+                          onSelected: (_) => setState(
+                            () => _communityGroupSeedingMode = 'mixed',
+                          ),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Leistungsgruppen'),
+                          selected: _communityGroupSeedingMode == 'strength',
+                          onSelected: groupSizes.length != 2
+                              ? null
+                              : (_) => setState(
+                                  () => _communityGroupSeedingMode = 'strength',
+                                ),
+                        ),
+                      ],
+                    ),
+                    if (_communityGroupSeedingMode == 'strength')
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Die höher bewerteten Spieler kommen in Gruppe A, die übrigen in Gruppe B.',
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                  ],
                   ExpertSetupSection(
                     title: 'Gruppenoptionen',
                     summary:
@@ -2261,9 +2592,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                         enabled: _groupDrawOnStart,
                         onChanged: _setGroupDrawOnStart,
                       ),
-                      if (_playTypesForGroupSizes(
-                        groupSizes,
-                      ).any((type) => type == 'round_robin' || type == 'swiss')) ...[
+                      if (_playTypesForGroupSizes(groupSizes).any(
+                        (type) => type == 'round_robin' || type == 'swiss',
+                      )) ...[
                         const SizedBox(height: 12),
                         RoundRobinRepeatsSetup(
                           groupSizes: groupSizes,
@@ -2271,7 +2602,13 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                           repeats: _roundRobinRepeatsForGroupSizes(groupSizes),
                           onChangeRepeats: _changeGroupRoundRobinRepeats,
                         ),
-                        GroupGameLimitSetup(groupSizes: groupSizes, playTypes: _playTypesForGroupSizes(groupSizes), repeats: _roundRobinRepeatsForGroupSizes(groupSizes), limits: _gameLimitsForGroupSizes(groupSizes), onChanged: _setGroupGameLimit),
+                        GroupGameLimitSetup(
+                          groupSizes: groupSizes,
+                          playTypes: _playTypesForGroupSizes(groupSizes),
+                          repeats: _roundRobinRepeatsForGroupSizes(groupSizes),
+                          limits: _gameLimitsForGroupSizes(groupSizes),
+                          onChanged: _setGroupGameLimit,
+                        ),
                       ],
                       const SizedBox(height: 12),
                     ],
@@ -2408,11 +2745,23 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                     ),
                   ),
                 FilledButton.icon(
-                  onPressed: _players.isEmpty || _stages.isEmpty
+                  onPressed:
+                      _players.isEmpty ||
+                          _stages.isEmpty ||
+                          _isCreatingTournament
                       ? null
                       : _createTournament,
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Turnier anlegen'),
+                  icon: _isCreatingTournament
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_circle_outline),
+                  label: Text(
+                    _isCreatingTournament
+                        ? 'Wird angelegt …'
+                        : 'Turnier anlegen',
+                  ),
                 ),
               ],
             ),

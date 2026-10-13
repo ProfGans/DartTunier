@@ -176,10 +176,19 @@ class TournamentPlayer {
   factory TournamentPlayer.fromJson(Map<String, dynamic> json) {
     return TournamentPlayer(
       profileId: json['bot'] == null ? json['profileId'] as String? : null,
-      bot: json['bot'] is Map ? TournamentBot.fromJson(Map<String,dynamic>.from(json['bot'] as Map)) : null,
+      bot: json['bot'] is Map
+          ? TournamentBot.fromJson(
+              Map<String, dynamic>.from(json['bot'] as Map),
+            )
+          : null,
       name: json['name'] as String? ?? '',
       isGenerated: json['isGenerated'] as bool? ?? false,
-      members: (json['members'] as List? ?? const []).map((e) => TournamentPlayer.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
+      members: (json['members'] as List? ?? const [])
+          .map(
+            (e) =>
+                TournamentPlayer.fromJson(Map<String, dynamic>.from(e as Map)),
+          )
+          .toList(),
     );
   }
 
@@ -193,18 +202,26 @@ class TournamentPlayer {
   final bool isGenerated;
   final List<TournamentPlayer> members;
   bool get isTeam => members.isNotEmpty;
-  List<TournamentPlayer> get individuals => isTeam
-      ? members.expand((p) => p.individuals).toList()
-      : [this];
+  List<TournamentPlayer> get individuals =>
+      isTeam ? members.expand((p) => p.individuals).toList() : [this];
 
   factory TournamentPlayer.team(Iterable<TournamentPlayer> players) {
     final members = players.expand((p) => p.individuals).toList();
-    if (members.any((p)=>p.bot!=null)) throw ArgumentError('Bots nehmen einzeln am Turnier teil.');
-    if (members.length < 2 || members.map((p) => p.profileId ?? p.name).toSet().length != members.length) {
-      throw ArgumentError('Ein Team benötigt mindestens zwei unterschiedliche Spieler.');
+    if (members.any((p) => p.bot != null)) {
+      throw ArgumentError('Bots nehmen einzeln am Turnier teil.');
     }
-    return TournamentPlayer(name: members.map((p) => p.name).join(' / '),
-      isGenerated: false, members: List.unmodifiable(members));
+    if (members.length < 2 ||
+        members.map((p) => p.profileId ?? p.name).toSet().length !=
+            members.length) {
+      throw ArgumentError(
+        'Ein Team benötigt mindestens zwei unterschiedliche Spieler.',
+      );
+    }
+    return TournamentPlayer(
+      name: members.map((p) => p.name).join(' / '),
+      isGenerated: false,
+      members: List.unmodifiable(members),
+    );
   }
 
   TournamentPlayer copyWith({
@@ -240,11 +257,14 @@ class TournamentPlayer {
         other.isGenerated == isGenerated &&
         other.bot == bot &&
         other.members.length == members.length &&
-        Iterable<int>.generate(members.length).every((i) => members[i] == other.members[i]);
+        Iterable<int>.generate(
+          members.length,
+        ).every((i) => members[i] == other.members[i]);
   }
 
   @override
-  int get hashCode => Object.hash(profileId, name, isGenerated, bot, Object.hashAll(members));
+  int get hashCode =>
+      Object.hash(profileId, name, isGenerated, bot, Object.hashAll(members));
 }
 
 class TournamentStage {
@@ -291,7 +311,9 @@ class TournamentStage {
       groupPlayType: json['groupPlayType'] as String? ?? 'round_robin',
       groupPlayTypes: _stringListFromJson(json['groupPlayTypes']),
       groupRoundRobinRepeats: _intListFromJson(json['groupRoundRobinRepeats']),
-      groupMaxGamesPerPlayer: _nullableIntListFromJson(json['groupMaxGamesPerPlayer']),
+      groupMaxGamesPerPlayer: _nullableIntListFromJson(
+        json['groupMaxGamesPerPlayer'],
+      ),
       groupTieBreakers: _stringListFromJson(
         json['groupTieBreakers'],
         fallback: defaultGroupTieBreakers,
@@ -324,15 +346,25 @@ class TournamentStage {
   final bool finalEndsTournament;
   final int? knockoutLives;
   final List<int> placementPlaces;
-  int get lossLimit => knockoutLives ?? (type == 'double_knockout' ? 2 : type == 'triple_knockout' || type == 'kratzer' ? 3 : 1);
+  int get lossLimit =>
+      knockoutLives ??
+      (type == 'double_knockout'
+          ? 2
+          : type == 'triple_knockout' || type == 'kratzer'
+          ? 3
+          : 1);
   final int? groupCount;
   final List<int> groupSizes;
   final String groupPlayType;
   final List<String> groupPlayTypes;
   final List<int> groupRoundRobinRepeats;
+
   /// Null means a full round robin; positive values cap actual games, excluding byes.
   final List<int?> groupMaxGamesPerPlayer;
-  int? maxGamesForGroup(int index) => index >= 0 && index < groupMaxGamesPerPlayer.length ? groupMaxGamesPerPlayer[index] : null;
+  int? maxGamesForGroup(int index) =>
+      index >= 0 && index < groupMaxGamesPerPlayer.length
+      ? groupMaxGamesPerPlayer[index]
+      : null;
   final List<String> groupTieBreakers;
   final bool groupDrawOnStart;
   final List<int?> groupSlotOrder;
@@ -491,22 +523,37 @@ class CreatedTournament {
       players: _mapListFromJson(json['players'], TournamentPlayer.fromJson),
       stages: _mapListFromJson(json['stages'], TournamentStage.fromJson),
       runStages: _runStageListFromJson(json['runStages']),
-      leagueMatch: json['leagueMatch'] == null ? null : LeagueMatch.fromJson(
-          Map<String, dynamic>.from(json['leagueMatch'] as Map)),
-      importedArchive: json['importedArchive'] == null ? null : ImportedTournamentArchive.fromJson(
-          Map<String, dynamic>.from(json['importedArchive'] as Map)),
+      leagueMatch: json['leagueMatch'] == null
+          ? null
+          : LeagueMatch.fromJson(
+              Map<String, dynamic>.from(json['leagueMatch'] as Map),
+            ),
+      importedArchive: json['importedArchive'] == null
+          ? null
+          : ImportedTournamentArchive.fromJson(
+              Map<String, dynamic>.from(json['importedArchive'] as Map),
+            ),
       communityId: json['communityId'] as String?,
       countsForRanking: json['countsForRanking'] as bool? ?? true,
       communityRankingIds: json['communityRankingIds'] == null
           ? const ['default']
-          : List<String>.unmodifiable((json['communityRankingIds'] as List).cast<String>()),
+          : List<String>.unmodifiable(
+              (json['communityRankingIds'] as List).cast<String>(),
+            ),
       activeStageIndex: json['activeStageIndex'] as int? ?? 0,
       boardCount: (json['boardCount'] as int? ?? 1).clamp(1, 64),
       allowDeviceStart: json['allowDeviceStart'] == true,
-      access: TournamentAccessSettings.fromJson(json['access'] as Map<String, dynamic>?),
+      access: TournamentAccessSettings.fromJson(
+        json['access'] as Map<String, dynamic>?,
+      ),
       syncRevision: json['syncRevision'] as int? ?? 0,
-      withdrawals: _mapListFromJson(json['withdrawals'], PlayerWithdrawal.fromJson),
-      blockedBoards: _intListFromJson(json['blockedBoards']).where((b) => b >= 1 && b <= 64).toSet(),
+      withdrawals: _mapListFromJson(
+        json['withdrawals'],
+        PlayerWithdrawal.fromJson,
+      ),
+      blockedBoards: _intListFromJson(
+        json['blockedBoards'],
+      ).where((b) => b >= 1 && b <= 64).toSet(),
       startedAt: _dateTimeFromJson(json['startedAt']),
       finishedAt: _dateTimeFromJson(json['finishedAt']),
       plannedMinutes: json['plannedMinutes'] as int?,
@@ -545,7 +592,8 @@ class CreatedTournament {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      if (withdrawals.isNotEmpty) 'withdrawals': withdrawals.map((w) => w.toJson()).toList(),
+      if (withdrawals.isNotEmpty)
+        'withdrawals': withdrawals.map((w) => w.toJson()).toList(),
       'name': name,
       'createdAt': createdAt.toUtc().toIso8601String(),
       'updatedAt': updatedAt.toUtc().toIso8601String(),
@@ -556,15 +604,20 @@ class CreatedTournament {
       if (importedArchive != null) 'importedArchive': importedArchive!.toJson(),
       'communityId': communityId,
       if (!countsForRanking) 'countsForRanking': false,
-      if (communityRankingIds.length != 1 || communityRankingIds.single != 'default')
+      if (communityRankingIds.length != 1 ||
+          communityRankingIds.single != 'default')
         'communityRankingIds': communityRankingIds,
       'activeStageIndex': activeStageIndex,
       'boardCount': boardCount,
       if (syncRevision != 0) 'syncRevision': syncRevision,
       'allowDeviceStart': allowDeviceStart,
-      if (access.creatorUserId != null || access.directorUserIds.isNotEmpty || access.resultEntryMode != ResultEntryMode.directors || access.resultUserIds.isNotEmpty)
+      if (access.creatorUserId != null ||
+          access.directorUserIds.isNotEmpty ||
+          access.resultEntryMode != ResultEntryMode.directors ||
+          access.resultUserIds.isNotEmpty)
         'access': access.toJson(),
-      if (blockedBoards.isNotEmpty) 'blockedBoards': blockedBoards.toList()..sort(),
+      if (blockedBoards.isNotEmpty)
+        'blockedBoards': blockedBoards.toList()..sort(),
       'startedAt': startedAt?.toUtc().toIso8601String(),
       'finishedAt': finishedAt?.toUtc().toIso8601String(),
       'plannedMinutes': plannedMinutes,
@@ -664,15 +717,23 @@ class TournamentGroup {
   final bool finalEndsTournament;
 
   factory TournamentGroup.fromJson(Map<String, dynamic> json) {
-    final storedMatches = _mapListFromJson(json['matches'], GroupMatch.fromJson);
+    final storedMatches = _mapListFromJson(
+      json['matches'],
+      GroupMatch.fromJson,
+    );
     final rounds = _matchRoundsFromJson(json['knockoutRounds']);
-    final placements = _mapListFromJson(json['placementMatches'], GroupMatch.fromJson);
+    final placements = _mapListFromJson(
+      json['placementMatches'],
+      GroupMatch.fromJson,
+    );
     // Both views must edit the same objects after restoring a saved tournament.
-    final matches = rounds.isEmpty ? storedMatches : <GroupMatch>[
-      ...rounds.expand((round) => round),
-      ...placements,
-      ...storedMatches.where((match) => match.isDecider),
-    ];
+    final matches = rounds.isEmpty
+        ? storedMatches
+        : <GroupMatch>[
+            ...rounds.expand((round) => round),
+            ...placements,
+            ...storedMatches.where((match) => match.isDecider),
+          ];
     return TournamentGroup(
       name: json['name'] as String? ?? '',
       playType: json['playType'] as String? ?? 'round_robin',
@@ -747,10 +808,11 @@ class GroupMatch {
       startedAt: _dateTimeFromJson(json['startedAt']),
       finishedAt: _dateTimeFromJson(json['finishedAt']),
       startedPlayers: json['startedPlayers'] as String?,
-      deviceResult: withoutBotStatistics(json['deviceResult'] as Map<String, dynamic>?, {
-        if (_playerFromJson(json['homePlayer'])?.bot != null) 0,
-        if (_playerFromJson(json['awayPlayer'])?.bot != null) 1,
-      }),
+      deviceResult:
+          withoutBotStatistics(json['deviceResult'] as Map<String, dynamic>?, {
+            if (_playerFromJson(json['homePlayer'])?.bot != null) 0,
+            if (_playerFromJson(json['awayPlayer'])?.bot != null) 1,
+          }),
       withdrawalSignature: json['withdrawalSignature'] as String?,
       withdrawalIgnored: json['withdrawalIgnored'] == true,
       withdrawalHadResult: json['withdrawalHadResult'] == true,
@@ -767,7 +829,9 @@ class GroupMatch {
   bool get hasSetScore => homeSets != null && awaySets != null;
   int? get homeScore => hasSetScore ? homeSets : homeLegs;
   int? get awayScore => hasSetScore ? awaySets : awayLegs;
-  String get scoreLabel => withdrawalIgnored ? 'Nicht gewertet' : '$homeScore:$awayScore${hasSetScore ? ' Sets' : ''}${withdrawalSignature != null && !withdrawalHadResult ? ' · kampflos' : ''}';
+  String get scoreLabel => withdrawalIgnored
+      ? 'Nicht gewertet'
+      : '$homeScore:$awayScore${hasSetScore ? ' Sets' : ''}${withdrawalSignature != null && !withdrawalHadResult ? ' · kampflos' : ''}';
   bool allowsBye;
   final String? placementKey;
   final int? placementRank;
@@ -829,7 +893,8 @@ class GroupMatch {
       'placementRank': placementRank,
       'label': label,
       'isAnnulled': isAnnulled,
-      if (withdrawalSignature != null) 'withdrawalSignature': withdrawalSignature,
+      if (withdrawalSignature != null)
+        'withdrawalSignature': withdrawalSignature,
       if (withdrawalIgnored) 'withdrawalIgnored': true,
       if (withdrawalHadResult) 'withdrawalHadResult': true,
       'isDecider': isDecider,
@@ -919,7 +984,7 @@ class QualificationPlan {
 
   String get summary {
     final fixedText = fixedPerGroup == 0
-        ? 'keine sicheren Plaetze'
+        ? 'keine sicheren Plätze'
         : 'Top $fixedPerGroup je Gruppe';
 
     if (extraCount == 0) {
@@ -931,7 +996,7 @@ class QualificationPlan {
         : ' aus ${_formatGroupSelection(extraGroups)}';
 
     return '$totalQualifiers Weiterkommende - $fixedText + '
-        'beste $extraCount $extraRank. Plaetze$groupText';
+        'beste $extraCount $extraRank. Plätze$groupText';
   }
 
   String _formatGroupSelection(List<int> groups) {

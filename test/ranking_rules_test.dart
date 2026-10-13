@@ -26,11 +26,11 @@ void main() {
     match.finishedAt = DateTime(2026, 7, 8);
     CommunityEloSnapshot calculate(DateTime date) => const CommunityEloCalculator().calculate(
       members: eloMembers, tournaments: [t], currentYearOnly: false, now: date, validityMonths: 3);
-    expect(calculate(DateTime(2026, 10, 8)).entries.first.rating, 1016);
+    expect(calculate(DateTime(2026, 10, 8)).entries.first.rating, 1013);
     expect(calculate(DateTime(2026, 10, 9)).entries, isEmpty);
     expect(match.homeLegs, 3);
     match.finishedAt = DateTime(2025, 12, 15);
-    expect(const CommunityEloCalculator().calculate(members: eloMembers, tournaments: [t], currentYearOnly: true, now: DateTime(2026, 2, 1), validityMonths: 3).entries.first.rating, 1016);
+    expect(const CommunityEloCalculator().calculate(members: eloMembers, tournaments: [t], currentYearOnly: true, now: DateTime(2026, 2, 1), validityMonths: 3).entries.first.rating, 1013);
   });
   for (final size in [const Size(360,800), const Size(800,600), const Size(1440,900)]) {
     testWidgets('rules dialog at $size with large text', (tester) async {

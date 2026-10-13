@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
 
 class SportHero extends StatelessWidget {
-  const SportHero({
-    super.key,
-    required this.onTournament,
-    required this.onScorer,
-  });
+  const SportHero({super.key, required this.onTournament});
   final VoidCallback onTournament;
-  final VoidCallback onScorer;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(28),
@@ -50,15 +45,6 @@ class SportHero extends StatelessWidget {
               ),
               icon: const Icon(Icons.add),
               label: const Text('Turnier erstellen'),
-            ),
-            OutlinedButton.icon(
-              onPressed: onScorer,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Color(0xFF83AAA9)),
-              ),
-              icon: const Icon(Icons.sports_score),
-              label: const Text('Scorer starten'),
             ),
           ],
         ),

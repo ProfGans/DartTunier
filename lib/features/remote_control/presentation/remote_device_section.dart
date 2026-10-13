@@ -42,7 +42,7 @@ class _RemoteDeviceSectionState extends State<RemoteDeviceSection> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const Text(
-                'Scorer-Eingaben und Autoscoring-Ergebnisse im selben WLAN synchronisieren. Das Hauptgerät führt die Partie. Für weitere App-Bereiche ist auch Bildschirmspiegelung verfügbar.',
+                'Die App-Oberfläche eines verbundenen Geräts im selben WLAN fernbedienen. Das Hauptgerät bleibt die führende Ansicht.',
               ),
               const SizedBox(height: 8),
               SwitchListTile(
