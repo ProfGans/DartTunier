@@ -159,6 +159,29 @@ class SupabaseCommunityRepository {
     await _storage.writeCache('ranking-settings-v1:$communityId', rows);
   }
 
+  Future<void> deleteCommunity(String communityId) async {
+    await _client.rpc(
+      'delete_community',
+      params: {'requested_community_id': communityId},
+    );
+    await _storage.removeCommunityLocally(communityId);
+    await _storage.removeCacheKeys([
+      'members:$communityId',
+      'guest-members:$communityId',
+      'rankings-v1:$communityId',
+      'ranking-settings-v1:$communityId',
+      'community-access-v1:$currentUserId:$communityId',
+      'ranking-actions-v1:$currentUserId:$communityId',
+    ]);
+    final cached = await _storage.readCache('communities');
+    if (cached != null) {
+      await _storage.writeCache('communities', [
+        for (final row in cached)
+          if ((row as Map)['communities']?['id'] != communityId) row,
+      ]);
+    }
+  }
+
   Future<CommunityRanking> createRanking(String communityId, String name) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty || trimmed.length > 80) {
@@ -249,7 +272,9 @@ class SupabaseCommunityRepository {
       'guest-members:$communityId',
       () async => await _client
           .from('community_guest_members')
-          .select('id, display_name, linked_user_id, joined_at')
+          .select(
+            'id, display_name, linked_user_id, joined_at, ranking_eligible',
+          )
           .eq('community_id', communityId)
           .order('joined_at'),
       emptyCacheFallback: const [],
@@ -263,6 +288,7 @@ class SupabaseCommunityRepository {
           displayName: guest['display_name'] as String,
           role: 'member',
           joinedAt: DateTime.parse(guest['joined_at'] as String),
+          rankingEligible: guest['ranking_eligible'] as bool? ?? true,
         ),
       for (final row in rows)
         CommunityMember(
@@ -316,7 +342,11 @@ class SupabaseCommunityRepository {
     await createManualMember(communityId, name);
   }
 
-  Future<CommunityMember> createManualMember(String communityId, String name) async {
+  Future<CommunityMember> createManualMember(
+    String communityId,
+    String name, {
+    bool rankingEligible = true,
+  }) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty || trimmed.length > 80) {
       throw ArgumentError('Bitte einen Namen mit 1 bis 80 Zeichen eingeben.');
@@ -324,10 +354,36 @@ class SupabaseCommunityRepository {
     final row = await _client.from('community_guest_members').insert({
       'community_id': communityId,
       'display_name': trimmed,
+      'ranking_eligible': rankingEligible,
     }).select('id,display_name,joined_at').single();
     return CommunityMember(userId: null, playerProfileId: row['id'] as String,
       displayName: row['display_name'] as String, role: 'member',
-      joinedAt: DateTime.parse(row['joined_at'] as String));
+      joinedAt: DateTime.parse(row['joined_at'] as String),
+      rankingEligible: rankingEligible);
+  }
+
+  Future<CommunityMember> createImportedGuestMember(
+    String communityId,
+    String name,
+  ) async {
+    final row = Map<String, dynamic>.from(
+      await _client.rpc(
+            'create_import_guest_member',
+            params: {
+              'requested_community_id': communityId,
+              'guest_name': name,
+            },
+          )
+          as Map,
+    );
+    return CommunityMember(
+      userId: null,
+      playerProfileId: row['id'] as String,
+      displayName: row['display_name'] as String,
+      role: 'member',
+      joinedAt: DateTime.parse(row['joined_at'] as String),
+      rankingEligible: false,
+    );
   }
 
   Future<void> assignManualMember({

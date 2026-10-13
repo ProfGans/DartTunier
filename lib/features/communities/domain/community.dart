@@ -47,11 +47,13 @@ class CommunityMember {
     required this.joinedAt,
     this.linkedUserId,
     this.aliasProfileIds = const [],
+    this.rankingEligible = true,
   });
 
   final String? userId;
   final String? linkedUserId;
   final List<String> aliasProfileIds;
+  final bool rankingEligible;
   bool get isManual => userId == null;
   final String? playerProfileId;
   final String displayName;

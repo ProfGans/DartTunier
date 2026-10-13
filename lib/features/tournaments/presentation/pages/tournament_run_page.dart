@@ -453,6 +453,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
   }
 
   Future<void> _openBoardDevices() async {
+    if (widget.tournament.communityId != null) return;
     if (!widget.access.canLead) return;
     try {
       await CommunityAccessRepository().require(
@@ -563,7 +564,9 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
       await _applyPendingStartDrawForActiveStage();
       if (!mounted) return;
       await _saveTournamentProgress();
-      if (widget.openDevicesOnStart) _openBoardDevices();
+      if (widget.openDevicesOnStart && widget.tournament.communityId == null) {
+        _openBoardDevices();
+      }
     });
   }
 
@@ -2889,7 +2892,8 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                   icon: Icons.ios_share,
                   onTap: _exportTournament,
                 ),
-                if (widget.access.canLead)
+                if (widget.access.canLead &&
+                    widget.tournament.communityId == null)
                   SportMenuAction(
                     label: 'Boards auf Geräte übertragen',
                     icon: Icons.connected_tv,

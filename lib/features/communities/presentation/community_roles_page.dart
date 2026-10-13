@@ -285,8 +285,7 @@ class _CommunityRoleEditorState extends State<CommunityRoleEditor> {
       CommunityPermission.editCommunity,
       CommunityPermission.manageRoles,
     ],
-    'Geräte, Ranglisten & Highlights': [
-      CommunityPermission.assignDevices,
+    'Ranglisten & Highlights': [
       CommunityPermission.manageRankings,
       CommunityPermission.manageHighlights,
     ],

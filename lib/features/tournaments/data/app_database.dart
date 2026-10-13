@@ -204,6 +204,7 @@ class LocalAppDatabase {
     return StorageAccess.run(() async {
       final database = await _openDatabase();
       try {
+        _deactivateSeedProfiles(database);
         final now = DateTime.now();
         final profile = PlayerProfile(
           id: _newId(),
@@ -276,6 +277,57 @@ class LocalAppDatabase {
         database.close();
       }
     });
+  }
+
+  Future<int> importCommunityPlayerNames(Iterable<String> names) async {
+    return StorageAccess.run(() async {
+      final database = await _openDatabase();
+      try {
+        var created = 0;
+        final playerNames = names.map((name) => name.trim()).where((name) => name.isNotEmpty).toList();
+        if (playerNames.isNotEmpty) _deactivateSeedProfiles(database);
+        for (final name in playerNames) {
+          final existing = database.select(
+            '''SELECT id FROM player_profiles
+               WHERE lower(trim(display_name)) = lower(?)
+                 AND id NOT IN (?, ?, ?, ?) LIMIT 1''',
+            [
+              name,
+              '00000000-0000-4000-8000-000000000101',
+              '00000000-0000-4000-8000-000000000102',
+              '00000000-0000-4000-8000-000000000103',
+              '00000000-0000-4000-8000-000000000104',
+            ],
+          );
+          if (existing.isNotEmpty) continue;
+          final now = DateTime.now();
+          final profile = PlayerProfile(
+            id: _newId(), userId: null, displayName: name, country: '',
+            city: '', dartsSetupJson: '', createdAt: now, isActive: true,
+          );
+          database.execute('''
+            INSERT INTO player_profiles (id,user_id,display_name,country,city,darts_setup_json,created_at,is_active)
+            VALUES (?,?,?, ?, ?, ?, ?, 1)
+          ''', [profile.id, null, name, '', '', '', now.toIso8601String()]);
+          created++;
+        }
+        return created;
+      } finally {
+        database.close();
+      }
+    });
+  }
+
+  void _deactivateSeedProfiles(Database database) {
+    database.execute('''
+      UPDATE player_profiles SET is_active = 0
+      WHERE id IN (?, ?, ?, ?)
+    ''', [
+      '00000000-0000-4000-8000-000000000101',
+      '00000000-0000-4000-8000-000000000102',
+      '00000000-0000-4000-8000-000000000103',
+      '00000000-0000-4000-8000-000000000104',
+    ]);
   }
 
   Future<Database> _openDatabase() async {

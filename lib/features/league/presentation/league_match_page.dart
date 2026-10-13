@@ -1,3 +1,5 @@
+import 'dart:math' show min;
+
 import '../../tournaments/domain/tournament_access.dart';
 import '../../tournaments/data/tournament_access_repository.dart';
 import '../../tournaments/presentation/widgets/tournament_access_gate.dart';
@@ -14,6 +16,7 @@ import '../../devices/presentation/devices_scope.dart';
 import '../../tournaments/application/order_of_play/order_of_play_controller.dart';
 import '../../tournaments/presentation/widgets/creation/tournament_devices_section.dart';
 import '../application/league_board_runtime.dart';
+import '../application/league_duration_estimator.dart';
 import 'league_overview.dart';
 import 'league_player_picker.dart';
 import '../data/league_invitation_repository.dart';
@@ -24,6 +27,8 @@ import '../../tournaments/domain/tournament_models.dart';
 import '../../communities/domain/community_permissions.dart';
 import '../../communities/presentation/widgets/community_permission_gate.dart';
 import '../domain/league_match.dart';
+import '../../settings/data/planning_settings_storage.dart';
+import '../../tournaments/domain/tournament_planning_parameters.dart';
 import 'league_pairing_dialog.dart';
 import '../../statistics/domain/tournament_player_statistics.dart';
 import '../../statistics/presentation/tournament_statistics_view.dart';
@@ -68,7 +73,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
   final _rosters = List.generate(
     2,
     (team) => List.generate(
-      4,
+      6,
       (i) => TextEditingController(
         text: '${team == 0 ? 'Heim' : 'Gast'} ${i + 1}',
       ),
@@ -102,22 +107,21 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
-                  '${i < 4
-                      ? 'Stammspieler ${i + 1}'
-                      : i < 8
-                      ? 'Ersatzspieler ${i - 3}'
-                      : 'Aushilfe'} · ${_rosters[team][i].text}',
+                  '${_variant == LeagueMatchVariant.traditional
+                      ? i < 4
+                            ? 'Spieler ${i + 1}'
+                            : 'Ersatzspieler ${i - 3}'
+                      : 'Spieler ${i + 1}'} · ${_rosters[team][i].text}',
                 ),
               ),
             ),
-          if (_rosters[team].length < 9)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, _rosters[team].length),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Neuen Ersatz-/Aushilfsplatz hinzufügen'),
-              ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, _rosters[team].length),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('Neuen Spielerplatz hinzufügen'),
             ),
+          ),
         ],
       ),
     );
@@ -244,7 +248,107 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
 
   BoardDeviceDispatcher? _dispatcher;
   int _boards = 1;
+  LeagueMatchVariant _variant = LeagueMatchVariant.traditional;
+  int _singlesPerPlayer = 2;
+  int _doublesCount = 2;
+  TournamentPlanningParameters _planningParameters =
+      const TournamentPlanningParameters();
   Future<void> _results = Future.value();
+
+  Future<void> _loadPlanningParameters() async {
+    try {
+      final parameters = await PlanningSettingsStorage().load();
+      if (mounted) setState(() => _planningParameters = parameters);
+    } catch (_) {
+      // Fall back to the same planning defaults used by the duration engine.
+    }
+  }
+
+  void _setVariant(LeagueMatchVariant variant) {
+    if (variant == LeagueMatchVariant.traditional &&
+        _invited.keys.any((key) => int.parse(key.split(':').last) >= 6)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Ziehe zuerst Einladungen zu zusätzlichen Spielern zurück.',
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _variant = variant;
+      if (variant == LeagueMatchVariant.traditional) {
+        for (var team = 0; team < _rosters.length; team++) {
+          final roster = _rosters[team];
+          while (roster.length > 6) {
+            roster.removeLast().dispose();
+          }
+          while (roster.length < 6) {
+            roster.add(
+              TextEditingController(
+                text: '${_teams[team].text} ${roster.length + 1}',
+              ),
+            );
+          }
+        }
+        _singlesPerPlayer = 4;
+        _doublesCount = 2;
+      } else {
+        _singlesPerPlayer = 2;
+        _doublesCount = min(_doublesCount, _rosters.first.length ~/ 2);
+      }
+    });
+  }
+
+  Future<void> _removeLastPlayer(int team) async {
+    if (_busy || _rosters[team].length <= 1) return;
+    final slot = _rosters[team].length - 1;
+    final key = '$team:$slot';
+    if (_invited.containsKey(key)) await _cancelInvitation(key);
+    if (!mounted || _invited.containsKey(key)) return;
+    setState(() {
+      _profiles.remove(key);
+      _rosters[team].removeLast().dispose();
+      _singlesPerPlayer = min(_singlesPerPlayer, _rosters[0].length);
+      _doublesCount = min(_doublesCount, _rosters[0].length ~/ 2);
+      _error = null;
+    });
+  }
+
+  int? _estimatedAdjustedMinutes() {
+    if (_rosters[0].length != _rosters[1].length || _rosters[0].isEmpty) {
+      return null;
+    }
+    try {
+      final names = [
+        for (var team = 0; team < 2; team++)
+          [
+            for (var i = 0; i < _rosters[team].length; i++)
+              _rosters[team][i].text.trim().isEmpty
+                  ? 'Spieler ${i + 1}'
+                  : _rosters[team][i].text.trim(),
+          ],
+      ];
+      final league = LeagueMatch.adjusted(
+        homeTeam: _teams[0].text,
+        awayTeam: _teams[1].text,
+        homePlayers: names[0],
+        awayPlayers: names[1],
+        singlesPerPlayer: _singlesPerPlayer,
+        doublesCount: _doublesCount,
+      );
+      return const LeagueDurationEstimator()
+          .estimate(
+            league: league,
+            boards: _boards,
+            parameters: _planningParameters,
+          )
+          .minutes;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> _openDevices() async {
     final devices = DevicesScope.maybeOf(context);
@@ -340,6 +444,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
   @override
   void initState() {
     super.initState();
+    _loadPlanningParameters();
   }
 
   @override
@@ -414,19 +519,45 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     }
     if (!mounted) return;
     if (!_form.currentState!.validate()) return;
-    final league = LeagueMatch.rhl(
-      homeTeam: _teams[0].text,
-      awayTeam: _teams[1].text,
-      homePlayers: _rosters[0].map((c) => c.text).toList(),
-      awayPlayers: _rosters[1].map((c) => c.text).toList(),
-    );
+    if (_variant == LeagueMatchVariant.adjusted &&
+        _rosters[0].length != _rosters[1].length) {
+      setState(
+        () => _error =
+            'Für den angepassten Spielplan müssen beide Teams gleich viele Spieler haben.',
+      );
+      return;
+    }
+    final playerLimit = _variant == LeagueMatchVariant.traditional ? 6 : null;
+    final homePlayers = _rosters[0]
+        .take(playerLimit ?? _rosters[0].length)
+        .map((c) => c.text)
+        .toList();
+    final awayPlayers = _rosters[1]
+        .take(playerLimit ?? _rosters[1].length)
+        .map((c) => c.text)
+        .toList();
+    final league = _variant == LeagueMatchVariant.traditional
+        ? LeagueMatch.rhl(
+            homeTeam: _teams[0].text,
+            awayTeam: _teams[1].text,
+            homePlayers: homePlayers,
+            awayPlayers: awayPlayers,
+          )
+        : LeagueMatch.adjusted(
+            homeTeam: _teams[0].text,
+            awayTeam: _teams[1].text,
+            homePlayers: homePlayers,
+            awayPlayers: awayPlayers,
+            singlesPerPlayer: _singlesPerPlayer,
+            doublesCount: _doublesCount,
+          );
     await _save(
       CreatedTournament(
         id: _draftId,
         name: _name.text.trim(),
         players: [
           for (var team = 0; team < 2; team++)
-            for (var slot = 0; slot < _rosters[team].length; slot++)
+            for (var slot = 0; slot < homePlayers.length; slot++)
               _profiles['$team:$slot'] ??
                   TournamentPlayer(
                     name: _rosters[team][slot].text.trim(),
@@ -658,7 +789,10 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
       load: widget.loadAccess,
       builder: (context, access) {
         _access = access;
-        if (access.canLead && widget.openDevicesOnStart && !_devicesOpened) {
+        if (access.canLead &&
+            widget.openDevicesOnStart &&
+            _tournament?.communityId == null &&
+            !_devicesOpened) {
           _devicesOpened = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) _openDevices();
@@ -679,14 +813,17 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
       ),
       body: AdaptiveContentList(
         children: [
-          const Text(
-            '16 Einzel und 2 Doppel · 501 Single In / Double Out · Best of 5 Legs',
+          Text(
+            _tournament?.leagueMatch?.variant == LeagueMatchVariant.adjusted
+                ? '${_tournament!.leagueMatch!.games.length} Begegnungen · 501 Single In / Double Out · Best of 5 Legs'
+                : '18 Begegnungen · 501 Single In / Double Out · Best of 5 Legs',
           ),
           const SizedBox(height: 12),
           if (_tournament == null)
-            const Text(
-              'Bearbeitbarer Standardplan: vier Heimspieler gegen vier Gastspieler, danach zwei Doppel. '
-              'Reihenfolge und Aufstellungen vor der Ergebniseingabe mit dem offiziellen Spielbericht abgleichen.',
+            Text(
+              _variant == LeagueMatchVariant.traditional
+                  ? 'Traditioneller Spielplan mit 16 Einzeln und 2 Doppeln. Pro Team vier Spieler und zwei Ersatzspieler erfassen.'
+                  : 'Im angepassten Spielplan werden Einzel gleichmäßig auf alle Spieler verteilt. Doppelpartner kommen je Team nur einmal zum Einsatz.',
             ),
           const SizedBox(height: 16),
           if (_error != null)
@@ -715,13 +852,95 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
           validator: _required,
         ),
         const SizedBox(height: 16),
-        const SportSettingsSection(
-          title: 'Geräte zuordnen',
-          summary: 'Boards und Anzeigen verbinden · optional',
-          icon: Icons.devices_outlined,
-          children: [TournamentDevicesSection()],
+        SegmentedButton<LeagueMatchVariant>(
+          segments: const [
+            ButtonSegment(
+              value: LeagueMatchVariant.traditional,
+              label: Text('Traditionell'),
+              icon: Icon(Icons.format_list_numbered),
+            ),
+            ButtonSegment(
+              value: LeagueMatchVariant.adjusted,
+              label: Text('Angepasst'),
+              icon: Icon(Icons.tune),
+            ),
+          ],
+          selected: {_variant},
+          onSelectionChanged: (selection) => _setVariant(selection.single),
         ),
-        _boardControls(),
+        if (_variant == LeagueMatchVariant.adjusted) ...[
+          const SizedBox(height: 16),
+          SportSettingsSection(
+            title: 'Angepasster Spielplan',
+            summary: 'Begegnungen und voraussichtliche Dauer planen',
+            icon: Icons.tune,
+            children: [
+              DropdownButtonFormField<int>(
+                key: ValueKey(
+                  'singles-per-player-$_singlesPerPlayer-${_rosters[0].length}',
+                ),
+                initialValue: _singlesPerPlayer,
+                decoration: const InputDecoration(
+                  labelText: 'Einzel je Spieler',
+                ),
+                items: [
+                  for (var count = 1; count <= _rosters[0].length; count++)
+                    DropdownMenuItem(value: count, child: Text('$count')),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _singlesPerPlayer = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                key: ValueKey(
+                  'doubles-count-$_doublesCount-${_rosters[0].length}',
+                ),
+                initialValue: _doublesCount,
+                decoration: const InputDecoration(
+                  labelText: 'Doppel je Mannschaft',
+                ),
+                items: [
+                  for (
+                    var count = 0;
+                    count <= _rosters[0].length ~/ 2;
+                    count++
+                  )
+                    DropdownMenuItem(value: count, child: Text('$count')),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _doublesCount = value);
+                },
+              ),
+              const SizedBox(height: 8),
+              _boardControls(),
+              Builder(
+                builder: (context) {
+                  final duration = _estimatedAdjustedMinutes();
+                  final teamsMatch =
+                      _rosters[0].length == _rosters[1].length;
+                  final matches =
+                      _rosters[0].length * _singlesPerPlayer + _doublesCount;
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.schedule_outlined),
+                      title: Text(
+                        teamsMatch
+                            ? '$matches Begegnungen'
+                            : 'Teamgrößen angleichen',
+                      ),
+                      subtitle: Text(
+                        duration == null
+                            ? 'Dauer wird berechnet, sobald beide Teams gleich viele Spieler haben.'
+                            : 'Voraussichtliche Dauer: ${_formatDuration(duration)} · Best of 5 · $_boards ${_boards == 1 ? 'Board' : 'Boards'}',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
         AdaptiveTileLayout(
           children: [
             for (var team = 0; team < 2; team++)
@@ -749,20 +968,22 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      OutlinedButton.icon(
-                        onPressed: _busy
-                            ? null
-                            : () => _addRosterPlayer(team, false),
-                        icon: const Icon(Icons.person_add),
-                        label: const Text('Lokalen Spieler hinzufügen'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _busy
-                            ? null
-                            : () => _addRosterPlayer(team, true),
-                        icon: const Icon(Icons.mail_outline),
-                        label: const Text('Community-Mitglied einladen'),
-                      ),
+                      if (_variant == LeagueMatchVariant.adjusted) ...[
+                        OutlinedButton.icon(
+                          onPressed: _busy
+                              ? null
+                              : () => _addRosterPlayer(team, false),
+                          icon: const Icon(Icons.person_add),
+                          label: const Text('Lokalen Spieler hinzufügen'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _busy
+                              ? null
+                              : () => _addRosterPlayer(team, true),
+                          icon: const Icon(Icons.mail_outline),
+                          label: const Text('Community-Mitglied einladen'),
+                        ),
+                      ],
                     ],
                   ),
                   for (var i = 0; i < _rosters[team].length; i++)
@@ -771,7 +992,9 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                       child: TextFormField(
                         controller: _rosters[team][i],
                         readOnly: _invited.containsKey('$team:$i'),
-                        onChanged: (_) => _profiles.remove('$team:$i'),
+                        onChanged: (_) => setState(
+                          () => _profiles.remove('$team:$i'),
+                        ),
                         validator: _required,
                         decoration: InputDecoration(
                           suffixIcon: IconButton(
@@ -781,11 +1004,11 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                                 : () => _selectPlayer(team, i),
                             icon: const Icon(Icons.person_add_alt),
                           ),
-                          labelText: i < 4
-                              ? 'Stammspieler ${i + 1}'
-                              : i < 8
-                              ? 'Ersatzspieler ${i - 3}'
-                              : 'Aushilfe aus unterklassiger Vereinsmannschaft',
+                          labelText: _variant == LeagueMatchVariant.traditional
+                              ? i < 4
+                                    ? 'Spieler ${i + 1}'
+                                    : 'Ersatzspieler ${i - 3}'
+                              : 'Spieler ${i + 1}',
                         ),
                       ),
                     ),
@@ -807,19 +1030,29 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                         ),
                       ),
                   const SizedBox(height: 12),
-                  if (_rosters[team].length < 9)
-                    TextButton.icon(
-                      onPressed: _busy
-                          ? null
-                          : () => setState(
-                              () => _rosters[team].add(TextEditingController()),
-                            ),
-                      icon: const Icon(Icons.person_add),
-                      label: Text(
-                        _rosters[team].length < 8
-                            ? 'Ersatzspieler hinzufügen'
-                            : 'Aushilfe hinzufügen',
-                      ),
+                  if (_variant == LeagueMatchVariant.adjusted)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _busy
+                              ? null
+                              : () => setState(() {
+                                  _rosters[team].add(TextEditingController());
+                                  _error = null;
+                                }),
+                          icon: const Icon(Icons.person_add),
+                          label: const Text('Spieler hinzufügen'),
+                        ),
+                        TextButton.icon(
+                          onPressed: _busy || _rosters[team].length <= 1
+                              ? null
+                              : () => _removeLastPlayer(team),
+                          icon: const Icon(Icons.person_remove_outlined),
+                          label: const Text('Letzten Spieler entfernen'),
+                        ),
+                      ],
                     ),
                 ],
               ),
@@ -861,6 +1094,14 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
 
   String? _required(String? text) =>
       text == null || text.trim().isEmpty ? 'Bitte Namen eingeben.' : null;
+
+  String _formatDuration(int minutes) {
+    final hours = minutes ~/ 60;
+    final remaining = minutes % 60;
+    if (hours == 0) return '$remaining Minuten';
+    if (remaining == 0) return '$hours Stunden';
+    return '$hours Std. $remaining Min.';
+  }
 
   Widget _boardControls() {
     final count = _tournament?.boardCount ?? _boards;
@@ -947,7 +1188,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
         ),
       LeagueOverview(league: league),
       TournamentHighlightsButton(tournament: _tournament!),
-      if (_access.canLead)
+      if (_access.canLead && _tournament!.communityId == null)
         ExpansionTile(
           title: const Text('Boards und Geräte'),
           leading: const Icon(Icons.connected_tv),
@@ -985,7 +1226,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
         ),
       ),
       const Text(
-        'Jedes gewonnene Match zählt einen Mannschaftspunkt. 9:9 ist ein Unentschieden.',
+        'Jedes gewonnene Match zählt einen Mannschaftspunkt. Bei Gleichstand endet das Ligaspiel unentschieden.',
       ),
       for (var i = 0; i < league.games.length; i++)
         LeagueFixtureCard(
@@ -1011,6 +1252,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                 child: const Text('Ergebnis'),
               ),
             if (_access.canLead &&
+                league.variant == LeagueMatchVariant.traditional &&
                 !league.games[i].complete &&
                 league.games[i].runtime?['startedAt'] == null)
               OutlinedButton(
@@ -1028,7 +1270,9 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
               ),
               IconButton(
                 tooltip: 'Spiel nach unten',
-                onPressed: _busy || i == 17 ? null : () => _move(i, 1),
+                onPressed: _busy || i == league.games.length - 1
+                    ? null
+                    : () => _move(i, 1),
                 icon: const Icon(Icons.arrow_downward),
               ),
             ],

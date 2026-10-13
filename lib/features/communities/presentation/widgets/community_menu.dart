@@ -14,11 +14,6 @@ enum CommunityArea {
     'Rollen erstellen, Berechtigungen festlegen und Mitgliedern zuweisen.',
     Icons.admin_panel_settings_outlined,
   ),
-  calendar(
-    'Kalender',
-    'Turniertermine, Vorlagen und persönliche Erinnerungen.',
-    Icons.calendar_month_outlined,
-  ),
   members(
     'Mitglieder',
     'Mitglieder verwalten und manuelle Spieler zuordnen.',
@@ -33,11 +28,6 @@ enum CommunityArea {
     'Statistik',
     'Gespeicherte Spiele, Siege, Legs und Sets der Community.',
     Icons.bar_chart_outlined,
-  ),
-  devices(
-    'Geräte',
-    'Gruppengeräte anzeigen und im Netzwerk suchen.',
-    Icons.devices_outlined,
   ),
   invitations(
     'Einladen',
@@ -98,11 +88,7 @@ class CommunityMenu extends StatelessWidget {
       SportMenuGroup(
         title: 'Spieltag',
         actions: [
-          for (final area in [
-            CommunityArea.tournaments,
-            CommunityArea.calendar,
-          ])
-            _action(area),
+          _action(CommunityArea.tournaments),
         ],
       ),
       SportMenuGroup(
@@ -120,7 +106,6 @@ class CommunityMenu extends StatelessWidget {
         actions: [
           for (final area in [
             CommunityArea.invitations,
-            CommunityArea.devices,
             CommunityArea.roles,
             CommunityArea.profile,
           ])

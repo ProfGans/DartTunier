@@ -1,12 +1,10 @@
 import '../../../../shared/widgets/sport_menu.dart';
 import 'package:flutter/material.dart';
-import '../../../community_calendar/presentation/save_calendar_preset_dialog.dart';
 import 'community_ranking_picker.dart';
 import '../../../../shared/widgets/adaptive_content.dart';
 import '../../../tournaments/data/tournament_storage.dart';
 import '../../../tournaments/domain/tournament_models.dart';
 import '../../domain/community_permissions.dart';
-import '../../../devices/presentation/community_board_assignment_page.dart';
 
 class CommunityTournamentActions extends StatelessWidget {
   const CommunityTournamentActions({
@@ -20,22 +18,6 @@ class CommunityTournamentActions extends StatelessWidget {
   final VoidCallback onChanged;
   Future<void> _act(BuildContext context, String action) async {
     try {
-      if (action == 'preset') {
-        await showDialog<void>(
-          context: context,
-          builder: (_) => SaveCalendarPresetDialog(tournament: tournament),
-        );
-        return;
-      }
-      if (action == 'devices') {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) =>
-                CommunityBoardAssignmentPage(tournament: tournament),
-          ),
-        );
-        return;
-      }
       if (action == 'edit') {
         final edited = await Navigator.of(context).push<CreatedTournament>(
           MaterialPageRoute(
@@ -82,22 +64,6 @@ class CommunityTournamentActions extends StatelessWidget {
     tooltip: 'Turnieraktionen',
     onSelected: (action) => _act(context, action),
     itemBuilder: (_) => [
-      if (permissions.allows(CommunityPermission.createTournaments))
-        const PopupMenuItem(
-          value: 'preset',
-          child: SportMenuLabel(
-            label: 'Als Kalender-Vorlage speichern',
-            icon: Icons.arrow_forward_outlined,
-          ),
-        ),
-      if (permissions.allows(CommunityPermission.assignDevices))
-        const PopupMenuItem(
-          value: 'devices',
-          child: SportMenuLabel(
-            label: 'Geräte zuteilen',
-            icon: Icons.arrow_forward_outlined,
-          ),
-        ),
       if (permissions.allows(CommunityPermission.editTournaments))
         const PopupMenuItem(
           value: 'edit',

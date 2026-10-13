@@ -2,6 +2,7 @@ import '../../../shared/widgets/sport_settings_section.dart';
 import '../../../shared/widgets/sport_section_navigation.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import '../../backups/presentation/backup_panel.dart';
+import '../../backups/application/local_app_reset_service.dart';
 import '../../updates/presentation/android_updates_panel.dart';
 import 'package:flutter/material.dart';
 import '../data/planning_settings_storage.dart';
@@ -91,6 +92,16 @@ class _AdministrationPanel extends StatelessWidget {
       const PushDeviceMenu(),
       Card(
         child: ListTile(
+          leading: const Icon(Icons.restart_alt),
+          title: const Text('Lokale App-Daten zurücksetzen'),
+          subtitle: const Text(
+            'Erstellt zuerst ein Wiederherstellungs-Backup. Online gespeicherte Community-Daten bleiben bestehen.',
+          ),
+          onTap: () => _resetLocalData(context),
+        ),
+      ),
+      Card(
+        child: ListTile(
           leading: const Icon(Icons.lightbulb_outline),
           title: const Text('Govee Licht-Hub'),
           onTap: () => Navigator.of(
@@ -109,6 +120,55 @@ class _AdministrationPanel extends StatelessWidget {
       ),
     ],
   );
+}
+
+Future<void> _resetLocalData(BuildContext context) async {
+  final controller = TextEditingController();
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Lokale App-Daten zurücksetzen?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Lokale Turniere, Profile, Synchronisationswarteschlangen und Einstellungen werden entfernt. Vorher wird ein Backup angelegt. Daten auf dem Community-Server bleiben bestehen.',
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: 'Zum Bestätigen ZURÜCKSETZEN eingeben',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(
+            dialogContext,
+            controller.text.trim() == 'ZURÜCKSETZEN',
+          ),
+          child: const Text('Daten zurücksetzen'),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+  if (confirmed != true || !context.mounted) return;
+  try {
+    await const LocalAppResetService().reset();
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Zurücksetzen fehlgeschlagen: $error')),
+    );
+  }
 }
 
 class _PlanningParametersPanel extends StatefulWidget {

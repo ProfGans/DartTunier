@@ -25,6 +25,7 @@ List<CommunityMember> effectiveCommunityMembers(List<CommunityMember> members) {
                     guest.playerProfileId != null)
                   guest.playerProfileId!,
           ],
+          rankingEligible: member.rankingEligible,
         ),
   ];
 }

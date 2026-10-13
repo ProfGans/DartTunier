@@ -24,9 +24,14 @@ class LeagueOverview extends StatelessWidget {
               '${league.homeTeam} ${league.homePoints}:${league.awayPoints} ${league.awayTeam}',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            Text('$played von 18 Spielen abgeschlossen · ${league.outcome}'),
+            Text(
+              '$played von ${league.games.length} Spielen abgeschlossen · ${league.outcome}',
+            ),
             const SizedBox(height: 12),
-            LinearProgressIndicator(value: played / 18, minHeight: 8),
+            LinearProgressIndicator(
+              value: league.games.isEmpty ? 0 : played / league.games.length,
+              minHeight: 8,
+            ),
             const SizedBox(height: 16),
             LayoutBuilder(
               builder: (context, constraints) => SingleChildScrollView(
@@ -85,7 +90,7 @@ class LeagueOverview extends StatelessWidget {
               ),
             ),
             const Text(
-              'Sp = gespielte Matches · S = Siege · N = Niederlagen. Auf kleinen Displays Tabelle seitlich verschieben. Bei 9:9 endet das Ligaspiel unentschieden.',
+              'Sp = gespielte Matches · S = Siege · N = Niederlagen. Auf kleinen Displays Tabelle seitlich verschieben. Bei Gleichstand endet das Ligaspiel unentschieden.',
             ),
           ],
         ),

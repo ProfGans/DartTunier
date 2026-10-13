@@ -1,6 +1,4 @@
 import 'community_rankings_page.dart';
-import '../../community_calendar/domain/community_calendar.dart';
-import '../../community_calendar/presentation/community_calendar_page.dart';
 export 'community_ranking_page.dart';
 export 'community_ranking_history_page.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
@@ -17,6 +15,7 @@ import '../../tournaments/data/tournament_storage.dart';
 import '../../tournaments/domain/tournament_models.dart';
 import '../data/supabase_community_repository.dart';
 import '../domain/community.dart';
+import '../domain/community_member_identity.dart';
 
 import '../domain/community_invitation.dart';
 import 'widgets/community_invitation_section.dart';
@@ -30,8 +29,8 @@ import 'challonge_archive_page.dart';
 import '../domain/community_permissions.dart';
 import 'widgets/community_members_section.dart';
 import 'widgets/community_menu.dart';
+import '../../tournaments/presentation/widgets/tournament_export_dialog.dart';
 import 'widgets/community_permission_gate.dart';
-import '../../devices/presentation/community_devices_section.dart';
 
 typedef CommunityTournamentCreationBuilder =
     Widget Function(String communityId, String communityName, {CommunityTournamentPreset? preset, String? title});
@@ -106,6 +105,7 @@ class _CommunityPageState extends State<CommunityPage> {
             return _CommunityOverview(
               account: account,
               repository: widget._repository ?? SupabaseCommunityRepository(),
+              database: widget._database,
               createTournamentBuilder: widget.createTournamentBuilder,
               runTournamentBuilder: widget.runTournamentBuilder,
             );
@@ -120,12 +120,14 @@ class _CommunityOverview extends StatefulWidget {
   const _CommunityOverview({
     required this.account,
     required this.repository,
+    required this.database,
     required this.createTournamentBuilder,
     required this.runTournamentBuilder,
   });
 
   final AccountUser account;
   final SupabaseCommunityRepository repository;
+  final LocalAppDatabase? database;
   final CommunityTournamentCreationBuilder? createTournamentBuilder;
   final CommunityTournamentRunBuilder? runTournamentBuilder;
 
@@ -173,7 +175,18 @@ class _CommunityOverviewState extends State<_CommunityOverview> {
       builder: (_) => const _JoinCommunityDialog(),
     );
     if (code == null) return;
-    await _run(() => widget.repository.joinCommunity(code));
+    await _run(() async {
+      final joined = await widget.repository.joinCommunity(code);
+      final communities = await widget.repository.loadMyCommunities();
+      final community = communities.where((item) => item.id == joined.id).firstOrNull;
+      if (community != null) {
+        final members = await widget.repository.loadMembers(community.id);
+        await (widget.database ?? LocalAppDatabase()).importCommunityPlayerNames(
+          effectiveCommunityMembers(members).map((member) => member.displayName),
+        );
+      }
+      return joined;
+    });
   }
 
   Future<void> _run(Future<Object> Function() action) async {
@@ -322,10 +335,49 @@ class CommunityDetailPage extends StatefulWidget {
 class _CommunityDetailPageState extends State<CommunityDetailPage> {
   late Community community = widget.community;
   SupabaseCommunityRepository get repository => widget.repository;
+  bool get _isOwner {
+    try {
+      return repository.currentUserId == community.ownerUserId;
+    } catch (_) {
+      return false;
+    }
+  }
   CommunityTournamentCreationBuilder? get createTournamentBuilder =>
       widget.createTournamentBuilder;
   CommunityTournamentRunBuilder? get runTournamentBuilder =>
       widget.runTournamentBuilder;
+
+  Future<void> _deleteCommunity() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Community löschen?'),
+        content: Text(
+          '„${community.name}“ und die zugehörigen Community-Daten werden dauerhaft gelöscht. Lokale Turniere und noch nicht synchronisierte Änderungen dieser Community werden ebenfalls entfernt.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Community endgültig löschen'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await repository.deleteCommunity(community.id);
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Community konnte nicht gelöscht werden: $error')),
+      );
+    }
+  }
   Future<void> _editProfile() async {
     final updated = await Navigator.of(context).push<Community>(
       MaterialPageRoute(
@@ -347,6 +399,25 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(community.name),
+      actions: [
+        if (_isOwner)
+          PopupMenuButton<String>(
+            tooltip: 'Community verwalten',
+            onSelected: (value) {
+              if (value == 'delete') _deleteCommunity();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.delete_outline),
+                  title: Text('Community löschen'),
+                ),
+              ),
+            ],
+          ),
+      ],
     ),
     body: CommunityMenu(
       rankingEnabled: community.rankingEnabled,
@@ -399,9 +470,7 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.area != CommunityArea.devices &&
-        widget.area != CommunityArea.calendar &&
-        widget.area != CommunityArea.invitations &&
+    if (widget.area != CommunityArea.invitations &&
         widget.area != CommunityArea.roles) {
       _reload();
     }
@@ -440,14 +509,6 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
   @override
   Widget build(BuildContext context) {
     final title = '${widget.area.title} · ${widget.community.name}';
-    if (widget.area == CommunityArea.calendar) {
-      return CommunityCalendarPage(
-        communityId: widget.community.id, communityName: widget.community.name,
-        loadPermissions: () => widget.repository.access.permissions(widget.community.id),
-        createTournament: widget.createTournamentBuilder == null ? null : (preset, title) =>
-          widget.createTournamentBuilder!(widget.community.id,widget.community.name,preset: preset,title: title),
-      );
-    }
     if (widget.area == CommunityArea.roles) {
       return CommunityRolesPage(
         community: widget.community,
@@ -455,16 +516,12 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
         access: widget.repository.access,
       );
     }
-    if (widget.area == CommunityArea.devices ||
-        widget.area == CommunityArea.invitations) {
+    if (widget.area == CommunityArea.invitations) {
       return Scaffold(
         appBar: AppBar(title: Text(title)),
         body: AdaptiveContentList(
           children: [
-            if (widget.area == CommunityArea.devices)
-              CommunityDevicesSection(communityId: widget.community.id)
-            else
-              CommunityInvitationSection(
+            CommunityInvitationSection(
                 communityId: widget.community.id,
                 access: widget.repository.access,
               ),
@@ -548,6 +605,29 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
                     if (mounted) setState(_reload);
                   },
                 ),
+              if (_rights.allows(CommunityPermission.createTournaments))
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.ios_share),
+                  label: const Text('Community-Turnier exportieren'),
+                  onPressed: tournaments.isEmpty ? null : () async {
+                    final selected = await showDialog<CreatedTournament>(
+                      context: context,
+                      builder: (dialogContext) => SimpleDialog(
+                        title: const Text('Turnier zum Export wählen'),
+                        children: [
+                          for (final tournament in tournaments)
+                            SimpleDialogOption(
+                              onPressed: () => Navigator.pop(dialogContext, tournament),
+                              child: Text(tournament.name),
+                            ),
+                        ],
+                      ),
+                    );
+                    if (selected != null && context.mounted) {
+                      await TournamentExportDialog.show(context, selected);
+                    }
+                  },
+                ),
               const SizedBox(height: 20),
               ValueListenableBuilder<String>(
                 valueListenable: TournamentStorage.syncStatus,
@@ -580,7 +660,6 @@ class _CommunitySectionPageState extends State<_CommunitySectionPage> {
                       subtitle: Text('${tournament.players.length} Spieler'),
                       trailing:
                           _rights.allows(CommunityPermission.createTournaments) ||
-                          _rights.allows(CommunityPermission.assignDevices) ||
                               _rights.allows(
                                 CommunityPermission.editTournaments,
                               ) ||

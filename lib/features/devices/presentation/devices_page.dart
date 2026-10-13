@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import '../application/devices_controller.dart';
 import '../domain/app_device.dart';
 import 'devices_scope.dart';
-import 'device_community_section.dart';
 import '../../remote_control/presentation/remote_device_section.dart';
 import '../../remote_control/presentation/remote_host_surface.dart';
 
@@ -273,11 +272,6 @@ class _DevicesPageState extends State<DevicesPage> {
                       ),
                     ),
                 ],
-                if (controller.accountRepository.userId != null)
-                  DeviceCommunitySection(
-                    key: ValueKey(controller.accountRepository.userId),
-                    device: settings.self,
-                  ),
                 const SizedBox(height: 24),
                 Text(
                   'Hinzugefügte Netzwerkgeräte',

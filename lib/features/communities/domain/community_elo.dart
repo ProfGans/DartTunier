@@ -94,6 +94,7 @@ class CommunityEloCalculator {
     final cutoffYear = (now ?? DateTime.now()).toLocal().year;
     final entries = <String, CommunityEloEntry>{
       for (final member in effectiveCommunityMembers(members))
+        if (member.rankingEligible)
         _idForMember(member): CommunityEloEntry(player: member),
     };
     final aliases = <String, String>{

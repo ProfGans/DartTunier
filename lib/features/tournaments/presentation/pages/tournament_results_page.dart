@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../../domain/tournament_models.dart';
 import '../../../communities/presentation/challonge_archive_page.dart';
 import '../widgets/results/tournament_results_statistics.dart';
+import '../widgets/tournament_export_dialog.dart';
 
 class TournamentResultsPage extends StatelessWidget {
   const TournamentResultsPage({super.key, required this.tournament});
@@ -86,6 +87,12 @@ class TournamentResultsPage extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => TournamentExportDialog.show(context, tournament),
+              icon: const Icon(Icons.ios_share),
+              label: const Text('Turnier exportieren'),
             ),
             const SizedBox(height: 16),
             SportMenuGroup(

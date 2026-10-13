@@ -25,14 +25,9 @@ class _HomePageState extends State<HomePage> {
     ),
     SportDestination('Community', Icons.hub_outlined, _openCommunity),
     SportDestination(
-      'Geräte',
-      Icons.devices_outlined,
-      () => _open(const DevicesPage(), 4),
-    ),
-    SportDestination(
       'Einstellungen',
       Icons.settings_outlined,
-      () => _open(const SettingsPage(), 5),
+      () => _open(const SettingsPage(), 4),
     ),
   ];
 
@@ -65,7 +60,7 @@ class _HomePageState extends State<HomePage> {
 
   void _openTournamentArea() => _open(const TournamentHomePage(), 1);
   void _openPlayersArea() => _open(const PlayersPage(), 2);
-  void _openSettings() => _open(const SettingsPage(), 5);
+  void _openSettings() => _open(const SettingsPage(), 4);
   void _openCommunityArea() => _openCommunity();
   Widget _shell(Widget page, int selected) => SportAppShell(
     destinations: _destinations,

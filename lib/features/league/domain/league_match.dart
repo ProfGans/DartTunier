@@ -52,8 +52,10 @@ class LeagueGame {
   }
 }
 
-/// RHL rules: 18 matches, one team point per match, 9:9 is a draw.
-/// Pairing order is an editable proposal, not the official report sheet.
+enum LeagueMatchVariant { traditional, adjusted }
+
+/// A league match supports the fixed traditional format and an even-roster
+/// adjusted format. Each fixture awards one team point.
 class LeagueMatch {
   LeagueMatch({
     required this.homeTeam,
@@ -61,12 +63,18 @@ class LeagueMatch {
     required this.homePlayers,
     required this.awayPlayers,
     required this.games,
+    this.variant = LeagueMatchVariant.traditional,
+    this.singlesPerPlayer = 4,
+    this.doublesCount = 2,
   });
   final String homeTeam;
   final String awayTeam;
   final List<String> homePlayers;
   final List<String> awayPlayers;
   final List<LeagueGame> games;
+  final LeagueMatchVariant variant;
+  final int singlesPerPlayer;
+  final int doublesCount;
   int get homePoints =>
       games.where((g) => g.complete && g.homeLegs! > g.awayLegs!).length;
   int get awayPoints =>
@@ -96,6 +104,65 @@ class LeagueMatch {
         LeagueGame(home: [0, 1], away: [0, 1]),
         LeagueGame(home: [2, 3], away: [2, 3]),
       ],
+      variant: LeagueMatchVariant.traditional,
+      singlesPerPlayer: 4,
+      doublesCount: 2,
+    );
+    match.validate();
+    return match;
+  }
+
+  factory LeagueMatch.adjusted({
+    required String homeTeam,
+    required String awayTeam,
+    required List<String> homePlayers,
+    required List<String> awayPlayers,
+    required int singlesPerPlayer,
+    required int doublesCount,
+  }) {
+    if (homePlayers.length != awayPlayers.length || homePlayers.isEmpty) {
+      throw const FormatException(
+        'Im angepassten Modus müssen beide Teams gleich viele Spieler haben.',
+      );
+    }
+    if (singlesPerPlayer < 1) {
+      throw const FormatException(
+        'Jeder Spieler muss mindestens ein Einzel spielen.',
+      );
+    }
+    if (doublesCount < 0 || doublesCount > homePlayers.length ~/ 2) {
+      throw const FormatException(
+        'Die Anzahl der Doppel darf höchstens der Hälfte der Spieler je Team entsprechen.',
+      );
+    }
+    final games = <LeagueGame>[];
+    for (var round = 0; round < singlesPerPlayer; round++) {
+      for (var player = 0; player < homePlayers.length; player++) {
+        games.add(
+          LeagueGame(
+            home: [player],
+            away: [(player + round) % awayPlayers.length],
+          ),
+        );
+      }
+    }
+    for (var pair = 0; pair < doublesCount; pair++) {
+      games.add(
+        LeagueGame(
+          home: [pair * 2, pair * 2 + 1],
+          away: [pair * 2, pair * 2 + 1],
+        ),
+      );
+    }
+    final match = LeagueMatch(
+      homeTeam: homeTeam.trim(),
+      awayTeam: awayTeam.trim(),
+      homePlayers: homePlayers.map((p) => p.trim()).toList(),
+      awayPlayers: awayPlayers.map((p) => p.trim()).toList(),
+      games: games,
+      variant: LeagueMatchVariant.adjusted,
+      singlesPerPlayer: singlesPerPlayer,
+      doublesCount: doublesCount,
     );
     match.validate();
     return match;
@@ -106,18 +173,61 @@ class LeagueMatch {
       throw const FormatException('Mannschaftsnamen fehlen.');
     }
     for (final roster in [homePlayers, awayPlayers]) {
-      if (roster.length < 4 ||
-          roster.length > 9 ||
+      if (roster.length <
+              (variant == LeagueMatchVariant.traditional ? 4 : 1) ||
           roster.any((p) => p.trim().isEmpty)) {
-        throw const FormatException(
-          'Je Mannschaft werden 4 Stammspieler benötigt; maximal 4 Ersatzspieler und 1 Aushilfe sind möglich.',
+        throw FormatException(
+          variant == LeagueMatchVariant.traditional
+              ? 'Je Mannschaft werden mindestens 4 Spieler benötigt.'
+              : 'Spielernamen dürfen nicht leer sein.',
         );
       }
     }
-    if (games.length != 18 || games.where((g) => g.isDouble).length != 2) {
+    if (variant == LeagueMatchVariant.traditional &&
+        (games.length != 18 || games.where((g) => g.isDouble).length != 2)) {
       throw const FormatException(
         'Ein RHL-Ligaspiel benötigt 16 Einzel und 2 Doppel.',
       );
+    }
+    if (variant == LeagueMatchVariant.adjusted) {
+      if (singlesPerPlayer < 1 ||
+          doublesCount < 0 ||
+          doublesCount > homePlayers.length ~/ 2 ||
+          homePlayers.length != awayPlayers.length ||
+          games.length != homePlayers.length * singlesPerPlayer + doublesCount ||
+          games.where((g) => g.isDouble).length != doublesCount) {
+        throw const FormatException('Ungültiger angepasster Spielplan.');
+      }
+      for (var player = 0; player < homePlayers.length; player++) {
+        if (games
+                .where((game) => !game.isDouble && game.home.contains(player))
+                .length !=
+            singlesPerPlayer ||
+            games
+                    .where((game) => !game.isDouble && game.away.contains(player))
+                    .length !=
+                singlesPerPlayer) {
+          throw const FormatException(
+            'Die Einzel müssen gleichmäßig auf alle Spieler verteilt sein.',
+          );
+        }
+        if (games
+                    .where(
+                      (game) => game.isDouble && game.home.contains(player),
+                    )
+                    .length >
+                1 ||
+            games
+                    .where(
+                      (game) => game.isDouble && game.away.contains(player),
+                    )
+                    .length >
+                1) {
+          throw const FormatException(
+            'Ein Spieler darf höchstens ein Doppel bestreiten.',
+          );
+        }
+      }
     }
     for (final game in games) {
       if (game.home.length != game.away.length ||
@@ -132,8 +242,13 @@ class LeagueMatch {
   }
 
   Map<String, dynamic> toJson() => {
-    'version': 2,
+    'version': variant == LeagueMatchVariant.adjusted ? 3 : 2,
     'preset': 'rhl',
+    if (variant == LeagueMatchVariant.adjusted) ...{
+      'variant': variant.name,
+      'singlesPerPlayer': singlesPerPlayer,
+      'doublesCount': doublesCount,
+    },
     'homeTeam': homeTeam,
     'awayTeam': awayTeam,
     'homePlayers': homePlayers,
@@ -141,7 +256,7 @@ class LeagueMatch {
     'games': games.map((g) => g.toJson()).toList(),
   };
   factory LeagueMatch.fromJson(Map<String, dynamic> json) {
-    if (![1, 2].contains(json['version']) || json['preset'] != 'rhl') {
+    if (![1, 2, 3].contains(json['version']) || json['preset'] != 'rhl') {
       throw const FormatException('Nicht unterstützte Ligaspiel-Version.');
     }
     final match = LeagueMatch(
@@ -152,6 +267,11 @@ class LeagueMatch {
       games: (json['games'] as List)
           .map((g) => LeagueGame.fromJson(Map<String, dynamic>.from(g as Map)))
           .toList(),
+      variant: json['variant'] == LeagueMatchVariant.adjusted.name
+          ? LeagueMatchVariant.adjusted
+          : LeagueMatchVariant.traditional,
+      singlesPerPlayer: json['singlesPerPlayer'] as int? ?? 4,
+      doublesCount: json['doublesCount'] as int? ?? 2,
     );
     match.validate();
     return match;

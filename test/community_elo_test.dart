@@ -4,6 +4,66 @@ import 'package:dart_tournament_manager/features/communities/domain/community_el
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
 
 void main() {
+  test('players flagged as guests are excluded from community rankings', () {
+    final member = CommunityMember(
+      userId: 'member',
+      playerProfileId: 'member',
+      displayName: 'Mitglied',
+      role: 'member',
+      joinedAt: DateTime(2026),
+    );
+    final guest = CommunityMember(
+      userId: null,
+      playerProfileId: 'guest',
+      displayName: 'Gastspieler',
+      role: 'member',
+      joinedAt: DateTime(2026),
+      rankingEligible: false,
+    );
+    final tournament = CreatedTournament(
+      name: 'Gästeturnier',
+      createdAt: DateTime(2026),
+      countsForRanking: true,
+      communityRankingIds: const ['default'],
+      players: const [],
+      stages: const [],
+      runStages: [
+        GroupTournamentRunStage(
+          name: 'Gruppe',
+          groupPlayType: 'round_robin',
+          qualificationPlan: null,
+          tieBreakers: const [],
+          groups: [
+            TournamentGroup(
+              name: 'A',
+              playType: 'round_robin',
+              players: const [],
+              matches: [
+                GroupMatch(
+                  homePlayer: const TournamentPlayer(
+                    profileId: 'member', name: 'Mitglied', isGenerated: false),
+                  awayPlayer: const TournamentPlayer(
+                    profileId: 'guest', name: 'Gastspieler', isGenerated: false),
+                  round: 1,
+                  homeLegs: 3,
+                  awayLegs: 1,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final snapshot = const CommunityEloCalculator().calculate(
+      members: [member, guest],
+      tournaments: [tournament],
+      currentYearOnly: false,
+    );
+
+    expect(snapshot.entries, isEmpty);
+  });
+
   test('uses the actual tournament date when imports are created later', () {
     final alice = CommunityMember(
       userId: 'a',

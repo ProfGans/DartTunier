@@ -73,6 +73,28 @@ void main() {
       )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
     }
   });
+  testWidgets('profile footer remains visible without scorer statistics', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlayerAnalyticsPage(
+          name: 'Mitglied',
+          tournaments: StatisticsReport(const []),
+          embedded: true,
+          footerBuilder: (_) => [
+            OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.logout),
+              label: const Text('Abmelden'),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Abmelden'), findsOneWidget);
+  });
   for (final size in [
     const Size(360, 800),
     const Size(800, 600),

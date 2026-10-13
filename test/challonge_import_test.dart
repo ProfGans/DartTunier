@@ -122,7 +122,7 @@ class ChallongeArchivePreview extends StatelessWidget {
 
 void main() {
   test('maps all configured masked Challonge names to real community players', () {
-    expect(ChallongeImportService.challongeMemberNames, hasLength(24));
+    expect(ChallongeImportService.challongeMemberNames, hasLength(25));
     for (final entry in ChallongeImportService.challongeMemberNames.entries) {
       final target = member(entry.value, 'profile:${entry.key}');
       expect(

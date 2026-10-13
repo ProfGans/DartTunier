@@ -303,11 +303,12 @@ class _TournamentDirectorDashboardState
           const Text(
             'Boards sperren und freigeben benötigt das Recht „Turniere bearbeiten“.',
           ),
-        _button(
-          'Geräte verwalten',
-          () => _act(widget.onDevices),
-          icon: Icons.devices,
-        ),
+        if (t.communityId == null)
+          _button(
+            'Geräte verwalten',
+            () => _act(widget.onDevices),
+            icon: Icons.devices,
+          ),
         for (var b = 1; b <= t.boardCount; b++)
           _box([
             Text(
@@ -320,7 +321,9 @@ class _TournamentDirectorDashboardState
             ),
             Text(
               connections[b] == null
-                  ? 'Kein Gerät zugeteilt · manuelle Ergebniseingabe möglich'
+                  ? t.communityId == null
+                        ? 'Kein Gerät zugeteilt · manuelle Ergebniseingabe möglich'
+                        : 'Manuelle Ergebniseingabe durch die Turnierleitung'
                   : '${connections[b]!.device.name} · ${connections[b]!.status.startsWith('Übertragung fehlgeschlagen') ? 'Verbindung gestört' : connections[b]!.status}',
             ),
             if (state.runningOn(b) case final e?) ...[

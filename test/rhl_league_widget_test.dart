@@ -13,6 +13,24 @@ class _MemoryStorage extends TournamentStorage {
 }
 
 void main() {
+  testWidgets('adjusted mode exposes fixture and duration settings', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: LeagueMatchPage(storage: _MemoryStorage())),
+    );
+    expect(find.text('Traditionell'), findsOneWidget);
+    expect(find.text('Angepasst'), findsOneWidget);
+    expect(find.text('Geräte zuordnen'), findsNothing);
+
+    await tester.tap(find.text('Angepasst'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Einzel je Spieler'), findsOneWidget);
+    expect(find.text('Doppel je Mannschaft'), findsOneWidget);
+    expect(find.text('14 Begegnungen'), findsOneWidget);
+    expect(find.textContaining('Voraussichtliche Dauer:'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('creates league and saves a team result', (tester) async {
     final storage = _MemoryStorage();
     await tester.pumpWidget(MaterialApp(home: LeagueMatchPage(storage: storage)));

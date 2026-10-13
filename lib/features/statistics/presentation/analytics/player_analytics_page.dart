@@ -194,7 +194,7 @@ class _AnalyticsState extends State<PlayerAnalyticsPage> {
               ),
             ),
         ],
-        if (useScorer) ...?widget.footerBuilder?.call(period),
+        ...?widget.footerBuilder?.call(period),
       ],
     );
     return widget.embedded

@@ -105,6 +105,33 @@ class TournamentStorage {
     document['cache'] = cache;
     await _writeDocument(document);
   });
+
+  Future<void> removeCacheKeys(Iterable<String> keys) => _locked(() async {
+    final document = await _readDocument();
+    final cache = Map<String, dynamic>.from(document['cache'] as Map? ?? {});
+    for (final key in keys) {
+      cache.remove('$_userId:$key');
+    }
+    document['cache'] = cache;
+    await _writeDocument(document);
+  });
+
+  Future<void> removeCommunityLocally(String communityId) => _locked(() async {
+    final document = await _readDocument();
+    final tournaments = await _loadTournamentsUnlocked();
+    final removed = tournaments
+        .where((tournament) => tournament.communityId == communityId)
+        .map((tournament) => tournament.id)
+        .toSet();
+    tournaments.removeWhere((tournament) => removed.contains(tournament.id));
+    document['tournaments'] = tournaments.map((item) => item.toJson()).toList();
+    final pending = Map<String, dynamic>.from(document['pending'] as Map? ?? {});
+    for (final id in removed) {
+      pending.remove(id);
+    }
+    document['pending'] = pending;
+    await _writeDocument(document);
+  });
   // V2 adds board count and match start/completion metadata. Missing V1 fields
   // migrate through model defaults (one board, no recorded match times).
   // V3 adds sets per stage and optional set results. V1/V2 migrate to one
@@ -312,7 +339,7 @@ class TournamentStorage {
     } on PostgrestException catch (error) {
       syncStatus.value = error.code == '40001'
           ? 'Konflikt: Online gibt es neuere Ergebnisse. Online-Stand laden; lokale Änderungen bleiben bis dahin erhalten.'
-          : 'Synchronisierung abgelehnt. Turnierrechte und Servereinrichtung prüfen. Lokale Änderungen bleiben erhalten.';
+          : 'Synchronisierung abgelehnt (${error.code ?? 'Server'}): ${error.message}. Lokale Änderungen bleiben erhalten.';
     } catch (_) {
       syncStatus.value =
           'Lokal gespeichert – Synchronisierung ausstehend. Automatischer Wiederholungsversuch folgt.';

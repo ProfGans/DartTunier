@@ -21,6 +21,7 @@ class GoveeApi {
     return (body['data'] as List<dynamic>? ?? const [])
         .whereType<Map>()
         .map((item) => GoveeDevice.fromJson(Map<String, dynamic>.from(item)))
+        .where((device) => device.sku == 'H617C')
         .where((device) => device.supportsRgb || device.supportsTemperature)
         .toList(growable: false);
   }

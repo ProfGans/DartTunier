@@ -2733,7 +2733,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                       setState(() => _plannedBoardCount = boards),
                 ),
                 const SizedBox(height: 12),
-                const TournamentDevicesSection(),
+                if (widget.communityId == null) const TournamentDevicesSection(),
                 const SizedBox(height: 24),
                 if (_players.isEmpty || _stages.isEmpty)
                   Padding(

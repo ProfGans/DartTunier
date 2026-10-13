@@ -69,10 +69,7 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
   String? _status, _error;
 
   Map<String, String> get _memberNameMappings =>
-      ChallongeTournament.normalizedName(widget.community.name) ==
-          ChallongeTournament.normalizedName('DC Unzenberg Heinzenbach')
-      ? ChallongeImportService.challongeMemberNames
-      : const {};
+      ChallongeImportService.challongeMemberNames;
   @override
   void dispose() {
     _key.dispose();
@@ -235,6 +232,10 @@ class _ChallongeImportState extends State<ChallongeImportPage> {
         }
         return widget.repository.createManualMember(widget.community.id, name);
       },
+      createGuestMember: (name) => widget.repository.createImportedGuestMember(
+        widget.community.id,
+        name,
+      ),
       loadTournaments: () async => [
         ...await widget.repository.loadTournaments(widget.community.id),
         ...await _storage.loadTournaments(),

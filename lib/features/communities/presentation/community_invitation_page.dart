@@ -4,9 +4,6 @@ import '../../accounts/data/supabase_account_config.dart';
 import '../../accounts/presentation/widgets/account_menu_card.dart';
 import '../data/supabase_community_repository.dart';
 import 'community_page.dart';
-import '../../devices/data/community_device_repository.dart';
-import '../../devices/presentation/devices_scope.dart';
-import '../../devices/presentation/devices_page.dart';
 
 class CommunityInvitationPage extends StatefulWidget {
   const CommunityInvitationPage({
@@ -28,7 +25,7 @@ class _CommunityInvitationPageState extends State<CommunityInvitationPage> {
   bool _busy = false;
   String? _error;
 
-  Future<void> _join({bool asDevice = false}) async {
+  Future<void> _join() async {
     setState(() {
       _busy = true;
       _error = null;
@@ -36,18 +33,6 @@ class _CommunityInvitationPageState extends State<CommunityInvitationPage> {
     try {
       if (!SupabaseAccountBootstrap.isInitialized) {
         throw StateError('Online-Communities sind nicht eingerichtet.');
-      }
-      if (asDevice) {
-        final devices = DevicesScope.of(context);
-        await devices.initialize();
-        final device = devices.settings?.self;
-        if (device == null) throw StateError('Gerät nicht verfügbar');
-        await CommunityDeviceRepository().join(device, widget.code);
-        if (!mounted) return;
-        await Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const DevicesPage()),
-        );
-        return;
       }
       final repository = SupabaseCommunityRepository();
       final community = await repository.joinCommunity(widget.code);
@@ -100,11 +85,6 @@ class _CommunityInvitationPageState extends State<CommunityInvitationPage> {
         FilledButton(
           onPressed: _busy ? null : _join,
           child: Text(_busy ? 'Beitritt läuft …' : 'Community beitreten'),
-        ),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : () => _join(asDevice: true),
-          icon: const Icon(Icons.computer),
-          label: const Text('Als Gerät beitreten (Account erforderlich)'),
         ),
       ],
     ),

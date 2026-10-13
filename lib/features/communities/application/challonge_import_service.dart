@@ -10,11 +10,13 @@ class ChallongeImportService {
     required this.createMember,
     required this.loadTournaments,
     required this.saveTournament,
+    this.createGuestMember,
     this.authorizeMemberCreation,
     this.memberNameMappings = const {},
   });
   final Future<List<CommunityMember>> Function() loadMembers;
   final Future<CommunityMember> Function(String name) createMember;
+  final Future<CommunityMember> Function(String name)? createGuestMember;
   final Future<List<CreatedTournament>> Function() loadTournaments;
   final Future<void> Function(CreatedTournament tournament) saveTournament;
   final Future<void> Function()? authorizeMemberCreation;
@@ -36,6 +38,7 @@ class ChallongeImportService {
     'Jonas_B': 'Jonas Bung',
     'Tobi_Be': 'Tobias Beitz',
     'KKKEVIN_Tsrik': 'Kevin Kirst',
+    'Kevin_noXSSXon': 'Kevin Kirst',
     'Mike_Ro': 'Michael Rockenbach',
     'Dietmar_S': 'Dietmar Schneider',
     'Daniel_Kü': 'Daniel Kühnreich',
@@ -126,6 +129,7 @@ class ChallongeImportService {
         .where((t) => !existing.contains(t.tournamentId(communityId)))
         .toList();
     var needsMembers = false;
+    var needsGuests = false;
     // Validate every assignment before creating the first member.
     for (final t in pending) {
       if (useNativeLogic) {
@@ -161,7 +165,19 @@ class ChallongeImportService {
             explicit ??
             matches.firstOrNull?.playerProfileId ??
             'new:${ChallongeTournament.normalizedName(realMemberName(name, nameMappings: memberNameMappings))}';
-        if (explicit == null && matches.isEmpty) needsMembers = true;
+        if (explicit == null && matches.isEmpty) {
+          final mappedName = realMemberName(
+            name,
+            nameMappings: memberNameMappings,
+          );
+          final knownPlayer = ChallongeTournament.normalizedName(mappedName) !=
+              ChallongeTournament.normalizedName(name);
+          if (!knownPlayer && createGuestMember != null) {
+            needsGuests = true;
+          } else {
+            needsMembers = true;
+          }
+        }
         if (!used.add(identity)) {
           throw StateError(
             'Zwei Teilnehmer dürfen nicht dasselbe Mitglied verwenden.',
@@ -170,6 +186,9 @@ class ChallongeImportService {
       }
     }
     if (needsMembers) await authorizeMemberCreation?.call();
+    if (needsGuests && createGuestMember == null) {
+      await authorizeMemberCreation?.call();
+    }
     var count = 0;
     for (final t in pending) {
       progress?.call('Importiere ${t.title} …');
@@ -185,9 +204,16 @@ class ChallongeImportService {
               ).firstOrNull
             : members.firstWhere((m) => m.playerProfileId == explicit);
         if (member == null) {
-          member = await createMember(
-            realMemberName(name, nameMappings: memberNameMappings),
+          final mappedName = realMemberName(
+            name,
+            nameMappings: memberNameMappings,
           );
+          final isKnownPlayer =
+              ChallongeTournament.normalizedName(mappedName) !=
+              ChallongeTournament.normalizedName(name);
+          member = isKnownPlayer || createGuestMember == null
+              ? await createMember(mappedName)
+              : await createGuestMember!(mappedName);
           members.add(member);
         }
         profiles['${p['id']}'] = member.playerProfileId!;

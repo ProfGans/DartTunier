@@ -77,7 +77,6 @@ void main() {
         }
         for (final area in [
           CommunityArea.tournaments,
-          CommunityArea.calendar,
           CommunityArea.members,
           CommunityArea.ranking,
           CommunityArea.statistics,
@@ -105,7 +104,6 @@ void main() {
         await tester.pumpAndSettle();
         for (final area in [
           CommunityArea.invitations,
-          CommunityArea.devices,
           CommunityArea.roles,
           CommunityArea.profile,
         ]) {
