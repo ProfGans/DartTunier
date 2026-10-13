@@ -42,7 +42,10 @@ jobs:
           with open(os.environ['GITHUB_ENV'], 'a') as output:
               output.write('RELEASE_TAG=v' + version + '\n')
       - run: flutter analyze --no-fatal-infos
-      - run: flutter test test/tournament_simulation_matrix_test.dart test/android_release_test.dart test/backup_service_test.dart
+      - name: Strict analysis for tournament management
+        run: flutter analyze lib/features/home lib/features/tournaments test/tournament_home_page_test.dart test/tournament_simulation_matrix_test.dart test/community_tournament_elo_test.dart
+      - name: Tournament release regression gate
+        run: flutter test test/tournament_home_page_test.dart test/tournament_simulation_matrix_test.dart test/tournament_director_test.dart test/backup_service_test.dart test/limited_round_robin_test.dart test/community_tournament_elo_test.dart test/adaptive_layout_test.dart test/android_release_test.dart
       - name: Configure signing
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

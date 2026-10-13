@@ -41,9 +41,10 @@ können ihre weiteren Uploads abgelehnt werden. Alle schreibenden
 Clients müssen auf den neuen Build aktualisiert werden. Ausstehende Änderungen nicht durch Zurücksetzen der
 Versionsprüfung erzwingen, sondern den Online-Stand bewusst übernehmen.
 
-Lokales Speicherschema 19 ergänzt die optionalen Rechte und Revisionen;
-Die Geräte-Startfunktion verwendet Schema 20; der gemeinsame Entwicklungsstand
-mit Spielerausstiegen verwendet inzwischen Schema 21.
+Die historischen Rechteänderungen begannen mit Schema 19; Geräte-Matchstarts
+folgten in Schema 20. Der aktuelle Turnierspeicher ist Schema 22. Die zentrale
+Chronik und der jeweilige Altbestands-Umgang stehen in
+[`tournament_storage_schema.md`](tournament_storage_schema.md).
 Alte Dateien werden mit sicheren Standardwerten gelesen und vor Migration gesichert.
 
 Die RHL-Ligaspielverwaltung verwendet dieselben Rechte, einschließlich Auswahl

@@ -48,7 +48,7 @@ class TournamentSummaryCard extends StatelessWidget {
                     itemBuilder: (_) => const [
                       PopupMenuItem(
                         value: 'delete',
-                        child: Text('Turnier loeschen'),
+                        child: Text('Turnier löschen'),
                       ),
                     ],
                   ),

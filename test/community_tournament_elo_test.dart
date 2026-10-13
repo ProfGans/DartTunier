@@ -213,7 +213,6 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: CustomScrollView(
-            cacheExtent: 0,
             slivers: [
               SliverList.list(
                 children: [

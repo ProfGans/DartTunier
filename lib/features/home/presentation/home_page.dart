@@ -173,19 +173,24 @@ class _HomePageState extends State<HomePage> {
 }
 
 class TournamentHomePage extends StatefulWidget {
-  const TournamentHomePage({super.key});
+  const TournamentHomePage({super.key, this.storage});
+
+  final TournamentStorage? storage;
 
   @override
   State<TournamentHomePage> createState() => _TournamentHomePageState();
 }
 
 class _TournamentHomePageState extends State<TournamentHomePage> {
-  final _storage = TournamentStorage();
+  late final TournamentStorage _storage;
   late Future<List<CreatedTournament>> _tournamentsFuture;
+  String _tournamentQuery = '';
+  bool _isDeletingTournament = false;
 
   @override
   void initState() {
     super.initState();
+    _storage = widget.storage ?? TournamentStorage();
     _tournamentsFuture = _storage.loadTournaments();
   }
 
@@ -218,7 +223,48 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
     return TournamentRunPage(tournament: tournament);
   }
 
+  bool _matchesTournamentQuery(CreatedTournament tournament) {
+    final query = _tournamentQuery.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    final lastStageIndex = tournament.runStages.length - 1;
+    final complete =
+        tournament.finishedAt != null ||
+        (lastStageIndex >= 0 &&
+            tournament.completedStageIndexes.contains(lastStageIndex));
+    final searchable = <String>[
+      tournament.name,
+      tournament.communityId ?? '',
+      complete ? 'abgeschlossen archiv fertig' : 'bereit läuft aktiv',
+      tournament.createdAt.toLocal().toIso8601String(),
+      ...tournament.stages.map((stage) => stage.type),
+      ...tournament.players.map((player) => player.name),
+    ].join(' ').toLowerCase();
+    return searchable.contains(query);
+  }
+
   Future<void> _deleteTournament(CreatedTournament tournament) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Turnier löschen?'),
+        content: Text(
+          '„${tournament.name}“ wird dauerhaft gelöscht. Möchtest du fortfahren?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeletingTournament = true);
     try {
       await _storage.deleteTournament(tournament.id);
     } catch (error) {
@@ -228,13 +274,15 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
         );
       }
       return;
+    } finally {
+      if (mounted) setState(() => _isDeletingTournament = false);
     }
     if (!mounted) {
       return;
     }
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('${tournament.name} geloescht.')));
+    ).showSnackBar(SnackBar(content: Text('${tournament.name} gelöscht.')));
     _reloadTournaments();
   }
 
@@ -246,7 +294,10 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
         child: FutureBuilder<List<CreatedTournament>>(
           future: _tournamentsFuture,
           builder: (context, snapshot) {
-            final tournaments = snapshot.data ?? const <CreatedTournament>[];
+            final tournaments = snapshot.data;
+            final visibleTournaments = tournaments
+                ?.where(_matchesTournamentQuery)
+                .toList(growable: false);
 
             return AdaptiveContentList(
               padding: const EdgeInsets.all(24),
@@ -256,9 +307,47 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  '${tournaments.length} gespeicherte Turniere',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                if (tournaments != null)
+                  Text(
+                    '${tournaments.length} gespeicherte Turniere',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ValueListenableBuilder<String>(
+                  valueListenable: TournamentStorage.syncStatus,
+                  builder: (context, status, _) => Semantics(
+                    liveRegion: true,
+                    child: Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.cloud_sync_outlined),
+                        title: Text(status),
+                      ),
+                    ),
+                  ),
+                ),
+                if (_isDeletingTournament)
+                  Semantics(
+                    label: 'Turnier wird gelöscht',
+                    child: const LinearProgressIndicator(),
+                  ),
+                const SizedBox(height: 12),
+                TextField(
+                  onChanged: (value) =>
+                      setState(() => _tournamentQuery = value),
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    labelText: 'Turniere suchen',
+                    hintText: 'Name, Status, Datum, Community oder Modus',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _tournamentQuery.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Suche löschen',
+                            onPressed: () => setState(() {
+                              _tournamentQuery = '';
+                            }),
+                            icon: const Icon(Icons.clear),
+                          ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -267,27 +356,37 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
                   label: const Text('Turnier erstellen'),
                 ),
                 const SizedBox(height: 20),
-                if (snapshot.connectionState == ConnectionState.waiting)
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData)
                   const LinearProgressIndicator(),
-                if (snapshot.hasError) ...[
+                if (snapshot.hasError && !snapshot.hasData) ...[
                   const Text('Turniere konnten nicht geladen werden.'),
                   TextButton(
                     onPressed: _reloadTournaments,
                     child: const Text('Erneut versuchen'),
                   ),
                 ],
-                if (tournaments.isEmpty)
+                if (tournaments != null && tournaments.isEmpty)
                   const Card(
                     child: Padding(
                       padding: EdgeInsets.all(16),
                       child: Text('Noch keine Turniere gespeichert.'),
                     ),
                   )
-                else
+                else if (visibleTournaments != null &&
+                    visibleTournaments.isEmpty)
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('Keine passenden Turniere gefunden.'),
+                    ),
+                  )
+                else if (visibleTournaments != null &&
+                    visibleTournaments.isNotEmpty)
                   AdaptiveTileLayout(
                     minTileWidth: 360,
                     children: [
-                      for (final tournament in tournaments)
+                      for (final tournament in visibleTournaments)
                         TournamentSummaryCard(
                           tournament: tournament,
                           onOpen: () => _openTournament(tournament),
