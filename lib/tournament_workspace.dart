@@ -46,7 +46,6 @@ import 'features/communities/presentation/widgets/community_tournament_elo_panel
 import 'features/communities/presentation/widgets/community_permission_gate.dart';
 import 'features/communities/data/community_access_repository.dart';
 import 'features/communities/domain/community_permissions.dart';
-import 'features/devices/presentation/devices_page.dart';
 import 'features/devices/presentation/devices_scope.dart';
 import 'features/devices/presentation/board_device_assignment_page.dart';
 import 'features/devices/application/board_device_dispatcher.dart';
