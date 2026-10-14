@@ -1,12 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:dart_tournament_manager/features/communities/presentation/challonge_archive_page.dart';
+import 'package:dart_tournament_manager/features/tournaments/presentation/pages/challonge_archive_page.dart';
 import 'package:dart_tournament_manager/features/tournaments/presentation/pages/tournament_results_page.dart';
-import 'package:dart_tournament_manager/features/communities/application/challonge_native_import.dart';
-import 'package:dart_tournament_manager/features/communities/application/challonge_import_service.dart';
-import 'package:dart_tournament_manager/features/communities/domain/challonge_tournament.dart';
+import 'package:dart_tournament_manager/features/challonge/application/challonge_native_import.dart';
+import 'package:dart_tournament_manager/features/challonge/domain/challonge_tournament.dart';
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
-import 'challonge_import_test.dart' show member;
 
 Map<String, dynamic> fixture(
   String mode,
@@ -41,7 +39,7 @@ Map<String, dynamic> fixture(
 CreatedTournament native(Map<String, dynamic> data) {
   final source = ChallongeTournament(data);
   return ChallongeNativeImport.convert(
-    source.convert('club', {
+    source.convert({
       for (final p in source.participants) '${p['id']}': 'p${p['id']}',
     }),
   );
@@ -156,59 +154,6 @@ void main() {
         hasLength(3),
       );
       expect(result.importedArchive!.nativeValidation!['issues'], isEmpty);
-    },
-  );
-  test(
-    'native preflight rejects inconsistent winners before any write',
-    () async {
-      final data = fixture('single elimination', [
-        [1, 1, 2, 3, 1],
-      ]);
-      (data['matches'] as List).first['winner_id'] = 2;
-      var writes = 0;
-      final service = ChallongeImportService(
-        loadMembers: () async => [],
-        loadTournaments: () async => [],
-        createMember: (name) async {
-          writes++;
-          return member(name, name);
-        },
-        saveTournament: (_) async {
-          writes++;
-        },
-      );
-      await expectLater(
-        service.import('club', [
-          ChallongeTournament(data),
-        ], useNativeLogic: true),
-        throwsFormatException,
-      );
-      expect(writes, 0);
-    },
-  );
-  test(
-    'reimport upgrades legacy archive then skips native duplicate',
-    () async {
-      final source = ChallongeTournament(
-        fixture('single elimination', [
-          [1, 1, 2, 3, 1],
-        ]),
-      );
-      var saved = source.convert('club', {'1': 'p1', '2': 'p2'});
-      final service = ChallongeImportService(
-        loadMembers: () async => [
-          member('Spieler 1', 'p1'),
-          member('Spieler 2', 'p2'),
-        ],
-        loadTournaments: () async => [saved],
-        createMember: (_) async => throw StateError('Unexpected member'),
-        saveTournament: (t) async {
-          saved = t;
-        },
-      );
-      expect(await service.import('club', [source], useNativeLogic: true), 1);
-      expect(saved.importedArchive!.usesNativeLogic, isTrue);
-      expect(await service.import('club', [source], useNativeLogic: true), 0);
     },
   );
 }

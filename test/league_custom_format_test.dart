@@ -30,9 +30,23 @@ void main() {
       );
       expect(
         league.games.where((game) => game.isDouble && game.home.contains(player)),
-        hasLength(1),
+        hasLength(lessThanOrEqualTo(1)),
       );
     }
+    expect(
+      league.games
+          .where((game) => game.isDouble)
+          .expand((game) => game.home)
+          .length,
+      6,
+    );
+    expect(
+      league.games
+          .where((game) => game.isDouble)
+          .expand((game) => game.away)
+          .length,
+      6,
+    );
     final restored = LeagueMatch.fromJson(league.toJson());
     expect(restored.variant, LeagueMatchVariant.adjusted);
     expect(restored.games, hasLength(17));

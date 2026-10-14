@@ -49,7 +49,6 @@ class PlayerWithdrawalService {
             : 0;
         m.homeSets = format.bestOfSets > 1 ? (homeWins ? sets : 0) : null;
         m.awaySets = format.bestOfSets > 1 ? (away == null ? sets : 0) : null;
-        m.deviceResult = null;
         m.isAnnulled = home != null && away != null;
         m.finishedAt = rules
             .map((r) => r.createdAt)

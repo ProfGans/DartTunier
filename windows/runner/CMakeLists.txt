@@ -8,8 +8,6 @@ project(runner LANGUAGES CXX)
 # Any new source files that you add to the application should be added here.
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
-  "community_links.cpp"
-  "autoscoring_ocr.cpp"
   "main.cpp"
   "utils.cpp"
   "win32_window.cpp"

@@ -55,27 +55,6 @@ class TournamentSummaryCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              if (tournament.communityId != null) ...[
-                Row(
-                  children: [
-                    Icon(
-                      Icons.groups_outlined,
-                      size: 20,
-                      color: scheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Community-Turnier',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelLarge?.copyWith(color: scheme.primary),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
               Text(
                 tournament.leagueMatch != null
                     ? 'Ligaspiel · ${tournament.leagueMatch!.homePoints}:${tournament.leagueMatch!.awayPoints} Mannschaftspunkte'

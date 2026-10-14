@@ -7,13 +7,11 @@ class PlayerProfilePickerDialog extends StatefulWidget {
     required this.profiles,
     required this.selectedProfileIds,
     this.createPlayer,
-    this.currentUserId,
   });
 
   final List<PlayerProfile> profiles;
   final Set<String> selectedProfileIds;
   final Future<PlayerProfile> Function(String name)? createPlayer;
-  final String? currentUserId;
 
   @override
   State<PlayerProfilePickerDialog> createState() =>
@@ -98,7 +96,7 @@ class PlayerProfilePickerDialogState extends State<PlayerProfilePickerDialog> {
               children: [
                 if (widget.createPlayer != null) ...[
                   const Text(
-                    'Neuen Community-Spieler ohne Account anlegen. Er bleibt auch beim Abbrechen der Turnierauswahl Mitglied.',
+                    'Neuen lokalen Spieler anlegen.',
                   ),
                   TextField(
                     controller: _name,
@@ -146,9 +144,7 @@ class PlayerProfilePickerDialogState extends State<PlayerProfilePickerDialog> {
                                     profile.id,
                                     value ?? false,
                                   ),
-                            title: Text(
-                              '${profile.displayName}${widget.currentUserId != null && (profile.userId == widget.currentUserId || profile.id == widget.currentUserId) ? ' (Du)' : ''}',
-                            ),
+                            title: Text(profile.displayName),
                             subtitle: subtitle.isEmpty ? null : Text(subtitle),
                             controlAffinity: ListTileControlAffinity.leading,
                           );

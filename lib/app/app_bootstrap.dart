@@ -1,7 +1,5 @@
 import 'dart:io';
 import 'performance_diagnostics.dart';
-import 'package:camera_platform_interface/camera_platform_interface.dart';
-import '../shared/platform/linux_camera.dart';
 import '../features/notifications/data/linux_notification_service.dart';
 import 'package:flutter/widgets.dart';
 import '../features/accounts/data/supabase_account_config.dart';
@@ -18,7 +16,7 @@ class AppBootstrap {
     WidgetsFlutterBinding.ensureInitialized();
     PerformanceDiagnostics.start();
     if (_instance != null) return null;
-    if (Platform.isLinux) CameraPlatform.instance = LinuxCamera();
+    await SupabaseAccountBootstrap.initialize();
     await DesktopUpdateLauncher.forward(args);
     try {
       final store = await TournamentStorage().storageFile();
@@ -36,7 +34,6 @@ class AppBootstrap {
           'Die App wurde zum Schutz der Daten nicht gestartet. '
           'Bitte den Datenordner und die Sicherungen im Unterordner backups prüfen.';
     }
-    await SupabaseAccountBootstrap.initialize();
     if (Platform.isLinux) LinuxNotificationService.startAccountGuard();
     try {
       await DesktopUpdateLauncher.acknowledge(args);

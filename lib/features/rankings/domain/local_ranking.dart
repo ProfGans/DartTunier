@@ -1,0 +1,88 @@
+enum RankingType { elo, series }
+
+class LocalRanking {
+  const LocalRanking({
+    required this.id,
+    required this.name,
+    this.type = RankingType.elo,
+    this.startRating = 1000,
+    this.newPlayerK = 25,
+    this.normalPlayerK = 15,
+    this.proPlayerK = 10,
+    this.matchesBeforeNormal = 10,
+    this.proRatingThreshold = 2400,
+    this.participationPoints = 1,
+    this.setWinPoints = 1,
+    this.firstPlacePoints = 10,
+    this.secondPlacePoints = 6,
+    this.thirdPlacePoints = 3,
+    this.bestPerformancePoints = 1,
+    this.validFromYear,
+    this.validToYear,
+  });
+
+  final String id;
+  final String name;
+  final RankingType type;
+  final int startRating;
+  final int newPlayerK;
+  final int normalPlayerK;
+  final int proPlayerK;
+  final int matchesBeforeNormal;
+  final int proRatingThreshold;
+  final int participationPoints;
+  final int setWinPoints;
+  final int firstPlacePoints;
+  final int secondPlacePoints;
+  final int thirdPlacePoints;
+  final int bestPerformancePoints;
+  final int? validFromYear;
+  final int? validToYear;
+
+  bool includesTournamentYear(int year) =>
+      (validFromYear == null || year >= validFromYear!) &&
+      (validToYear == null || year <= validToYear!);
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'name': name,
+    'type': type.name,
+    'startRating': startRating,
+    'newPlayerK': newPlayerK,
+    'normalPlayerK': normalPlayerK,
+    'proPlayerK': proPlayerK,
+    'matchesBeforeNormal': matchesBeforeNormal,
+    'proRatingThreshold': proRatingThreshold,
+    'participationPoints': participationPoints,
+    'setWinPoints': setWinPoints,
+    'firstPlacePoints': firstPlacePoints,
+    'secondPlacePoints': secondPlacePoints,
+    'thirdPlacePoints': thirdPlacePoints,
+    'bestPerformancePoints': bestPerformancePoints,
+    'validFromYear': validFromYear,
+    'validToYear': validToYear,
+  };
+
+  factory LocalRanking.fromJson(Map<String, Object?> json) => LocalRanking(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    type: RankingType.values.firstWhere(
+      (value) => value.name == json['type'],
+      orElse: () => RankingType.elo,
+    ),
+    startRating: json['startRating'] as int? ?? 1000,
+    newPlayerK: json['newPlayerK'] as int? ?? 25,
+    normalPlayerK: json['normalPlayerK'] as int? ?? 15,
+    proPlayerK: json['proPlayerK'] as int? ?? 10,
+    matchesBeforeNormal: json['matchesBeforeNormal'] as int? ?? 10,
+    proRatingThreshold: json['proRatingThreshold'] as int? ?? 2400,
+    participationPoints: json['participationPoints'] as int? ?? 1,
+    setWinPoints: json['setWinPoints'] as int? ?? 1,
+    firstPlacePoints: json['firstPlacePoints'] as int? ?? 10,
+    secondPlacePoints: json['secondPlacePoints'] as int? ?? 6,
+    thirdPlacePoints: json['thirdPlacePoints'] as int? ?? 3,
+    bestPerformancePoints: json['bestPerformancePoints'] as int? ?? 1,
+    validFromYear: json['validFromYear'] as int?,
+    validToYear: json['validToYear'] as int?,
+  );
+}

@@ -60,7 +60,7 @@ void main() {
         expect(find.text('Passende Turnierform finden'), findsOneWidget);
         Navigator.of(tester.element(find.byType(AlertDialog))).pop();
         await tester.pumpAndSettle();
-        final expert = find.text('Expertenmodus');
+        final expert = find.text('Normales- oder Ranglistenturnier erstellen');
         await tester.scrollUntilVisible(
           expert,
           200,
@@ -98,69 +98,12 @@ void main() {
           find.byKey(const ValueKey('tournament-name-field')),
           'Open Cup',
         );
-        await tester.scrollUntilVisible(
-          find.text('2 · Turnierablauf'),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await Scrollable.ensureVisible(
-          tester.element(find.text('2 · Turnierablauf')),
-          alignment: .5,
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('2 · Turnierablauf'));
-        await tester.pumpAndSettle();
-        await tester.scrollUntilVisible(
-          find.byKey(const ValueKey('group-count-field')),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.enterText(
-          find.byKey(const ValueKey('group-count-field')),
-          '3',
-        );
-        await tester.pumpAndSettle();
-        await Scrollable.ensureVisible(
-          tester.element(find.text('2 · Turnierablauf')),
-          alignment: .5,
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('2 · Turnierablauf'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('2 · Turnierablauf'));
-        await tester.pumpAndSettle();
         expect(
-          tester
-              .widget<TextField>(
-                find.byKey(const ValueKey('group-count-field')),
-              )
-              .controller!
-              .text,
-          '3',
+          find.byKey(const ValueKey('tournament-name-field')),
+          findsOneWidget,
         );
-
-        expect(tester.takeException(), isNull);
-
-        await tester.scrollUntilVisible(
-          find.text('3 · Prüfen & anlegen'),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await Scrollable.ensureVisible(
-          tester.element(find.text('3 · Prüfen & anlegen')),
-          alignment: .5,
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('3 · Prüfen & anlegen'));
-        await tester.pumpAndSettle();
-        await tester.scrollUntilVisible(
-          find.text('Geräte hinzufügen / verwalten'),
-          500,
-          scrollable: find.byType(Scrollable).first,
-          maxScrolls: 40,
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Geräte vorbereiten'), findsOneWidget);
+        expect(expert, findsNothing);
+        expect(find.text('Geräte hinzufügen / verwalten'), findsNothing);
         tester.view.physicalSize = const Size(360, 800);
         await tester.pumpAndSettle();
         expect(expert, findsNothing);

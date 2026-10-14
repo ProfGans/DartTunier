@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dart_tournament_manager/features/backups/data/backup_service.dart';
-import 'package:dart_tournament_manager/features/devices/data/device_settings_storage.dart';
 import 'package:dart_tournament_manager/features/settings/data/planning_settings_storage.dart';
 import 'package:dart_tournament_manager/features/tournaments/data/app_database.dart';
 import 'package:dart_tournament_manager/features/tournaments/data/tournament_storage.dart';
@@ -69,18 +68,16 @@ void main() {
         PlanningParameter.maximumGroups: 7,
       }),
     );
-    await DeviceSettingsStorage(file: service.files['devices.json']).load();
   }
 
   test(
-    'all four stores roundtrip with results and a pre-restore backup',
+    'all active stores roundtrip with results and a pre-restore backup',
     () async {
       await seed();
       final bytes = await service.exportBytes();
       final preview = await service.inspect(bytes);
       expect(preview.tournaments, 1);
-      expect(preview.files.length, 4);
-      final device = await service.files['devices.json']!.readAsString();
+      expect(preview.files.length, 3);
       await tournaments.saveTournament(
         CreatedTournament(name: 'Neu', players: [], stages: [], runStages: []),
       );
@@ -111,7 +108,6 @@ void main() {
         ).load()).value(PlanningParameter.maximumGroups),
         7,
       );
-      expect(await service.files['devices.json']!.readAsString(), device);
       final original =
           jsonDecode(
                 await safety.readAsString(),
@@ -239,7 +235,15 @@ void main() {
       await writing;
       final preview = await service.inspect(await backup);
       final restoring = service.restore(preview);
-      final lateWrite = tournaments.writeCache('stale', []);
+      final lateWrite = tournaments.saveTournament(
+        CreatedTournament(
+          id: 'stale',
+          name: 'Stale write',
+          players: const [],
+          stages: const [],
+          runStages: const [],
+        ),
+      );
       await expectLater(lateWrite, throwsStateError);
       await restoring;
     },

@@ -7,46 +7,39 @@ import 'package:dart_tournament_manager/features/tournaments/presentation/widget
 
 void main() {
   final date = DateTime.utc(2026);
-  final account = AccountUser(
-    id: 'online-account',
-    username: 'johannes',
-    displayName: 'Johannes',
-    email: '',
+  final operator = AccountUser(
+    id: 'operator-account',
+    username: 'operator',
+    displayName: 'Vereinsverwaltung',
+    email: 'operator@example.test',
     avatarUrl: null,
     createdAt: date,
     updatedAt: date,
     lastLogin: null,
     isActive: true,
   );
-  final local = PlayerProfile(
-    id: 'local-profile',
-    userId: account.id,
-    displayName: 'Johannes lokal',
+  final player = PlayerProfile(
+    id: 'player-1',
+    displayName: 'Anna Musterfrau',
     country: '',
     city: '',
     dartsSetupJson: '',
     createdAt: date,
     isActive: true,
   );
-  test('online account is selectable without a local player profile', () {
-    final choices = tournamentPlayerChoices([], account);
-    expect(choices.single.id, account.id);
-    expect(choices.single.userId, account.id);
-    expect(choices.single.displayName, account.displayName);
-    expect(tournamentPlayerChoices(choices, account).length, 1);
+
+  test('operator account never becomes a tournament participant', () {
+    expect(tournamentPlayerChoices([], operator), isEmpty);
+    expect(tournamentPlayerChoices([player], operator), [same(player)]);
   });
-  test('existing profile identity is preserved and no guest is invented', () {
-    expect(tournamentPlayerChoices([local], account).single, same(local));
-    expect(tournamentPlayerChoices([], null), isEmpty);
-    expect(tournamentPlayerChoices([local], null).single, same(local));
-  });
+
   for (final size in [
     const Size(360, 800),
     const Size(800, 600),
     const Size(1440, 900),
   ]) {
     for (final scale in [1.0, 2.0]) {
-      testWidgets('select self at $size / $scale', (tester) async {
+      testWidgets('local player selection at $size / $scale', (tester) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
@@ -66,26 +59,24 @@ void main() {
                     selected = await showDialog<List<PlayerProfile>>(
                       context: context,
                       builder: (_) => PlayerProfilePickerDialog(
-                        profiles: tournamentPlayerChoices([], account),
+                        profiles: [player],
                         selectedProfileIds: const {},
-                        currentUserId: account.id,
                       ),
                     );
                   },
-                  child: const Text('Auswählen'),
+                  child: const Text('Spieler auswählen'),
                 ),
               ),
             ),
           ),
         );
-        await tester.tap(find.text('Auswählen'));
+        await tester.tap(find.text('Spieler auswählen'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Johannes (Du)'));
+        await tester.tap(find.text('Anna Musterfrau'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('1 übernehmen'));
         await tester.pumpAndSettle();
-        expect(selected!.single.id, account.id);
-        expect(selected!.single.displayName, 'Johannes');
+        expect(selected!.single.id, player.id);
         expect(tester.takeException(), isNull);
       });
     }

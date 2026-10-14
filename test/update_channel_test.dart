@@ -113,13 +113,21 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('Nach Updates suchen'), 200);
+      await tester.scrollUntilVisible(
+        find.text('Nach Updates suchen'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('Nach Updates suchen'));
       await tester.pumpAndSettle();
       expect(service.downloads, 0);
       expect(service.installations, 0);
       final install = find.text('Update installieren und neu starten');
-      await tester.scrollUntilVisible(install, 200);
+      await tester.scrollUntilVisible(
+        install,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.ensureVisible(install);
       await tester.pumpAndSettle();
       await tester.tap(install);
@@ -152,6 +160,11 @@ void main() {
       );
       await tester.pumpWidget(page());
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Beta-Updates einschließen'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(
         tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
         isFalse,
@@ -184,7 +197,13 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpWidget(page());
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Beta-Updates einschließen'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(
         tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
         isTrue,

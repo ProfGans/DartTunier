@@ -7,8 +7,7 @@ class TournamentStatisticsView extends StatelessWidget {
     super.key,
     required this.rows,
     this.title = 'Spielerstatistiken',
-    this.description =
-        'Aus gespeicherten Turnierergebnissen dieser Community. Neue Ergebnisse erscheinen nach der Turniersynchronisierung. Korrekturen werden neu berechnet.',
+    this.description = 'Aus lokal gespeicherten Turnier- und Spielergebnissen.',
   });
   final List<TournamentPlayerStatistics> rows;
   final String description;
@@ -50,18 +49,7 @@ class TournamentStatisticsCard extends StatelessWidget {
           Text(
             '${row.wins} Siege · ${row.draws} Unentschieden · ${row.losses} Niederlagen',
           ),
-          Text(
-            'Legs: ${row.legsFor}:${row.legsAgainst} · Sets: ${row.setsFor}:${row.setsAgainst}',
-          ),
-          if (row.doublesMatches > 0) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Davon Doppel: ${row.doublesMatches} Spiele · ${row.doublesWins} Siege · ${row.doublesLosses} Niederlagen',
-            ),
-            Text(
-              'Gemeinsame Doppel-Legs: ${row.doublesLegsFor}:${row.doublesLegsAgainst}',
-            ),
-          ],
+          Text('Gewonnene / verlorene Legs: ${row.legsFor} / ${row.legsAgainst}'),
         ],
       ),
     ),

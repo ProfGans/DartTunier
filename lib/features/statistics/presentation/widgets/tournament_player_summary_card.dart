@@ -15,17 +15,7 @@ class TournamentPlayerSummaryCard extends StatelessWidget {
       Text(
         '${row.wins} Siege · ${row.draws} Unentschieden · ${row.losses} Niederlagen',
       ),
-      Text(
-        'Legs: ${row.legsFor}:${row.legsAgainst} · Sets: ${row.setsFor}:${row.setsAgainst}',
-      ),
-      if (row.doublesMatches > 0) ...[
-        Text(
-          'Davon Doppel: ${row.doublesMatches} Spiele · ${row.doublesWins} Siege · ${row.doublesLosses} Niederlagen',
-        ),
-        Text(
-          'Gemeinsame Doppel-Legs: ${row.doublesLegsFor}:${row.doublesLegsAgainst}',
-        ),
-      ],
+      Text('Gewonnene / verlorene Legs: ${row.legsFor} / ${row.legsAgainst}'),
     ],
   );
 }

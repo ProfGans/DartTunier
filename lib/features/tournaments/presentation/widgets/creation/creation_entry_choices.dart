@@ -34,13 +34,13 @@ class CreationEntryChoices extends StatelessWidget {
             onTap: onFind,
           ),
           SportMenuAction(
-            label: 'Expertenmodus',
-            description: 'Spieler, Etappen und Regeln selbst festlegen.',
+            label: 'Normales- oder Ranglistenturnier erstellen',
+            description: 'Spieler, Etappen, Regeln und Ranglisten selbst festlegen.',
             icon: Icons.tune,
             onTap: onExpert,
           ),
           SportMenuAction(
-            label: 'Ligaspiel',
+            label: 'Liga- oder Freundschaftsspiel erstellen',
             description: 'Heim- und Gastmannschaft mit Einzel und Doppel.',
             icon: Icons.groups_outlined,
             onTap: onLeague,

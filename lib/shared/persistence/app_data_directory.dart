@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<Directory>? _isolatedTestDirectory;
 
@@ -11,6 +12,7 @@ Future<Directory> appDataDirectory({
   String? operatingSystem,
   Map<String, String>? environment,
   Future<Directory> Function()? supportDirectory,
+  bool includeSupabaseAccount = true,
 }) async {
   final os = operatingSystem ?? Platform.operatingSystem;
   final env = environment ?? Platform.environment;
@@ -23,18 +25,30 @@ Future<Directory> appDataDirectory({
         Directory.systemTemp.createTemp('dart_tournament_test_');
   }
   final legacy = env['APPDATA'];
+  Directory base;
   if (os == 'windows') {
     if (legacy == null || legacy.isEmpty) {
       throw StateError('APPDATA fehlt; kein sicherer Speicherort.');
     }
-    return Directory(p.join(legacy, 'DartTournamentManager'));
-  }
-  if (os == 'linux' && legacy != null && legacy.isNotEmpty) {
+    base = Directory(p.join(legacy, 'DartTournamentManager'));
+  } else if (os == 'linux' && legacy != null && legacy.isNotEmpty) {
     final directory = Directory(p.join(legacy, 'DartTournamentManager'));
     if (await File(p.join(directory.path, 'tournaments.json')).exists() ||
         await File(p.join(directory.path, 'app_database.sqlite')).exists()) {
-      return directory;
+      base = directory;
+    } else {
+      base = await (supportDirectory ?? getApplicationSupportDirectory)();
     }
+  } else {
+    base = await (supportDirectory ?? getApplicationSupportDirectory)();
   }
-  return (supportDirectory ?? getApplicationSupportDirectory)();
+  String? accountId;
+  try {
+    if (!includeSupabaseAccount) return base;
+    accountId = Supabase.instance.client.auth.currentUser?.id;
+  } catch (_) {
+    accountId = null;
+  }
+  if (accountId == null || accountId.isEmpty) return base;
+  return Directory(p.join(base.path, 'supabase_accounts', accountId));
 }

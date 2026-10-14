@@ -1,4 +1,5 @@
 import '../../../shared/persistence/storage_access.dart';
+import 'dart:convert';
 import 'dart:math';
 import 'dart:io';
 
@@ -6,15 +7,13 @@ import 'package:path/path.dart' as path;
 import '../../../shared/persistence/app_data_directory.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-import '../../accounts/domain/account_user.dart';
 import '../domain/tournament_models.dart';
+import '../../rankings/domain/local_ranking.dart';
 
 class LocalAppDatabase {
   LocalAppDatabase({Directory? baseDirectory}) : _baseDirectory = baseDirectory;
 
-  static const schemaVersion = 6;
-  static const _testUserId = '00000000-0000-4000-8000-000000000001';
-  static const _currentUserSessionKey = 'current_user_id';
+  static const schemaVersion = 9;
 
   final Directory? _baseDirectory;
 
@@ -29,152 +28,12 @@ class LocalAppDatabase {
         }
       });
 
-  Future<AccountUser?> loadCurrentAccount() async {
-    return StorageAccess.run(() async {
-      final database = await _openDatabase();
-      try {
-        final rows = database.select(
-          '''
-        SELECT users.id, username, display_name, email, avatar_url,
-               created_at, updated_at, last_login, is_active
-        FROM app_session
-        INNER JOIN users ON users.id = app_session.value
-        WHERE app_session.key = ? AND users.is_active = 1
-        LIMIT 1
-        ''',
-          [_currentUserSessionKey],
-        );
-        if (rows.isEmpty) {
-          return null;
-        }
-        return _accountFromRow(rows.first);
-      } finally {
-        database.close();
-      }
-    });
-  }
-
-  Future<AccountUser> registerLocalAccount({
-    required String displayName,
-    required String email,
-    String country = '',
-    String city = '',
-    String dartsSetupJson = '',
-  }) async {
-    return StorageAccess.run(() async {
-      final normalizedEmail = email.trim().toLowerCase();
-      final trimmedDisplayName = displayName.trim();
-      final database = await _openDatabase();
-      try {
-        final existing = _findUserByEmail(database, normalizedEmail);
-        if (existing != null) {
-          _ensurePlayerProfileForUser(
-            database,
-            existing,
-            country: country,
-            city: city,
-            dartsSetupJson: dartsSetupJson,
-          );
-          _setCurrentUser(database, existing.id);
-          return existing;
-        }
-
-        final now = DateTime.now();
-        final userId = _newId();
-        final user = AccountUser(
-          id: userId,
-          username: _usernameFromEmail(normalizedEmail, userId),
-          displayName: trimmedDisplayName,
-          email: normalizedEmail,
-          avatarUrl: null,
-          createdAt: now,
-          updatedAt: now,
-          lastLogin: now,
-          isActive: true,
-        );
-        database.execute(
-          '''
-        INSERT INTO users (
-          id, username, display_name, email, avatar_url,
-          created_at, updated_at, last_login, is_active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''',
-          [
-            user.id,
-            user.username,
-            user.displayName,
-            user.email,
-            user.avatarUrl,
-            user.createdAt.toIso8601String(),
-            user.updatedAt.toIso8601String(),
-            user.lastLogin?.toIso8601String(),
-            1,
-          ],
-        );
-        _ensurePlayerProfileForUser(
-          database,
-          user,
-          country: country,
-          city: city,
-          dartsSetupJson: dartsSetupJson,
-        );
-        _setCurrentUser(database, user.id);
-        return user;
-      } finally {
-        database.close();
-      }
-    });
-  }
-
-  Future<AccountUser?> signInLocalAccount({required String email}) async {
-    return StorageAccess.run(() async {
-      final database = await _openDatabase();
-      try {
-        final user = _findUserByEmail(database, email.trim().toLowerCase());
-        if (user == null) {
-          return null;
-        }
-
-        final now = DateTime.now().toIso8601String();
-        database.execute(
-          'UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?',
-          [now, now, user.id],
-        );
-        _setCurrentUser(database, user.id);
-        return _findUserById(database, user.id) ?? user;
-      } finally {
-        database.close();
-      }
-    });
-  }
-
-  Future<void> signOutCurrentAccount() async {
-    return StorageAccess.run(() async {
-      final database = await _openDatabase();
-      try {
-        database.execute('DELETE FROM app_session WHERE key = ?', [
-          _currentUserSessionKey,
-        ]);
-      } finally {
-        database.close();
-      }
-    });
-  }
-
   Future<List<PlayerProfile>> loadPlayerProfiles() async {
     return StorageAccess.run(() async {
       final database = await _openDatabase();
       try {
-        final activeProfiles = database.select('''
-          SELECT COUNT(*) AS total,
-                 SUM(CASE WHEN id IN (?, ?, ?, ?) THEN 1 ELSE 0 END) AS seeds
-          FROM player_profiles WHERE is_active = 1
-        ''', _seedProfileIds).single;
-        if (activeProfiles['total'] != 4 || activeProfiles['seeds'] != 4) {
-          _deactivateSeedProfiles(database);
-        }
         final rows = database.select('''
-        SELECT id, user_id, display_name, country, city, darts_setup_json,
+        SELECT id, display_name, country, city, darts_setup_json,
                created_at, is_active
         FROM player_profiles
         WHERE is_active = 1
@@ -186,6 +45,150 @@ class LocalAppDatabase {
       }
     });
   }
+
+  Future<List<LocalRanking>> loadLocalRankings() => StorageAccess.run(() async {
+    final database = await _openDatabase();
+    try {
+      return [
+        for (final row in database.select(
+          'SELECT config_json FROM local_rankings ORDER BY name COLLATE NOCASE',
+        ))
+          LocalRanking.fromJson(
+            Map<String, Object?>.from(jsonDecode(row['config_json'] as String) as Map),
+          ),
+      ];
+    } finally {
+      database.close();
+    }
+  });
+
+  Future<void> saveLocalRanking(LocalRanking ranking) => StorageAccess.run(() async {
+    final database = await _openDatabase();
+    try {
+      database.execute(
+        '''INSERT INTO local_rankings(id, name, ranking_type, config_json)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET name=excluded.name,
+             ranking_type=excluded.ranking_type, config_json=excluded.config_json''',
+        [ranking.id, ranking.name.trim(), ranking.type.name, jsonEncode(ranking.toJson())],
+      );
+      StorageAccess.markLocalDataChanged();
+    } finally {
+      database.close();
+    }
+  });
+
+  Future<void> deleteLocalRanking(String rankingId) => StorageAccess.run(() async {
+    final database = await _openDatabase();
+    try {
+      database.execute('DELETE FROM local_rankings WHERE id = ?', [rankingId]);
+      StorageAccess.markLocalDataChanged();
+    } finally {
+      database.close();
+    }
+  });
+
+  Future<List<String>> loadRankingPlayerIds(String rankingId) =>
+      StorageAccess.run(() async {
+        final database = await _openDatabase();
+        try {
+          return [
+            for (final row in database.select(
+              'SELECT player_profile_id FROM local_ranking_players WHERE ranking_id = ? ORDER BY player_profile_id',
+              [rankingId],
+            ))
+              row['player_profile_id'] as String,
+          ];
+        } finally {
+          database.close();
+        }
+      });
+
+  Future<List<LocalRanking>> loadRankingsForPlayer(String playerId) =>
+      StorageAccess.run(() async {
+        final database = await _openDatabase();
+        try {
+          return [
+            for (final row in database.select(
+              '''SELECT r.config_json FROM local_rankings r
+                 JOIN local_ranking_players p ON p.ranking_id = r.id
+                 WHERE p.player_profile_id = ? ORDER BY r.name COLLATE NOCASE''',
+              [playerId],
+            ))
+              LocalRanking.fromJson(
+                Map<String, Object?>.from(jsonDecode(row['config_json'] as String) as Map),
+              ),
+          ];
+        } finally {
+          database.close();
+        }
+      });
+
+  Future<void> setRankingPlayers(String rankingId, Iterable<String> playerIds) =>
+      StorageAccess.run(() async {
+        final database = await _openDatabase();
+        try {
+          database.execute('BEGIN');
+          try {
+            database.execute(
+              'DELETE FROM local_ranking_players WHERE ranking_id = ?',
+              [rankingId],
+            );
+            for (final playerId in playerIds.toSet()) {
+              database.execute(
+                '''INSERT INTO local_ranking_players(ranking_id, player_profile_id)
+                   SELECT ?, id FROM player_profiles WHERE id = ? AND is_active = 1''',
+                [rankingId, playerId],
+              );
+            }
+            database.execute('COMMIT');
+            StorageAccess.markLocalDataChanged();
+          } catch (_) {
+            database.execute('ROLLBACK');
+            rethrow;
+          }
+        } finally {
+          database.close();
+        }
+      });
+
+  Future<List<Map<String, Object?>>> loadChallongePlayerLinks({String source = 'challonge'}) =>
+      StorageAccess.run(() async {
+        final database = await _openDatabase();
+        try {
+          return [
+            for (final row in database.select(
+              'SELECT challonge_name, player_profile_id FROM challonge_player_links WHERE source = ? ORDER BY challonge_name COLLATE NOCASE',
+              [source],
+            ))
+              {'challongeName': row['challonge_name'], 'playerProfileId': row['player_profile_id']},
+          ];
+        } finally { database.close(); }
+      });
+
+  Future<void> saveChallongePlayerLink(String name, String playerId, {String source = 'challonge'}) =>
+      StorageAccess.run(() async {
+        final database = await _openDatabase();
+        try {
+          database.execute(
+            '''INSERT INTO challonge_player_links(source, normalized_name, challonge_name, player_profile_id)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(source, normalized_name) DO UPDATE SET challonge_name=excluded.challonge_name, player_profile_id=excluded.player_profile_id''',
+            [source, name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' '), name.trim(), playerId],
+          );
+          StorageAccess.markLocalDataChanged();
+        } finally { database.close(); }
+      });
+
+  Future<void> deleteChallongePlayerLink(String name, {String source = 'challonge'}) =>
+      StorageAccess.run(() async {
+        final database = await _openDatabase();
+        try {
+          database.execute('DELETE FROM challonge_player_links WHERE source = ? AND normalized_name = ?',
+            [source, name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ')]);
+          StorageAccess.markLocalDataChanged();
+        } finally { database.close(); }
+      });
 
   Future<List<TournamentPlayer>> loadTournamentPlayers() async {
     return StorageAccess.run(() async {
@@ -212,11 +215,9 @@ class LocalAppDatabase {
     return StorageAccess.run(() async {
       final database = await _openDatabase();
       try {
-        _deactivateSeedProfiles(database);
         final now = DateTime.now();
         final profile = PlayerProfile(
           id: _newId(),
-          userId: null,
           displayName: displayName.trim(),
           country: country.trim(),
           city: city.trim(),
@@ -227,13 +228,12 @@ class LocalAppDatabase {
         database.execute(
           '''
         INSERT INTO player_profiles (
-          id, user_id, display_name, country, city, darts_setup_json,
+          id, display_name, country, city, darts_setup_json,
           created_at, is_active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         ''',
           [
             profile.id,
-            profile.userId,
             profile.displayName,
             profile.country,
             profile.city,
@@ -242,6 +242,7 @@ class LocalAppDatabase {
             1,
           ],
         );
+        StorageAccess.markLocalDataChanged();
         return profile;
       } finally {
         database.close();
@@ -267,6 +268,7 @@ class LocalAppDatabase {
             profile.id,
           ],
         );
+        StorageAccess.markLocalDataChanged();
       } finally {
         database.close();
       }
@@ -281,118 +283,11 @@ class LocalAppDatabase {
           'UPDATE player_profiles SET is_active = 0 WHERE id = ?',
           [id],
         );
+        StorageAccess.markLocalDataChanged();
       } finally {
         database.close();
       }
     });
-  }
-
-  Future<int> importCommunityPlayerNames(
-    String communityId,
-    Iterable<String> names,
-  ) async {
-    return StorageAccess.run(() async {
-      final database = await _openDatabase();
-      try {
-        var created = 0;
-        final playerNames = names
-            .map((name) => name.trim())
-            .where((name) => name.isNotEmpty)
-            .toList();
-        if (playerNames.isNotEmpty) _deactivateSeedProfiles(database);
-        for (final name in playerNames) {
-          final existing = database.select(
-            '''SELECT id FROM player_profiles
-               WHERE lower(trim(display_name)) = lower(?)
-                 AND id NOT IN (?, ?, ?, ?) LIMIT 1''',
-            [name, ..._seedProfileIds],
-          );
-          String profileId;
-          if (existing.isNotEmpty) {
-            profileId = existing.first['id'] as String;
-            database.execute(
-              'UPDATE player_profiles SET is_active = 1 WHERE id = ?',
-              [profileId],
-            );
-          } else {
-            final now = DateTime.now();
-            profileId = _newId();
-            database.execute('''
-              INSERT INTO player_profiles (
-                id,user_id,display_name,country,city,darts_setup_json,created_at,is_active,source
-              ) VALUES (?,NULL,?,'','','',?,1,'community')
-            ''', [profileId, name, now.toIso8601String()]);
-            created++;
-          }
-          database.execute('''
-            INSERT OR IGNORE INTO community_player_profiles(community_id,player_profile_id)
-            VALUES (?,?)
-          ''', [communityId, profileId]);
-        }
-        return created;
-      } finally {
-        database.close();
-      }
-    });
-  }
-
-  Future<void> removeCommunityPlayerProfiles(
-    String communityId, {
-    required bool deleteUnsharedPlayers,
-  }) async {
-    return StorageAccess.run(() async {
-      final database = await _openDatabase();
-      try {
-        final linked = database.select(
-          'SELECT player_profile_id FROM community_player_profiles WHERE community_id = ?',
-          [communityId],
-        );
-        final profileIds = linked.map((row) => row['player_profile_id'] as String).toList();
-        database.execute(
-          'DELETE FROM community_player_profiles WHERE community_id = ?',
-          [communityId],
-        );
-        if (profileIds.isEmpty) return;
-        final placeholders = List.filled(profileIds.length, '?').join(',');
-        if (deleteUnsharedPlayers) {
-          database.execute('''
-            DELETE FROM player_profiles
-            WHERE user_id IS NULL
-              AND id IN ($placeholders)
-              AND NOT EXISTS (
-                SELECT 1 FROM community_player_profiles link
-                WHERE link.player_profile_id = player_profiles.id
-              )
-          ''', profileIds);
-        } else {
-          database.execute('''
-            UPDATE player_profiles SET source = 'local'
-            WHERE source = 'community'
-              AND id IN ($placeholders)
-              AND NOT EXISTS (
-                SELECT 1 FROM community_player_profiles link
-                WHERE link.player_profile_id = player_profiles.id
-              )
-          ''', profileIds);
-        }
-      } finally {
-        database.close();
-      }
-    });
-  }
-
-  static const _seedProfileIds = [
-    '00000000-0000-4000-8000-000000000101',
-    '00000000-0000-4000-8000-000000000102',
-    '00000000-0000-4000-8000-000000000103',
-    '00000000-0000-4000-8000-000000000104',
-  ];
-
-  void _deactivateSeedProfiles(Database database) {
-    database.execute(
-      'UPDATE player_profiles SET is_active = 0 WHERE id IN (?, ?, ?, ?)',
-      _seedProfileIds,
-    );
   }
 
   Future<Database> _openDatabase() async {
@@ -411,7 +306,6 @@ class LocalAppDatabase {
         database.execute('VACUUM INTO ?', [backup]);
       }
       _migrate(database);
-      _seedTestData(database);
       return database;
     } catch (_) {
       database.close();
@@ -425,41 +319,26 @@ class LocalAppDatabase {
       return;
     }
 
+    database.execute('PRAGMA foreign_keys = OFF');
     database.execute('BEGIN');
     try {
-      if (currentVersion < 1) {
-        _createSchema(database);
-      }
-      if (currentVersion < 2) {
-        _addPlayerActiveFlag(database);
-      }
-      if (currentVersion < 3) {
-        _createSessionSchema(database);
-      }
-      if (currentVersion < 4) {
-        database.execute(
-          'CREATE TABLE IF NOT EXISTS heatmap_sessions (id TEXT PRIMARY KEY, date TEXT NOT NULL, payload TEXT NOT NULL)',
+      if (currentVersion > 0) {
+        final oldTables = database.select(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
         );
-        database.execute(
-          'CREATE INDEX IF NOT EXISTS heatmap_date ON heatmap_sessions(date DESC)',
-        );
-        database.execute(
-          'CREATE TABLE IF NOT EXISTS heatmap_migration (id INTEGER PRIMARY KEY CHECK(id = 1), legacy_json TEXT)',
-        );
+        for (final row in oldTables) {
+          final name = (row['name'] as String).replaceAll('"', '""');
+          database.execute('DROP TABLE IF EXISTS "$name"');
+        }
       }
-      if (currentVersion < 5) {
-        database.execute(
-          'CREATE TABLE IF NOT EXISTS profile_heatmaps (owner_user_id TEXT NOT NULL, session_id TEXT NOT NULL, payload TEXT NOT NULL, pending INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(owner_user_id, session_id))',
-        );
-      }
-      if (currentVersion < 6) {
-        _addCommunityPlayerLinks(database);
-      }
+      _createSchema(database);
       database.execute('PRAGMA user_version = $schemaVersion');
       database.execute('COMMIT');
     } catch (_) {
       database.execute('ROLLBACK');
       rethrow;
+    } finally {
+      database.execute('PRAGMA foreign_keys = ON');
     }
   }
 
@@ -473,469 +352,40 @@ class LocalAppDatabase {
 
   void _createSchema(Database database) {
     database.execute('''
-      CREATE TABLE users (
+      CREATE TABLE player_profiles (
         id TEXT PRIMARY KEY,
-        username TEXT NOT NULL UNIQUE,
         display_name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        avatar_url TEXT,
+        country TEXT NOT NULL DEFAULT '',
+        city TEXT NOT NULL DEFAULT '',
+        darts_setup_json TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        last_login TEXT,
         is_active INTEGER NOT NULL DEFAULT 1
       );
 
-      CREATE TABLE player_profiles (
+      CREATE TABLE local_rankings (
         id TEXT PRIMARY KEY,
-        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-        display_name TEXT NOT NULL,
-        country TEXT,
-        city TEXT,
-        darts_setup_json TEXT,
-        created_at TEXT NOT NULL,
-        is_active INTEGER NOT NULL DEFAULT 1,
-        source TEXT NOT NULL DEFAULT 'local'
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        ranking_type TEXT NOT NULL CHECK (ranking_type IN ('elo', 'series')),
+        config_json TEXT NOT NULL
       );
 
-      CREATE TABLE friendships (
-        id TEXT PRIMARY KEY,
-        user_a TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        user_b TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        status TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        UNIQUE(user_a, user_b)
+      CREATE TABLE local_ranking_players (
+        ranking_id TEXT NOT NULL REFERENCES local_rankings(id) ON DELETE CASCADE,
+        player_profile_id TEXT NOT NULL REFERENCES player_profiles(id) ON DELETE CASCADE,
+        PRIMARY KEY (ranking_id, player_profile_id)
       );
 
-      CREATE TABLE clubs (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE club_members (
-        club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        role TEXT NOT NULL,
-        joined_at TEXT NOT NULL,
-        PRIMARY KEY (club_id, user_id)
-      );
-
-      CREATE TABLE tournaments (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        format TEXT NOT NULL,
-        created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
-        started_at TEXT,
-        finished_at TEXT
-      );
-
-      CREATE TABLE tournament_players (
-        tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
-        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-        player_profile_id TEXT REFERENCES player_profiles(id) ON DELETE SET NULL,
-        seed INTEGER,
-        display_name_snapshot TEXT NOT NULL,
-        PRIMARY KEY (tournament_id, player_profile_id)
-      );
-
-      CREATE TABLE leagues (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        season TEXT,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE league_clubs (
-        league_id TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
-        club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
-        PRIMARY KEY (league_id, club_id)
-      );
-
-      CREATE TABLE league_matches (
-        id TEXT PRIMARY KEY,
-        league_id TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
-        club_home_id TEXT REFERENCES clubs(id) ON DELETE SET NULL,
-        club_away_id TEXT REFERENCES clubs(id) ON DELETE SET NULL,
-        match_date TEXT,
-        status TEXT NOT NULL
-      );
-
-      CREATE TABLE matches (
-        id TEXT PRIMARY KEY,
-        game_type TEXT NOT NULL,
-        match_mode TEXT NOT NULL,
-        started_at TEXT,
-        finished_at TEXT,
-        winner_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-        winner_player_profile_id TEXT REFERENCES player_profiles(id) ON DELETE SET NULL,
-        source_type TEXT NOT NULL,
-        tournament_id TEXT REFERENCES tournaments(id) ON DELETE CASCADE,
-        league_id TEXT REFERENCES leagues(id) ON DELETE CASCADE,
-        club_id TEXT REFERENCES clubs(id) ON DELETE SET NULL
-      );
-
-      CREATE TABLE match_players (
-        id TEXT PRIMARY KEY,
-        match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-        player_profile_id TEXT REFERENCES player_profiles(id) ON DELETE SET NULL,
-        player_order INTEGER NOT NULL,
-        legs_won INTEGER NOT NULL DEFAULT 0,
-        avg REAL,
-        first9_avg REAL,
-        checkout_pct REAL,
-        darts_thrown INTEGER NOT NULL DEFAULT 0
-      );
-
-      CREATE TABLE tournament_matches (
-        id TEXT PRIMARY KEY,
-        tournament_id TEXT NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
-        match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-        round_number INTEGER NOT NULL,
-        bracket_position INTEGER NOT NULL
-      );
-
-      CREATE TABLE legs (
-        id TEXT PRIMARY KEY,
-        match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-        leg_number INTEGER NOT NULL,
-        winner_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-        winner_player_profile_id TEXT REFERENCES player_profiles(id) ON DELETE SET NULL,
-        started_at TEXT,
-        finished_at TEXT
-      );
-
-      CREATE TABLE visits (
-        id TEXT PRIMARY KEY,
-        leg_id TEXT NOT NULL REFERENCES legs(id) ON DELETE CASCADE,
-        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-        player_profile_id TEXT REFERENCES player_profiles(id) ON DELETE SET NULL,
-        visit_number INTEGER NOT NULL,
-        darts_used INTEGER NOT NULL,
-        score INTEGER NOT NULL,
-        remaining_score INTEGER NOT NULL,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE throws (
-        id TEXT PRIMARY KEY,
-        visit_id TEXT NOT NULL REFERENCES visits(id) ON DELETE CASCADE,
-        dart_number INTEGER NOT NULL,
-        segment TEXT NOT NULL,
-        multiplier INTEGER NOT NULL,
-        value INTEGER NOT NULL
-      );
-
-      CREATE TABLE checkouts (
-        id TEXT PRIMARY KEY,
-        leg_id TEXT NOT NULL REFERENCES legs(id) ON DELETE CASCADE,
-        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-        player_profile_id TEXT REFERENCES player_profiles(id) ON DELETE SET NULL,
-        checkout_score INTEGER NOT NULL,
-        finishing_double TEXT,
-        darts_used INTEGER NOT NULL,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE elo_groups (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        group_type TEXT NOT NULL
-      );
-
-      CREATE TABLE elo_ratings (
-        id TEXT PRIMARY KEY,
-        group_id TEXT NOT NULL REFERENCES elo_groups(id) ON DELETE CASCADE,
-        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-        player_profile_id TEXT REFERENCES player_profiles(id) ON DELETE CASCADE,
-        rating INTEGER NOT NULL,
-        wins INTEGER NOT NULL DEFAULT 0,
-        losses INTEGER NOT NULL DEFAULT 0,
-        matches_played INTEGER NOT NULL DEFAULT 0,
-        updated_at TEXT NOT NULL
-      );
-
-      CREATE TABLE player_statistics_cache (
-        player_profile_id TEXT PRIMARY KEY REFERENCES player_profiles(id) ON DELETE CASCADE,
-        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-        avg REAL,
-        first9_avg REAL,
-        checkout_pct REAL,
-        high_finish INTEGER,
-        score_60_plus INTEGER NOT NULL DEFAULT 0,
-        score_100_plus INTEGER NOT NULL DEFAULT 0,
-        score_140_plus INTEGER NOT NULL DEFAULT 0,
-        updated_at TEXT NOT NULL
-      );
-
-      CREATE TABLE direct_messages (
-        id TEXT PRIMARY KEY,
-        sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        receiver_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        content TEXT NOT NULL,
-        created_at TEXT NOT NULL
+      CREATE TABLE challonge_player_links (
+        source TEXT NOT NULL,
+        normalized_name TEXT NOT NULL,
+        challonge_name TEXT NOT NULL,
+        player_profile_id TEXT NOT NULL REFERENCES player_profiles(id) ON DELETE CASCADE,
+        PRIMARY KEY(source, normalized_name)
       );
 
       CREATE INDEX idx_player_profiles_display_name
         ON player_profiles(display_name);
-      CREATE INDEX idx_tournament_players_tournament
-        ON tournament_players(tournament_id, seed);
-      CREATE INDEX idx_matches_tournament
-        ON matches(tournament_id);
-      CREATE INDEX idx_visits_player
-        ON visits(player_profile_id);
     ''');
-  }
-
-  void _addPlayerActiveFlag(Database database) {
-    final columns = database.select('PRAGMA table_info(player_profiles)');
-    final hasActiveColumn = columns.any((row) => row['name'] == 'is_active');
-    if (!hasActiveColumn) {
-      database.execute(
-        'ALTER TABLE player_profiles '
-        'ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1',
-      );
-    }
-  }
-
-  void _addCommunityPlayerLinks(Database database) {
-    final columns = database.select('PRAGMA table_info(player_profiles)');
-    if (!columns.any((row) => row['name'] == 'source')) {
-      database.execute(
-        "ALTER TABLE player_profiles ADD COLUMN source TEXT NOT NULL DEFAULT 'local'",
-      );
-    }
-    database.execute('''
-      CREATE TABLE IF NOT EXISTS community_player_profiles (
-        community_id TEXT NOT NULL,
-        player_profile_id TEXT NOT NULL REFERENCES player_profiles(id) ON DELETE CASCADE,
-        PRIMARY KEY (community_id, player_profile_id)
-      )
-    ''');
-    database.execute(
-      "UPDATE player_profiles SET source = 'test' WHERE id IN (?, ?, ?, ?)",
-      _seedProfileIds,
-    );
-    database.execute(
-      "UPDATE player_profiles SET source = 'account' WHERE user_id IS NOT NULL AND id NOT IN (?, ?, ?, ?)",
-      _seedProfileIds,
-    );
-  }
-
-  void _createSessionSchema(Database database) {
-    database.execute('''
-      CREATE TABLE IF NOT EXISTS app_session (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      );
-    ''');
-  }
-
-  AccountUser? _findUserByEmail(Database database, String email) {
-    if (email.isEmpty) {
-      return null;
-    }
-    final rows = database.select(
-      '''
-      SELECT id, username, display_name, email, avatar_url,
-             created_at, updated_at, last_login, is_active
-      FROM users
-      WHERE lower(email) = ? AND is_active = 1
-      LIMIT 1
-      ''',
-      [email],
-    );
-    return rows.isEmpty ? null : _accountFromRow(rows.first);
-  }
-
-  AccountUser? _findUserById(Database database, String id) {
-    final rows = database.select(
-      '''
-      SELECT id, username, display_name, email, avatar_url,
-             created_at, updated_at, last_login, is_active
-      FROM users
-      WHERE id = ? AND is_active = 1
-      LIMIT 1
-      ''',
-      [id],
-    );
-    return rows.isEmpty ? null : _accountFromRow(rows.first);
-  }
-
-  AccountUser _accountFromRow(Row row) {
-    return AccountUser(
-      id: row['id'] as String? ?? '',
-      username: row['username'] as String? ?? '',
-      displayName: row['display_name'] as String? ?? '',
-      email: row['email'] as String? ?? '',
-      avatarUrl: row['avatar_url'] as String?,
-      createdAt:
-          DateTime.tryParse(row['created_at'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0),
-      updatedAt:
-          DateTime.tryParse(row['updated_at'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0),
-      lastLogin: DateTime.tryParse(row['last_login'] as String? ?? ''),
-      isActive: (row['is_active'] as int? ?? 1) == 1,
-    );
-  }
-
-  void _setCurrentUser(Database database, String userId) {
-    database.execute(
-      '''
-      INSERT INTO app_session (key, value)
-      VALUES (?, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-      ''',
-      [_currentUserSessionKey, userId],
-    );
-  }
-
-  void _ensurePlayerProfileForUser(
-    Database database,
-    AccountUser user, {
-    String country = '',
-    String city = '',
-    String dartsSetupJson = '',
-  }) {
-    final existingProfiles = database.select(
-      '''
-      SELECT COUNT(*) AS count
-      FROM player_profiles
-      WHERE user_id = ? AND is_active = 1
-      ''',
-      [user.id],
-    );
-    final count = existingProfiles.first['count'] as int? ?? 0;
-    if (count > 0) {
-      return;
-    }
-
-    database.execute(
-      '''
-      INSERT INTO player_profiles (
-        id, user_id, display_name, country, city, darts_setup_json,
-        created_at, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ''',
-      [
-        _newId(),
-        user.id,
-        user.displayName,
-        country.trim(),
-        city.trim(),
-        dartsSetupJson.trim(),
-        DateTime.now().toIso8601String(),
-        1,
-      ],
-    );
-  }
-
-  String _usernameFromEmail(String email, String userId) {
-    final baseName = email.split('@').first.trim().toLowerCase();
-    final sanitized = baseName.replaceAll(RegExp(r'[^a-z0-9_]+'), '_');
-    final suffix = userId.hashCode.abs().toRadixString(16);
-    return '${sanitized.isEmpty ? 'spieler' : sanitized}_$suffix';
-  }
-
-  void _seedTestData(Database database) {
-    final existingProfiles = database.select(
-      'SELECT COUNT(*) AS count FROM player_profiles',
-    );
-    final count = existingProfiles.first['count'] as int? ?? 0;
-    if (count > 0) {
-      return;
-    }
-
-    final now = DateTime.now().toIso8601String();
-    database.execute(
-      '''
-      INSERT OR IGNORE INTO users (
-        id, username, display_name, email, avatar_url,
-        created_at, updated_at, last_login, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ''',
-      [
-        _testUserId,
-        'test_user',
-        'Test User',
-        'test@example.local',
-        null,
-        now,
-        now,
-        now,
-        1,
-      ],
-    );
-
-    for (final profile in _seedProfiles(now)) {
-      database.execute(
-        '''
-        INSERT OR IGNORE INTO player_profiles (
-          id, user_id, display_name, country, city, darts_setup_json,
-          created_at, is_active, source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'test')
-        ''',
-        [
-          profile.id,
-          profile.userId,
-          profile.displayName,
-          profile.country,
-          profile.city,
-          '{"weight_g":23,"brand":"Testsetup"}',
-          profile.createdAt.toIso8601String(),
-          1,
-        ],
-      );
-    }
-  }
-
-  List<PlayerProfile> _seedProfiles(String now) {
-    final createdAt = DateTime.parse(now);
-    return [
-      PlayerProfile(
-        id: '00000000-0000-4000-8000-000000000101',
-        userId: _testUserId,
-        displayName: 'Luke Littler',
-        country: 'England',
-        city: 'Warrington',
-        dartsSetupJson: '{"weight_g":23,"brand":"Testsetup"}',
-        createdAt: createdAt,
-        isActive: true,
-      ),
-      PlayerProfile(
-        id: '00000000-0000-4000-8000-000000000102',
-        userId: _testUserId,
-        displayName: 'Michael van Gerwen',
-        country: 'Niederlande',
-        city: 'Vlijmen',
-        dartsSetupJson: '{"weight_g":23,"brand":"Testsetup"}',
-        createdAt: createdAt,
-        isActive: true,
-      ),
-      PlayerProfile(
-        id: '00000000-0000-4000-8000-000000000103',
-        userId: _testUserId,
-        displayName: 'Gerwyn Price',
-        country: 'Wales',
-        city: 'Markham',
-        dartsSetupJson: '{"weight_g":23,"brand":"Testsetup"}',
-        createdAt: createdAt,
-        isActive: true,
-      ),
-      PlayerProfile(
-        id: '00000000-0000-4000-8000-000000000104',
-        userId: _testUserId,
-        displayName: 'Fallon Sherrock',
-        country: 'England',
-        city: 'Milton Keynes',
-        dartsSetupJson: '{"weight_g":23,"brand":"Testsetup"}',
-        createdAt: createdAt,
-        isActive: true,
-      ),
-    ];
   }
 
   Future<File> _databaseFile() async {
@@ -955,7 +405,6 @@ class LocalAppDatabase {
 class PlayerProfile {
   const PlayerProfile({
     required this.id,
-    required this.userId,
     required this.displayName,
     required this.country,
     required this.city,
@@ -967,7 +416,6 @@ class PlayerProfile {
   factory PlayerProfile.fromRow(Row row) {
     return PlayerProfile(
       id: row['id'] as String? ?? '',
-      userId: row['user_id'] as String?,
       displayName: row['display_name'] as String? ?? '',
       country: row['country'] as String? ?? '',
       city: row['city'] as String? ?? '',
@@ -980,7 +428,6 @@ class PlayerProfile {
   }
 
   final String id;
-  final String? userId;
   final String displayName;
   final String country;
   final String city;
@@ -996,7 +443,6 @@ class PlayerProfile {
   }) {
     return PlayerProfile(
       id: id,
-      userId: userId,
       displayName: displayName ?? this.displayName,
       country: country ?? this.country,
       city: city ?? this.city,

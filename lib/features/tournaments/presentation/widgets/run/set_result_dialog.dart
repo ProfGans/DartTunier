@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../domain/tournament_models.dart';
 import '../../../domain/set_result_validation.dart';
 import '../../models/match_result.dart';
+import 'best_performance_editor.dart';
+import '../../../../statistics/domain/best_performance.dart';
 
 class SetResultDialog extends StatefulWidget {
   const SetResultDialog({super.key, required this.match, required this.format, this.allowAdministration = true});
@@ -15,9 +17,13 @@ class SetResultDialog extends StatefulWidget {
 class _SetResultDialogState extends State<SetResultDialog> {
   late final List<TextEditingController> fields;
   String? error;
+  bool recordBestPerformances = false;
+  List<BestPerformance> bestPerformances = [];
   @override
   void initState() {
     super.initState();
+    bestPerformances = [...widget.match.bestPerformances];
+    recordBestPerformances = bestPerformances.isNotEmpty;
     fields = [
       for (final value in [
         widget.match.homeSets,
@@ -59,6 +65,7 @@ class _SetResultDialogState extends State<SetResultDialog> {
         awaySets: values[1],
         homeLegs: values[2],
         awayLegs: values[3],
+        bestPerformances: recordBestPerformances ? bestPerformances : const [],
       ),
     );
   }
@@ -106,6 +113,21 @@ class _SetResultDialogState extends State<SetResultDialog> {
             scoreRow('Gewonnene Sets', 0),
             const SizedBox(height: 16),
             scoreRow('Gewonnene Legs insgesamt (für die Tabelle)', 2),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: recordBestPerformances,
+              title: const Text('Bestleistung erfassen'),
+              onChanged: (value) => setState(() {
+                recordBestPerformances = value ?? false;
+                if (!recordBestPerformances) bestPerformances = [];
+              }),
+            ),
+            if (recordBestPerformances)
+              BestPerformanceEditor(
+                match: widget.match,
+                initial: bestPerformances,
+                onChanged: (items) => bestPerformances = items,
+              ),
             if (error != null) ...[
               const SizedBox(height: 12),
               Text(

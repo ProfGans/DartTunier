@@ -6,7 +6,6 @@ import 'package:dart_tournament_manager/features/tournaments/presentation/widget
 PlayerProfile profile(String id, String name) => PlayerProfile(
   id: id,
   displayName: name,
-  userId: null,
   country: '',
   city: '',
   dartsSetupJson: '',

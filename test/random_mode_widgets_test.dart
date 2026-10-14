@@ -28,6 +28,13 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(home: TournamentFormatPlannerDialog()),
     );
+    final rules = find.ancestor(
+      of: find.text('Spielregeln'),
+      matching: find.byType(ExpansionTile),
+    );
+    await tester.ensureVisible(rules);
+    await tester.tap(rules);
+    await tester.pumpAndSettle();
     final toggle = find.byKey(const ValueKey('planner-allow-sets'));
     await tester.ensureVisible(toggle);
     expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
@@ -38,6 +45,13 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(home: TournamentFormatPlannerDialog()),
     );
+    final rulesAgain = find.ancestor(
+      of: find.text('Spielregeln'),
+      matching: find.byType(ExpansionTile),
+    );
+    await tester.ensureVisible(rulesAgain);
+    await tester.tap(rulesAgain);
+    await tester.pumpAndSettle();
     expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
   });
 }

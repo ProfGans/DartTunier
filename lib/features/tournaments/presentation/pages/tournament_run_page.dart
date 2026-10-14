@@ -4,40 +4,25 @@ class TournamentRunPage extends StatelessWidget {
   const TournamentRunPage({
     super.key,
     required this.tournament,
-    this.openDevicesOnStart = false,
   });
 
   final CreatedTournament tournament;
-  final bool openDevicesOnStart;
 
   @override
   Widget build(BuildContext context) =>
       tournament.importedArchive != null &&
           !tournament.importedArchive!.usesNativeLogic
       ? ChallongeArchivePage(tournament: tournament)
-      : TournamentAccessGate(
+      : _LiveTournamentRunPage(
           tournament: tournament,
-          builder: (context, access) => _LiveTournamentRunPage(
-            key: ValueKey(
-              '${access.canLead}-${access.canEnterResults}-${access.canConfigure}-${access.canWithdraw}',
-            ),
-            tournament: tournament,
-            openDevicesOnStart: openDevicesOnStart,
-            access: access,
-          ),
         );
 }
 
 class _LiveTournamentRunPage extends StatefulWidget {
   const _LiveTournamentRunPage({
-    super.key,
     required this.tournament,
-    required this.openDevicesOnStart,
-    this.access = TournamentAccess.local,
   });
-  final TournamentAccess access;
   final CreatedTournament tournament;
-  final bool openDevicesOnStart;
   @override
   State<_LiveTournamentRunPage> createState() => _TournamentRunPageState();
 }
@@ -47,13 +32,11 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
   bool _leaving = false;
   bool _allowPop = false;
   bool _backgrounded = false;
-  Future<void> _checkpoint() => !widget.access.canLead
-      ? Future.value()
-      : _runController.saveProgress(
-          tournament: widget.tournament,
-          activeStageIndex: _activeStageIndex,
-          completedStageIndexes: _completedStageIndexes,
-        );
+  Future<void> _checkpoint() => _runController.saveProgress(
+    tournament: widget.tournament,
+    activeStageIndex: _activeStageIndex,
+    completedStageIndexes: _completedStageIndexes,
+  );
 
   Future<void> _leaveTournament({bool home = false}) async {
     if (_leaving) return;
@@ -112,112 +95,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
   StageViewMode _stageViewMode = StageViewMode.director;
   String? _directorSaveError;
 
-  Future<void> _reloadOnlineTournament() async {
-    if (widget.access.canLead) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Online-Stand laden?'),
-          content: const Text(
-            'Nicht synchronisierte lokale Änderungen dieses Turniers werden durch den aktuellen Online-Stand ersetzt. Bereits online gespeicherte Ergebnisse bleiben erhalten.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Abbrechen'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Online-Stand laden'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-    }
-    try {
-      final next = await TournamentStorage().loadAuthoritativeTournament(
-        widget.tournament.id,
-        widget.tournament.communityId!,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => TournamentRunPage(tournament: next),
-        ),
-      );
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Online-Stand konnte nicht geladen werden. Lokale Daten bleiben erhalten.',
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _editTournamentAccess() async {
-    if (!widget.access.canConfigure || widget.tournament.communityId == null) {
-      return;
-    }
-    var value = widget.tournament.access;
-    final result = await showDialog<TournamentAccessSettings>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          title: const Text('Turnierrechte'),
-          scrollable: true,
-          content: SizedBox(
-            width: 620,
-            child: TournamentAccessEditor(
-              communityId: widget.tournament.communityId!,
-              value: value,
-              onChanged: (next) => update(() => value = next),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Abbrechen'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, value),
-              child: const Text('Speichern'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (result == null) return;
-    final previous = widget.tournament.access;
-    try {
-      await TournamentAccessRepository().requireConfigure(widget.tournament);
-      widget.tournament.access = result;
-      await TournamentStorage().saveTournament(widget.tournament);
-      await TournamentStorage().synchronize(tournamentId: widget.tournament.id);
-      if (mounted) {
-        setState(() {});
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(TournamentStorage.syncStatus.value)),
-        );
-      }
-    } catch (_) {
-      widget.tournament.access = previous;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Turnierrechte konnten nicht gespeichert werden.'),
-          ),
-        );
-      }
-    }
-  }
-
   Future<void> _withdrawPlayer([TournamentPlayer? selectedPlayer]) async {
-    if (!widget.access.canWithdraw) return;
     final rule = await showDialog<PlayerWithdrawal>(
       context: context,
       builder: (_) => PlayerWithdrawalDialog(
@@ -227,8 +105,6 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
     );
     if (rule == null || !mounted) return;
     try {
-      await TournamentAccessRepository().requireWithdraw(widget.tournament);
-      if (!mounted) return;
       setState(() {
         final affected =
             const OrderOfPlayController()
@@ -276,11 +152,6 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
         activeStageIndex: _activeStageIndex,
         completedStageIndexes: _completedStageIndexes,
       );
-      if (widget.tournament.communityId != null) {
-        await TournamentStorage().synchronize(
-          tournamentId: widget.tournament.id,
-        );
-      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -343,48 +214,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
     );
   }
 
-  Future<void> _openTournamentInvitations() async {
-    if (!widget.access.canLead) return;
-    var current = widget.tournament;
-    await _saveTournamentProgress(propagateError: true);
-    if (current.communityId != null) {
-      await TournamentStorage().synchronize(tournamentId: current.id);
-    }
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<bool>(
-        builder: (_) => TournamentInvitationsPage(
-          tournament: current,
-          onAssign: (request, existing) async {
-            await TournamentAccessRepository().requireLead(current);
-            final next = assignTournamentRegistration(
-              current,
-              request,
-              existing,
-            );
-            if (next.players.length != current.players.length) {
-              next.runStages[0] = _buildRunStageFromPlayers(
-                next.stages.first,
-                next.players,
-              );
-            }
-            await TournamentStorage().saveTournament(next);
-            current = next;
-          },
-        ),
-      ),
-    );
-    if (mounted && current != widget.tournament) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => TournamentRunPage(tournament: current),
-        ),
-      );
-    }
-  }
-
   Future<void> _toggleBoardBlock(int board) async {
-    await TournamentAccessRepository().requireLead(widget.tournament);
     if (!mounted) return;
     if (board < 1 || board > widget.tournament.boardCount) {
       throw StateError('Board nicht mehr verfügbar.');
@@ -415,7 +245,6 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
       if (mounted) setState(() {});
       rethrow;
     }
-    await _deviceDispatcher?.publish();
   }
 
   bool _isBracketEditMode = false;
@@ -423,130 +252,16 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
   final Set<int> _completedStageIndexes = {};
   final _runController = const TournamentRunController();
 
-  BoardDeviceDispatcher? _deviceDispatcher;
-  late final _resultReceiver = TournamentResultReceiver(
-    tournament: widget.tournament,
-    authorize: () async {
-      if (!mounted || !widget.access.canLead) {
-        throw StateError('Turnierleitung nicht verfügbar');
-      }
-      if (widget.tournament.communityId != null) {
-        await TournamentAccessRepository().requireLead(widget.tournament);
-      }
-      if (!mounted) throw StateError('Turnierleitung geschlossen');
-    },
-    save: () => _runController.saveProgress(
-      tournament: widget.tournament,
-      activeStageIndex: _activeStageIndex,
-      completedStageIndexes: _completedStageIndexes,
-    ),
-    advance: () async {
-      if (!mounted) throw StateError('Turnierleitung geschlossen');
-      setState(() {
-        _advanceKnockoutWinners();
-        _ensureGroupDeciders();
-      });
-    },
-  );
-  Future<void> _acceptDeviceResult(Map<String, dynamic> result) async {
-    await _resultReceiver.submit(result);
-  }
-
-  Future<void> _openBoardDevices() async {
-    if (widget.tournament.communityId != null) return;
-    if (!widget.access.canLead) return;
-    try {
-      await CommunityAccessRepository().require(
-        widget.tournament.communityId,
-        CommunityPermission.assignDevices,
-      );
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Keine Berechtigung zum Zuteilen von Geräten.'),
-          ),
-        );
-      }
-      return;
-    }
-    if (!mounted) return;
-    final devices = DevicesScope.maybeOf(context);
-    if (devices == null) return;
-    _deviceDispatcher ??= BoardDeviceDispatcher(
-      devices: devices,
-      tournament: widget.tournament,
-      activeStage: () => _activeStageIndex,
-      onResult: _acceptDeviceResult,
-      onStart: _startFromDevice,
-    );
-    setState(() {});
-    try {
-      await _deviceDispatcher!.start();
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.tournament.communityId == null
-                  ? 'Gerätesuche konnte nicht gestartet werden. Netzwerk und Gerätemodus prüfen.'
-                  : 'Gruppengeräte konnten nicht geladen werden. Verbindung und Geräte-Mitgliedschaft prüfen.',
-            ),
-          ),
-        );
-      }
-      return;
-    }
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            BoardDeviceAssignmentPage(dispatcher: _deviceDispatcher!),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _deviceDispatcher?.dispose();
     super.dispose();
-  }
-
-  Future<void> _startFromDevice(int board, String matchId) async {
-    if (!mounted ||
-        !widget.access.canLead ||
-        !widget.tournament.allowDeviceStart ||
-        _isApplyingStartDraw ||
-        _completedStageIndexes.contains(_activeStageIndex) ||
-        _stageNeedsStartDraw(widget.tournament.stages[_activeStageIndex])) {
-      return;
-    }
-    final match = const BoardMatchStarter().start(
-      widget.tournament,
-      _activeStageIndex,
-      board,
-      matchId,
-    );
-    if (match == null) return;
-    setState(() {});
-    try {
-      await _saveTournamentProgress(propagateError: true);
-    } catch (_) {
-      match.boardNumber = null;
-      match.startedAt = null;
-      match.startedPlayers = null;
-      if (mounted) setState(() {});
-      rethrow;
-    }
   }
 
   @override
   void initState() {
     super.initState();
-    _stageViewMode = widget.access.canLead
-        ? StageViewMode.director
-        : StageViewMode.overview;
+    _stageViewMode = StageViewMode.director;
     WidgetsBinding.instance.addObserver(this);
     if (widget.tournament.leagueMatch != null) return;
     _activeStageIndex = widget.tournament.activeStageIndex.clamp(
@@ -557,21 +272,16 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
     );
     _viewStageIndex = _activeStageIndex;
     _completedStageIndexes.addAll(widget.tournament.completedStageIndexes);
-    if (!widget.access.canLead) return;
     _advanceKnockoutWinners();
     _ensureGroupDeciders();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _applyPendingStartDrawForActiveStage();
       if (!mounted) return;
       await _saveTournamentProgress();
-      if (widget.openDevicesOnStart && widget.tournament.communityId == null) {
-        _openBoardDevices();
-      }
     });
   }
 
   Future<void> _saveTournamentProgress({bool propagateError = false}) async {
-    if (!widget.access.canLead) return;
     try {
       await _checkpoint();
       await _runController.saveProgress(
@@ -579,7 +289,6 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
         activeStageIndex: _activeStageIndex,
         completedStageIndexes: _completedStageIndexes,
       );
-      await _deviceDispatcher?.publish();
       if (mounted && _directorSaveError != null) {
         setState(() => _directorSaveError = null);
       }
@@ -613,54 +322,18 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
       );
       return;
     }
-    if (!widget.access.canEnterResults) return;
-    if (!widget.access.canLead && match.isResolved) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Korrekturen übernimmt die Turnierleitung.'),
-        ),
-      );
-      return;
-    }
     final result = await showDialog<MatchResult>(
       context: context,
       builder: (context) => ResultDialog(
         match: match,
         format: widget.tournament.stages[_activeStageIndex].gameFormat,
-        allowAdministration: widget.access.canLead,
+        allowAdministration: true,
       ),
     );
 
     if (result == null) {
       return;
     }
-    if (!widget.access.canLead) {
-      try {
-        final updated = await TournamentResultRepository().submit(
-          widget.tournament,
-          match,
-          result,
-        );
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => TournamentRunPage(tournament: updated),
-          ),
-        );
-      } catch (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Ergebnis nicht gespeichert. Online-Verbindung, aktuelle Turnierrechte und Spielstand prüfen. Bitte aktualisieren und erneut versuchen.',
-              ),
-            ),
-          );
-        }
-      }
-      return;
-    }
-
     if (!mounted) return;
     final currentStage = widget.tournament.runStages[_activeStageIndex];
     if (currentStage is GroupTournamentRunStage &&
@@ -697,7 +370,9 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
     }
 
     setState(() {
-      match.deviceResult = null;
+      match.finishedAt = result.isAnnulled || result.homeLegs == null
+          ? null
+          : match.finishedAt ?? DateTime.now();
       final stage = widget.tournament.runStages[_activeStageIndex];
       if (stage is GroupTournamentRunStage) {
         for (final group in stage.groups) {
@@ -707,6 +382,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
         }
       }
       match.isAnnulled = result.isAnnulled;
+      match.bestPerformances = result.bestPerformances;
       match.homeSets = result.homeSets;
       match.awaySets = result.awaySets;
       if (result.isAnnulled) {
@@ -2833,7 +2509,6 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
     if (widget.tournament.leagueMatch != null) {
       return LeagueMatchPage(
         tournament: widget.tournament,
-        openDevicesOnStart: widget.openDevicesOnStart,
       );
     }
     final activeStage = _stageForView(_viewStageIndex);
@@ -2845,8 +2520,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
         !_stageHasOpenMatches(widget.tournament.runStages[_activeStageIndex]);
     final isLastStage =
         _activeStageIndex == widget.tournament.runStages.length - 1;
-    final canEditResults =
-        isViewingActiveStage && widget.access.canEnterResults;
+    final canEditResults = isViewingActiveStage;
 
     return PopScope(
       canPop: _allowPop,
@@ -2860,45 +2534,17 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
             SportActionsMenu(
               label: 'Turnier',
               actions: [
-                if (widget.access.canWithdraw &&
-                    widget.tournament.finishedAt == null)
-                  SportMenuAction(
-                    label: 'Einladen und Anmeldungen',
-                    icon: Icons.qr_code,
-                    onTap: _openTournamentInvitations,
-                  ),
-                if (widget.access.canLead &&
-                    widget.tournament.finishedAt == null)
+                if (widget.tournament.finishedAt == null)
                   SportMenuAction(
                     label: 'Spieler aus Turnier entfernen',
                     icon: Icons.person_remove_outlined,
                     onTap: _withdrawPlayer,
-                  ),
-                if (widget.tournament.communityId != null)
-                  SportMenuAction(
-                    label: 'Online-Stand laden',
-                    icon: Icons.refresh,
-                    onTap: _reloadOnlineTournament,
-                  ),
-                if (widget.tournament.communityId != null &&
-                    widget.access.canConfigure)
-                  SportMenuAction(
-                    label: 'Turnierrechte',
-                    icon: Icons.admin_panel_settings_outlined,
-                    onTap: _editTournamentAccess,
                   ),
                 SportMenuAction(
                   label: 'Turnierdaten exportieren',
                   icon: Icons.ios_share,
                   onTap: _exportTournament,
                 ),
-                if (widget.access.canLead &&
-                    widget.tournament.communityId == null)
-                  SportMenuAction(
-                    label: 'Boards auf Geräte übertragen',
-                    icon: Icons.connected_tv,
-                    onTap: _openBoardDevices,
-                  ),
                 SportMenuAction(
                   label: 'Hauptmenue',
                   icon: Icons.home_outlined,
@@ -2918,7 +2564,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                   stageIndex: _viewStageIndex,
                   completedStages: _completedStageIndexes,
                   mode: _stageViewMode,
-                  canLead: widget.access.canLead,
+                  canLead: true,
                   onStageChanged: (index) => setState(() {
                     _viewStageIndex = index;
                     _isBracketEditMode = false;
@@ -2931,15 +2577,6 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                 padding: const EdgeInsets.all(16),
                 sliver: SliverList.list(
                   children: [
-                    if (!widget.access.canLead)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          widget.access.canEnterResults
-                              ? 'Du darfst offene Ergebnisse online eintragen. Korrekturen übernimmt die Turnierleitung. Neue Spielstände findest du unter „Online-Stand laden“.'
-                              : 'Zuschaueransicht · Neue Spielstände findest du unter „Online-Stand laden“.',
-                        ),
-                      ),
                     if (!isViewingActiveStage &&
                         _viewStageIndex > _activeStageIndex &&
                         _stageViewMode != StageViewMode.orderOfPlay &&
@@ -2955,8 +2592,6 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                       TournamentDirectorDashboard(
                         tournament: widget.tournament,
                         activeStage: _activeStageIndex,
-                        dispatcher: _deviceDispatcher,
-                        syncStatus: TournamentStorage.syncStatus,
                         saveError: _directorSaveError,
                         canOperate:
                             !_isApplyingStartDraw &&
@@ -2967,9 +2602,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                               widget.tournament.stages[_activeStageIndex],
                             ),
                         onResult: _editResult,
-                        onDevices: _openBoardDevices,
                         onBlock: _toggleBoardBlock,
-                        onSync: () => TournamentStorage().synchronize(),
                         onChange: () async {
                           setState(() {});
                           await _saveTournamentProgress(propagateError: true);
@@ -2999,7 +2632,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                                         'Aus dem Turnier ausgeschieden',
                                       ),
                                 trailing:
-                                    widget.access.canWithdraw &&
+                                    true &&
                                         widget.tournament.finishedAt == null &&
                                         PlayerWithdrawalService.policy(
                                               widget.tournament,
@@ -3009,7 +2642,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                                     ? const Icon(Icons.person_remove_outlined)
                                     : null,
                                 onTap:
-                                    widget.access.canWithdraw &&
+                                    true &&
                                         widget.tournament.finishedAt == null &&
                                         PlayerWithdrawalService.policy(
                                               widget.tournament,
@@ -3031,7 +2664,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                         GroupStageRunSection(
                           stage: activeStage,
                           onEditPositions:
-                              widget.access.canLead &&
+                              true &&
                                   isViewingActiveStage &&
                                   !_isApplyingStartDraw &&
                                   !_completedStageIndexes.contains(
@@ -3074,7 +2707,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                           canEditResults: canEditResults,
                           isEditMode: _isBracketEditMode && canEditResults,
                           canEditBracket:
-                              widget.access.canLead &&
+                              true &&
                               canEditResults &&
                               _canEditKnockoutBracket(activeStage),
                           onEditModeChanged: (enabled) {
@@ -3133,8 +2766,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                 child: TournamentRunDetails(
                   tournament: widget.tournament,
                   children: [
-                    if (widget.access.canLead)
-                      TournamentTimingPanel(
+                    TournamentTimingPanel(
                         tournament: widget.tournament,
                         onStart: () async {
                           final previous = widget.tournament.startedAt;
@@ -3151,7 +2783,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                             rethrow;
                           }
                         },
-                      ),
+                    ),
                     if (_viewStageIndex < widget.tournament.stages.length)
                       Text(
                         widget
@@ -3160,19 +2792,10 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                             .gameFormat
                             .label,
                       ),
-                    if (widget.tournament.communityId != null &&
-                        widget.tournament.countsForRanking &&
-                        widget.tournament.communityRankingIds.isNotEmpty)
-                      CommunityTournamentEloPanel(
-                        key: ValueKey('elo-${widget.tournament.id}'),
-                        tournament: widget.tournament,
-                        activeStage: _activeStageIndex,
-                      ),
                   ],
                 ),
               ),
-              if (widget.access.canLead)
-                SliverToBoxAdapter(
+              SliverToBoxAdapter(
                   child: StageFooter(
                     canCompleteStage: canCompleteStage,
                     isLastStage: isLastStage,
@@ -3182,7 +2805,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                     onCompleteStage: _completeCurrentStage,
                     onFinishEarly: _finishCurrentStageEarly,
                   ),
-                ),
+              ),
             ],
           ),
         ),

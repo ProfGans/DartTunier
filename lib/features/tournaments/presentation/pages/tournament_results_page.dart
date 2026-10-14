@@ -7,7 +7,10 @@ import '../../domain/knockout_round_names.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/tournament_models.dart';
-import '../../../communities/presentation/challonge_archive_page.dart';
+import '../../data/tournament_storage.dart';
+import '../../../statistics/domain/best_performance.dart';
+import '../widgets/run/best_performance_editor.dart';
+import 'challonge_archive_page.dart';
 import '../widgets/results/tournament_results_statistics.dart';
 import '../widgets/tournament_export_dialog.dart';
 
@@ -480,14 +483,53 @@ class TournamentPlayerResultsPage extends StatelessWidget {
   }
 }
 
-class TournamentMatchesPage extends StatelessWidget {
+class TournamentMatchesPage extends StatefulWidget {
   const TournamentMatchesPage({super.key, required this.tournament});
 
   final CreatedTournament tournament;
 
   @override
+  State<TournamentMatchesPage> createState() => _TournamentMatchesPageState();
+}
+
+class _TournamentMatchesPageState extends State<TournamentMatchesPage> {
+  bool _saving = false;
+
+  Future<void> _editBestPerformances(GroupMatch match) async {
+    var items = [...match.bestPerformances];
+    final result = await showDialog<List<BestPerformance>>(
+      context: context,
+      builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Bestleistungen erfassen'),
+        content: SizedBox(width: 460, child: SingleChildScrollView(
+          child: BestPerformanceEditor(
+            match: match,
+            initial: items,
+            onChanged: (value) { items = value; setDialogState(() {}); },
+          ),
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+          FilledButton(onPressed: () => Navigator.pop(context, items), child: const Text('Speichern')),
+        ],
+      )),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      match.bestPerformances = result;
+      await TournamentStorage().saveTournament(widget.tournament);
+      if (mounted) setState(() {});
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Bestleistungen konnten nicht gespeichert werden: $error')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final matches = _resultMatches(tournament);
+    final matches = _resultMatches(widget.tournament);
     return Scaffold(
       appBar: AppBar(title: const Text('Alle Begegnungen')),
       body: AdaptiveContentList(
@@ -498,6 +540,7 @@ class TournamentMatchesPage extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 12),
+          if (_saving) const LinearProgressIndicator(),
           if (matches.isEmpty)
             const Card(
               child: Padding(
@@ -506,7 +549,10 @@ class TournamentMatchesPage extends StatelessWidget {
               ),
             )
           else
-            ...matches.map((entry) => _ResultMatchCard(entry: entry)),
+            ...matches.map((entry) => _ResultMatchCard(
+              entry: entry,
+              onEditBestPerformances: entry.match.hasResult ? () => _editBestPerformances(entry.match) : null,
+            )),
         ],
       ),
     );
@@ -514,10 +560,11 @@ class TournamentMatchesPage extends StatelessWidget {
 }
 
 class _ResultMatchCard extends StatelessWidget {
-  const _ResultMatchCard({required this.entry, this.highlightPlayer});
+  const _ResultMatchCard({required this.entry, this.highlightPlayer, this.onEditBestPerformances});
 
   final _ResultMatch entry;
   final TournamentPlayer? highlightPlayer;
+  final VoidCallback? onEditBestPerformances;
 
   @override
   Widget build(BuildContext context) {
@@ -557,6 +604,17 @@ class _ResultMatchCard extends StatelessWidget {
                       : '$away spielte auswärts',
                 ),
               ),
+            if (onEditBestPerformances != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: onEditBestPerformances,
+                  icon: const Icon(Icons.military_tech_outlined),
+                  label: Text(entry.match.bestPerformances.isEmpty
+                      ? 'Bestleistung erfassen'
+                      : 'Bestleistungen bearbeiten (${entry.match.bestPerformances.length})'),
+                ),
+              ),
           ],
         ),
       ),
@@ -578,7 +636,11 @@ List<_ResultMatch> _resultMatches(CreatedTournament tournament) => [
         _ResultMatch(stage.name, match, stageMatchName(stage, match))
     else if (stage is GroupTournamentRunStage)
       for (final group in stage.groups)
-        for (final match in group.matches)
+        for (final match in <GroupMatch>{
+          ...group.matches,
+          ...group.knockoutRounds.expand((round) => round),
+          ...group.placementMatches,
+        })
           _ResultMatch(
             '${stage.name} · ${group.name}',
             match,

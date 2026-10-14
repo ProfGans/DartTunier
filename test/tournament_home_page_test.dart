@@ -157,21 +157,6 @@ void main() {
     expect(find.text('2 gespeicherte Turniere'), findsOneWidget);
   });
 
-  testWidgets('tournament list announces synchronization conflicts', (
-    tester,
-  ) async {
-    const conflict =
-        'Konflikt: Online gibt es neuere Ergebnisse. Online-Stand laden; lokale Änderungen bleiben bis dahin erhalten.';
-    TournamentStorage.syncStatus.value = conflict;
-    addTearDown(() {
-      TournamentStorage.syncStatus.value = 'Lokal gespeichert';
-    });
-
-    await showPage(tester);
-
-    expect(find.text(conflict), findsOneWidget);
-  });
-
   for (final size in [
     const Size(320, 568),
     const Size(360, 800),

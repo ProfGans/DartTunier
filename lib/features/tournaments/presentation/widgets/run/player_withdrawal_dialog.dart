@@ -76,23 +76,6 @@ class _WithdrawalState extends State<PlayerWithdrawalDialog> {
           const Text(
             '„Alle Spiele“ betrifft auch bisherige Ergebnisse. Wenn frühere Etappen betroffen sind, werden die davon abhängigen späteren Etappen neu aufgebaut und ihre Ergebnisse zurückgesetzt. Im K.-o.-Baum kommt der Gegner eines offenen Spiels kampflos weiter.',
           ),
-          if (widget.tournament.communityId != null) ...[
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Ausgeschiedenen Spieler für Rangliste werten'),
-              value: ranking,
-              onChanged: (v) => setState(() => ranking = v),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Ergebnisse der Gegner für Rangliste werten'),
-              subtitle: const Text(
-                'Tatsächliche Ergebnisse und gewertete Zu-null-Niederlagen. Ignorierte offene Spiele geben keine Elo-Punkte.',
-              ),
-              value: opponents,
-              onChanged: (v) => setState(() => opponents = v),
-            ),
-          ],
         ],
       ),
     ),

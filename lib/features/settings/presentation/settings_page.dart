@@ -26,7 +26,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   static const _sections = [
     'Passende Turnierform',
-    'Datensicherung',
+    'Daten',
     'Updates',
     'Werkzeuge & Verwaltung',
   ];
@@ -62,9 +62,9 @@ class _SettingsPageState extends State<SettingsPage> {
             child: IndexedStack(
               key: _panelsKey,
               index: _selected,
-              children: const [
+              children: [
                 _PlanningParametersPanel(),
-                BackupPanel(),
+                _DataPanel(onReset: () => _resetLocalData(context)),
                 AndroidUpdatesPanel(),
                 _AdministrationPanel(),
               ],
@@ -73,6 +73,27 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     ),
+  );
+}
+
+class _DataPanel extends StatelessWidget {
+  const _DataPanel({required this.onReset});
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) => AdaptiveContentList(
+    padding: const EdgeInsets.all(20),
+    children: [
+      const BackupPanel(),
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.restart_alt),
+          title: const Text('Lokale App-Daten zurücksetzen'),
+          subtitle: const Text('Erstellt zuerst ein Wiederherstellungs-Backup.'),
+          onTap: onReset,
+        ),
+      ),
+    ],
   );
 }
 
@@ -90,16 +111,6 @@ class _AdministrationPanel extends StatelessWidget {
       const SizedBox(height: 16),
       const PushSenderMenu(),
       const PushDeviceMenu(),
-      Card(
-        child: ListTile(
-          leading: const Icon(Icons.restart_alt),
-          title: const Text('Lokale App-Daten zurücksetzen'),
-          subtitle: const Text(
-            'Erstellt zuerst ein Wiederherstellungs-Backup. Online gespeicherte Community-Daten bleiben bestehen.',
-          ),
-          onTap: () => _resetLocalData(context),
-        ),
-      ),
       Card(
         child: ListTile(
           leading: const Icon(Icons.lightbulb_outline),
@@ -133,7 +144,7 @@ Future<void> _resetLocalData(BuildContext context) async {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Lokale Turniere, Profile, Synchronisationswarteschlangen und Einstellungen werden entfernt. Vorher wird ein Backup angelegt. Daten auf dem Community-Server bleiben bestehen.',
+            'Lokale Turniere, Spieler, Ranglisten und Einstellungen werden entfernt. Vorher wird ein Backup angelegt. Das Supabase-Backup bleibt davon unberührt.',
           ),
           const SizedBox(height: 16),
           TextField(

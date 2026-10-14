@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dart_tournament_manager/features/communities/data/challonge_public_document.dart';
+import 'package:dart_tournament_manager/features/challonge/data/challonge_public_document.dart';
 
 void main() {
   // The participant cell on DCUH202629 includes the tournament label Tom_Dc

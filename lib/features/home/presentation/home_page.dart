@@ -9,25 +9,24 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List<SportDestination> get _destinations => [
     SportDestination(
-      'Übersicht',
-      Icons.dashboard_outlined,
-      () => Navigator.of(context).popUntil((route) => route.isFirst),
-    ),
-    SportDestination(
       'Turniere',
       Icons.emoji_events_outlined,
-      () => _open(const TournamentHomePage(), 1),
+      () => _open(const TournamentHomePage(), 0),
     ),
     SportDestination(
       'Spieler',
       Icons.groups_outlined,
-      () => _open(const PlayersPage(), 2),
+      () => _open(const PlayersPage(), 1),
     ),
-    SportDestination('Community', Icons.hub_outlined, _openCommunity),
     SportDestination(
-      'Einstellungen',
-      Icons.settings_outlined,
-      () => _open(const SettingsPage(), 4),
+      'Statistik',
+      Icons.bar_chart_outlined,
+      () => _open(const PlayersPage(statisticsOnly: true), 2),
+    ),
+    SportDestination(
+      'Ranglisten',
+      Icons.leaderboard_outlined,
+      () => _open(const RankingsPage(), 3),
     ),
   ];
 
@@ -43,25 +42,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openCommunity() => _open(
-    CommunityPage(
-      createTournamentBuilder: (id, name, {preset, title}) =>
-          TournamentCreationPage(
-            communityId: id,
-            communityName: name,
-            preset: preset,
-            presetTitle: title,
-          ),
-      runTournamentBuilder: (tournament) =>
-          TournamentRunPage(tournament: tournament),
-    ),
-    3,
+  void _openTournamentArea() => _open(const TournamentHomePage(), 0);
+  void _openPlayersArea() => _open(const PlayersPage(), 1);
+  void _openSettings() => Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
   );
-
-  void _openTournamentArea() => _open(const TournamentHomePage(), 1);
-  void _openPlayersArea() => _open(const PlayersPage(), 2);
-  void _openSettings() => _open(const SettingsPage(), 4);
-  void _openCommunityArea() => _openCommunity();
   Widget _shell(Widget page, int selected) => SportAppShell(
     destinations: _destinations,
     selected: selected,
@@ -69,7 +54,7 @@ class _HomePageState extends State<HomePage> {
   );
   void _createTournament() => Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => _shell(const TournamentCreationPage(), 1),
+      builder: (_) => _shell(const TournamentCreationPage(), 0),
     ),
   );
 
@@ -104,16 +89,17 @@ class _HomePageState extends State<HomePage> {
                 onTap: _openPlayersArea,
               ),
               SportMenuAction(
-                label: 'Community',
-                icon: Icons.hub_outlined,
-                onTap: _openCommunityArea,
+                label: 'Statistik',
+                icon: Icons.bar_chart_outlined,
+                onTap: () => _open(const PlayersPage(statisticsOnly: true), 2),
+              ),
+              SportMenuAction(
+                label: 'Ranglisten',
+                icon: Icons.leaderboard_outlined,
+                onTap: () => _open(const RankingsPage(), 3),
               ),
             ],
           ),
-          Text('Dein Konto', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 10),
-          const AccountMenuCard(),
-          const SizedBox(height: 20),
         ],
       ),
     ),
@@ -182,7 +168,6 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
             tournament.completedStageIndexes.contains(lastStageIndex));
     final searchable = <String>[
       tournament.name,
-      tournament.communityId ?? '',
       complete ? 'abgeschlossen archiv fertig' : 'bereit läuft aktiv',
       tournament.createdAt.toLocal().toIso8601String(),
       ...tournament.stages.map((stage) => stage.type),
@@ -262,7 +247,7 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ValueListenableBuilder<String>(
-                  valueListenable: TournamentStorage.syncStatus,
+                  valueListenable: SupabaseWorkspaceSyncService.status,
                   builder: (context, status, _) => Semantics(
                     liveRegion: true,
                     child: Card(
@@ -285,7 +270,7 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
                     labelText: 'Turniere suchen',
-                    hintText: 'Name, Status, Datum, Community oder Modus',
+                    hintText: 'Name, Status, Datum oder Modus',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _tournamentQuery.isEmpty
                         ? null
@@ -303,6 +288,17 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
                   onPressed: _openCreationPage,
                   icon: const Icon(Icons.add),
                   label: const Text('Turnier erstellen'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    await Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => const ChallongeLocalImportPage(),
+                    ));
+                    _reloadTournaments();
+                  },
+                  icon: const Icon(Icons.sync_alt),
+                  label: const Text('Challonge-Turniere importieren / exportieren'),
                 ),
                 const SizedBox(height: 20),
                 if (snapshot.connectionState == ConnectionState.waiting &&

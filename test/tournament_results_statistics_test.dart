@@ -4,11 +4,10 @@ import 'package:dart_tournament_manager/features/tournaments/domain/tournament_m
 import 'package:dart_tournament_manager/features/tournaments/presentation/pages/tournament_results_page.dart';
 import 'package:dart_tournament_manager/features/tournaments/presentation/widgets/results/tournament_results_statistics.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
-import 'tournament_highlights_test.dart' show recordedMatch;
+import 'support/recorded_match.dart';
 
 CreatedTournament resultsFixture({bool recorded = true}) {
   final match = recordedMatch();
-  if (!recorded) match.deviceResult = null;
   return CreatedTournament(
     name: 'Vereinsmeisterschaft',
     players: [match.homePlayer!, match.awayPlayer!],
@@ -42,14 +41,17 @@ void main() {
       MaterialApp(home: TournamentResultsPage(tournament: resultsFixture())),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Höchstes Checkout'), 200);
-    expect(find.text('120'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Spielerstatistiken'), 200);
     await tester.scrollUntilVisible(
-      find.textContaining('Average: 120.00'),
-      150,
+      find.text('Spielerstatistiken'),
+      200,
+      scrollable: find.byType(Scrollable).first,
     );
-    expect(find.textContaining('Checkout: 100.0 %'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.textContaining('Gewonnene / verlorene Legs').first,
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining('Gewonnene / verlorene Legs'), findsWidgets);
     expect(find.byType(TournamentResultsPage), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -70,14 +72,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Noch nicht erfasst'), findsNWidgets(4));
-      expect(
-        find.text('1 abgeschlossene Spiele · 0 mit Scorer-Statistik'),
-        findsOneWidget,
-      );
       await tester.scrollUntilVisible(
         find.text('1 Siege · 0 Unentschieden · 0 Niederlagen'),
         150,
+        scrollable: find.byType(Scrollable).first,
       );
       expect(find.textContaining('Average: '), findsNothing);
       expect(tester.takeException(), isNull);

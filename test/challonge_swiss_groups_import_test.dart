@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dart_tournament_manager/features/communities/data/challonge_public_reader.dart';
-import 'package:dart_tournament_manager/features/communities/application/challonge_native_import.dart';
+import 'package:dart_tournament_manager/features/challonge/data/challonge_public_reader.dart';
+import 'package:dart_tournament_manager/features/challonge/application/challonge_native_import.dart';
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
 
 // Public DCUH202601 data observed 2026-10-08; account and image metadata omitted.
@@ -150,7 +150,7 @@ void main() {
       expect(parsed.participants, hasLength(13));
       expect(parsed.matches, hasLength(31));
       final native = ChallongeNativeImport.convert(
-        parsed.convert('club', {
+        parsed.convert({
           for (final p in parsed.participants)
             '${p['id']}': 'member-${p['id']}',
         }),

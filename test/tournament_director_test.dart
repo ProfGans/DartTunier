@@ -19,7 +19,7 @@ class DirectorPreview extends StatefulWidget {
 
 class _DirectorPreviewState extends State<DirectorPreview> {
   late final t = fixture(boards: 4);
-  final sync = ValueNotifier('Synchronisierung ausstehend');
+  @override
   @override
   void initState() {
     super.initState();
@@ -30,8 +30,8 @@ class _DirectorPreviewState extends State<DirectorPreview> {
   }
 
   @override
+  @override
   void dispose() {
-    sync.dispose();
     super.dispose();
   }
 
@@ -43,7 +43,6 @@ class _DirectorPreviewState extends State<DirectorPreview> {
         child: TournamentDirectorDashboard(
           tournament: t,
           activeStage: 0,
-          syncStatus: sync,
           onChange: () async => setState(() {}),
           onResult: (match) async {
             setState(() {
@@ -55,8 +54,6 @@ class _DirectorPreviewState extends State<DirectorPreview> {
           onBlock: (board) async => setState(() {
             if (!t.blockedBoards.remove(board)) t.blockedBoards.add(board);
           }),
-          onDevices: () async {},
-          onSync: () async {},
         ),
       ),
     ),
@@ -100,19 +97,8 @@ void main() {
             ),
           ),
         );
-        await tester.tap(find.text('Turnierleiter-Einstellungen'));
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(find.byType(SwitchListTile));
-        await tester.tap(find.byType(SwitchListTile));
-        await tester.pumpAndSettle();
-        expect(
-          tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-          isTrue,
-        );
+        expect(find.text('Turnierleitung'), findsOneWidget);
         expect(tester.takeException(), isNull);
-        await tester.ensureVisible(find.text('Turnierleiter-Einstellungen'));
-        await tester.tap(find.text('Turnierleiter-Einstellungen'));
-        await tester.pumpAndSettle();
         for (final section in ['Übersicht', 'Boards', 'Spiele']) {
           final tab = find.widgetWithText(ChoiceChip, section);
           if (tab.evaluate().isNotEmpty) {
@@ -212,7 +198,7 @@ void main() {
       await storage.saveTournament(loaded);
       expect((await storage.loadTournaments()).single.blockedBoards, {2});
       expect(await File('${file.path}.v17.bak').exists(), isTrue);
-      expect(jsonDecode(await file.readAsString())['schemaVersion'], 22);
+      expect(jsonDecode(await file.readAsString())['schemaVersion'], 23);
     },
   );
   testWidgets('board actions, search and state survive width changes', (
@@ -254,8 +240,6 @@ void main() {
     tester,
   ) async {
     var retried = false;
-    final sync = ValueNotifier('Synchronisierung fehlgeschlagen');
-    addTearDown(sync.dispose);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -263,15 +247,12 @@ void main() {
             child: TournamentDirectorDashboard(
               tournament: fixture(),
               activeStage: 0,
-              syncStatus: sync,
               saveError: 'Nicht gespeichert',
               onChange: () async {
                 retried = true;
               },
               onResult: (_) async {},
               onBlock: (_) async {},
-              onDevices: () async {},
-              onSync: () async {},
             ),
           ),
         ),

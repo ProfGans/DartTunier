@@ -7,7 +7,6 @@ import '../../data/supabase_account_config.dart';
 import '../../data/supabase_account_session_store.dart';
 import '../../../tournaments/data/app_database.dart';
 import '../../domain/account_user.dart';
-import '../../../statistics/presentation/player_profile_page.dart';
 
 class AccountMenuCard extends StatefulWidget {
   const AccountMenuCard({
@@ -74,15 +73,6 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
     }
 
     _reloadAccount();
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PlayerProfilePage(
-          account: account,
-          onSignOut: _store.signOutCurrentAccount,
-        ),
-      ),
-    );
-    if (mounted) _reloadAccount();
   }
 
   Future<void> _sendPasswordReset(String email) async {
@@ -214,18 +204,11 @@ class _AccountMenuCardState extends State<AccountMenuCard> {
           title: account.displayName,
           actions: [
             SportMenuAction(
-              label: 'Mein Profil und Statistiken öffnen',
+              label: 'Abmelden',
               description: account.email,
-              icon: Icons.account_circle_outlined,
+              icon: Icons.logout_outlined,
               onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => PlayerProfilePage(
-                      account: account,
-                      onSignOut: _store.signOutCurrentAccount,
-                    ),
-                  ),
-                );
+                await _store.signOutCurrentAccount();
                 if (mounted) _reloadAccount();
               },
             ),

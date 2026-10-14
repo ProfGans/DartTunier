@@ -1,7 +1,7 @@
 import '../../tournaments/domain/tournament_models.dart';
 import '../../tournaments/application/order_of_play/order_of_play_controller.dart';
 
-/// Adapts league fixtures to the existing scheduling and device-result engines.
+/// Adapts league fixtures to the existing scheduling and result-entry logic.
 /// Only the league document is persisted; the projection is rebuilt on load.
 class LeagueBoardRuntime {
   LeagueBoardRuntime(CreatedTournament source) {
@@ -34,9 +34,8 @@ class LeagueBoardRuntime {
     tournament = CreatedTournament(
       id: source.id,
       name: source.name,
-      communityId: source.communityId,
       countsForRanking: source.countsForRanking,
-      communityRankingIds: source.communityRankingIds,
+      rankingIds: source.rankingIds,
       boardCount: source.boardCount,
       players: source.players,
       stages: const [

@@ -2,7 +2,7 @@ import '../../../shared/persistence/storage_access.dart';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:path_provider/path_provider.dart';
+import '../../../shared/persistence/app_data_directory.dart';
 
 import '../../tournaments/domain/tournament_planning_parameters.dart';
 
@@ -14,7 +14,7 @@ class PlanningSettingsStorage {
 
   Future<File> _file() async {
     if (file != null) return file!;
-    final directory = await getApplicationSupportDirectory();
+    final directory = await appDataDirectory();
     return File(
       '${directory.path}${Platform.pathSeparator}planning_settings.json',
     );
@@ -51,6 +51,7 @@ class PlanningSettingsStorage {
         flush: true,
       );
       await temporary.rename(target.path);
+      StorageAccess.markLocalDataChanged();
     });
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../data/backup_service.dart';
 import 'android_backup_export.dart';
 import 'backup_file_dialogs.dart';
+import 'cloud_backup_panel.dart';
 
 class BackupPanel extends StatefulWidget {
   const BackupPanel({
@@ -21,9 +22,8 @@ class BackupPanel extends StatefulWidget {
 class _BackupPanelState extends State<BackupPanel> {
   static const _areaNames = {
     'tournaments.json': 'Turniere und Ergebnisse',
-    'app_database.sqlite': 'Lokale Konten und Spielerprofile',
+    'app_database.sqlite': 'Spielerprofile und Ranglisten',
     'planning_settings.json': 'Turnierplanung',
-    'devices.json': 'Geräteeinstellungen und Kopplungen',
   };
   bool _busy = false;
   String? _message;
@@ -126,15 +126,17 @@ class _BackupPanelState extends State<BackupPanel> {
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 12),
+        const CloudBackupPanel(),
+        const SizedBox(height: 12),
         const Text(
           'Sichere Turniere mit Ergebnissen, lokale Spielerprofile, '
-          'Planungs- und Geräteeinstellungen in einer Datei. Online-Konten und '
-          'Cloud-Daten werden nicht zurückgesetzt; die Cloud-Anmeldung ist nicht Bestandteil des Backups.',
+          'Ranglisten und Einstellungen in einer Datei. Das Supabase-Backup '
+          'wird separat mit dem Betreiberkonto gespeichert und wiederhergestellt.',
         ),
         const SizedBox(height: 12),
         const Text(
-          'Die Datei ist nicht verschlüsselt und enthält persönliche Daten und '
-          'Gerätekopplungen. Bewahre sie an einem geschützten Ort auf, möglichst auf einem zweiten Datenträger.',
+          'Die Datei ist nicht verschlüsselt und enthält Spieler-, Turnier- und '
+          'Geräteeinstellungen. Bewahre lokale Exportdateien geschützt auf.',
         ),
         const SizedBox(height: 24),
         SportMenuGroup(

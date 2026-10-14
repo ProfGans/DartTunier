@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:dart_tournament_manager/features/tournaments/data/app_database.dart';
 import 'package:dart_tournament_manager/features/tournaments/data/tournament_storage.dart';
+import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
 
 void main() {
   late Directory directory;
@@ -19,7 +20,7 @@ void main() {
       await file.writeAsString(content);
       final storage = TournamentStorage(file: file);
       await expectLater(storage.loadTournaments(), throwsFormatException);
-      await expectLater(storage.writeCache('test', []), throwsFormatException);
+      await expectLater(storage.saveTournament(_tournament()), throwsFormatException);
       expect(await file.readAsString(), content);
     });
   }
@@ -28,10 +29,10 @@ void main() {
     const original = '{"schemaVersion":1,"tournaments":[],"custom":"keep"}';
     await file.writeAsString(original);
     final storage = TournamentStorage(file: file);
-    await storage.writeCache('test', [1]);
+    await storage.saveTournament(_tournament());
     expect(await File('${file.path}.v1.bak').readAsString(), original);
     final first = await file.readAsString();
-    await storage.writeCache('test', [2]);
+    await storage.saveTournament(_tournament());
     expect(await File('${file.path}.bak').readAsString(), first);
     expect(await File('${file.path}.v1.bak').readAsString(), original);
     expect(jsonDecode(await file.readAsString())['custom'], 'keep');
@@ -42,7 +43,7 @@ void main() {
     final database = sqlite3.open(path);
     database.execute('PRAGMA user_version = 99');
     database.close();
-    await expectLater(LocalAppDatabase(baseDirectory: directory).loadCurrentAccount(), throwsStateError);
+    await expectLater(LocalAppDatabase(baseDirectory: directory).loadPlayerProfiles(), throwsStateError);
     final reopened = sqlite3.open(path);
     expect(reopened.select('PRAGMA user_version').first.values.single, 99);
     reopened.close();
@@ -50,15 +51,22 @@ void main() {
 
   test('SQLite migration creates a readable pre-migration backup', () async {
     final storage = LocalAppDatabase(baseDirectory: directory);
-    await storage.loadCurrentAccount();
+    await storage.loadPlayerProfiles();
     final database = sqlite3.open('${directory.path}/app_database.sqlite');
-    database.execute('DROP TABLE app_session');
     database.execute('PRAGMA user_version = 2');
     database.close();
-    await storage.loadCurrentAccount();
+    await storage.loadPlayerProfiles();
     final backup = directory.listSync().whereType<File>().singleWhere((f) => f.path.endsWith('.bak'));
     final old = sqlite3.open(backup.path);
     expect(old.select('PRAGMA user_version').first.values.single, 2);
     old.close();
   });
 }
+
+CreatedTournament _tournament() => CreatedTournament(
+  id: 'safety',
+  name: 'Safety',
+  players: const [],
+  stages: const [],
+  runStages: const [],
+);

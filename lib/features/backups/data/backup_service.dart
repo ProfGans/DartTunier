@@ -7,11 +7,6 @@ import 'package:path/path.dart' as path;
 import 'package:sqlite3/sqlite3.dart';
 
 import '../../../shared/persistence/storage_access.dart';
-import '../../devices/data/device_link_auth.dart';
-import '../../devices/data/device_settings_storage.dart';
-import '../../remote_control/data/remote_settings_storage.dart';
-import '../../devices/domain/app_device.dart';
-import '../../remote_control/domain/remote_control_settings.dart';
 import '../../settings/data/planning_settings_storage.dart';
 import '../../tournaments/data/app_database.dart';
 import '../../tournaments/data/tournament_storage.dart';
@@ -41,14 +36,6 @@ class BackupService {
     'tournaments.json',
     'app_database.sqlite',
     'planning_settings.json',
-    'devices.json',
-    'remote_control.json',
-  ];
-  static const _legacyNames = [
-    'tournaments.json',
-    'app_database.sqlite',
-    'planning_settings.json',
-    'devices.json',
   ];
   static const maximumBytes = 128 * 1024 * 1024;
   final Map<String, File> files;
@@ -63,8 +50,6 @@ class BackupService {
         names[0]: tournaments,
         names[1]: await LocalAppDatabase().databaseFile(),
         names[2]: await PlanningSettingsStorage().storageFile(),
-        names[3]: await DeviceSettingsStorage().storageFile(),
-        names[4]: await RemoteSettingsStorage().storageFile(),
       },
       backupDirectory: Directory(path.join(tournaments.parent.path, 'backups')),
     );
@@ -170,9 +155,7 @@ class BackupService {
     final keys = entries.keys.cast<String>().toSet();
     final currentFormat =
         entries.length == names.length && keys.containsAll(names);
-    final legacyFormat =
-        entries.length == _legacyNames.length && keys.containsAll(_legacyNames);
-    if (!currentFormat && !legacyFormat) {
+    if (!currentFormat) {
       throw const FormatException(
         'Backup enthält falsche oder fehlende Dateien.',
       );
@@ -220,18 +203,6 @@ class BackupService {
             ).loadTournaments()).length;
           case 'planning_settings.json':
             await PlanningSettingsStorage(file: file).load();
-          case 'devices.json':
-            final settings = DeviceSettings.fromJson(
-              jsonDecode(utf8.decode(entry.value!)) as Map<String, dynamic>,
-            );
-            if (settings.pairingKey != null &&
-                !DeviceLinkAuth.validKey(settings.pairingKey!)) {
-              throw const FormatException('Ungültiger Geräteschlüssel.');
-            }
-          case 'remote_control.json':
-            RemoteControlSettings.fromJson(
-              jsonDecode(utf8.decode(entry.value!)) as Map<String, dynamic>,
-            );
           case 'app_database.sqlite':
             final database = sqlite3.open(file.path, mode: OpenMode.readOnly);
             try {
@@ -251,7 +222,6 @@ class BackupService {
             }
             // Exercise actual migrations and queries on an isolated copy only.
             final store = LocalAppDatabase(baseDirectory: temporary);
-            await store.loadCurrentAccount();
             await store.loadPlayerProfiles();
         }
       }
@@ -269,7 +239,10 @@ class BackupService {
 
   /// Original bytes are kept even if the current store is damaged.
   /// A journal allows startup to undo an interrupted multi-file replacement.
-  Future<File> restore(BackupPreview preview) => StorageAccess.run(() async {
+  Future<File> restore(
+    BackupPreview preview, {
+    bool restartApp = true,
+  }) => StorageAccess.run(() async {
     await inspect(preview._bytes);
     final replacement = _decode(preview._bytes);
     await recoverInterruptedRestore();
@@ -306,10 +279,14 @@ class BackupService {
       }
       rethrow;
     }
-    StorageAccess.requireRestart(
-      'Backup wiederhergestellt. Bitte schließe die App und starte sie neu. '
-      'Sicherung des vorherigen Stands:\n${safety.path}',
-    );
+    if (restartApp) {
+      StorageAccess.requireRestart(
+        'Backup wiederhergestellt. Bitte schließe die App und starte sie neu. '
+        'Sicherung des vorherigen Stands:\n${safety.path}',
+      );
+    } else {
+      StorageAccess.replaceSession();
+    }
     // A committed journal is safe to clean up at the next startup as well.
     try {
       await _transaction.delete(recursive: true);

@@ -135,8 +135,6 @@ void main() {
       );
       final storage = TournamentStorage(
         file: file,
-        currentUserId: () => null,
-        authorize: (_, _) async {},
       );
       await storage.saveTournament(tournament);
       expect(
@@ -148,7 +146,7 @@ void main() {
         [5],
       );
       expect(await File('${file.path}.v21.bak').exists(), isTrue);
-      expect(jsonDecode(await file.readAsString())['schemaVersion'], 22);
+      expect(jsonDecode(await file.readAsString())['schemaVersion'], 23);
       expect(
         TournamentStage.fromJson({
           'name': 'Alt',

@@ -50,3 +50,5 @@ app.*.map.json
 /android/app/google-services.json
 *.jks
 *.keystore
+# Supabase CLI project link and cached local service versions are machine-local.
+supabase/.temp/

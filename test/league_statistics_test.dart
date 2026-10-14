@@ -38,11 +38,8 @@ void main() {
     expect(rows.where((r) => r.losses == 1).length, 2);
     for (final row in rows) {
       expect(row.matches, 1);
-      expect(row.doublesMatches, 1);
-      expect(row.doublesLegsFor, row.wins == 1 ? 3 : 1);
-      expect(row.doublesLegsAgainst, row.wins == 1 ? 1 : 3);
-      expect(row.average, isNull);
-      expect(row.checkoutPercent, isNull);
+      expect(row.legsFor, row.wins == 1 ? 3 : 1);
+      expect(row.legsAgainst, row.wins == 1 ? 1 : 3);
     }
   });
   test(
@@ -57,17 +54,17 @@ void main() {
           .firstWhere((r) => r.id == 'league:league:0:0');
       expect(row.matches, 2);
       expect(row.wins, 2);
-      expect(row.doublesMatches, 1);
+      expect(row.matches, 2);
       expect(row.legsFor, 6);
       league.games[16].score(1, 3);
       row = calculator
           .calculate([tournament])
           .firstWhere((r) => r.id == 'league:league:0:0');
       expect(row.wins, 1);
-      expect(row.doublesLosses, 1);
+      expect(row.losses, 1);
       league.games[16].score(null, null);
       expect(
-        calculator.calculate([tournament]).every((r) => r.doublesMatches == 0),
+        calculator.calculate([tournament]).every((r) => r.matches == 1),
         isTrue,
       );
       expect(

@@ -1,6 +1,5 @@
 import '../data/tournament_storage.dart';
 import '../domain/tournament_models.dart';
-import '../domain/tournament_access.dart';
 
 class TournamentCreationController {
   const TournamentCreationController({TournamentStorage? storage})
@@ -10,6 +9,8 @@ class TournamentCreationController {
 
   CreatedTournament createTournament({
     int boardCount = 1,
+    bool countsForRanking = false,
+    List<String> rankingIds = const [],
     required String name,
     required List<TournamentPlayer> players,
     required List<TournamentStage> stages,
@@ -21,35 +22,10 @@ class TournamentCreationController {
       players: players,
       stages: stages,
       runStages: runStages,
+      countsForRanking: countsForRanking,
+      rankingIds: rankingIds,
     );
     (_storage ?? TournamentStorage()).saveTournament(tournament);
-    return tournament;
-  }
-
-  Future<CreatedTournament> createCommunityTournament({
-    int boardCount = 1,
-    required String name,
-    required List<TournamentPlayer> players,
-    required List<TournamentStage> stages,
-    required List<TournamentRunStage> runStages,
-    required String communityId,
-    bool countsForRanking = true,
-    List<String> communityRankingIds = const ['default'],
-    TournamentAccessSettings access = const TournamentAccessSettings(),
-  }) async {
-    final tournament = _buildTournament(
-      name: name,
-      players: players,
-      stages: stages,
-      runStages: runStages,
-      communityId: communityId,
-      countsForRanking: countsForRanking,
-      communityRankingIds: communityRankingIds,
-      boardCount: boardCount,
-    );
-    final storage = _storage ?? TournamentStorage();
-    tournament.access = access.withCreator(storage.currentUserId);
-    await storage.saveTournament(tournament);
     return tournament;
   }
 
@@ -59,9 +35,8 @@ class TournamentCreationController {
     required List<TournamentPlayer> players,
     required List<TournamentStage> stages,
     required List<TournamentRunStage> runStages,
-    String? communityId,
     bool countsForRanking = true,
-    List<String> communityRankingIds = const ['default'],
+    List<String> rankingIds = const [],
   }) {
     return CreatedTournament(
       boardCount: boardCount.clamp(1, 64),
@@ -69,9 +44,8 @@ class TournamentCreationController {
       players: List.unmodifiable(players),
       stages: List.unmodifiable(stages),
       runStages: runStages,
-      communityId: communityId,
       countsForRanking: countsForRanking,
-      communityRankingIds: List.unmodifiable(communityRankingIds),
+      rankingIds: List.unmodifiable(rankingIds),
     );
   }
 }

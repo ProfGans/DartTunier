@@ -46,10 +46,6 @@ class SupabaseAccountSessionStore implements AccountSessionStore {
       );
     }
 
-    await _upsertPlayerProfile(
-      userId: user.id,
-      displayName: displayName,
-    );
     return _accountFromSupabaseUser(user);
   }
 
@@ -67,12 +63,6 @@ class SupabaseAccountSessionStore implements AccountSessionStore {
       return null;
     }
 
-    final metadata = user.userMetadata ?? const <String, dynamic>{};
-    await _upsertPlayerProfile(
-      userId: user.id,
-      displayName:
-          (metadata['display_name'] as String?) ?? user.email ?? 'Spieler',
-    );
     return _accountFromSupabaseUser(user);
   }
 
@@ -86,19 +76,6 @@ class SupabaseAccountSessionStore implements AccountSessionStore {
 
   @override
   Future<void> signOutCurrentAccount() => _client.auth.signOut();
-
-  Future<void> _upsertPlayerProfile({
-    required String userId,
-    required String displayName,
-  }) async {
-    await _client.from('player_profiles').upsert({
-      'id': userId,
-      'user_id': userId,
-      'display_name': displayName.trim(),
-      'is_active': true,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    });
-  }
 
   AccountUser _accountFromSupabaseUser(User user) {
     final metadata = user.userMetadata ?? const <String, dynamic>{};

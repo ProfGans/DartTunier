@@ -1,17 +1,9 @@
-import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../tournament_workspace.dart';
 import 'app_theme.dart';
-import '../features/tournaments/application/tournament_sync_service.dart';
-import 'navigation/community_link_listener.dart';
-import '../features/tournament_invitations/presentation/tournament_join_page.dart';
-import '../features/communities/presentation/community_invitation_page.dart';
-import '../features/devices/application/devices_controller.dart';
-import '../features/devices/presentation/devices_scope.dart';
-import '../features/devices/presentation/board_display_view.dart';
-import '../features/devices/presentation/pairing_request_view.dart';
+import '../features/backups/application/supabase_workspace_sync_service.dart';
 
 class DartTournamentApp extends StatefulWidget {
   const DartTournamentApp({super.key});
@@ -22,92 +14,35 @@ class DartTournamentApp extends StatefulWidget {
 
 class _DartTournamentAppState extends State<DartTournamentApp>
     with WidgetsBindingObserver {
-  final _tournamentSync = TournamentSyncService();
-  final _navigatorKey = GlobalKey<NavigatorState>();
-  late final DevicesController _devices;
+  final _workspaceSync = SupabaseWorkspaceSyncService.instance;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _tournamentSync.start();
-    _devices = DevicesController();
-    unawaited(_devices.initialize());
+    _workspaceSync.start();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _tournamentSync.dispose();
-    _devices.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _tournamentSync.synchronize();
+    if (state == AppLifecycleState.resumed) {
+      _workspaceSync.synchronize();
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return DevicesScope(
-      controller: _devices,
-      child: CommunityLinkListener(
-        onTournamentInvitation: (token) async {
-          await _navigatorKey.currentState?.push(
-            MaterialPageRoute<void>(
-              builder: (_) => TournamentJoinPage(token: token),
-            ),
-          );
-        },
-        onInvitation: (code) async {
-          await _navigatorKey.currentState?.push(
-            MaterialPageRoute<void>(
-              builder: (_) => CommunityInvitationPage(
-                code: code,
-                createTournamentBuilder: (id, name, {preset, title}) =>
-                    TournamentCreationPage(
-                      communityId: id,
-                      communityName: name,
-                      preset: preset,
-                      presetTitle: title,
-                    ),
-                runTournamentBuilder: (tournament) =>
-                    TournamentRunPage(tournament: tournament),
-              ),
-            ),
-          );
-        },
-        child: MaterialApp(
-          navigatorKey: _navigatorKey,
-          title: 'Dart Turnierverwaltung',
-          builder: (context, child) => AnimatedBuilder(
-            animation: _devices,
-            builder: (context, _) => Stack(
-              children: [
-                child ?? const SizedBox(),
-                if (_devices.settings?.enabled == true &&
-                    _devices.boardPresentation.display != null)
-                  Positioned.fill(
-                    child: Offstage(
-                      offstage: !_devices.showDisplay,
-                      child: BoardDisplayView(controller: _devices),
-                    ),
-                  ),
-                if (_devices.receiver.pairingName != null)
-                  Positioned.fill(
-                    child: PairingRequestView(receiver: _devices.receiver),
-                  ),
-              ],
-            ),
-          ),
-          scrollBehavior: const DartTournamentScrollBehavior(),
-          theme: buildDartTournamentTheme(),
-          home: const HomePage(),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => MaterialApp(
+    title: 'Dart Turnierverwaltung',
+    scrollBehavior: const DartTournamentScrollBehavior(),
+    theme: buildDartTournamentTheme(),
+    home: const HomePage(),
+  );
 }
 
 class DartTournamentScrollBehavior extends MaterialScrollBehavior {

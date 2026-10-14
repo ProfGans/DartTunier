@@ -1,3 +1,5 @@
+import '../../../statistics/domain/best_performance.dart';
+
 class MatchResult {
   const MatchResult({
     required this.homeLegs,
@@ -5,6 +7,7 @@ class MatchResult {
     this.isAnnulled = false,
     this.homeSets,
     this.awaySets,
+    this.bestPerformances = const [],
   });
 
   const MatchResult.annulled()
@@ -12,18 +15,21 @@ class MatchResult {
       homeSets = null,
       awaySets = null,
       awayLegs = null,
-      isAnnulled = true;
+      isAnnulled = true,
+      bestPerformances = const [];
 
   const MatchResult.cleared()
     : homeLegs = null,
       homeSets = null,
       awaySets = null,
       awayLegs = null,
-      isAnnulled = false;
+      isAnnulled = false,
+      bestPerformances = const [];
 
   final int? homeLegs;
   final int? awayLegs;
   final int? homeSets;
   final int? awaySets;
   final bool isAnnulled;
+  final List<BestPerformance> bestPerformances;
 }

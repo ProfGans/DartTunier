@@ -106,7 +106,6 @@ class OrderOfPlayController {
     for (final assignment in schedule.planned) {
       final entry = assignment.entry;
       if (!entry.players.any(identities.contains) || entry.players.any(busy.contains)) continue;
-      if (entry.match.homePlayer?.bot != null && entry.match.awayPlayer?.bot != null) continue;
       return BoardAssignment(entry, 0, board);
     }
     return null;

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../domain/tournament_models.dart';
 import '../../models/match_result.dart';
 import 'set_result_dialog.dart';
+import 'best_performance_editor.dart';
+import '../../../../statistics/domain/best_performance.dart';
 import '../../../../statistics/presentation/tournament_match_statistics_page.dart';
 
 class MatchResultTile extends StatelessWidget {
@@ -159,12 +161,16 @@ class ResultDialog extends StatefulWidget {
 
 class _ResultDialogState extends State<ResultDialog> {
   String? _error;
+  bool _recordBestPerformances = false;
+  List<BestPerformance> _bestPerformances = [];
   late final TextEditingController _homeLegsController;
   late final TextEditingController _awayLegsController;
 
   @override
   void initState() {
     super.initState();
+    _bestPerformances = [...widget.match.bestPerformances];
+    _recordBestPerformances = _bestPerformances.isNotEmpty;
     _homeLegsController = TextEditingController(
       text: widget.match.homeLegs?.toString() ?? '',
     );
@@ -208,9 +214,11 @@ class _ResultDialogState extends State<ResultDialog> {
       return;
     }
 
-    Navigator.of(
-      context,
-    ).pop(MatchResult(homeLegs: homeLegs, awayLegs: awayLegs));
+    Navigator.of(context).pop(MatchResult(
+      homeLegs: homeLegs,
+      awayLegs: awayLegs,
+      bestPerformances: _recordBestPerformances ? _bestPerformances : const [],
+    ));
   }
 
   void _annul() {
@@ -228,9 +236,10 @@ class _ResultDialogState extends State<ResultDialog> {
     }
     return AlertDialog(
       title: const Text('Ergebnis eingeben'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           if (_error != null)
             Text(
               _error!,
@@ -274,7 +283,23 @@ class _ResultDialogState extends State<ResultDialog> {
               ),
             ],
           ),
-        ],
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _recordBestPerformances,
+            title: const Text('Bestleistung erfassen'),
+            onChanged: (value) => setState(() {
+              _recordBestPerformances = value ?? false;
+              if (!_recordBestPerformances) _bestPerformances = [];
+            }),
+          ),
+          if (_recordBestPerformances)
+            BestPerformanceEditor(
+              match: widget.match,
+              initial: _bestPerformances,
+              onChanged: (items) => _bestPerformances = items,
+            ),
+          ],
+        ),
       ),
       actions: [
         if (widget.allowAdministration &&

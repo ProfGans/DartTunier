@@ -8,12 +8,20 @@ class StorageAccess {
   static final Object _zoneKey = Object();
   static Future<void> _tail = Future<void>.value();
   static final restartRequired = ValueNotifier<bool>(false);
+  static final sessionGeneration = ValueNotifier<int>(0);
+  static final localDataRevision = ValueNotifier<int>(0);
   static String restartMessage = 'Bitte App neu starten.';
 
   static void requireRestart(String message) {
     restartMessage = message;
     restartRequired.value = true;
   }
+
+  static void markLocalDataChanged() => localDataRevision.value++;
+
+  /// Rebuilds the app against restored account-scoped files after the storage
+  /// queue has released the restore lease.
+  static void replaceSession() => sessionGeneration.value++;
 
   static Future<T> run<T>(Future<T> Function() action) {
     if (restartRequired.value) {

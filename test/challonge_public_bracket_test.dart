@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dart_tournament_manager/features/communities/data/challonge_public_reader.dart';
-import 'package:dart_tournament_manager/features/communities/application/challonge_native_import.dart';
+import 'package:dart_tournament_manager/features/challonge/data/challonge_public_reader.dart';
+import 'package:dart_tournament_manager/features/challonge/application/challonge_native_import.dart';
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
 
 // Public bracket fields observed on DCUH202637, 2026-10-08. Images and account metadata omitted.
@@ -129,7 +129,7 @@ void main() {
         )['final_rank'],
         isNull,
       );
-      final archive = tournament.convert('club', {
+      final archive = tournament.convert({
         for (final p in tournament.participants)
           '${p['id']}': 'member-${p['id']}',
       }).importedArchive!;
@@ -144,7 +144,7 @@ void main() {
       expect(tournament.data['started_at'], '2026-09-30T16:30:00.000Z');
       expect(tournament.data['completed_at'], isNull);
       final native = ChallongeNativeImport.convert(
-        tournament.convert('club', {
+        tournament.convert({
           for (final p in tournament.participants)
             '${p['id']}': 'member-${p['id']}',
         }),

@@ -4,7 +4,7 @@ import 'profile_image_encoder.dart';
 
 typedef ProfileImageSelection = Future<XFile?> Function();
 
-/// One bounded import path for community and personal profiles on all platforms.
+/// One bounded import path for local player profile images on all platforms.
 class ProfileImagePicker {
   const ProfileImagePicker({
     this.selectFile = _selectFile,

@@ -25,44 +25,35 @@ abstract class AccountSessionStore {
 }
 
 class LocalAccountSessionStore implements AccountSessionStore {
-  LocalAccountSessionStore(this._database);
-
-  final LocalAppDatabase _database;
+  LocalAccountSessionStore([LocalAppDatabase? _]);
 
   @override
   String get signInLabel => 'Lokaler Gastmodus';
 
   @override
-  Future<AccountUser?> loadCurrentAccount() => _database.loadCurrentAccount();
+  Future<AccountUser?> loadCurrentAccount() async => null;
 
   @override
   Future<AccountUser> registerAccount({
     required String displayName,
     required String email,
     required String password,
-  }) {
-    return _database.registerLocalAccount(
-      displayName: displayName,
-      email: email,
-    );
-  }
+  }) => throw UnsupportedError('Lokale App-Konten wurden entfernt.');
 
   @override
   Future<AccountUser?> signInAccount({
     required String email,
     required String password,
-  }) {
-    return _database.signInLocalAccount(email: email);
-  }
+  }) async => null;
 
   @override
   bool get supportsPasswordReset => false;
 
   @override
   Future<void> sendPasswordResetEmail({required String email}) {
-    throw UnsupportedError('Im lokalen Gastmodus gibt es kein Passwort.');
+    throw UnsupportedError('Für Konten wird Supabase benötigt.');
   }
 
   @override
-  Future<void> signOutCurrentAccount() => _database.signOutCurrentAccount();
+  Future<void> signOutCurrentAccount() async {}
 }

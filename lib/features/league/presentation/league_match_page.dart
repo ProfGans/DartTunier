@@ -1,65 +1,40 @@
 import 'dart:math' show min;
 
-import '../../tournaments/domain/tournament_access.dart';
-import '../../tournaments/data/tournament_access_repository.dart';
-import '../../tournaments/presentation/widgets/tournament_access_gate.dart';
-import '../../tournaments/presentation/widgets/creation/tournament_access_editor.dart';
-import '../data/league_result_repository.dart';
 import '../../../shared/widgets/sport_settings_section.dart';
 import 'package:flutter/material.dart';
 import '../../tournaments/application/tournament_timing.dart';
 import '../../tournaments/presentation/widgets/run/tournament_timing_panel.dart';
-import '../../devices/application/board_device_dispatcher.dart';
-import '../../devices/application/device_result_importer.dart';
-import '../../devices/presentation/board_device_assignment_page.dart';
-import '../../devices/presentation/devices_scope.dart';
 import '../../tournaments/application/order_of_play/order_of_play_controller.dart';
-import '../../tournaments/presentation/widgets/creation/tournament_devices_section.dart';
 import '../application/league_board_runtime.dart';
 import '../application/league_duration_estimator.dart';
 import 'league_overview.dart';
 import 'league_player_picker.dart';
-import '../data/league_invitation_repository.dart';
 import '../../tournaments/data/app_database.dart';
 import '../../../shared/widgets/adaptive_content.dart';
 import '../../tournaments/data/tournament_storage.dart';
 import '../../tournaments/domain/tournament_models.dart';
-import '../../communities/domain/community_permissions.dart';
-import '../../communities/presentation/widgets/community_permission_gate.dart';
 import '../domain/league_match.dart';
 import '../../settings/data/planning_settings_storage.dart';
 import '../../tournaments/domain/tournament_planning_parameters.dart';
 import 'league_pairing_dialog.dart';
 import '../../statistics/domain/tournament_player_statistics.dart';
 import '../../statistics/presentation/tournament_statistics_view.dart';
-import '../../statistics/presentation/tournament_highlights_page.dart';
 
 class LeagueMatchPage extends StatefulWidget {
   const LeagueMatchPage({
     super.key,
     this.tournament,
-    this.communityId,
     this.storage,
-    this.invitations,
     this.database,
-    this.openDevicesOnStart = false,
-    this.loadAccess,
   });
-  final bool openDevicesOnStart;
-  final Future<TournamentAccess> Function()? loadAccess;
-  final LeagueInvitationRepository? invitations;
   final LocalAppDatabase? database;
   final CreatedTournament? tournament;
-  final String? communityId;
   final TournamentStorage? storage;
   @override
   State<LeagueMatchPage> createState() => _LeagueMatchPageState();
 }
 
 class _LeagueMatchPageState extends State<LeagueMatchPage> {
-  TournamentAccess _access = const TournamentAccess();
-  TournamentAccessSettings _settings = const TournamentAccessSettings();
-  bool _devicesOpened = false;
   final _form = GlobalKey<FormState>();
   final _rosterSections = List.generate(
     2,
@@ -83,17 +58,9 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
   late CreatedTournament? _tournament = widget.tournament;
   bool _busy = false;
   String? _error;
-  late final _invitations = widget.invitations ?? LeagueInvitationRepository();
-  final _draftId = CreatedTournament(
-    name: '',
-    players: [],
-    stages: [],
-    runStages: [],
-  ).id;
   final _profiles = <String, TournamentPlayer>{};
-  final _invited = <String, Map<String, dynamic>>{};
 
-  Future<void> _addRosterPlayer(int team, bool community) async {
+  Future<void> _addRosterPlayer(int team) async {
     final slot = await showDialog<int>(
       context: context,
       builder: (context) => SimpleDialog(
@@ -101,9 +68,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
         children: [
           for (var i = 0; i < _rosters[team].length; i++)
             SimpleDialogOption(
-              onPressed: _invited.containsKey('$team:$i')
-                  ? null
-                  : () => Navigator.pop(context, i),
+              onPressed: () => Navigator.pop(context, i),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
@@ -128,39 +93,26 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     if (!mounted || slot == null) return;
     final newSlot = slot == _rosters[team].length;
     if (newSlot) setState(() => _rosters[team].add(TextEditingController()));
-    await _selectPlayer(team, slot, community: community);
+    await _selectPlayer(team, slot);
     if (mounted &&
         newSlot &&
-        !_profiles.containsKey('$team:$slot') &&
-        !_invited.containsKey('$team:$slot')) {
+        !_profiles.containsKey('$team:$slot')) {
       setState(() => _rosters[team].removeLast().dispose());
     }
   }
 
-  Future<void> _selectPlayer(
-    int team,
-    int slot, {
-    bool community = false,
-  }) async {
+  Future<void> _selectPlayer(int team, int slot) async {
     final key = '$team:$slot';
     final choice = await showDialog<LeaguePlayerChoice>(
       context: context,
       builder: (_) => LeaguePlayerPicker(
-        initialCommunity: community,
-        repository: _invitations,
         database: widget.database,
       ),
     );
     if (!mounted || choice == null) return;
     if (_profiles.entries.any(
-          (e) => e.key != key && e.value.profileId == choice.player.profileId,
-        ) ||
-        _invited.entries.any(
-          (e) =>
-              e.key != key &&
-              e.value['user_id'] == choice.inviteUserId &&
-              choice.inviteUserId != null,
-        )) {
+      (e) => e.key != key && e.value.profileId == choice.player.profileId,
+    )) {
       setState(
         () => _error =
             'Dieser Spieler ist bereits in einer Mannschaft vorgesehen.',
@@ -171,89 +123,20 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
       _busy = true;
       _error = null;
     });
-    try {
-      if (choice.inviteUserId != null) {
-        final row = await _invitations.invite(
-          _draftId,
-          _name.text.trim().isEmpty ? 'Ligaspiel' : _name.text.trim(),
-          team,
-          slot,
-          choice.inviteUserId!,
-        );
-        if (!mounted) return;
-        setState(() {
-          _invited[key] = row;
-          _profiles.remove(key);
-        });
-      } else {
-        setState(() {
-          _profiles[key] = choice.player;
-          _rosters[team][slot].text = choice.player.name;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error =
-              'Einladung konnte nicht gesendet werden. Verbindung und Servereinrichtung prüfen.',
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _refreshInvitations() async {
-    if (_invited.isEmpty) return;
-    final rows = await _invitations.status(_draftId);
-    if (!mounted) return;
     setState(() {
-      for (final row in rows) {
-        final key = '${row['team']}:${row['slot']}';
-        if (!_invited.containsKey(key)) continue;
-        _invited[key] = row;
-        if (row['status'] == 'accepted') {
-          final player = TournamentPlayer(
-            name: row['display_name'] as String,
-            profileId: row['user_id'] as String,
-            isGenerated: false,
-          );
-          _profiles[key] = player;
-          _rosters[row['team'] as int][row['slot'] as int].text = player.name;
-        }
-      }
+      _profiles[key] = choice.player;
+      _rosters[team][slot].text = choice.player.name;
+      _busy = false;
+      _error = null;
     });
   }
 
-  Future<void> _cancelInvitation(String key) async {
-    setState(() => _busy = true);
-    try {
-      await _invitations.cancel(_invited[key]!['id'] as String);
-      if (mounted) {
-        setState(() {
-          _invited.remove(key);
-          _profiles.remove(key);
-          final position = key.split(':').map(int.parse).toList();
-          _rosters[position[0]][position[1]].text = '';
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Einladung konnte nicht zurückgezogen werden.');
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  BoardDeviceDispatcher? _dispatcher;
   int _boards = 1;
   LeagueMatchVariant _variant = LeagueMatchVariant.traditional;
   int _singlesPerPlayer = 2;
   int _doublesCount = 2;
   TournamentPlanningParameters _planningParameters =
       const TournamentPlanningParameters();
-  Future<void> _results = Future.value();
 
   Future<void> _loadPlanningParameters() async {
     try {
@@ -265,17 +148,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
   }
 
   void _setVariant(LeagueMatchVariant variant) {
-    if (variant == LeagueMatchVariant.traditional &&
-        _invited.keys.any((key) => int.parse(key.split(':').last) >= 6)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Ziehe zuerst Einladungen zu zusätzlichen Spielern zurück.',
-          ),
-        ),
-      );
-      return;
-    }
     setState(() {
       _variant = variant;
       if (variant == LeagueMatchVariant.traditional) {
@@ -305,8 +177,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     if (_busy || _rosters[team].length <= 1) return;
     final slot = _rosters[team].length - 1;
     final key = '$team:$slot';
-    if (_invited.containsKey(key)) await _cancelInvitation(key);
-    if (!mounted || _invited.containsKey(key)) return;
     setState(() {
       _profiles.remove(key);
       _rosters[team].removeLast().dispose();
@@ -350,58 +220,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     }
   }
 
-  Future<void> _openDevices() async {
-    final devices = DevicesScope.maybeOf(context);
-    if (devices == null || _tournament == null || !_access.canLead) return;
-    await TournamentAccessRepository().requireLead(_tournament!);
-    _dispatcher ??= BoardDeviceDispatcher(
-      devices: devices,
-      tournament: LeagueBoardRuntime(_tournament!).tournament,
-      activeStage: () => 0,
-      onResult: (result) {
-        final operation = _results.then((_) async {
-          if (!mounted || _busy) {
-            throw StateError(
-              'Ligaänderung wird gespeichert. Bitte erneut versuchen.',
-            );
-          }
-          final next = CreatedTournament.fromJson(_tournament!.toJson());
-          final runtime = LeagueBoardRuntime(next);
-          const importer = DeviceResultImporter();
-          final match = importer.validate(runtime.tournament, result);
-          importer.apply(
-            match,
-            result,
-            runtime.tournament.stages.single.gameFormat,
-          );
-          runtime.writeTo(next);
-          await _save(next, rethrowError: true);
-        });
-        _results = operation.then<void>(
-          (_) {},
-          onError: (Object _, StackTrace _) {},
-        );
-        return operation;
-      },
-    );
-    try {
-      await _dispatcher!.start();
-      if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => BoardDeviceAssignmentPage(dispatcher: _dispatcher!),
-        ),
-      );
-    } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error =
-              'Geräte konnten nicht geöffnet werden. Verbindung und Berechtigung prüfen.',
-        );
-      }
-    }
-  }
-
   Future<void> _startGame(int index) async {
     var next = CreatedTournament.fromJson(_tournament!.toJson());
     var runtime = LeagueBoardRuntime(next);
@@ -438,7 +256,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     }
     runtime.writeTo(next);
     await _save(next);
-    await _dispatcher?.publish();
   }
 
   @override
@@ -449,7 +266,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
 
   @override
   void dispose() {
-    _dispatcher?.dispose();
     for (final c in [_name, ..._teams, ..._rosters.expand((r) => r)]) {
       c.dispose();
     }
@@ -465,18 +281,9 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
       _error = null;
     });
     try {
-      if (_tournament != null) {
-        await TournamentAccessRepository().requireLead(_tournament!);
-      }
       await TournamentTiming.prepare(next);
       await _storage.saveTournament(next);
       if (mounted) setState(() => _tournament = next);
-      if (_dispatcher != null) {
-        _dispatcher!.tournament = LeagueBoardRuntime(next).tournament;
-      }
-      if (next.communityId != null) {
-        await _storage.synchronize(tournamentId: next.id);
-      }
     } catch (_) {
       if (mounted) {
         setState(
@@ -497,27 +304,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
       }
       return;
     }
-    try {
-      await _refreshInvitations();
-      if (!mounted) return;
-      if (_invited.values.any((row) => row['status'] != 'accepted')) {
-        setState(
-          () => _error =
-              'Alle Einladungen müssen angenommen oder zurückgezogen werden.',
-        );
-        return;
-      }
-      if (_invited.isNotEmpty) await _invitations.close(_draftId);
-    } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error =
-              'Einladungsstatus konnte nicht geprüft werden. Verbindung prüfen.',
-        );
-      }
-      return;
-    }
-    if (!mounted) return;
     if (!_form.currentState!.validate()) return;
     if (_variant == LeagueMatchVariant.adjusted &&
         _rosters[0].length != _rosters[1].length) {
@@ -553,7 +339,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
           );
     await _save(
       CreatedTournament(
-        id: _draftId,
         name: _name.text.trim(),
         players: [
           for (var team = 0; team < 2; team++)
@@ -567,18 +352,12 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
         stages: [],
         runStages: [],
         leagueMatch: league,
-        communityId: widget.communityId,
-        access: _settings.withCreator(_storage.currentUserId),
         boardCount: _boards,
       ),
     );
   }
 
   Future<void> _result(int index) async {
-    if (!_access.canEnterResults ||
-        (!_access.canLead && _tournament!.leagueMatch!.games[index].complete)) {
-      return;
-    }
     final result = await showDialog<(int?, int?)>(
       context: context,
       builder: (context) => AlertDialog(
@@ -608,8 +387,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Abbrechen'),
           ),
-          if (_access.canLead)
-            TextButton(
+          TextButton(
               onPressed: () => Navigator.pop(context, (null, null)),
               child: const Text('Ergebnis entfernen'),
             ),
@@ -617,41 +395,12 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
       ),
     );
     if (!mounted || result == null) return;
-    if (!_access.canLead) {
-      setState(() => _busy = true);
-      try {
-        final next = await LeagueResultRepository().submit(
-          _tournament!,
-          index,
-          result.$1!,
-          result.$2!,
-        );
-        if (mounted) {
-          setState(() {
-            _tournament = next;
-            _error = null;
-          });
-        }
-      } catch (_) {
-        if (mounted) {
-          setState(
-            () => _error =
-                'Ergebnis nicht gespeichert. Online-Stand und Berechtigung prüfen.',
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _busy = false);
-      }
-      return;
-    }
     final next = CreatedTournament.fromJson(_tournament!.toJson());
     next.leagueMatch!.games[index].score(result.$1, result.$2);
     final runtime = LeagueBoardRuntime(next);
-    runtime.matches[index].deviceResult = null;
     const OrderOfPlayController().resultRecorded(runtime.matches[index]);
     runtime.writeTo(next);
     await _save(next);
-    await _dispatcher?.publish();
   }
 
   Future<void> _pairing(int index) async {
@@ -671,136 +420,9 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     await _save(next);
   }
 
-  Future<void> _reload() async {
-    if (_busy) return;
-    if (_access.canLead) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Online-Stand laden?'),
-          content: const Text(
-            'Nicht synchronisierte lokale Änderungen werden durch den Online-Stand ersetzt.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Abbrechen'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Online-Stand laden'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-    }
-    setState(() => _busy = true);
-    try {
-      final next = await _storage.loadAuthoritativeTournament(
-        _tournament!.id,
-        _tournament!.communityId!,
-      );
-      if (mounted) {
-        setState(() {
-          _tournament = next;
-          _error = null;
-        });
-      }
-      if (_dispatcher != null) {
-        _dispatcher!.tournament = LeagueBoardRuntime(next).tournament;
-        await _dispatcher!.publish();
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Online-Stand konnte nicht geladen werden.');
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _editAccess() async {
-    if (!_access.canConfigure || _busy) return;
-    var value = _tournament!.access;
-    final selected = await showDialog<TournamentAccessSettings>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          title: const Text('Turnierrechte'),
-          scrollable: true,
-          content: SizedBox(
-            width: 620,
-            child: TournamentAccessEditor(
-              communityId: _tournament!.communityId!,
-              value: value,
-              onChanged: (next) => update(() => value = next),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Abbrechen'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, value),
-              child: const Text('Speichern'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (selected == null || !mounted) return;
-    setState(() => _busy = true);
-    try {
-      await TournamentAccessRepository().requireConfigure(_tournament!);
-      final next = CreatedTournament.fromJson(_tournament!.toJson())
-        ..access = selected;
-      await _storage.saveTournament(next);
-      if (mounted) setState(() => _tournament = next);
-      await _storage.synchronize(tournamentId: next.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(TournamentStorage.syncStatus.value)),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error = 'Turnierrechte konnten nicht gespeichert werden.',
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_tournament == null) {
-      return CommunityPermissionGate(
-        communityId: widget.communityId,
-        permission: CommunityPermission.createTournaments,
-        builder: (context) => _content(context),
-      );
-    }
-    return TournamentAccessGate(
-      tournament: _tournament!,
-      load: widget.loadAccess,
-      builder: (context, access) {
-        _access = access;
-        if (access.canLead &&
-            widget.openDevicesOnStart &&
-            _tournament?.communityId == null &&
-            !_devicesOpened) {
-          _devicesOpened = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _openDevices();
-          });
-        }
-        return _content(context);
-      },
-    );
+    return _content(context);
   }
 
   Widget _content(BuildContext context) => PopScope(
@@ -972,16 +594,9 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                         OutlinedButton.icon(
                           onPressed: _busy
                               ? null
-                              : () => _addRosterPlayer(team, false),
+                              : () => _addRosterPlayer(team),
                           icon: const Icon(Icons.person_add),
                           label: const Text('Lokalen Spieler hinzufügen'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: _busy
-                              ? null
-                              : () => _addRosterPlayer(team, true),
-                          icon: const Icon(Icons.mail_outline),
-                          label: const Text('Community-Mitglied einladen'),
                         ),
                       ],
                     ],
@@ -991,17 +606,14 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                       padding: const EdgeInsets.only(top: 12),
                       child: TextFormField(
                         controller: _rosters[team][i],
-                        readOnly: _invited.containsKey('$team:$i'),
                         onChanged: (_) => setState(
                           () => _profiles.remove('$team:$i'),
                         ),
                         validator: _required,
                         decoration: InputDecoration(
                           suffixIcon: IconButton(
-                            tooltip: 'Spieler auswählen oder einladen',
-                            onPressed: _busy || _invited.containsKey('$team:$i')
-                                ? null
-                                : () => _selectPlayer(team, i),
+                            tooltip: 'Spieler aus dem Katalog auswählen',
+                            onPressed: _busy ? null : () => _selectPlayer(team, i),
                             icon: const Icon(Icons.person_add_alt),
                           ),
                           labelText: _variant == LeagueMatchVariant.traditional
@@ -1012,23 +624,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                         ),
                       ),
                     ),
-                  for (var i = 0; i < _rosters[team].length; i++)
-                    if (_invited['$team:$i'] case final row?)
-                      ListTile(
-                        title: Text('${row['display_name']} · Platz ${i + 1}'),
-                        subtitle: Text(switch (row['status']) {
-                          'accepted' => 'Angenommen',
-                          'declined' => 'Abgelehnt',
-                          _ => 'Einladung ausstehend',
-                        }),
-                        trailing: IconButton(
-                          tooltip: 'Einladung zurückziehen',
-                          onPressed: _busy
-                              ? null
-                              : () => _cancelInvitation('$team:$i'),
-                          icon: const Icon(Icons.close),
-                        ),
-                      ),
                   const SizedBox(height: 12),
                   if (_variant == LeagueMatchVariant.adjusted)
                     Wrap(
@@ -1059,31 +654,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
           ],
         ),
         const SizedBox(height: 16),
-        if (_invited.isNotEmpty)
-          OutlinedButton.icon(
-            onPressed: _busy
-                ? null
-                : () async {
-                    try {
-                      await _refreshInvitations();
-                    } catch (_) {
-                      if (mounted) {
-                        setState(
-                          () => _error =
-                              'Einladungen konnten nicht aktualisiert werden.',
-                        );
-                      }
-                    }
-                  },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Einladungen aktualisieren'),
-          ),
-        if (widget.communityId != null)
-          TournamentAccessEditor(
-            communityId: widget.communityId!,
-            value: _settings,
-            onChanged: (value) => setState(() => _settings = value),
-          ),
         FilledButton(
           onPressed: _busy ? null : _create,
           child: const Text('Ligaspiel anlegen'),
@@ -1118,7 +688,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
       final next = CreatedTournament.fromJson(_tournament!.toJson())
         ..boardCount = value;
       await _save(next);
-      await _dispatcher?.publish();
     }
 
     return Wrap(
@@ -1147,38 +716,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
   List<Widget> _games(BuildContext context) {
     final league = _tournament!.leagueMatch!;
     return [
-      if (_tournament!.communityId != null) ...[
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _reload,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Online-Stand laden'),
-            ),
-            if (_access.canConfigure)
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _editAccess,
-                icon: const Icon(Icons.admin_panel_settings_outlined),
-                label: const Text('Turnierrechte'),
-              ),
-          ],
-        ),
-        if (_access.canLead)
-          ValueListenableBuilder<String>(
-            valueListenable: TournamentStorage.syncStatus,
-            builder: (_, status, _) => Text(status),
-          ),
-        if (!_access.canLead)
-          Text(
-            _access.canEnterResults
-                ? 'Offene Ergebnisse kannst du online melden. Korrekturen übernimmt die Turnierleitung.'
-                : 'Zuschaueransicht',
-          ),
-      ],
-      if (_access.canLead)
-        TournamentTimingPanel(
+      TournamentTimingPanel(
           tournament: _tournament!,
           onStart: () async {
             final next = CreatedTournament.fromJson(_tournament!.toJson());
@@ -1187,23 +725,6 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
           },
         ),
       LeagueOverview(league: league),
-      TournamentHighlightsButton(tournament: _tournament!),
-      if (_access.canLead && _tournament!.communityId == null)
-        ExpansionTile(
-          title: const Text('Boards und Geräte'),
-          leading: const Icon(Icons.connected_tv),
-          children: [
-            _boardControls(),
-            const TournamentDevicesSection(),
-            OutlinedButton.icon(
-              onPressed: _busy || DevicesScope.maybeOf(context) == null
-                  ? null
-                  : _openDevices,
-              icon: const Icon(Icons.connected_tv),
-              label: const Text('Boards und Geräte zuordnen'),
-            ),
-          ],
-        ),
       Align(
         alignment: Alignment.centerLeft,
         child: OutlinedButton.icon(
@@ -1217,8 +738,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                   rows: const TournamentStatisticsCalculator().calculate([
                     _tournament!,
                   ]),
-                  description:
-                      'Einzel und Doppel aus gespeicherten Ergebnissen. Beide Doppelpartner erhalten das gemeinsame Ergebnis und die gemeinsamen Legs. Korrekturen werden neu berechnet.',
+                  description: 'Einzelstatistik aus gespeicherten Ergebnissen.',
                 ),
               ),
             ),
@@ -1236,31 +756,26 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
               ? null
               : 'Board ${league.games[i].runtime!['boardNumber']}',
           actions: [
-            if (_access.canLead &&
-                !league.games[i].complete &&
+            if (!league.games[i].complete &&
                 league.games[i].runtime?['startedAt'] == null)
               OutlinedButton.icon(
                 onPressed: _busy ? null : () => _startGame(i),
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('Starten'),
               ),
-            if (_access.canEnterResults &&
-                (_access.canLead || !league.games[i].complete))
-              OutlinedButton(
+            OutlinedButton(
                 key: ValueKey('league-result-$i'),
                 onPressed: _busy ? null : () => _result(i),
                 child: const Text('Ergebnis'),
               ),
-            if (_access.canLead &&
-                league.variant == LeagueMatchVariant.traditional &&
+            if (league.variant == LeagueMatchVariant.traditional &&
                 !league.games[i].complete &&
                 league.games[i].runtime?['startedAt'] == null)
               OutlinedButton(
                 onPressed: _busy ? null : () => _pairing(i),
                 child: const Text('Aufstellung'),
               ),
-            if (_access.canLead &&
-                league.games.every(
+            if (league.games.every(
                   (g) => !g.complete && g.runtime?['startedAt'] == null,
                 )) ...[
               IconButton(

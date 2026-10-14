@@ -8,7 +8,7 @@ import 'package:dart_tournament_manager/app/app_theme.dart';
 import 'package:dart_tournament_manager/features/statistics/presentation/tournament_match_statistics_page.dart';
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
 import 'package:dart_tournament_manager/features/tournaments/presentation/widgets/run/result_entry.dart';
-import 'tournament_highlights_test.dart' show recordedMatch;
+import 'support/recorded_match.dart';
 import 'package:dart_tournament_manager/features/tournaments/presentation/widgets/run/order_of_play_section.dart';
 
 void main() {
@@ -100,7 +100,7 @@ void main() {
           await tester.tap(find.textContaining('Anna Musterfrau'));
           await tester.pumpAndSettle();
           expect(find.text('Spielstatistik'), findsOneWidget);
-          expect(find.text('3-Dart-Average: 120,00'), findsOneWidget);
+          expect(find.textContaining('3-Dart-Average'), findsNothing);
           expect(find.text('Ergebnis: 1:0'), findsOneWidget);
           expect(tester.takeException(), isNull);
           if (font.isNotEmpty) {
@@ -125,9 +125,9 @@ void main() {
     }
   }
   testWidgets(
-    'score opens statistics, edit button remains independent, manual scores show no invented averages',
+    'score opens match details and result edit stays independent',
     (tester) async {
-      final match = recordedMatch()..deviceResult = null;
+      final match = recordedMatch();
       var edits = 0;
       await tester.pumpWidget(
         MaterialApp(
@@ -145,8 +145,8 @@ void main() {
       expect(find.byType(TournamentMatchStatisticsPage), findsNothing);
       await tester.tap(find.text('1:0'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('keine Scorer-Aufnahmen'), findsOneWidget);
-      expect(find.textContaining('3-Dart-Average'), findsNothing);
+      expect(find.textContaining('Ergebnis:'), findsOneWidget);
+      expect(find.textContaining('Scorer'), findsNothing);
     },
   );
   testWidgets('unfinished match still edits its score', (tester) async {

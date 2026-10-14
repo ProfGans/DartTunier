@@ -1,18 +1,7 @@
 part of '../../../../tournament_workspace.dart';
 
 class TournamentCreationPage extends StatefulWidget {
-  const TournamentCreationPage({
-    super.key,
-    this.communityId,
-    this.communityName,
-    this.preset,
-    this.presetTitle,
-  });
-
-  final String? communityId;
-  final String? communityName;
-  final CommunityTournamentPreset? preset;
-  final String? presetTitle;
+  const TournamentCreationPage({super.key});
 
   @override
   State<TournamentCreationPage> createState() => _TournamentCreationPageState();
@@ -20,9 +9,8 @@ class TournamentCreationPage extends StatefulWidget {
 
 class _TournamentCreationPageState extends State<TournamentCreationPage> {
   bool _showEntryChoices = true;
-  bool _countsForRanking = true;
-  TournamentAccessSettings _tournamentAccess = const TournamentAccessSettings();
-  List<String> _communityRankingIds = ['default'];
+  bool _countsForRanking = false;
+  List<String> _localRankingIds = [];
   final _tournamentNameController = TextEditingController();
   final _playerNameController = TextEditingController();
   final _playerCountController = TextEditingController(text: '8');
@@ -31,6 +19,8 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   final _groupQualifierCountController = TextEditingController(text: '8');
   final _bestOfQualifierCountController = TextEditingController(text: '0');
   final _database = LocalAppDatabase();
+  late final Future<List<LocalRanking>> _localRankings =
+      _database.loadLocalRankings();
   final Set<int> _selectedExtraGroups = {};
   final List<TournamentPlayer> _players = [];
   int _plannedBoardCount = 1;
@@ -75,7 +65,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   String _selectedStageType = 'groups';
   String _knockoutSeedingMode = 'cross';
   bool _groupDrawOnStart = false;
-  String _communityGroupSeedingMode = 'none';
   bool _knockoutDrawOnStart = false;
   bool _stageNameWasEdited = false;
   bool _isOpeningPlayerPicker = false;
@@ -85,16 +74,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.preset case final preset?) {
-      _showEntryChoices = false;
-      _plannedBoardCount = preset.boardCount;
-      _playerCountController.text = '${preset.playerCount}';
-      _selectedStageType = preset.stageType;
-      _stageGameFormat = preset.gameFormat;
-      _countsForRanking = preset.countsForRanking;
-      _communityRankingIds = [...preset.rankingIds];
-      _tournamentNameController.text = widget.presetTitle ?? '';
-    }
     _stageNameController.text = _defaultStageName();
   }
 
@@ -1026,41 +1005,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
     });
 
     try {
-      final communityRepository = widget.communityId == null
-          ? null
-          : SupabaseCommunityRepository();
-      final currentAccount = await loadCurrentAccount();
-      var canCreateCommunityPlayer = false;
-      if (widget.communityId != null) {
-        final communities = await communityRepository!.loadMyCommunities();
-        canCreateCommunityPlayer = communities.any(
-          (c) =>
-              c.id == widget.communityId &&
-              c.ownerUserId == communityRepository.currentUserId,
-        );
-      }
-      final profiles = widget.communityId == null
-          ? tournamentPlayerChoices(
-              await _database.loadPlayerProfiles(),
-              currentAccount,
-            )
-          : [
-              for (final member in effectiveCommunityMembers(
-                await SupabaseCommunityRepository().loadMembers(
-                  widget.communityId!,
-                ),
-              ))
-                PlayerProfile(
-                  id: member.playerProfileId!,
-                  userId: member.userId,
-                  displayName: member.displayName,
-                  country: '',
-                  city: '',
-                  dartsSetupJson: '',
-                  createdAt: member.joinedAt,
-                  isActive: true,
-                ),
-            ];
+      final profiles = await _database.loadPlayerProfiles();
       if (!mounted) {
         return;
       }
@@ -1071,25 +1016,9 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         context: context,
         builder: (context) => PlayerProfilePickerDialog(
           profiles: profiles,
-          currentUserId: currentAccount?.id,
-          createPlayer: !canCreateCommunityPlayer
-              ? null
-              : (name) async {
-                  final member = await communityRepository!.createManualMember(
-                    widget.communityId!,
-                    name,
-                  );
-                  return PlayerProfile(
-                    id: member.playerProfileId!,
-                    userId: null,
-                    displayName: member.displayName,
-                    country: '',
-                    city: '',
-                    dartsSetupJson: '',
-                    createdAt: member.joinedAt,
-                    isActive: true,
-                  );
-                },
+          createPlayer: (name) => _database.createPlayerProfile(
+            displayName: name,
+          ),
           selectedProfileIds: {
             for (final player in _players.expand((p) => p.individuals))
               if (player.profileId != null) player.profileId!,
@@ -1491,7 +1420,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         return;
       }
       setState(() {
-        if (_players.isEmpty && widget.communityId == null) {
+        if (_players.isEmpty) {
           _players.addAll(
             List.generate(
               suggestion.participantCount,
@@ -1545,7 +1474,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       (sum, value) => sum + value,
     );
     setState(() {
-      if (_players.isEmpty && widget.communityId == null) {
+      if (_players.isEmpty) {
         _players.addAll(
           List.generate(
             inferredPlayerCount,
@@ -1612,7 +1541,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       SnackBar(
         content: Text(
           _players.isEmpty
-              ? 'Vorschlag übernommen. Bitte zuerst die Community-Spieler auswählen.'
+              ? 'Vorschlag übernommen. Bitte zuerst die Spieler auswählen.'
               : 'Vorschlag übernommen. Du kannst Spieler, Etappen und Spielformate weiter anpassen.',
         ),
       ),
@@ -1654,30 +1583,17 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
       final name = _tournamentNameController.text.trim().isEmpty
           ? 'Neues Turnier'
           : _tournamentNameController.text.trim();
-      final stages = await _stagesWithCommunitySeeding();
-      if (!mounted) return;
+      final stages = List<TournamentStage>.unmodifiable(_stages);
       final runStages = _buildRunStages(stages);
-      if (widget.communityId case final String communityId) {
-        tournament = await controller.createCommunityTournament(
-          name: name,
-          players: _players,
-          stages: stages,
-          runStages: runStages,
-          communityId: communityId,
-          access: _tournamentAccess,
-          countsForRanking: _countsForRanking,
-          communityRankingIds: _communityRankingIds,
-          boardCount: _plannedBoardCount,
-        );
-      } else {
-        tournament = controller.createTournament(
-          boardCount: _plannedBoardCount,
-          name: name,
-          players: _players,
-          stages: stages,
-          runStages: runStages,
-        );
-      }
+      tournament = controller.createTournament(
+        boardCount: _plannedBoardCount,
+        countsForRanking: _countsForRanking,
+        rankingIds: _localRankingIds,
+        name: name,
+        players: _players,
+        stages: stages,
+        runStages: runStages,
+      );
     } catch (error) {
       if (!mounted) return;
       setState(() => _isCreatingTournament = false);
@@ -1698,68 +1614,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         builder: (_) => TournamentRunPage(tournament: tournament),
       ),
     );
-  }
-
-  Future<List<TournamentStage>> _stagesWithCommunitySeeding() async {
-    if (widget.communityId == null || _communityGroupSeedingMode == 'none') {
-      return List.unmodifiable(_stages);
-    }
-    final groupStageIndex = _stages.indexWhere(
-      (stage) => stage.type == 'groups',
-    );
-    if (groupStageIndex != 0) return List.unmodifiable(_stages);
-    final stage = _stages[groupStageIndex];
-    final mode = _communityGroupSeedingMode == 'strength'
-        ? CommunityGroupSeedingMode.strengthSplit
-        : CommunityGroupSeedingMode.mixed;
-    if (mode == CommunityGroupSeedingMode.strengthSplit &&
-        stage.groupSizes.length != 2) {
-      throw StateError(
-        'Stärkegruppen sind nur mit genau zwei Gruppen möglich.',
-      );
-    }
-    final repository = SupabaseCommunityRepository();
-    final values = await Future.wait<Object>([
-      repository.loadMembers(widget.communityId!),
-      repository.loadTournaments(widget.communityId!),
-      repository.loadRankings(widget.communityId!),
-      repository.loadRankingActions(widget.communityId!),
-    ]);
-    final rankings = values[2] as List<CommunityRanking>;
-    if (_communityRankingIds.isEmpty) {
-      throw StateError(
-        'Wähle für die Ranglistensetzung mindestens eine Rangliste aus.',
-      );
-    }
-    final rankingId = _communityRankingIds.first;
-    final ranking = rankings.where((item) => item.id == rankingId).firstOrNull;
-    final snapshot = const CommunityEloCalculator().calculate(
-      members: values[0] as List<CommunityMember>,
-      tournaments: values[1] as List<CreatedTournament>,
-      actions: values[3] as List<CommunityRankingAction>,
-      rankingId: rankingId,
-      currentYearOnly: false,
-      validityMonths: ranking?.validityMonths,
-    );
-    final ratings = {
-      for (final entry in snapshot.entries)
-        if (entry.player.playerProfileId != null) ...{
-          entry.player.playerProfileId!: entry.rating,
-          for (final alias in entry.player.aliasProfileIds) alias: entry.rating,
-        },
-    };
-    final order = const CommunityGroupSeeding().order(
-      players: _players,
-      groupSizes: stage.groupSizes,
-      ratingsByProfileId: ratings,
-      mode: mode,
-    );
-    final updated = List<TournamentStage>.from(_stages);
-    updated[groupStageIndex] = TournamentStage.fromJson({
-      ...stage.toJson(),
-      'groupSlotOrder': order,
-    });
-    return List.unmodifiable(updated);
   }
 
   List<TournamentRunStage> _buildRunStages([List<TournamentStage>? stages]) {
@@ -2148,11 +2002,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
 
   @override
   Widget build(BuildContext context) {
-    return CommunityPermissionGate(
-      communityId: widget.communityId,
-      permission: CommunityPermission.createTournaments,
-      builder: _buildAuthorized,
-    );
+    return _buildAuthorized(context);
   }
 
   Widget _buildAuthorized(BuildContext context) {
@@ -2162,7 +2012,7 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
         body: CreationEntryChoices(
           onLeague: () => Navigator.of(context).pushReplacement(
             MaterialPageRoute<void>(
-              builder: (_) => LeagueMatchPage(communityId: widget.communityId),
+              builder: (_) => const LeagueMatchPage(),
             ),
           ),
           onFind: _openFormatPlanner,
@@ -2226,30 +2076,55 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                if (widget.communityId != null)
-                  SwitchListTile(
-                    title: const Text('Zählt zur Community-Rangliste'),
+                SwitchListTile(
+                    title: const Text('Für Rangliste/n berücksichtigen'),
                     subtitle: const Text(
-                      'Ausgeschaltete Turniere beeinflussen weder Elo noch den Ranglistenverlauf.',
+                      'Nur ausgewählte Ranglisten erhalten Ergebnisse dieses Turniers.',
                     ),
                     value: _countsForRanking,
-                    onChanged: (value) =>
-                        setState(() => _countsForRanking = value),
+                    onChanged: (value) => setState(() {
+                      _countsForRanking = value;
+                      if (!value) _localRankingIds.clear();
+                    }),
                   ),
-                if (widget.communityId != null)
-                  TournamentAccessEditor(
-                    communityId: widget.communityId!,
-                    value: _tournamentAccess,
-                    onChanged: (value) =>
-                        setState(() => _tournamentAccess = value),
-                  ),
-                if (widget.communityId != null && _countsForRanking)
-                  CommunityRankingPicker(
-                    communityId: widget.communityId!,
-                    selectedIds: _communityRankingIds,
-                    onChanged: (ids) =>
-                        setState(() => _communityRankingIds = ids),
-                  ),
+                  if (_countsForRanking)
+                    FutureBuilder<List<LocalRanking>>(
+                      future: _localRankings,
+                      builder: (context, snapshot) {
+                        final rankings = snapshot.data ?? const <LocalRanking>[];
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Ranglisten auswählen', style: Theme.of(context).textTheme.titleMedium),
+                                if (snapshot.connectionState == ConnectionState.waiting)
+                                  const LinearProgressIndicator(),
+                                if (rankings.isEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.all(8),
+                                    child: Text('Lege zuerst eine Rangliste im Hauptmenü an.'),
+                                  ),
+                                for (final ranking in rankings)
+                                  CheckboxListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(ranking.name),
+                                    value: _localRankingIds.contains(ranking.id),
+                                    onChanged: (selected) => setState(() {
+                                      if (selected == true) {
+                                        _localRankingIds.add(ranking.id);
+                                      } else {
+                                        _localRankingIds.remove(ranking.id);
+                                      }
+                                    }),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                 Text(
                   'Spieler',
                   style: textTheme.titleLarge?.copyWith(
@@ -2529,54 +2404,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                     breakpoint: 520,
                   ),
                   const SizedBox(height: 12),
-                  if (widget.communityId != null &&
-                      (_editingStageIndex ?? _stages.length) == 0) ...[
-                    Text(
-                      'Gruppen nach Rangliste einteilen',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Die aktuelle Community-Rangliste wird beim Anlegen des Turniers verwendet.',
-                    ),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        ChoiceChip(
-                          label: const Text('Keine Sortierung'),
-                          selected: _communityGroupSeedingMode == 'none',
-                          onSelected: (_) => setState(
-                            () => _communityGroupSeedingMode = 'none',
-                          ),
-                        ),
-                        ChoiceChip(
-                          label: const Text('Gemischte Gruppen'),
-                          selected: _communityGroupSeedingMode == 'mixed',
-                          onSelected: (_) => setState(
-                            () => _communityGroupSeedingMode = 'mixed',
-                          ),
-                        ),
-                        ChoiceChip(
-                          label: const Text('Leistungsgruppen'),
-                          selected: _communityGroupSeedingMode == 'strength',
-                          onSelected: groupSizes.length != 2
-                              ? null
-                              : (_) => setState(
-                                  () => _communityGroupSeedingMode = 'strength',
-                                ),
-                        ),
-                      ],
-                    ),
-                    if (_communityGroupSeedingMode == 'strength')
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          'Die höher bewerteten Spieler kommen in Gruppe A, die übrigen in Gruppe B.',
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-                  ],
                   ExpertSetupSection(
                     title: 'Gruppenoptionen',
                     summary:
@@ -2733,7 +2560,6 @@ class _TournamentCreationPageState extends State<TournamentCreationPage> {
                       setState(() => _plannedBoardCount = boards),
                 ),
                 const SizedBox(height: 12),
-                if (widget.communityId == null) const TournamentDevicesSection(),
                 const SizedBox(height: 24),
                 if (_players.isEmpty || _stages.isEmpty)
                   Padding(

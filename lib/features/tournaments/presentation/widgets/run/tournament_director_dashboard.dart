@@ -4,10 +4,9 @@ import '../../../application/tournament_director_snapshot.dart';
 import '../../../application/tournament_timing.dart';
 import '../../../application/order_of_play/order_of_play_controller.dart';
 import '../../../domain/tournament_models.dart';
-import '../../../../devices/application/board_device_dispatcher.dart';
 import '../../../../../shared/widgets/paged_entries.dart';
 
-/// Embedded in the run page: navigation and device dispatch keep their lifetime.
+/// Embedded tournament controls for match scheduling and result entry.
 class TournamentDirectorDashboard extends StatefulWidget {
   const TournamentDirectorDashboard({
     super.key,
@@ -16,20 +15,14 @@ class TournamentDirectorDashboard extends StatefulWidget {
     required this.onChange,
     required this.onResult,
     required this.onBlock,
-    required this.onDevices,
-    required this.onSync,
-    required this.syncStatus,
-    this.dispatcher,
     this.saveError,
     this.canOperate = true,
   });
   final CreatedTournament tournament;
   final int activeStage;
-  final Future<void> Function() onChange, onDevices, onSync;
+  final Future<void> Function() onChange;
   final Future<void> Function(GroupMatch) onResult;
   final Future<void> Function(int) onBlock;
-  final ValueNotifier<String> syncStatus;
-  final BoardDeviceDispatcher? dispatcher;
   final String? saveError;
   final bool canOperate;
   @override
@@ -110,13 +103,7 @@ class _TournamentDirectorDashboardState
       '${t.toLocal().hour.toString().padLeft(2, '0')}:${t.toLocal().minute.toString().padLeft(2, '0')}';
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: Listenable.merge([
-      widget.syncStatus,
-      if (widget.dispatcher != null) widget.dispatcher!,
-    ]),
-    builder: (context, _) => _build(context),
-  );
+  Widget build(BuildContext context) => _build(context);
 
   Widget _build(BuildContext context) {
     final t = widget.tournament;
@@ -127,11 +114,6 @@ class _TournamentDirectorDashboardState
         .where((e) => e.stageIndex == widget.activeStage && e.match.hasPlayers)
         .toList();
     final completed = active.where((e) => e.match.isResolved).length;
-    final connections =
-        widget.dispatcher?.connections ?? <int, BoardDeviceConnection>{};
-    final failures = connections.entries
-        .where((e) => e.value.status.startsWith('Übertragung fehlgeschlagen'))
-        .toList();
     final waiting = state.schedule.waiting
         .where((e) => e.stageIndex == widget.activeStage && !e.match.isResolved)
         .length;
@@ -257,10 +239,6 @@ class _TournamentDirectorDashboardState
         ),
       ],
       if (_actionError != null) Text(_actionError!),
-      for (final connection in failures)
-        Text(
-          'Board ${connection.key}: Übertragung oder Ergebnisübernahme von ${connection.value.device.name} fehlgeschlagen. Gerät und Speicherung prüfen.',
-        ),
       if (waiting > 0)
         Text('$waiting Paarungen warten auf vorherige Ergebnisse.'),
       if (state.freeBoards.isEmpty &&
@@ -275,40 +253,15 @@ class _TournamentDirectorDashboardState
         ),
       if (widget.saveError == null &&
           _actionError == null &&
-          failures.isEmpty &&
           waiting == 0 &&
           !(state.freeBoards.isEmpty && state.ready.isNotEmpty) &&
           !(active.isNotEmpty && completed == active.length))
         const Text('Keine akuten Probleme erkannt.'),
-      if (t.communityId != null) ...[
-        const SizedBox(height: 8),
-        Text(
-          'Community-Synchronisierung (appweit): ${widget.syncStatus.value}',
-        ),
-        _button(
-          'Jetzt synchronisieren',
-          () => _act(widget.onSync),
-          icon: Icons.sync,
-        ),
-      ] else
-        const Text(
-          'Lokales Turnier · keine Cloud-Synchronisierung erforderlich.',
-        ),
     ]);
     final boards = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _title('Boards'),
-        if (t.communityId != null)
-          const Text(
-            'Boards sperren und freigeben benötigt das Recht „Turniere bearbeiten“.',
-          ),
-        if (t.communityId == null)
-          _button(
-            'Geräte verwalten',
-            () => _act(widget.onDevices),
-            icon: Icons.devices,
-          ),
         for (var b = 1; b <= t.boardCount; b++)
           _box([
             Text(
@@ -319,13 +272,7 @@ class _TournamentDirectorDashboardState
                   : 'Frei'}',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            Text(
-              connections[b] == null
-                  ? t.communityId == null
-                        ? 'Kein Gerät zugeteilt · manuelle Ergebniseingabe möglich'
-                        : 'Manuelle Ergebniseingabe durch die Turnierleitung'
-                  : '${connections[b]!.device.name} · ${connections[b]!.status.startsWith('Übertragung fehlgeschlagen') ? 'Verbindung gestört' : connections[b]!.status}',
-            ),
+            const Text('Manuelle Ergebniseingabe'),
             if (state.runningOn(b) case final e?) ...[
               const SizedBox(height: 8),
               Text(_pair(e)),
@@ -433,31 +380,6 @@ class _TournamentDirectorDashboardState
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ExpansionTile(
-              title: const Text('Turnierleiter-Einstellungen'),
-              leading: const Icon(Icons.settings_outlined),
-              children: [
-                SwitchListTile(
-                  title: const Text('Partie am Board-Gerät starten'),
-                  subtitle: const Text(
-                    'Zeigt auf der Vorschau der nächsten Partie einen Startknopf.',
-                  ),
-                  value: t.allowDeviceStart,
-                  onChanged: _busy
-                      ? null
-                      : (value) => _act(() async {
-                          final previous = t.allowDeviceStart;
-                          setState(() => t.allowDeviceStart = value);
-                          try {
-                            await widget.onChange();
-                          } catch (_) {
-                            setState(() => t.allowDeviceStart = previous);
-                            rethrow;
-                          }
-                        }),
-                ),
-              ],
-            ),
             if (!wide)
               Wrap(
                 spacing: 8,

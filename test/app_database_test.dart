@@ -2,10 +2,11 @@ import 'dart:io';
 
 import 'package:dart_tournament_manager/features/tournaments/data/app_database.dart';
 import 'package:dart_tournament_manager/features/tournaments/domain/tournament_models.dart';
+import 'package:dart_tournament_manager/features/rankings/domain/local_ranking.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('seeds player profiles and exposes them as tournament players', () async {
+  test('starts with an empty player catalog', () async {
     final directory = await Directory.systemTemp.createTemp(
       'dart_tournament_manager_database_test_',
     );
@@ -19,29 +20,8 @@ void main() {
 
     expect(databaseFile.path.endsWith('app_database.sqlite'), isTrue);
     expect(databaseFile.existsSync(), isTrue);
-    expect(profiles, hasLength(4));
-    expect(
-      profiles.map((profile) => profile.displayName),
-      containsAll([
-        'Luke Littler',
-        'Michael van Gerwen',
-        'Gerwyn Price',
-        'Fallon Sherrock',
-      ]),
-    );
-    expect(players.map((player) => player.name), [
-      'Fallon Sherrock',
-      'Gerwyn Price',
-      'Luke Littler',
-      'Michael van Gerwen',
-    ]);
-    expect(players.map((player) => player.profileId), [
-      '00000000-0000-4000-8000-000000000104',
-      '00000000-0000-4000-8000-000000000103',
-      '00000000-0000-4000-8000-000000000101',
-      '00000000-0000-4000-8000-000000000102',
-    ]);
-    expect(players.every((player) => !player.isGenerated), isTrue);
+    expect(profiles, isEmpty);
+    expect(players, isEmpty);
   });
 
   test('creates, updates and deactivates player profiles', () async {
@@ -87,107 +67,33 @@ void main() {
     expect(profiles.any((profile) => profile.id == created.id), isFalse);
   });
 
-  test('registers a local account and links a player profile', () async {
+  test('stores local rankings and their assigned player profiles', () async {
     final directory = await Directory.systemTemp.createTemp(
-      'dart_tournament_manager_database_test_',
+      'dart_local_rankings_test_',
     );
     addTearDown(() => directory.delete(recursive: true));
-
     final database = LocalAppDatabase(baseDirectory: directory);
-
-    expect(await database.loadCurrentAccount(), isNull);
-
-    final account = await database.registerLocalAccount(
-      displayName: 'Theo Checkout',
-      email: 'theo@example.local',
+    final player = await database.createPlayerProfile(displayName: 'Vereinsdart');
+    const ranking = LocalRanking(
+      id: 'dc-unzenberg-2026',
+      name: 'DC Unzenberg 2026',
+      startRating: 1200,
+      newPlayerK: 30,
+      matchesBeforeNormal: 12,
     );
 
-    final currentAccount = await database.loadCurrentAccount();
-    final profiles = await database.loadPlayerProfiles();
+    await database.saveLocalRanking(ranking);
+    await database.setRankingPlayers(ranking.id, [player.id]);
 
-    expect(currentAccount?.id, account.id);
-    expect(currentAccount?.displayName, 'Theo Checkout');
-    expect(currentAccount?.email, 'theo@example.local');
+    expect((await database.loadLocalRankings()).single.startRating, 1200);
+    expect(await database.loadRankingPlayerIds(ranking.id), [player.id]);
     expect(
-      profiles.where(
-        (profile) =>
-            profile.userId == account.id &&
-            profile.displayName == 'Theo Checkout' &&
-            profile.country.isEmpty &&
-            profile.city.isEmpty &&
-            profile.dartsSetupJson.isEmpty,
-      ),
-      hasLength(1),
-    );
-  });
-
-  test('tracks imported players per community and deletes only unshared ones', () async {
-    final directory = await Directory.systemTemp.createTemp(
-      'dart_community_player_profiles_test_',
-    );
-    addTearDown(() => directory.delete(recursive: true));
-    final database = LocalAppDatabase(baseDirectory: directory);
-
-    expect(
-      await database.importCommunityPlayerNames('community-a', [
-        'Anna A',
-        'Berta B',
-      ]),
-      2,
-    );
-    await database.importCommunityPlayerNames('community-b', [
-      'Berta B',
-      'Clara C',
-    ]);
-    expect((await database.loadPlayerProfiles()).map((p) => p.displayName), [
-      'Anna A',
-      'Berta B',
-      'Clara C',
-    ]);
-
-    await database.removeCommunityPlayerProfiles(
-      'community-a',
-      deleteUnsharedPlayers: true,
-    );
-    expect((await database.loadPlayerProfiles()).map((p) => p.displayName), [
-      'Berta B',
-      'Clara C',
-    ]);
-
-    await database.removeCommunityPlayerProfiles(
-      'community-b',
-      deleteUnsharedPlayers: false,
-    );
-    expect((await database.loadPlayerProfiles()).map((p) => p.displayName), [
-      'Berta B',
-      'Clara C',
-    ]);
-  });
-
-  test('signs in and signs out an existing local account', () async {
-    final directory = await Directory.systemTemp.createTemp(
-      'dart_tournament_manager_database_test_',
-    );
-    addTearDown(() => directory.delete(recursive: true));
-
-    final database = LocalAppDatabase(baseDirectory: directory);
-    final account = await database.registerLocalAccount(
-      displayName: 'Anna Average',
-      email: 'anna@example.local',
+      (await database.loadRankingsForPlayer(player.id)).single.name,
+      'DC Unzenberg 2026',
     );
 
-    await database.signOutCurrentAccount();
-    expect(await database.loadCurrentAccount(), isNull);
-
-    final signedIn = await database.signInLocalAccount(
-      email: 'ANNA@example.local',
-    );
-
-    expect(signedIn?.id, account.id);
-    expect((await database.loadCurrentAccount())?.id, account.id);
-
-    await database.signOutCurrentAccount();
-    expect(await database.loadCurrentAccount(), isNull);
+    await database.deleteLocalRanking(ranking.id);
+    expect(await database.loadRankingPlayerIds(ranking.id), isEmpty);
   });
 
   test('keeps player profile id in tournament player json', () {

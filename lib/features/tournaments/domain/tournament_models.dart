@@ -1,9 +1,7 @@
 import 'dart:math';
 import 'player_withdrawal.dart';
-import 'tournament_access.dart';
 import 'imported_tournament_archive.dart';
-import '../../statistics/domain/bot_statistics_privacy.dart';
-import 'tournament_bot.dart';
+import '../../statistics/domain/best_performance.dart';
 import '../../league/domain/league_match.dart';
 
 const List<String> defaultGroupTieBreakers = [
@@ -170,17 +168,11 @@ class TournamentPlayer {
     required this.name,
     required this.isGenerated,
     this.members = const [],
-    this.bot,
   });
 
   factory TournamentPlayer.fromJson(Map<String, dynamic> json) {
     return TournamentPlayer(
-      profileId: json['bot'] == null ? json['profileId'] as String? : null,
-      bot: json['bot'] is Map
-          ? TournamentBot.fromJson(
-              Map<String, dynamic>.from(json['bot'] as Map),
-            )
-          : null,
+      profileId: json['profileId'] as String?,
       name: json['name'] as String? ?? '',
       isGenerated: json['isGenerated'] as bool? ?? false,
       members: (json['members'] as List? ?? const [])
@@ -197,7 +189,6 @@ class TournamentPlayer {
   }
 
   final String? profileId;
-  final TournamentBot? bot;
   final String name;
   final bool isGenerated;
   final List<TournamentPlayer> members;
@@ -207,9 +198,6 @@ class TournamentPlayer {
 
   factory TournamentPlayer.team(Iterable<TournamentPlayer> players) {
     final members = players.expand((p) => p.individuals).toList();
-    if (members.any((p) => p.bot != null)) {
-      throw ArgumentError('Bots nehmen einzeln am Turnier teil.');
-    }
     if (members.length < 2 ||
         members.map((p) => p.profileId ?? p.name).toSet().length !=
             members.length) {
@@ -228,23 +216,20 @@ class TournamentPlayer {
     String? profileId,
     String? name,
     bool? isGenerated,
-    TournamentBot? bot,
   }) {
     return TournamentPlayer(
-      profileId: (bot ?? this.bot) == null ? profileId ?? this.profileId : null,
+      profileId: profileId ?? this.profileId,
       name: name ?? this.name,
       isGenerated: isGenerated ?? this.isGenerated,
       members: members,
-      bot: bot ?? this.bot,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      if (profileId != null && bot == null) 'profileId': profileId,
+      if (profileId != null) 'profileId': profileId,
       'name': name,
       'isGenerated': isGenerated,
-      if (bot != null) 'bot': bot!.toJson(),
       if (isTeam) 'members': members.map((p) => p.toJson()).toList(),
     };
   }
@@ -255,7 +240,6 @@ class TournamentPlayer {
         other.profileId == profileId &&
         other.name == name &&
         other.isGenerated == isGenerated &&
-        other.bot == bot &&
         other.members.length == members.length &&
         Iterable<int>.generate(
           members.length,
@@ -264,7 +248,7 @@ class TournamentPlayer {
 
   @override
   int get hashCode =>
-      Object.hash(profileId, name, isGenerated, bot, Object.hashAll(members));
+      Object.hash(profileId, name, isGenerated, Object.hashAll(members));
 }
 
 class TournamentStage {
@@ -491,13 +475,10 @@ class CreatedTournament {
     required this.runStages,
     this.leagueMatch,
     this.importedArchive,
-    this.communityId,
     this.countsForRanking = true,
-    this.communityRankingIds = const ['default'],
+    this.rankingIds = const [],
     this.activeStageIndex = 0,
     this.boardCount = 1,
-    this.allowDeviceStart = false,
-    this.access = const TournamentAccessSettings(),
     this.syncRevision = 0,
     List<PlayerWithdrawal>? withdrawals,
     Set<int>? blockedBoards,
@@ -533,19 +514,12 @@ class CreatedTournament {
           : ImportedTournamentArchive.fromJson(
               Map<String, dynamic>.from(json['importedArchive'] as Map),
             ),
-      communityId: json['communityId'] as String?,
       countsForRanking: json['countsForRanking'] as bool? ?? true,
-      communityRankingIds: json['communityRankingIds'] == null
-          ? const ['default']
-          : List<String>.unmodifiable(
-              (json['communityRankingIds'] as List).cast<String>(),
-            ),
+      rankingIds: List<String>.unmodifiable(
+        (json['rankingIds'] as List? ?? const []).cast<String>(),
+      ),
       activeStageIndex: json['activeStageIndex'] as int? ?? 0,
       boardCount: (json['boardCount'] as int? ?? 1).clamp(1, 64),
-      allowDeviceStart: json['allowDeviceStart'] == true,
-      access: TournamentAccessSettings.fromJson(
-        json['access'] as Map<String, dynamic>?,
-      ),
       syncRevision: json['syncRevision'] as int? ?? 0,
       withdrawals: _mapListFromJson(
         json['withdrawals'],
@@ -574,13 +548,10 @@ class CreatedTournament {
   final List<TournamentRunStage> runStages;
   final LeagueMatch? leagueMatch;
   final ImportedTournamentArchive? importedArchive;
-  final String? communityId;
   final bool countsForRanking;
-  final List<String> communityRankingIds;
+  final List<String> rankingIds;
   int activeStageIndex;
   int boardCount;
-  bool allowDeviceStart;
-  TournamentAccessSettings access;
   int syncRevision;
   final List<PlayerWithdrawal> withdrawals;
   final Set<int> blockedBoards;
@@ -602,20 +573,11 @@ class CreatedTournament {
       'runStages': runStages.map(_runStageToJson).toList(),
       if (leagueMatch != null) 'leagueMatch': leagueMatch!.toJson(),
       if (importedArchive != null) 'importedArchive': importedArchive!.toJson(),
-      'communityId': communityId,
       if (!countsForRanking) 'countsForRanking': false,
-      if (communityRankingIds.length != 1 ||
-          communityRankingIds.single != 'default')
-        'communityRankingIds': communityRankingIds,
+      if (rankingIds.isNotEmpty) 'rankingIds': rankingIds,
       'activeStageIndex': activeStageIndex,
       'boardCount': boardCount,
       if (syncRevision != 0) 'syncRevision': syncRevision,
-      'allowDeviceStart': allowDeviceStart,
-      if (access.creatorUserId != null ||
-          access.directorUserIds.isNotEmpty ||
-          access.resultEntryMode != ResultEntryMode.directors ||
-          access.resultUserIds.isNotEmpty)
-        'access': access.toJson(),
       if (blockedBoards.isNotEmpty)
         'blockedBoards': blockedBoards.toList()..sort(),
       'startedAt': startedAt?.toUtc().toIso8601String(),
@@ -783,10 +745,10 @@ class GroupMatch {
     this.startedAt,
     this.finishedAt,
     this.startedPlayers,
-    this.deviceResult,
     this.withdrawalSignature,
     this.withdrawalIgnored = false,
     this.withdrawalHadResult = false,
+    this.bestPerformances = const [],
   });
 
   factory GroupMatch.fromJson(Map<String, dynamic> json) {
@@ -808,14 +770,13 @@ class GroupMatch {
       startedAt: _dateTimeFromJson(json['startedAt']),
       finishedAt: _dateTimeFromJson(json['finishedAt']),
       startedPlayers: json['startedPlayers'] as String?,
-      deviceResult:
-          withoutBotStatistics(json['deviceResult'] as Map<String, dynamic>?, {
-            if (_playerFromJson(json['homePlayer'])?.bot != null) 0,
-            if (_playerFromJson(json['awayPlayer'])?.bot != null) 1,
-          }),
       withdrawalSignature: json['withdrawalSignature'] as String?,
       withdrawalIgnored: json['withdrawalIgnored'] == true,
       withdrawalHadResult: json['withdrawalHadResult'] == true,
+      bestPerformances: (json['bestPerformances'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => BestPerformance.fromJson(Map<String, dynamic>.from(item)))
+          .toList(),
     );
   }
 
@@ -842,10 +803,10 @@ class GroupMatch {
   DateTime? startedAt;
   DateTime? finishedAt;
   String? startedPlayers;
-  Map<String, dynamic>? deviceResult;
   String? withdrawalSignature;
   bool withdrawalIgnored;
   bool withdrawalHadResult;
+  List<BestPerformance> bestPerformances;
   bool get countsForStatistics => hasResult && !withdrawalIgnored;
 
   bool get hasPlayers => homePlayer != null && awayPlayer != null;
@@ -902,10 +863,7 @@ class GroupMatch {
       'startedAt': startedAt?.toUtc().toIso8601String(),
       'finishedAt': finishedAt?.toUtc().toIso8601String(),
       'startedPlayers': startedPlayers,
-      'deviceResult': withoutBotStatistics(deviceResult, {
-        if (homePlayer?.bot != null) 0,
-        if (awayPlayer?.bot != null) 1,
-      }),
+      'bestPerformances': bestPerformances.map((item) => item.toJson()).toList(),
     };
   }
 }

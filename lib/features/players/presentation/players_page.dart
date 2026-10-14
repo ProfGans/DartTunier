@@ -1,16 +1,21 @@
 import '../../../shared/widgets/sport_menu.dart';
 import '../../../shared/widgets/sport_page_heading.dart';
 import '../../statistics/presentation/local_player_statistics_page.dart';
+import '../../rankings/presentation/rankings_page.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import 'package:flutter/material.dart';
 
 import '../../tournaments/data/app_database.dart';
 
 class PlayersPage extends StatefulWidget {
-  const PlayersPage({super.key, LocalAppDatabase? database})
-    : _database = database;
+  const PlayersPage({
+    super.key,
+    LocalAppDatabase? database,
+    this.statisticsOnly = false,
+  }) : _database = database;
 
   final LocalAppDatabase? _database;
+  final bool statisticsOnly;
 
   @override
   State<PlayersPage> createState() => _PlayersPageState();
@@ -77,15 +82,65 @@ class _PlayersPageState extends State<PlayersPage> {
     _reloadPlayers();
   }
 
+  Future<void> _challongeLinks(PlayerProfile player) async {
+    final links = await _database.loadChallongePlayerLinks();
+    final names = links.where((row) => row['playerProfileId'] == player.id)
+        .map((row) => '${row['challongeName']}').toList();
+    if (!mounted) return;
+    if (names.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Für diesen Spieler sind keine Challonge-Namen verknüpft.')),
+      );
+      return;
+    }
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Challonge-Verknüpfungen · ${player.displayName}'),
+        content: SizedBox(width: 440, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final alias in names) ListTile(
+            title: Text(alias),
+            trailing: IconButton(
+              tooltip: 'Verknüpfung aufheben',
+              icon: const Icon(Icons.link_off),
+              onPressed: () => Navigator.pop(dialogContext, alias),
+            ),
+          ),
+        ])),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Fertig'))],
+      ),
+    );
+    if (name == null || !mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Verknüpfung aufheben?'),
+        content: Text('„$name“ wird nicht länger automatisch ${player.displayName} zugeordnet.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Nein')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Ja, aufheben')),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _database.deleteChallongePlayerLink(name);
+      if (mounted) _challongeLinks(player);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Spieler')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openPlayerDialog(),
-        icon: const Icon(Icons.person_add_alt_1_outlined),
-        label: const Text('Spieler'),
+      appBar: AppBar(
+        title: Text(widget.statisticsOnly ? 'Statistik' : 'Spieler'),
       ),
+      floatingActionButton: widget.statisticsOnly
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _openPlayerDialog(),
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+              label: const Text('Spieler'),
+            ),
       body: SafeArea(
         child: FutureBuilder<List<PlayerProfile>>(
           future: _playersFuture,
@@ -94,13 +149,28 @@ class _PlayersPageState extends State<PlayersPage> {
             return AdaptiveContentList(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
               children: [
-                const SportPageHeading(
-                  title: 'Spieler verwalten',
-                  subtitle:
-                      'Dein Team im Blick. Spielerprofile anlegen und für Turniere vorbereiten.',
+                SportPageHeading(
+                  title: widget.statisticsOnly
+                      ? 'Spielerstatistiken'
+                      : 'Spieler verwalten',
+                  subtitle: widget.statisticsOnly
+                      ? 'Wähle einen Spieler für seine Turnierstatistik.'
+                      : 'Spielerprofile anlegen und für Turniere vorbereiten.',
                   icon: Icons.groups_outlined,
                 ),
                 const SizedBox(height: 24),
+                if (widget.statisticsOnly)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.calendar_month_outlined),
+                      title: const Text('Jahresrückblick'),
+                      subtitle: const Text('Teilnahmen, Turniersiege, Legs und Bestleistungen je Rangliste auswerten.'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const RankingYearReviewPage()),
+                      ),
+                    ),
+                  ),
                 if (snapshot.connectionState == ConnectionState.waiting)
                   const Center(child: CircularProgressIndicator())
                 else if (players.isEmpty)
@@ -119,7 +189,9 @@ class _PlayersPageState extends State<PlayersPage> {
                         ),
                         title: Text(player.displayName),
                         subtitle: Text(_subtitleFor(player)),
-                        trailing: PopupMenuButton<String>(
+                        trailing: widget.statisticsOnly
+                            ? null
+                            : PopupMenuButton<String>(
                           tooltip: 'Spieleraktionen',
                           onSelected: (action) {
                             if (action == 'edit') {
@@ -133,14 +205,12 @@ class _PlayersPageState extends State<PlayersPage> {
                                 MaterialPageRoute<void>(
                                   builder: (_) => LocalPlayerStatisticsPage(
                                     name: player.displayName,
-                                    profileIds: {
-                                      player.id,
-                                      if (player.userId != null) player.userId!,
-                                    },
+                                    profileIds: {player.id},
                                   ),
                                 ),
                               );
                             }
+                            if (action == 'challonge') _challongeLinks(player);
                           },
                           itemBuilder: (_) => const [
                             PopupMenuItem(
@@ -158,6 +228,13 @@ class _PlayersPageState extends State<PlayersPage> {
                               ),
                             ),
                             PopupMenuItem(
+                              value: 'challonge',
+                              child: SportMenuLabel(
+                                label: 'Challonge-Verknüpfungen',
+                                icon: Icons.link,
+                              ),
+                            ),
+                            PopupMenuItem(
                               value: 'deactivate',
                               child: SportMenuLabel(
                                 label: 'Spieler deaktivieren',
@@ -170,10 +247,7 @@ class _PlayersPageState extends State<PlayersPage> {
                           MaterialPageRoute<void>(
                             builder: (_) => LocalPlayerStatisticsPage(
                               name: player.displayName,
-                              profileIds: {
-                                player.id,
-                                if (player.userId != null) player.userId!,
-                              },
+                              profileIds: {player.id},
                             ),
                           ),
                         ),

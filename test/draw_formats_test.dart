@@ -98,6 +98,13 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(home: TournamentFormatPlannerDialog()),
     );
+    final rules = find.ancestor(
+      of: find.text('Spielregeln'),
+      matching: find.byType(ExpansionTile),
+    );
+    await tester.ensureVisible(rules);
+    await tester.tap(rules);
+    await tester.pumpAndSettle();
     final toggle = find.byKey(const ValueKey('planner-allow-draws'));
     await tester.ensureVisible(toggle);
     await tester.pumpAndSettle();

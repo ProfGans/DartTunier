@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dart_tournament_manager/features/communities/data/challonge_public_reader.dart';
-import 'package:dart_tournament_manager/features/communities/data/challonge_client.dart';
-import 'challonge_import_test.dart' show challongeFixture;
+import 'package:dart_tournament_manager/features/challonge/data/challonge_public_reader.dart';
+import 'package:dart_tournament_manager/features/challonge/data/challonge_client.dart';
+import 'support/challonge_fixture.dart';
 
 void main() {
   test(
@@ -25,7 +25,7 @@ void main() {
         'https://club.challonge.com/old_tournament',
       );
       expect(urls.single.queryParameters.containsKey('api_key'), isFalse);
-      final imported = t.convert('community', {'1': 'a', '2': 'b', '3': 'c'});
+      final imported = t.convert({'1': 'a', '2': 'b', '3': 'c'});
       expect(
         imported.importedArchive!.participants.map((p) => p['finalRank']),
         [1, 2, 2],
