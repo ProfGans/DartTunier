@@ -1,3 +1,63 @@
+# Dart Turnier 0.2.0
+
+Änderungen seit Version 0.1.9. Der Build trägt die interne Buildnummer 25
+(Release-Tag `v0.2.0`).
+
+## Spielerprofile
+
+- **Neue Profilfelder:** Land, Stadt und Dart-Setup wurden ersetzt durch
+  **Spitzname, Geburtsdatum** (mit Kalender-Auswahl), **Autodarts-Name,
+  Scolia-ID und 3k-Darts-ID**. Alle Felder sind rückwärtskompatibel gespeichert –
+  bestehende Datenbanken müssen nicht migriert werden.
+- **Direktes Bearbeiten:** Ein Tippen auf einen Spieler öffnet jetzt sofort den
+  Bearbeitungsdialog. Die Kurzinfo unter dem Namen zeigt Spitzname, Geburtsdatum
+  und externe IDs kompakt an.
+- **Statistikansicht getrennt:** Im Statistikbereich öffnet ein Tippen weiterhin
+  die Profilstatistik; der Spielerbereich bleibt reine Verwaltung.
+
+## Jahresrückblick
+
+- **Jahresrückblick nach Spieler:** Neben dem bestehenden Rückblick nach Rangliste
+  gibt es jetzt einen dedizierten Spieler-Modus. Spieler und Jahr wählen –
+  alle relevanten Statistiken (Turniere, Spiele, Siege, Legs, Bestleistungen)
+  werden exakt für dieses Jahr gefiltert angezeigt.
+- **Verbessertes Layout:** Die Dropdowns haben jetzt einheitliche Rahmen und
+  ausreichend Abstand – kein Gedränge mehr auf kleinen Displays.
+- **Direktlink:** Im Spieler-Modus öffnet ein Button die vollständige
+  Jahres-Profilstatistik in einer eigenen Seite.
+
+## Challonge-Import
+
+- **Spieler-Zuweisung jederzeit bearbeitbar:** Importierte Challonge-Turniere
+  können nachträglich neu lokalen Spielerprofilen zugeordnet werden –
+  direkt über einen Dialog in der Archivansicht.
+- **Zuweisungs-Status-Banner:** Zeigt auf einen Blick, wie viele der
+  Challonge-Teilnehmer bereits einem lokalen Profil zugeordnet sind.
+- **Badge auf Bestleistungs-Icon:** Kennzeichnet Spiele, für die bereits
+  Bestleistungen erfasst wurden.
+
+## Elo-Rangliste
+
+- **Korrekte Runden-Reihenfolge:** Bei importierten Challonge-Turnieren werden
+  Gruppenrunden jetzt chronologisch vor KO-Runden in die Elo-Berechnung einbezogen.
+  Dadurch werden frühere Runden nicht mehr mit falsch hohen oder zu niedrigen
+  Startratings bewertet.
+
+## Turnierformfinder
+
+- **Laufzeitfehler behoben:** Die geschätzte Turnierdauer wurde in bestimmten
+  Konstellationen nicht korrekt berechnet und angezeigt (fehlende Variable `durationText`).
+
+## CI / Releases
+
+- **Flexibles Tag-Format:** Der Release-Workflow akzeptiert jetzt sowohl `v0.2.0`
+  als auch `v0.2.0+25` als gültige Git-Tags. Kein `AssertionError` mehr bei
+  Standard-Versionstags ohne Build-Nummer.
+- **Dynamischer Release-Titel:** Der GitHub-Release-Titel wird automatisch aus
+  der Version in `pubspec.yaml` generiert.
+
+---
+
 # Dart Turnier 0.1.9
 
 Änderungen seit Version 0.1.8. Der Build trägt die interne Buildnummer 24
