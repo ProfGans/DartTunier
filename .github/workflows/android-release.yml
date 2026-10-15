@@ -256,5 +256,5 @@ jobs:
         run: |
           cd dist
           sha256sum dart-turnier-* > SHA256SUMS
-          gh release create "$RELEASE_TAG" ./* --repo "$GITHUB_REPOSITORY" --verify-tag --title "Dart Turnier $RELEASE_VERSION" --notes-file "$GITHUB_WORKSPACE/CHANGELOG.md"
+          gh release create "$RELEASE_TAG" ./* --repo "$GITHUB_REPOSITORY" --verify-tag --title "Dart Turnier $RELEASE_TAG" --notes-file "$GITHUB_WORKSPACE/CHANGELOG.md"
 

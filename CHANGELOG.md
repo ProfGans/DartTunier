@@ -1,7 +1,7 @@
 # Dart Turnier 0.2.0
 
 Änderungen seit Version 0.1.9. Der Build trägt die interne Buildnummer 25
-(Release-Tag `v0.2.0`).
+(Release-Tag `v0.2.0+25`).
 
 ## Spielerprofile
 
