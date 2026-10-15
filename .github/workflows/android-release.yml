@@ -53,11 +53,16 @@ jobs:
         shell: python
         run: |
           import os, pathlib, re
-          version = re.search(r'^version:\s*(\d+\.\d+\.\d+\+[1-9]\d*)\s*$', pathlib.Path('pubspec.yaml').read_text(), re.M)[1]
+          m = re.search(r'^version:\s*(\d+\.\d+\.\d+)\+([1-9]\d*)\s*$', pathlib.Path('pubspec.yaml').read_text(), re.M)
+          assert m, 'pubspec.yaml version must be in X.Y.Z+N format'
+          version_short = m[1]
+          version_full  = m[1] + '+' + m[2]
           if os.environ['GITHUB_REF_TYPE'] == 'tag':
-              assert os.environ['GITHUB_REF_NAME'] == 'v' + version, 'Tag must match app version and build number in pubspec.yaml'
+              tag = os.environ['GITHUB_REF_NAME']
+              assert tag in ('v' + version_short, 'v' + version_full), f'Tag {tag!r} must be v{version_short} or v{version_full}'
           with open(os.environ['GITHUB_ENV'], 'a') as output:
-              output.write('RELEASE_TAG=v' + version + '\n')
+              output.write('RELEASE_TAG=v' + version_short + '\n')
+              output.write('RELEASE_VERSION=' + version_short + '\n')
       - run: flutter analyze --no-fatal-infos
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_checks }}
       - name: Strict analysis for tournament management
@@ -251,5 +256,5 @@ jobs:
         run: |
           cd dist
           sha256sum dart-turnier-* > SHA256SUMS
-          gh release create "$RELEASE_TAG" ./* --repo "$GITHUB_REPOSITORY" --verify-tag --title "Dart Turnier 0.1.8" --notes-file "$GITHUB_WORKSPACE/CHANGELOG.md"
+          gh release create "$RELEASE_TAG" ./* --repo "$GITHUB_REPOSITORY" --verify-tag --title "Dart Turnier $RELEASE_VERSION" --notes-file "$GITHUB_WORKSPACE/CHANGELOG.md"
 
