@@ -14,11 +14,44 @@ class PlanningSuggestionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    var totalEst = 0.0;
+    var totalMin = 0.0;
+    var totalMax = 0.0;
+    if (suggestion.configurations.isNotEmpty) {
+      for (var i = 0; i < suggestion.configurations.length; i++) {
+        final stage = suggestion.configurations[i];
+        final bo = stage.gameFormat.bestOfLegs;
+        final count = i < suggestion.stageMatchCounts.length ? suggestion.stageMatchCounts[i] : 1;
+        final minLegs = bo ~/ 2 + 1;
+        final maxLegs = bo;
+        final estLegs = (minLegs + maxLegs) / 2.0;
+        totalEst += count * estLegs;
+        totalMin += count * minLegs;
+        totalMax += count * maxLegs;
+      }
+    } else {
+      for (final stage in suggestion.stages) {
+        final bo = stage.format.bestOfLegs;
+        final minLegs = bo ~/ 2 + 1;
+        final maxLegs = bo;
+        final estLegs = (minLegs + maxLegs) / 2.0;
+        totalEst += estLegs;
+        totalMin += minLegs;
+        totalMax += maxLegs;
+      }
+    }
+    final minRatio = totalEst > 0 ? (totalMin / totalEst) : 0.8;
+    final maxRatio = totalEst > 0 ? (totalMax / totalEst) : 1.2;
+    final minMinutes = (suggestion.estimatedMinutes * minRatio).round();
+    final maxMinutes = (suggestion.estimatedMinutes * maxRatio).round();
+    final minH = minMinutes ~/ 60;
+    final minM = minMinutes % 60;
+    final maxH = maxMinutes ~/ 60;
+    final maxM = maxMinutes % 60;
+    final spanText = 'Spanne: ${minH > 0 ? '$minH h ' : ''}$minM min – ${maxH > 0 ? '$maxH h ' : ''}$maxM min';
     final estH = suggestion.estimatedMinutes ~/ 60;
     final estM = suggestion.estimatedMinutes % 60;
-    final durationText = estH > 0
-        ? 'ca. $estH h $estM min'
-        : 'ca. $estM min';
+    final durationText = 'ca. ${estH > 0 ? '$estH h ' : ''}$estM min';
 
     return Card(
       child: InkWell(
@@ -39,12 +72,24 @@ class PlanningSuggestionCard extends StatelessWidget {
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      durationText,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          durationText,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '· $spanText',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
 

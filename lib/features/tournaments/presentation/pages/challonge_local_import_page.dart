@@ -2,7 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../challonge/data/challonge_public_reader.dart';
 import '../../../challonge/data/challonge_client.dart';
@@ -152,19 +156,60 @@ class _ChallongeLocalImportPageState extends State<ChallongeLocalImportPage> {
   }
 
   Future<void> _export() async {
+    setState(() { _busy = true; _message = null; });
     try {
-      final location = await getSaveLocation(suggestedName: 'dart-turniere.json', acceptedTypeGroups: [
-        const XTypeGroup(label: 'JSON', extensions: ['json']),
-      ]);
-      if (location == null) return;
       final tournaments = await _storage.loadTournaments();
-      await File(location.path).writeAsString(const JsonEncoder.withIndent('  ').convert({
+      final jsonString = const JsonEncoder.withIndent('  ').convert({
         'schemaVersion': 1,
         'exportedAt': DateTime.now().toIso8601String(),
         'tournaments': tournaments.map((t) => t.toJson()).toList(),
-      }), flush: true);
-      if (mounted) setState(() => _message = '${tournaments.length} Turniere exportiert.');
-    } catch (error) { if (mounted) setState(() => _message = 'Export fehlgeschlagen: $error'); }
+      });
+      final bytes = utf8.encode(jsonString);
+      const fileName = 'dart-turniere.json';
+
+      if (kIsWeb) {
+        final uri = Uri.dataFromBytes(bytes, mimeType: 'application/json');
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+        }
+      } else if (Platform.isAndroid) {
+        try {
+          final saved = await const MethodChannel('dartturnier/backups').invokeMethod<bool>('export', {
+            'bytes': bytes,
+            'fileName': fileName,
+            'mimeType': 'application/json',
+          });
+          if (saved == false) return;
+        } catch (_) {
+          final tempDir = await getTemporaryDirectory();
+          final file = File('${tempDir.path}/$fileName');
+          await file.writeAsBytes(bytes, flush: true);
+          final uri = Uri.file(file.path);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri);
+          }
+        }
+      } else {
+        final location = await getSaveLocation(
+          suggestedName: fileName,
+          acceptedTypeGroups: const [
+            XTypeGroup(label: 'JSON', extensions: ['json']),
+          ],
+        );
+        if (location == null) return;
+        await File(location.path).writeAsBytes(bytes, flush: true);
+      }
+      if (mounted) {
+        setState(() => _message = '${tournaments.length} Turniere exportiert.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${tournaments.length} Turniere erfolgreich exportiert.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) setState(() => _message = 'Export fehlgeschlagen: $error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override

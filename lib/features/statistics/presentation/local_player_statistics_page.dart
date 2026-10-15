@@ -10,9 +10,11 @@ class LocalPlayerStatisticsPage extends StatefulWidget {
     super.key,
     required this.name,
     required this.profileIds,
+    this.year,
   });
   final String name;
   final Set<String> profileIds;
+  final int? year;
   @override
   State<LocalPlayerStatisticsPage> createState() =>
       _LocalPlayerStatisticsPageState();
@@ -38,7 +40,7 @@ class _LocalPlayerStatisticsPageState
   >
   _load() async {
     const service = LocalStatisticsService();
-    final stats = await service.forPlayers(widget.profileIds);
+    final stats = await service.forPlayers(widget.profileIds, year: widget.year);
     final rankings = await service.rankingsFor(widget.profileIds);
     final positions = await service.rankingPositionsFor(
       widget.profileIds,
@@ -49,7 +51,13 @@ class _LocalPlayerStatisticsPageState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.name)),
+    appBar: AppBar(
+      title: Text(
+        widget.year == null
+            ? widget.name
+            : '${widget.name} · Jahresrückblick ${widget.year}',
+      ),
+    ),
     body: FutureBuilder<
       (
         LocalPlayerStatistics,

@@ -435,6 +435,38 @@ class PlayerProfile {
   final DateTime createdAt;
   final bool isActive;
 
+  Map<String, dynamic> get _metadata {
+    final trimmed = dartsSetupJson.trim();
+    if (trimmed.startsWith('{')) {
+      try {
+        return Map<String, dynamic>.from(jsonDecode(trimmed) as Map);
+      } catch (_) {}
+    }
+    return const {};
+  }
+
+  String get nickname => _metadata['nickname'] as String? ?? '';
+  String get birthdate => _metadata['birthdate'] as String? ?? '';
+  String get scoliaId => _metadata['scoliaId'] as String? ?? '';
+  String get autodartsName => _metadata['autodartsName'] as String? ?? '';
+  String get threeKDartsId => _metadata['threeKDartsId'] as String? ?? '';
+
+  static String encodeMetadata({
+    String nickname = '',
+    String birthdate = '',
+    String scoliaId = '',
+    String autodartsName = '',
+    String threeKDartsId = '',
+  }) {
+    return jsonEncode({
+      if (nickname.trim().isNotEmpty) 'nickname': nickname.trim(),
+      if (birthdate.trim().isNotEmpty) 'birthdate': birthdate.trim(),
+      if (scoliaId.trim().isNotEmpty) 'scoliaId': scoliaId.trim(),
+      if (autodartsName.trim().isNotEmpty) 'autodartsName': autodartsName.trim(),
+      if (threeKDartsId.trim().isNotEmpty) 'threeKDartsId': threeKDartsId.trim(),
+    });
+  }
+
   PlayerProfile copyWith({
     String? displayName,
     String? country,

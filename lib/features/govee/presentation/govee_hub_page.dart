@@ -95,6 +95,28 @@ class _GoveeHubPageState extends State<GoveeHubPage> {
     }
   }
 
+  Future<void> _applyScene(int scene) async {
+    for (final strip in _selectedDevices.keys) {
+      final device = _devices.where((item) => item.id == _selectedDevices[strip]).firstOrNull;
+      if (device == null) continue;
+      if (scene == 1) {
+        // Szene 1: Warmes Ambiente
+        if (device.supportsTemperature) {
+          await _apply(strip, null, kelvin: 3000);
+        } else if (device.supportsRgb) {
+          await _apply(strip, 0xFFB347);
+        }
+      } else if (scene == 2) {
+        // Szene 2: Wettkampf / Fokus
+        if (device.supportsTemperature) {
+          await _apply(strip, null, kelvin: 5000);
+        } else if (device.supportsRgb) {
+          await _apply(strip, 0x1E90FF);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Govee Licht-Hub')),
@@ -130,6 +152,41 @@ class _GoveeHubPageState extends State<GoveeHubPage> {
             Text(
               _error!,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          if (_devices.isNotEmpty && _selectedDevices.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Card(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Ambiente-Szenen (alle Streifen)',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilledButton.tonalIcon(
+                          onPressed: _busyStrips.isNotEmpty ? null : () => _applyScene(1),
+                          icon: const Icon(Icons.wb_sunny_outlined),
+                          label: const Text('Szene 1 (Warmes Ambiente)'),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _busyStrips.isNotEmpty ? null : () => _applyScene(2),
+                          icon: const Icon(Icons.sports_score_outlined),
+                          label: const Text('Szene 2 (Wettkampf / Fokus)'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
           const SizedBox(height: 12),
@@ -190,6 +247,8 @@ class _GoveeHubPageState extends State<GoveeHubPage> {
               spacing: 8,
               runSpacing: 8,
               children: [
+                _colorButton(index, 'Szene 1', 0xFFB347, kelvin: 3000),
+                _colorButton(index, 'Szene 2', 0x1E90FF, kelvin: 5000),
                 _colorButton(index, 'Türkis', 0x40E0D0),
                 _colorButton(index, 'Grün', 0x00FF00),
                 _colorButton(index, 'Rot', 0xFF0000),

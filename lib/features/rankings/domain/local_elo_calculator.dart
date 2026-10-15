@@ -104,7 +104,10 @@ class LocalEloCalculator {
     ];
     pending.sort((a, b) {
       final time = _matchDate(a.tournament, a.match).compareTo(_matchDate(b.tournament, b.match));
-      return time == 0 ? a.tournament.id.compareTo(b.tournament.id) : time;
+      if (time != 0) return time;
+      final tid = a.tournament.id.compareTo(b.tournament.id);
+      if (tid != 0) return tid;
+      return a.match.round.compareTo(b.match.round);
     });
     for (final row in pending) {
       final tournament = row.tournament;

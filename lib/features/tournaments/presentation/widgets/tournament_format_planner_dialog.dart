@@ -43,11 +43,118 @@ class _TournamentFormatPlannerDialogState
   bool _allowSets = false;
   bool _allowDraws = false;
   bool _requireGroupPhase = false;
-  int _maximumStages = 3;
+  int _maximumStages = 2;
   int _maximumLives = 5;
   int _suggestionPageSize = 3;
-  final Set<String> _enabledModes = TournamentPlanningRequest.modeLabels.keys
-      .toSet();
+  final Set<String> _enabledModes = {
+    'groups:round_robin',
+    'groups:limited_round_robin',
+    'groups:mini_knockout',
+    'groups:double_knockout',
+    'groups:triple_knockout',
+  };
+
+  static const _modeDescriptions = <String, String>{
+    'single_knockout':
+        'Einfaches K.-o.-System (Single Elimination):\n\n'
+        'Wer eine Begegnung verliert, scheidet sofort aus dem Turnier aus. Der Gewinner zieht in die nächste Runde ein, bis im Finale der Turniersieger ermittelt wird.',
+    'double_knockout':
+        'Doppel-K.-o.-System (Double Elimination):\n\n'
+        'Jeder Spieler hat zwei Chancen. Wer in der Hauptrunde (Winners Bracket) verliert, scheidet nicht aus, sondern wechselt in die Verliererrunde (Losers Bracket). Erst bei der zweiten Niederlage scheidet ein Teilnehmer endgültig aus.',
+    'triple_knockout':
+        'Triple-K.-o.-System (Triple Elimination):\n\n'
+        'Jeder Spieler scheidet erst nach der dritten Niederlage aus. Neben der Hauptrunde gibt es zwei Auffangrunden (B- und C-Bracket), wodurch allen Teilnehmern mindestens drei garantierte K.-o.-Partien geboten werden.',
+    'kratzer':
+        'Kratzer-Modus (Leben-System):\n\n'
+        'Alle Teilnehmer starten mit einer festen Anzahl an Leben (z. B. 3 bis 5 Leben). Jede verlorene Partie kostet ein Leben („Kratzer“). Wer alle Leben aufgebraucht hat, scheidet aus. Die verbleibenden Spieler treten gegeneinander an, bis nur noch ein Sieger übrig ist.',
+    'groups:round_robin':
+        'Gruppenphase: Jeder gegen jeden (einmal):\n\n'
+        'Innerhalb jeder Gruppe spielt jeder Teilnehmer genau einmal gegen jeden anderen Gruppengegner. Die Rangfolge ergibt sich aus Siegen, Leg-Differenz und direktem Vergleich.',
+    'groups:limited_round_robin':
+        'Gruppenphase: Rundenformat mit max. 5 Spielen:\n\n'
+        'Für größere Teilnehmergruppen: Jeder Spieler absolviert maximal 5 festgelegte Runden gegen verschiedene Gegner, um die Turnierdauer verlässlich einzugrenzen, ohne dass alle Kombinationen ausgespielt werden müssen.',
+    'groups:swiss':
+        'Schweizer System:\n\n'
+        'In jeder Spielrunde werden Teilnehmer mit identischem oder ähnlichem Punktestand gegeneinander gepaart. Niemand scheidet vorzeitig aus, und die Spiele bleiben durch das dynamische Nachrücken bis zum Ende ausgeglichen.',
+    'groups:mini_knockout':
+        'Gruppenphase: Mini-K.-o.:\n\n'
+        'Innerhalb der Gruppe wird ein kleines K.-o.-Raster (z. B. 4 Spieler: Halbfinale und Finale) gespielt. Die Sieger qualifizieren sich direkt für die nächste Turnieretappe.',
+    'groups:double_knockout':
+        'Gruppenphase: Mini-Doppel-K.-o.:\n\n'
+        'Wie das Mini-K.-o., jedoch mit Verlierer-Runde innerhalb der Gruppe (Double Elimination). Erst zwei Gruppen-Niederlagen führen zum Ausscheiden.',
+    'groups:triple_knockout':
+        'Gruppenphase: Mini-Triple-K.-o.:\n\n'
+        'Gruppenentscheidung mit drei Leben: Erst nach der dritten Niederlage in der Gruppe steht das Ausscheiden fest.',
+  };
+
+  Future<void> _pickMinDuration() async {
+    final curH = int.tryParse(_minHours.text) ?? 2;
+    final curM = int.tryParse(_minMinutes.text) ?? 0;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: curH.clamp(0, 23), minute: curM.clamp(0, 59)),
+      helpText: 'Mindestdauer auswählen',
+      confirmText: 'Übernehmen',
+      cancelText: 'Abbrechen',
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _minHours.text = '${picked.hour}';
+        _minMinutes.text = '${picked.minute}';
+        _suggestions = null;
+      });
+    }
+  }
+
+  Future<void> _pickMaxDuration() async {
+    final curH = int.tryParse(_maxHours.text) ?? 4;
+    final curM = int.tryParse(_maxMinutes.text) ?? 0;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: curH.clamp(0, 23), minute: curM.clamp(0, 59)),
+      helpText: 'Maximaldauer auswählen',
+      confirmText: 'Übernehmen',
+      cancelText: 'Abbrechen',
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _maxHours.text = '${picked.hour}';
+        _maxMinutes.text = '${picked.minute}';
+        _suggestions = null;
+      });
+    }
+  }
+
+  Future<void> _pickTargetDuration() async {
+    final curH = int.tryParse(_targetHours.text) ?? 3;
+    final curM = int.tryParse(_targetMinutes.text) ?? 0;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: curH.clamp(0, 23), minute: curM.clamp(0, 59)),
+      helpText: 'Wunschdauer auswählen',
+      confirmText: 'Übernehmen',
+      cancelText: 'Abbrechen',
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _targetHours.text = '${picked.hour}';
+        _targetMinutes.text = '${picked.minute}';
+        _suggestions = null;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -272,89 +379,95 @@ class _TournamentFormatPlannerDialogState
               ),
               const SizedBox(height: 12),
               if (_useTargetDuration) ...[
-                // Wunschdauer: Stunden + Minuten
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _targetHours,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Stunden',
-                          helperText: 'Wunschdauer',
-                          helperMaxLines: 2,
-                          errorText: _targetError,
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.timer_outlined),
+                    title: const Text('Wunschdauer festlegen'),
+                    subtitle: Text(
+                      '${_targetHours.text} Std. ${_targetMinutes.text.padLeft(2, '0')} Min. (Vorschläge sortiert nach Nähe)',
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _targetMinutes,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Minuten (0–59)',
-                          helperText: 'Vorschläge sortiert nach Nähe.',
-                          helperMaxLines: 2,
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
+                    trailing: FilledButton.tonalIcon(
+                      onPressed: _calculating ? null : _pickTargetDuration,
+                      icon: const Icon(Icons.access_time),
+                      label: const Text('Ändern'),
                     ),
-                  ],
+                    onTap: _calculating ? null : _pickTargetDuration,
+                  ),
                 ),
+                if (_targetError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 12),
+                    child: Text(
+                      _targetError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
               ] else ...[
-                // Zeitfenster: Min-Stunden + Min-Minuten / Max-Stunden + Max-Minuten
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _minHours,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Mind. Stunden',
-                          border: OutlineInputBorder(),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 450;
+                    final minWidget = Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.hourglass_top_outlined),
+                        title: const Text('Mindestdauer'),
+                        subtitle: Text(
+                          '${_minHours.text} Std. ${_minMinutes.text.padLeft(2, '0')} Min.',
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _minMinutes,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Mind. Minuten',
-                          border: OutlineInputBorder(),
+                        trailing: OutlinedButton.icon(
+                          onPressed: _calculating ? null : _pickMinDuration,
+                          icon: const Icon(Icons.access_time),
+                          label: const Text('Ändern'),
                         ),
+                        onTap: _calculating ? null : _pickMinDuration,
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextField(
-                        controller: _maxHours,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Max. Stunden',
-                          errorText: _durationError,
-                          border: const OutlineInputBorder(),
+                    );
+                    final maxWidget = Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.hourglass_bottom_outlined),
+                        title: const Text('Maximaldauer'),
+                        subtitle: Text(
+                          '${_maxHours.text} Std. ${_maxMinutes.text.padLeft(2, '0')} Min.',
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _maxMinutes,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Max. Minuten',
-                          border: OutlineInputBorder(),
+                        trailing: OutlinedButton.icon(
+                          onPressed: _calculating ? null : _pickMaxDuration,
+                          icon: const Icon(Icons.access_time),
+                          label: const Text('Ändern'),
                         ),
+                        onTap: _calculating ? null : _pickMaxDuration,
                       ),
-                    ),
-                  ],
+                    );
+                    if (isNarrow) {
+                      return Column(
+                        children: [
+                          minWidget,
+                          const SizedBox(height: 8),
+                          maxWidget,
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: minWidget),
+                        const SizedBox(width: 8),
+                        Expanded(child: maxWidget),
+                      ],
+                    );
+                  },
                 ),
+                if (_durationError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 12),
+                    child: Text(
+                      _durationError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
               ],
               const SizedBox(height: 16),
 
@@ -370,22 +483,48 @@ class _TournamentFormatPlannerDialogState
                   ),
                   for (final mode
                       in TournamentPlanningRequest.modeLabels.entries)
-                    CheckboxListTile(
-                      key: ValueKey('planner-mode-${mode.key}'),
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(mode.value),
-                      value: _enabledModes.contains(mode.key),
-                      onChanged: _calculating
-                          ? null
-                          : (selected) => setState(() {
-                              if (selected == true) {
-                                _enabledModes.add(mode.key);
-                              } else {
-                                _enabledModes.remove(mode.key);
-                              }
-                              _suggestions = null;
-                            }),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CheckboxListTile(
+                            key: ValueKey('planner-mode-${mode.key}'),
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: Text(mode.value),
+                            value: _enabledModes.contains(mode.key),
+                            onChanged: _calculating
+                                ? null
+                                : (selected) => setState(() {
+                                    if (selected == true) {
+                                      _enabledModes.add(mode.key);
+                                    } else {
+                                      _enabledModes.remove(mode.key);
+                                    }
+                                    _suggestions = null;
+                                  }),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.help_outline, size: 20),
+                          tooltip: 'Erklärung zur Turnierform',
+                          onPressed: () => showDialog<void>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text(mode.value),
+                              content: Text(
+                                _modeDescriptions[mode.key] ??
+                                    'Keine Beschreibung vorhanden.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Schließen'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   if (_enabledModes.isEmpty)
                     const Text('Bitte mindestens eine Turnierform auswählen.'),
@@ -573,15 +712,17 @@ class _TournamentFormatPlannerDialogState
                   ),
                 ],
               ),
-              SportSettingsSection(
-                title: 'So entsteht die Schätzung',
-                summary: 'Spieldistanz, Zeitansatz und weitere Etappen',
-                icon: Icons.info_outline,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
+              ExpansionTile(
+                title: const Text('So entsteht die Schätzung', style: TextStyle(fontSize: 14)),
+                subtitle: const Text('Spieldistanz, Zeitansatz und weitere Etappen', style: TextStyle(fontSize: 12)),
+                leading: const Icon(Icons.info_outline, size: 20),
+                initiallyExpanded: false,
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
                     child: Text(
                       'Spätere Etappen bleiben bei gleicher Distanz oder steigen höchstens um eine Best-of-Stufe (Bo3 → Bo5); dies gilt für Legs und Sets. Jede Etappe erhält einen eigenen Vorschlag: Best of 1 bis 101 Legs; bei erlaubtem Unentschieden zusätzlich gerade Leg-Längen bis 100 und optional Best of 3 oder 5 Sets. Bei variabler Punktzahl werden 301 und 501 je Etappe verglichen. Zeitansatz: Mittelwert aus minimaler und maximaler Anzahl Legs bzw. Sets. Bo3 = 2,5; Bo4 = 3,5; Bo5 = 4; Bo101 = 76. Bo1 = 1.',
+                      style: TextStyle(fontSize: 12),
                     ),
                   ),
                 ],

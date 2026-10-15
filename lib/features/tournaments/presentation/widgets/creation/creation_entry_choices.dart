@@ -5,11 +5,11 @@ import '../../../../../shared/widgets/sport_menu.dart';
 class CreationEntryChoices extends StatelessWidget {
   const CreationEntryChoices({
     super.key,
-    required this.onFind,
+    this.onFind,
     required this.onExpert,
     required this.onLeague,
   });
-  final VoidCallback onFind;
+  final VoidCallback? onFind;
   final VoidCallback onExpert;
   final VoidCallback onLeague;
   @override
@@ -27,12 +27,6 @@ class CreationEntryChoices extends StatelessWidget {
       SportMenuGroup(
         title: 'Turnier starten',
         actions: [
-          SportMenuAction(
-            label: 'Turnierform finden',
-            description: 'Passenden Aufbau vorschlagen lassen.',
-            icon: Icons.auto_awesome_outlined,
-            onTap: onFind,
-          ),
           SportMenuAction(
             label: 'Normales- oder Ranglistenturnier erstellen',
             description: 'Spieler, Etappen, Regeln und Ranglisten selbst festlegen.',

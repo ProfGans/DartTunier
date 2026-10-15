@@ -21,6 +21,15 @@ class ImportedTournamentArchive {
         matches: value,
         nativeValidation: nativeValidation,
       );
+  ImportedTournamentArchive copyWithParticipants(List<Map<String, dynamic>> value) =>
+      ImportedTournamentArchive(
+        sourceId: sourceId,
+        url: url,
+        mode: mode,
+        participants: value,
+        matches: matches,
+        nativeValidation: nativeValidation,
+      );
   factory ImportedTournamentArchive.fromJson(Map<String, dynamic> json) {
     if (![1, 2, 3].contains(json['version']) || json['source'] != 'challonge') {
       throw const FormatException('Unbekannte Importversion.');

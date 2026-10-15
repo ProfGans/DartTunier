@@ -48,18 +48,6 @@ void main() {
             ),
           ),
         );
-        final finder = find.text('Turnierform finden');
-        await tester.scrollUntilVisible(
-          finder,
-          200,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(finder);
-        await tester.pumpAndSettle();
-        expect(find.text('Passende Turnierform finden'), findsOneWidget);
-        Navigator.of(tester.element(find.byType(AlertDialog))).pop();
-        await tester.pumpAndSettle();
         final expert = find.text('Normales- oder Ranglistenturnier erstellen');
         await tester.scrollUntilVisible(
           expert,
@@ -69,6 +57,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(expert);
         await tester.pumpAndSettle();
+        expect(find.text('Passende Turnierform finden'), findsOneWidget);
         expect(expert, findsNothing);
         await tester.scrollUntilVisible(
           find.byKey(const ValueKey('tournament-name-field')),

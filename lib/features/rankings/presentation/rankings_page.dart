@@ -17,6 +17,10 @@ import '../application/local_ranking_series_service.dart';
 import '../application/ranking_year_review_service.dart';
 import '../domain/local_ranking.dart';
 
+import '../../statistics/domain/best_performance.dart';
+import '../../statistics/domain/local_statistics.dart';
+import '../../statistics/presentation/local_player_statistics_page.dart';
+
 class RankingsPage extends StatefulWidget {
   const RankingsPage({super.key, LocalAppDatabase? database})
     : _database = database;
@@ -27,6 +31,8 @@ class RankingsPage extends StatefulWidget {
   State<RankingsPage> createState() => _RankingsPageState();
 }
 
+enum _YearReviewMode { ranking, player }
+
 class RankingYearReviewPage extends StatefulWidget {
   const RankingYearReviewPage({super.key});
   @override
@@ -36,22 +42,38 @@ class RankingYearReviewPage extends StatefulWidget {
 class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
   final _database = LocalAppDatabase();
   late final Future<List<LocalRanking>> _rankings = _database.loadLocalRankings();
-  LocalRanking? _selected;
+  late final Future<List<PlayerProfile>> _players = _database.loadPlayerProfiles();
+  _YearReviewMode _mode = _YearReviewMode.ranking;
+  LocalRanking? _selectedRanking;
+  PlayerProfile? _selectedPlayer;
   int _year = DateTime.now().year;
-  Future<RankingYearReview>? _review;
+  Future<RankingYearReview>? _rankingReview;
+  Future<LocalPlayerStatistics>? _playerReview;
   bool _exporting = false;
 
-  void _select(LocalRanking? ranking) {
+  void _selectRanking(LocalRanking? ranking) {
     setState(() {
-      _selected = ranking;
-      _review = ranking == null ? null : const RankingYearReviewService().calculate(ranking, _year);
+      _selectedRanking = ranking;
+      _rankingReview = ranking == null ? null : const RankingYearReviewService().calculate(ranking, _year);
+    });
+  }
+
+  void _selectPlayer(PlayerProfile? player) {
+    setState(() {
+      _selectedPlayer = player;
+      _playerReview = player == null ? null : const LocalStatisticsService().forPlayers({player.id}, year: _year);
     });
   }
 
   void _setYear(int year) {
     setState(() {
       _year = year;
-      if (_selected != null) _review = const RankingYearReviewService().calculate(_selected!, year);
+      if (_selectedRanking != null) {
+        _rankingReview = const RankingYearReviewService().calculate(_selectedRanking!, year);
+      }
+      if (_selectedPlayer != null) {
+        _playerReview = const LocalStatisticsService().forPlayers({_selectedPlayer!.id}, year: year);
+      }
     });
   }
 
@@ -117,68 +139,257 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Jahresrückblick')),
-    body: FutureBuilder<List<LocalRanking>>(
-      future: _rankings,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final rankings = snapshot.data!;
-        final currentYear = DateTime.now().year;
-        final years = List<int>.generate(currentYear - 1999, (index) => currentYear - index);
-        return AdaptiveContentList(children: [
-          Text('Rückblick nach Rangliste', style: Theme.of(context).textTheme.headlineSmall),
-          DropdownButtonFormField<LocalRanking>(
-            initialValue: _selected,
-            decoration: const InputDecoration(labelText: 'Rangliste'),
-            items: [for (final ranking in rankings) DropdownMenuItem(value: ranking, child: Text(ranking.name))],
-            onChanged: _select,
-          ),
-          DropdownButtonFormField<int>(
-            initialValue: _year,
-            menuMaxHeight: 320,
-            decoration: const InputDecoration(labelText: 'Jahr', border: OutlineInputBorder()),
-            items: [for (final year in years) DropdownMenuItem(value: year, child: Text('$year'))],
-            onChanged: (value) { if (value != null) _setYear(value); },
-          ),
-          if (rankings.isEmpty) const Text('Lege zuerst eine Rangliste an und weise Spieler zu.'),
-          if (_review != null) FutureBuilder<RankingYearReview>(
-            future: _review,
-            builder: (context, data) {
-              if (!data.hasData) return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
-              final review = data.data!;
-              final rows = review.players.entries.toList();
-              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const SizedBox(height: 20),
-                Text('${review.tournaments} Turniere · ${review.totalLegs} Legs · ${review.totalBestPerformances} Bestleistungen · ${review.total180} × 180+ · ${review.total170} × 170+ · ${review.totalShortLegs} Shortlegs · ${review.totalHighFinishes} High Finishes', style: Theme.of(context).textTheme.titleMedium),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: OutlinedButton.icon(
-                    onPressed: _exporting ? null : () => _exportReview(_selected!, review),
-                    icon: _exporting
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.image_outlined),
-                    label: Text(_exporting ? 'Grafik wird exportiert…' : 'Rückblick als Grafik exportieren'),
-                  ),
+  Widget build(BuildContext context) {
+    final currentYear = DateTime.now().year;
+    final years = List<int>.generate(currentYear - 1999, (index) => currentYear - index);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Jahresrückblick')),
+      body: FutureBuilder<(List<LocalRanking>, List<PlayerProfile>)>(
+        future: Future.wait([_rankings, _players]).then(
+          (res) => (res[0] as List<LocalRanking>, res[1] as List<PlayerProfile>),
+        ),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final (rankings, players) = snapshot.data!;
+
+          return AdaptiveContentList(
+            children: [
+              Center(
+                child: SegmentedButton<_YearReviewMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: _YearReviewMode.ranking,
+                      label: Text('Nach Rangliste'),
+                      icon: Icon(Icons.leaderboard_outlined),
+                    ),
+                    ButtonSegment(
+                      value: _YearReviewMode.player,
+                      label: Text('Nach Spieler'),
+                      icon: Icon(Icons.person_outline),
+                    ),
+                  ],
+                  selected: {_mode},
+                  onSelectionChanged: (set) {
+                    setState(() => _mode = set.first);
+                  },
                 ),
-                const SizedBox(height: 12),
-                Text('Turniere pro Monat', style: Theme.of(context).textTheme.titleLarge),
-                for (var i = 0; i < 12; i++) _MonthBar(month: i + 1, count: review.monthlyTournaments[i], max: review.monthlyTournaments.fold<int>(0, (a, b) => a > b ? a : b)),
+              ),
+              const SizedBox(height: 24),
+              if (_mode == _YearReviewMode.ranking) ...[
+                Text('Rückblick nach Rangliste', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<LocalRanking>(
+                  initialValue: _selectedRanking,
+                  decoration: const InputDecoration(
+                    labelText: 'Rangliste auswählen',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.emoji_events_outlined),
+                  ),
+                  items: [
+                    for (final ranking in rankings)
+                      DropdownMenuItem(value: ranking, child: Text(ranking.name)),
+                  ],
+                  onChanged: _selectRanking,
+                ),
                 const SizedBox(height: 16),
-                _ReviewLeaders(title: 'Meiste Teilnahmen', rows: rows, metric: (s) => s.participations),
-                _ReviewLeaders(title: 'Meiste Turniersiege', rows: rows, metric: (s) => s.tournamentWins),
-                _ReviewLeaders(title: 'Meiste gewonnene Legs', rows: rows, metric: (s) => s.legsWon),
-                _ReviewLeaders(title: 'Meiste verlorene Legs', rows: rows, metric: (s) => s.legsLost),
-                _ReviewLeaders(title: 'Meiste Bestleistungen', rows: rows, metric: (s) => s.bestPerformances),
-                _ReviewLeaders(title: 'Meiste 180+', rows: rows, metric: (s) => s.scores180),
-                _ReviewLeaders(title: 'Meiste 170+', rows: rows, metric: (s) => s.scores170),
-                _ReviewLeaders(title: 'Meiste Shortlegs', rows: rows, metric: (s) => s.shortLegs),
-                _ReviewLeaders(title: 'Meiste High Finishes', rows: rows, metric: (s) => s.highFinishes),
-              ]);
-            },
-          ),
-        ]);
-      },
+                DropdownButtonFormField<int>(
+                  initialValue: _year,
+                  menuMaxHeight: 320,
+                  decoration: const InputDecoration(
+                    labelText: 'Jahr',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.calendar_today_outlined),
+                  ),
+                  items: [for (final year in years) DropdownMenuItem(value: year, child: Text('$year'))],
+                  onChanged: (value) { if (value != null) _setYear(value); },
+                ),
+                if (rankings.isEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text('Lege zuerst eine Rangliste an und weise Spieler zu.'),
+                ],
+                if (_rankingReview != null && _selectedRanking != null) ...[
+                  const SizedBox(height: 16),
+                  FutureBuilder<RankingYearReview>(
+                    future: _rankingReview,
+                    builder: (context, data) {
+                      if (!data.hasData) return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
+                      final review = data.data!;
+                      final rows = review.players.entries.toList();
+                      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const SizedBox(height: 8),
+                        Text(
+                          '${review.tournaments} Turniere · ${review.totalLegs} Legs · ${review.totalBestPerformances} Bestleistungen · ${review.total180} × 180+ · ${review.total170} × 170+ · ${review.totalShortLegs} Shortlegs · ${review.totalHighFinishes} High Finishes',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton.icon(
+                            onPressed: _exporting ? null : () => _exportReview(_selectedRanking!, review),
+                            icon: _exporting
+                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.image_outlined),
+                            label: Text(_exporting ? 'Grafik wird exportiert…' : 'Rückblick als Grafik exportieren'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text('Turniere pro Monat', style: Theme.of(context).textTheme.titleLarge),
+                        for (var i = 0; i < 12; i++)
+                          _MonthBar(
+                            month: i + 1,
+                            count: review.monthlyTournaments[i],
+                            max: review.monthlyTournaments.fold<int>(0, (a, b) => a > b ? a : b),
+                          ),
+                        const SizedBox(height: 16),
+                        _ReviewLeaders(title: 'Meiste Teilnahmen', rows: rows, metric: (s) => s.participations),
+                        _ReviewLeaders(title: 'Meiste Turniersiege', rows: rows, metric: (s) => s.tournamentWins),
+                        _ReviewLeaders(title: 'Meiste gewonnene Legs', rows: rows, metric: (s) => s.legsWon),
+                        _ReviewLeaders(title: 'Meiste verlorene Legs', rows: rows, metric: (s) => s.legsLost),
+                        _ReviewLeaders(title: 'Meiste Bestleistungen', rows: rows, metric: (s) => s.bestPerformances),
+                        _ReviewLeaders(title: 'Meiste 180+', rows: rows, metric: (s) => s.scores180),
+                        _ReviewLeaders(title: 'Meiste 170+', rows: rows, metric: (s) => s.scores170),
+                        _ReviewLeaders(title: 'Meiste Shortlegs', rows: rows, metric: (s) => s.shortLegs),
+                        _ReviewLeaders(title: 'Meiste High Finishes', rows: rows, metric: (s) => s.highFinishes),
+                      ]);
+                    },
+                  ),
+                ],
+              ] else ...[
+                Text('Rückblick nach Spieler', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<PlayerProfile>(
+                  initialValue: _selectedPlayer,
+                  decoration: const InputDecoration(
+                    labelText: 'Spieler auswählen',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person_search_outlined),
+                  ),
+                  items: [
+                    for (final player in players)
+                      DropdownMenuItem(value: player, child: Text(player.displayName)),
+                  ],
+                  onChanged: _selectPlayer,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  initialValue: _year,
+                  menuMaxHeight: 320,
+                  decoration: const InputDecoration(
+                    labelText: 'Jahr',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.calendar_today_outlined),
+                  ),
+                  items: [for (final year in years) DropdownMenuItem(value: year, child: Text('$year'))],
+                  onChanged: (value) { if (value != null) _setYear(value); },
+                ),
+                if (players.isEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text('Noch keine Spielerprofile vorhanden.'),
+                ],
+                if (_playerReview != null && _selectedPlayer != null) ...[
+                  const SizedBox(height: 20),
+                  FutureBuilder<LocalPlayerStatistics>(
+                    future: _playerReview,
+                    builder: (context, data) {
+                      if (!data.hasData) return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
+                      final stats = data.data!;
+                      final p = _selectedPlayer!;
+                      final performanceCounts = {
+                        for (final type in BestPerformanceType.values)
+                          type: stats.bestPerformances.where((item) => item.type == type).length,
+                      };
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${p.displayName} · $_year', style: Theme.of(context).textTheme.titleLarge),
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.open_in_new),
+                                label: const Text('Profil öffnen'),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => LocalPlayerStatisticsPage(
+                                      name: p.displayName,
+                                      profileIds: {p.id},
+                                      year: _year,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              _StatMiniCard(label: 'Turniere in $_year', value: '${stats.tournaments}'),
+                              _StatMiniCard(label: 'Spiele', value: '${stats.matches}'),
+                              _StatMiniCard(label: 'Siege / Niederlagen', value: '${stats.wins} / ${stats.losses}'),
+                              _StatMiniCard(label: 'Siegquote', value: '${stats.matchWinRate.toStringAsFixed(1)} %'),
+                              _StatMiniCard(label: 'Legs (gew./verl.)', value: '${stats.legsWon} / ${stats.legsLost}'),
+                              _StatMiniCard(label: 'Leg-Siegquote', value: '${stats.legWinRate.toStringAsFixed(1)} %'),
+                              _StatMiniCard(label: '180+ Aufnahmen', value: '${performanceCounts[BestPerformanceType.score180]}'),
+                              _StatMiniCard(label: 'High Finishes (100+)', value: '${performanceCounts[BestPerformanceType.highFinish]}'),
+                              _StatMiniCard(label: 'Shortlegs (≤18)', value: '${performanceCounts[BestPerformanceType.shortLeg]}'),
+                            ],
+                          ),
+                          if (stats.bestPerformances.isNotEmpty) ...[
+                            const SizedBox(height: 20),
+                            Text('Bestleistungen in $_year (${stats.bestPerformances.length})', style: Theme.of(context).textTheme.titleMedium),
+                            const SizedBox(height: 8),
+                            for (final item in stats.bestPerformances)
+                              ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(Icons.star_outline, size: 20),
+                                title: Text('${item.label}${item.value == null ? '' : ' (${item.value})'}'),
+                              ),
+                          ],
+                          if (stats.tournaments == 0 && stats.matches == 0) ...[
+                            const SizedBox(height: 16),
+                            Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text('Keine Turnierspiele oder Bestleistungen für ${p.displayName} im Jahr $_year erfasst.'),
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StatMiniCard extends StatelessWidget {
+  const _StatMiniCard({required this.label, required this.value});
+  final String label, value;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 180,
+    child: Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
     ),
   );
 }

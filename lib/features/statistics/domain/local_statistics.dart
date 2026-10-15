@@ -34,7 +34,7 @@ class LocalStatisticsService {
   final LocalAppDatabase? database;
   final TournamentStorage? storage;
 
-  Future<LocalPlayerStatistics> forPlayers(Set<String> ids) async {
+  Future<LocalPlayerStatistics> forPlayers(Set<String> ids, {int? year}) async {
     final database = this.database ?? LocalAppDatabase();
     final localProfiles = await database.loadPlayerProfiles();
     final profileByName = <String, String>{
@@ -47,6 +47,10 @@ class LocalStatisticsService {
     var legsWon = 0, legsLost = 0, setsWon = 0, setsLost = 0;
     final performances = <BestPerformance>[];
     for (final tournament in tournaments) {
+      if (year != null) {
+        final tDate = (tournament.finishedAt ?? tournament.createdAt).toLocal();
+        if (tDate.year != year) continue;
+      }
       if (tournament.players.any((p) => p.profileId != null && ids.contains(p.profileId))) {
         playedTournamentIds.add(tournament.id);
       }

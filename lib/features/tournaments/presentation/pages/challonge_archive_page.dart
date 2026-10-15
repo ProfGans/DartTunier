@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/adaptive_content.dart';
 import '../../../statistics/domain/best_performance.dart';
+import '../../../tournaments/data/app_database.dart';
 import '../../domain/tournament_models.dart';
 import '../../data/tournament_storage.dart';
 import '../widgets/run/best_performance_editor.dart';
@@ -17,6 +18,24 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
   late CreatedTournament tournament = widget.tournament;
   bool saving = false;
 
+  // ── helper: persist and reload ───────────────────────────────────────────────
+  Future<void> _save(CreatedTournament updated) async {
+    setState(() => saving = true);
+    try {
+      await TournamentStorage().saveTournament(updated);
+      if (mounted) setState(() => tournament = updated);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Speichern fehlgeschlagen: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  // ── Bestleistungen bearbeiten ─────────────────────────────────────────────────
   Future<void> editBestPerformances(Map<String, dynamic> source) async {
     final archive = tournament.importedArchive!;
     final playerById = <String, TournamentPlayer>{};
@@ -46,7 +65,7 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
       builder: (_) => _ArchivePerformanceDialog(match: match, initial: performances),
     );
     if (result == null || !mounted) return;
-    final matches = [
+    final updatedMatches = [
       for (final item in archive.matches)
         if (identical(item, source) ||
             (source['id'] != null && item['id'] == source['id']))
@@ -55,21 +74,69 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
           Map<String, dynamic>.from(item),
     ];
     final updatedJson = tournament.toJson();
-    updatedJson['importedArchive'] = archive.copyWithMatches(matches).toJson();
-    final updated = CreatedTournament.fromJson(updatedJson);
-    setState(() => saving = true);
-    try {
-      await TournamentStorage().saveTournament(updated);
-      if (mounted) setState(() => tournament = updated);
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Bestleistungen konnten nicht gespeichert werden: $error')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
+    updatedJson['importedArchive'] = archive.copyWithMatches(updatedMatches).toJson();
+    await _save(CreatedTournament.fromJson(updatedJson));
+  }
+
+  // ── Spieler-Zuweisung bearbeiten ─────────────────────────────────────────────
+  Future<void> _editPlayerAssignments() async {
+    final archive = tournament.importedArchive!;
+    final db = LocalAppDatabase();
+    final allProfiles = await db.loadPlayerProfiles();
+
+    if (!mounted) return;
+
+    // Map: challonge participant id → profileId (nullable)
+    final current = <String, String?>{
+      for (final p in archive.participants)
+        '${p['id']}': p['profileId'] as String?,
+    };
+
+    final result = await showDialog<Map<String, String?>>(
+      context: context,
+      builder: (_) => _PlayerAssignmentDialog(
+        participants: archive.participants,
+        allProfiles: allProfiles,
+        initial: current,
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    // Build updated participants list
+    final updatedParticipants = [
+      for (final p in archive.participants)
+        {
+          ...Map<String, dynamic>.from(p),
+          'profileId': result['${p['id']}'],
+        },
+    ];
+
+    final updatedJson = tournament.toJson();
+    updatedJson['importedArchive'] =
+        archive.copyWithParticipants(updatedParticipants).toJson();
+
+    // Also update the players list on the tournament itself
+    final updatedTournamentJson = Map<String, dynamic>.from(updatedJson);
+    final updatedTournament = CreatedTournament.fromJson(updatedTournamentJson);
+
+    // Patch players by name match (using name→profileId mapping from archive)
+    final nameToProfileId = <String, String?>{
+      for (final p in updatedParticipants)
+        '${p['name']}': p['profileId'] as String?,
+    };
+
+    final patchedPlayers = [
+      for (final p in updatedTournament.players)
+        TournamentPlayer(
+          profileId: nameToProfileId[p.name] ?? p.profileId,
+          name: p.name,
+          isGenerated: p.isGenerated,
+        ),
+    ];
+
+    final finalJson = updatedTournament.toJson();
+    finalJson['players'] = patchedPlayers.map((p) => p.toJson()).toList();
+    await _save(CreatedTournament.fromJson(finalJson));
   }
 
   @override
@@ -87,8 +154,22 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
           (b['finalRank'] as int?) ?? 999999,
         ),
       );
+
+    // Determine assignment quality
+    final assigned = archive.participants.where((p) => p['profileId'] != null).length;
+    final total = archive.participants.length;
+
     return Scaffold(
-      appBar: AppBar(title: Text(tournament.name)),
+      appBar: AppBar(
+        title: Text(tournament.name),
+        actions: [
+          IconButton(
+            tooltip: 'Spieler-Zuweisung bearbeiten',
+            icon: const Icon(Icons.people_alt_outlined),
+            onPressed: saving ? null : _editPlayerAssignments,
+          ),
+        ],
+      ),
       body: AdaptiveContentList(
         children: [
           Text(
@@ -104,6 +185,32 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
           const Text('Originalergebnisse und Platzierungen aus Challonge.'),
           if (saving) const LinearProgressIndicator(),
           if (archive.url.isNotEmpty) SelectableText(archive.url),
+          const SizedBox(height: 8),
+
+          // Player assignment status banner
+          Card(
+            color: assigned == total
+                ? Theme.of(context).colorScheme.secondaryContainer
+                : Theme.of(context).colorScheme.tertiaryContainer,
+            child: ListTile(
+              leading: Icon(
+                assigned == total ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+              ),
+              title: Text(
+                assigned == total
+                    ? 'Alle Spieler zugewiesen ($assigned/$total)'
+                    : 'Spieler-Zuweisung unvollständig ($assigned/$total zugewiesen)',
+              ),
+              subtitle: assigned < total
+                  ? const Text('Für die Ranglisten-Wertung müssen alle Spieler zugewiesen sein.')
+                  : null,
+              trailing: FilledButton.tonal(
+                onPressed: saving ? null : _editPlayerAssignments,
+                child: const Text('Zuweisung bearbeiten'),
+              ),
+            ),
+          ),
+
           const SizedBox(height: 16),
           if (archive.nativeValidation != null) ...[
             Text(
@@ -126,12 +233,17 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
             ),
             const SizedBox(height: 16),
           ],
+
           Text('Platzierungen', style: Theme.of(context).textTheme.titleLarge),
           for (final p in ranks)
             ListTile(
+              leading: p['profileId'] != null
+                  ? const Icon(Icons.person, size: 18, color: Colors.green)
+                  : const Icon(Icons.person_off_outlined, size: 18),
               title: Text('${p['finalRank'] ?? '–'}. ${p['name']}'),
               subtitle: Text(
                 [
+                  if (p['profileId'] == null) 'Kein lokales Profil zugewiesen',
                   if (p['finalRank'] == null)
                     'Keine Gesamtplatzierung von Challonge geliefert',
                   for (final group in p['groupPlacements'] as List? ?? const [])
@@ -139,6 +251,7 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
                 ].join('\n'),
               ),
             ),
+
           Text(
             'Spiele (${archive.matches.length})',
             style: Theme.of(context).textTheme.titleLarge,
@@ -149,14 +262,18 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
                 '${players['${m['player1_id']}'] ?? 'Freilos / offen'} – ${players['${m['player2_id']}'] ?? 'Freilos / offen'}',
               ),
               subtitle: Text(
-                '${m['group_id'] == null ? '' : '${m['group_id']} · '}Runde ${m['round'] ?? '–'} · ${m['scores_csv'] == null || m['scores_csv'] == '' ? 'Kein Spielstand' : m['scores_csv']}\nSieger: ${players['${m['winner_id']}'] ?? 'Keiner angegeben'}',
+                '${m['group_id'] == null ? '' : 'Gruppe ${m['group_id']} · '}Runde ${m['round'] ?? '–'} · ${m['scores_csv'] == null || m['scores_csv'] == '' ? 'Kein Spielstand' : m['scores_csv']}\nSieger: ${players['${m['winner_id']}'] ?? 'Keiner angegeben'}',
               ),
               trailing: IconButton(
                 tooltip: 'Bestleistungen erfassen oder bearbeiten',
                 onPressed: saving ? null : () => editBestPerformances(m),
-                icon: const Icon(Icons.military_tech_outlined),
+                icon: Badge(
+                  isLabelVisible: (m['bestPerformances'] as List?)?.isNotEmpty ?? false,
+                  child: const Icon(Icons.military_tech_outlined),
+                ),
               ),
             ),
+
           if (!archive.usesNativeLogic)
             const ExpansionTile(
               title: Text('Hinweise zum Import'),
@@ -174,6 +291,89 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
     );
   }
 }
+
+// ── Spieler-Zuweisung-Dialog ──────────────────────────────────────────────────
+
+class _PlayerAssignmentDialog extends StatefulWidget {
+  const _PlayerAssignmentDialog({
+    required this.participants,
+    required this.allProfiles,
+    required this.initial,
+  });
+  final List<Map<String, dynamic>> participants;
+  final List<PlayerProfile> allProfiles;
+  final Map<String, String?> initial;
+
+  @override
+  State<_PlayerAssignmentDialog> createState() => _PlayerAssignmentDialogState();
+}
+
+class _PlayerAssignmentDialogState extends State<_PlayerAssignmentDialog> {
+  late final Map<String, String?> _assignments = Map.from(widget.initial);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Spieler-Zuweisung bearbeiten'),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Weise jedem Challonge-Teilnehmer ein lokales Spielerprofil zu. Nur zugewiesene Spieler gehen in die Ranglisten-Wertung ein.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              for (final p in widget.participants) ...[
+                Text(
+                  '${p['name']}',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 4),
+                DropdownButtonFormField<String?>(
+                  initialValue: _assignments['${p['id']}'],
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('— Kein Profil —', style: TextStyle(fontStyle: FontStyle.italic)),
+                    ),
+                    for (final profile in widget.allProfiles)
+                      DropdownMenuItem(
+                        value: profile.id,
+                        child: Text(profile.displayName),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => _assignments['${p['id']}'] = value),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _assignments),
+          child: const Text('Speichern'),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Bestleistungen-Dialog ─────────────────────────────────────────────────────
 
 class _ArchivePerformanceDialog extends StatefulWidget {
   const _ArchivePerformanceDialog({required this.match, required this.initial});

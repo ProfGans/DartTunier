@@ -47,20 +47,26 @@ class _PlayersPageState extends State<PlayersPage> {
       return;
     }
 
+    final metadataJson = PlayerProfile.encodeMetadata(
+      nickname: result.nickname,
+      birthdate: result.birthdate,
+      scoliaId: result.scoliaId,
+      autodartsName: result.autodartsName,
+      threeKDartsId: result.threeKDartsId,
+    );
+
     if (player == null) {
       await _database.createPlayerProfile(
         displayName: result.displayName,
-        country: result.country,
-        city: result.city,
-        dartsSetupJson: result.dartsSetup,
+        country: '',
+        city: '',
+        dartsSetupJson: metadataJson,
       );
     } else {
       await _database.updatePlayerProfile(
         player.copyWith(
           displayName: result.displayName,
-          country: result.country,
-          city: result.city,
-          dartsSetupJson: result.dartsSetup,
+          dartsSetupJson: metadataJson,
         ),
       );
     }
@@ -243,14 +249,20 @@ class _PlayersPageState extends State<PlayersPage> {
                             ),
                           ],
                         ),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => LocalPlayerStatisticsPage(
-                              name: player.displayName,
-                              profileIds: {player.id},
-                            ),
-                          ),
-                        ),
+                        onTap: () {
+                          if (widget.statisticsOnly) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => LocalPlayerStatisticsPage(
+                                  name: player.displayName,
+                                  profileIds: {player.id},
+                                ),
+                              ),
+                            );
+                          } else {
+                            _openPlayerDialog(player);
+                          }
+                        },
                       ),
                     ),
               ],
@@ -274,20 +286,14 @@ class _PlayersPageState extends State<PlayersPage> {
   }
 
   String _subtitleFor(PlayerProfile player) {
-    final location = [
-      if (player.city.isNotEmpty) player.city,
-      if (player.country.isNotEmpty) player.country,
-    ].join(', ');
-    if (location.isEmpty && player.dartsSetupJson.isEmpty) {
-      return 'Kein Standort hinterlegt';
-    }
-    if (player.dartsSetupJson.isEmpty) {
-      return location;
-    }
-    if (location.isEmpty) {
-      return player.dartsSetupJson;
-    }
-    return '$location - ${player.dartsSetupJson}';
+    final details = <String>[];
+    if (player.nickname.isNotEmpty) details.add('„${player.nickname}“');
+    if (player.birthdate.isNotEmpty) details.add('Geb.: ${player.birthdate}');
+    if (player.autodartsName.isNotEmpty) details.add('Autodarts: ${player.autodartsName}');
+    if (player.scoliaId.isNotEmpty) details.add('Scolia: ${player.scoliaId}');
+    if (player.threeKDartsId.isNotEmpty) details.add('3k: ${player.threeKDartsId}');
+    if (details.isEmpty) return 'Keine weiteren Angaben';
+    return details.join(' · ');
   }
 }
 
@@ -302,29 +308,61 @@ class _PlayerDialog extends StatefulWidget {
 
 class _PlayerDialogState extends State<_PlayerDialog> {
   late final TextEditingController _nameController;
-  late final TextEditingController _countryController;
-  late final TextEditingController _cityController;
-  late final TextEditingController _dartsSetupController;
+  late final TextEditingController _nicknameController;
+  late final TextEditingController _birthdateController;
+  late final TextEditingController _scoliaIdController;
+  late final TextEditingController _autodartsNameController;
+  late final TextEditingController _threeKDartsIdController;
 
   @override
   void initState() {
     super.initState();
     final player = widget.player;
     _nameController = TextEditingController(text: player?.displayName ?? '');
-    _countryController = TextEditingController(text: player?.country ?? '');
-    _cityController = TextEditingController(text: player?.city ?? '');
-    _dartsSetupController = TextEditingController(
-      text: player?.dartsSetupJson ?? '',
-    );
+    _nicknameController = TextEditingController(text: player?.nickname ?? '');
+    _birthdateController = TextEditingController(text: player?.birthdate ?? '');
+    _scoliaIdController = TextEditingController(text: player?.scoliaId ?? '');
+    _autodartsNameController = TextEditingController(text: player?.autodartsName ?? '');
+    _threeKDartsIdController = TextEditingController(text: player?.threeKDartsId ?? '');
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _countryController.dispose();
-    _cityController.dispose();
-    _dartsSetupController.dispose();
+    _nicknameController.dispose();
+    _birthdateController.dispose();
+    _scoliaIdController.dispose();
+    _autodartsNameController.dispose();
+    _threeKDartsIdController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickBirthdate() async {
+    DateTime initial = DateTime(2000, 1, 1);
+    if (_birthdateController.text.isNotEmpty) {
+      final parts = _birthdateController.text.split('.');
+      if (parts.length == 3) {
+        final d = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        final y = int.tryParse(parts[2]);
+        if (d != null && m != null && y != null) {
+          initial = DateTime(y, m, d);
+        }
+      }
+    }
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1920),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      final formatted =
+          '${picked.day.toString().padLeft(2, '0')}.${picked.month.toString().padLeft(2, '0')}.${picked.year}';
+      setState(() {
+        _birthdateController.text = formatted;
+      });
+    }
   }
 
   void _submit() {
@@ -336,9 +374,11 @@ class _PlayerDialogState extends State<_PlayerDialog> {
     Navigator.of(context).pop(
       _PlayerFormResult(
         displayName: displayName,
-        country: _countryController.text.trim(),
-        city: _cityController.text.trim(),
-        dartsSetup: _dartsSetupController.text.trim(),
+        nickname: _nicknameController.text.trim(),
+        birthdate: _birthdateController.text.trim(),
+        scoliaId: _scoliaIdController.text.trim(),
+        autodartsName: _autodartsNameController.text.trim(),
+        threeKDartsId: _threeKDartsIdController.text.trim(),
       ),
     );
   }
@@ -357,7 +397,7 @@ class _PlayerDialogState extends State<_PlayerDialog> {
               controller: _nameController,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
-                labelText: 'Name',
+                labelText: 'Name *',
                 prefixIcon: Icon(Icons.person_outline),
               ),
               textInputAction: TextInputAction.next,
@@ -366,31 +406,56 @@ class _PlayerDialogState extends State<_PlayerDialog> {
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _countryController,
+              controller: _nicknameController,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
-                labelText: 'Land',
-                prefixIcon: Icon(Icons.flag_outlined),
+                labelText: 'Spitzname',
+                prefixIcon: Icon(Icons.badge_outlined),
               ),
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _cityController,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: 'Stadt',
-                prefixIcon: Icon(Icons.location_city_outlined),
+              controller: _birthdateController,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: 'Geburtsdatum (TT.MM.JJJJ)',
+                prefixIcon: const Icon(Icons.cake_outlined),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.calendar_today_outlined),
+                  tooltip: 'Datum wählen',
+                  onPressed: _pickBirthdate,
+                ),
               ),
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: _dartsSetupController,
+              controller: _autodartsNameController,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
-                labelText: 'Dart-Setup',
-                prefixIcon: Icon(Icons.sports_bar_outlined),
+                labelText: 'Autodarts Name',
+                prefixIcon: Icon(Icons.sports_esports_outlined),
+              ),
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _scoliaIdController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: 'Scolia ID',
+                prefixIcon: Icon(Icons.camera_alt_outlined),
+              ),
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _threeKDartsIdController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: '3k Darts ID',
+                prefixIcon: Icon(Icons.tag_outlined),
               ),
               onSubmitted: (_) => _submit(),
             ),
@@ -411,13 +476,17 @@ class _PlayerDialogState extends State<_PlayerDialog> {
 class _PlayerFormResult {
   const _PlayerFormResult({
     required this.displayName,
-    required this.country,
-    required this.city,
-    required this.dartsSetup,
+    required this.nickname,
+    required this.birthdate,
+    required this.scoliaId,
+    required this.autodartsName,
+    required this.threeKDartsId,
   });
 
   final String displayName;
-  final String country;
-  final String city;
-  final String dartsSetup;
+  final String nickname;
+  final String birthdate;
+  final String scoliaId;
+  final String autodartsName;
+  final String threeKDartsId;
 }
