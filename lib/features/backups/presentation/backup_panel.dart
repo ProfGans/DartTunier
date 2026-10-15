@@ -12,9 +12,11 @@ class BackupPanel extends StatefulWidget {
     super.key,
     this.service,
     this.dialogs = const BackupFileDialogs(),
+    this.trailing,
   });
   final BackupService? service;
   final BackupFileDialogs dialogs;
+  final Widget? trailing;
   @override
   State<BackupPanel> createState() => _BackupPanelState();
 }
@@ -171,6 +173,10 @@ class _BackupPanelState extends State<BackupPanel> {
               ),
             ),
           ),
+        if (widget.trailing != null) ...[
+          const SizedBox(height: 16),
+          widget.trailing!,
+        ],
       ],
     ),
   );

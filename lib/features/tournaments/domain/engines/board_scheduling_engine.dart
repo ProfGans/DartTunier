@@ -59,14 +59,26 @@ class BoardSchedulingEngine {
         for (var b = 1; b <= boardCount; b++)
           if (!blockedBoards.contains(b) && (block != 0 || !running.any((e) => e.match.boardNumber == b))) b,
       ];
+      final remainingCount = <String, int>{};
+      for (final e in pending) {
+        for (final p in e.players) {
+          remainingCount[p] = (remainingCount[p] ?? 0) + 1;
+        }
+      }
       int rest(PlayEntry e) => e.players
           .map((p) => lastPlayed[p] ?? -100000)
           .reduce((a, b) => a > b ? a : b);
+      int maxRemaining(PlayEntry e) => e.players
+          .map((p) => remainingCount[p] ?? 0)
+          .fold<int>(0, (a, b) => a > b ? a : b);
+
       final available =
           pending.where((e) => !e.players.any(busy.contains)).toList()
             ..sort((a, b) {
               final r = rest(a).compareTo(rest(b));
-              return r != 0 ? r : all.indexOf(a).compareTo(all.indexOf(b));
+              if (r != 0) return r;
+              final rem = maxRemaining(b).compareTo(maxRemaining(a));
+              return rem != 0 ? rem : all.indexOf(a).compareTo(all.indexOf(b));
             });
       // Try alternative first matches to avoid a greedy choice leaving boards idle.
       var selected = <PlayEntry>[];

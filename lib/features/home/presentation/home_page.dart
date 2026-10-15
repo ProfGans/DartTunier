@@ -9,28 +9,34 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List<SportDestination> get _destinations => [
     SportDestination(
+      'Übersicht',
+      Icons.home_outlined,
+      () => Navigator.of(context).popUntil((route) => route.isFirst),
+    ),
+    SportDestination(
       'Turniere',
       Icons.emoji_events_outlined,
-      () => _open(const TournamentHomePage(), 0),
+      () => _open(const TournamentHomePage(), 1),
     ),
     SportDestination(
       'Spieler',
       Icons.groups_outlined,
-      () => _open(const PlayersPage(), 1),
+      () => _open(const PlayersPage(), 2),
     ),
     SportDestination(
       'Statistik',
       Icons.bar_chart_outlined,
-      () => _open(const PlayersPage(statisticsOnly: true), 2),
+      () => _open(const PlayersPage(statisticsOnly: true), 3),
     ),
     SportDestination(
       'Ranglisten',
       Icons.leaderboard_outlined,
-      () => _open(const RankingsPage(), 3),
+      () => _open(const RankingsPage(), 4),
     ),
   ];
 
   Future<void> _open(Widget page, int selected) async {
+    Navigator.of(context).popUntil((route) => route.isFirst);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => SportAppShell(
@@ -42,8 +48,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openTournamentArea() => _open(const TournamentHomePage(), 0);
-  void _openPlayersArea() => _open(const PlayersPage(), 1);
+  void _openTournamentArea() => _open(const TournamentHomePage(), 1);
+  void _openPlayersArea() => _open(const PlayersPage(), 2);
   void _openSettings() => Navigator.of(context).push(
     MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
   );
@@ -91,12 +97,12 @@ class _HomePageState extends State<HomePage> {
               SportMenuAction(
                 label: 'Statistik',
                 icon: Icons.bar_chart_outlined,
-                onTap: () => _open(const PlayersPage(statisticsOnly: true), 2),
+                onTap: () => _open(const PlayersPage(statisticsOnly: true), 3),
               ),
               SportMenuAction(
                 label: 'Ranglisten',
                 icon: Icons.leaderboard_outlined,
-                onTap: () => _open(const RankingsPage(), 3),
+                onTap: () => _open(const RankingsPage(), 4),
               ),
             ],
           ),

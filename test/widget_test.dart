@@ -1,8 +1,6 @@
 import 'package:dart_tournament_manager/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dart_tournament_manager/tournament_workspace.dart'
-    show TournamentRunPage;
 
 void main() {
   Future<void> openTournamentCreation(WidgetTester tester) async {

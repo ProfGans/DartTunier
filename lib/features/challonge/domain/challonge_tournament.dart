@@ -106,9 +106,12 @@ class ChallongeTournament {
           isGenerated: false,
         ),
     };
+    final linkedProfileIds = players.values
+        .map((p) => p.profileId)
+        .whereType<String>()
+        .toList();
     if ((!allowUnlinkedPlayers && players.values.any((p) => p.profileId == null)) ||
-        players.values.map((p) => p.profileId).toSet().length !=
-            players.values.where((p) => p.profileId != null).length) {
+        linkedProfileIds.toSet().length != linkedProfileIds.length) {
       throw ArgumentError(
         'Jeder zugewiesene Teilnehmer muss einem eindeutigen Spieler entsprechen.',
       );

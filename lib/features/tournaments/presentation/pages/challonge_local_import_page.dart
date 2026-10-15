@@ -71,24 +71,32 @@ class _ChallongeLocalImportPageState extends State<ChallongeLocalImportPage> {
   }
 
   Future<void> _prepare(List<ChallongeTournament> decoded) async {
-      final existing = (await _storage.loadTournaments()).map((t) => t.id).toSet();
-      final sources = decoded.where((t) => !existing.contains(t.tournamentId)).toList();
-      final players = await _database.loadPlayerProfiles();
-      final rankings = await _database.loadLocalRankings();
-      final aliases = await _database.loadChallongePlayerLinks();
-      final byName = {for (final row in aliases) '${row['challongeName']}'.trim().toLowerCase(): '${row['playerProfileId']}'};
-      _assignments.clear();
-      for (final tournament in sources) {
-        for (final participant in tournament.participants) {
-          final name = ChallongeTournament.name(participant);
-          _assignments[_key(tournament, participant)] = byName[name.trim().toLowerCase()];
-        }
+    final existing = (await _storage.loadTournaments()).map((t) => t.id).toSet();
+    final sources = decoded.where((t) => !existing.contains(t.tournamentId)).toList();
+    final players = await _database.loadPlayerProfiles();
+    final rankings = await _database.loadLocalRankings();
+    final aliases = await _database.loadChallongePlayerLinks();
+    final byName = {for (final row in aliases) '${row['challongeName']}'.trim().toLowerCase(): '${row['playerProfileId']}'};
+    _assignments.clear();
+    for (final tournament in sources) {
+      for (final participant in tournament.participants) {
+        final name = ChallongeTournament.name(participant);
+        _assignments[_key(tournament, participant)] = byName[name.trim().toLowerCase()];
       }
-      _remember.clear();
-      _sources = sources;
-      _players = players;
-      _rankings = rankings;
-      if (mounted) setState(() => _message = '${sources.length} abgeschlossene Turniere geladen.');
+    }
+    _remember.clear();
+    _sources = sources;
+    _players = players;
+    _rankings = rankings;
+    if (mounted) {
+      if (decoded.isNotEmpty && sources.isEmpty) {
+        setState(() => _message = 'Alle enthaltenen Turniere wurden bereits importiert.');
+      } else if (sources.length < decoded.length) {
+        setState(() => _message = '${sources.length} neue Turniere geladen (${decoded.length - sources.length} bereits importiert).');
+      } else {
+        setState(() => _message = '${sources.length} abgeschlossene Turniere geladen.');
+      }
+    }
   }
 
   @override
@@ -101,6 +109,9 @@ class _ChallongeLocalImportPageState extends State<ChallongeLocalImportPage> {
     try {
       if (_countsForRanking && _selectedRankings.isEmpty) {
         throw const FormatException('Bitte mindestens eine Rangliste auswählen.');
+      }
+      if (_sources.isEmpty) {
+        throw const FormatException('Keine neuen Turniere zum Übernehmen vorhanden.');
       }
       var imported = 0;
       for (final source in _sources) {
@@ -121,9 +132,22 @@ class _ChallongeLocalImportPageState extends State<ChallongeLocalImportPage> {
         await _storage.saveTournament(tournament);
         imported++;
       }
-      if (mounted) setState(() { _sources = []; _message = '$imported Turniere lokal importiert.'; });
+      if (mounted) {
+        setState(() { _sources = []; _message = '$imported Turniere erfolgreich lokal importiert.'; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$imported Turniere erfolgreich lokal importiert.')),
+        );
+      }
     } catch (error) {
-      if (mounted) setState(() => _message = error is FormatException ? error.message : 'Import fehlgeschlagen: $error');
+      if (mounted) {
+        final message = switch (error) {
+          FormatException() => error.message,
+          ArgumentError() => error.message?.toString() ?? '$error',
+          _ => 'Import fehlgeschlagen: $error',
+        };
+        setState(() => _message = message);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Theme.of(context).colorScheme.error));
+      }
     } finally { if (mounted) setState(() => _busy = false); }
   }
 
@@ -171,7 +195,7 @@ class _ChallongeLocalImportPageState extends State<ChallongeLocalImportPage> {
             Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(ChallongeTournament.name(participant), style: Theme.of(context).textTheme.titleSmall),
               DropdownButtonFormField<String?>(
-                value: _assignments[_key(tournament, participant)],
+                initialValue: _assignments[_key(tournament, participant)],
                 decoration: const InputDecoration(labelText: 'Lokalen Spieler zuweisen', isDense: true),
                 items: [const DropdownMenuItem<String?>(value: null, child: Text('Nicht verknüpfen')), ..._players.map((p) => DropdownMenuItem<String?>(value: p.id, child: Text(p.displayName)))],
                 onChanged: (value) => setState(() => _assignments[_key(tournament, participant)] = value),
@@ -181,6 +205,19 @@ class _ChallongeLocalImportPageState extends State<ChallongeLocalImportPage> {
         ],
         const SizedBox(height: 12),
         FilledButton.icon(onPressed: _busy ? null : _import, icon: const Icon(Icons.move_to_inbox), label: const Text('Ausgewählte Turniere lokal übernehmen')),
+        if (_message != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Text(
+              _message!,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: _message!.startsWith('Import fehlgeschlagen') || _message!.startsWith('Bitte')
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
       ],
     ]),
   );

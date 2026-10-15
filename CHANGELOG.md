@@ -1,3 +1,55 @@
+# Dart Turnier 0.1.9
+
+Änderungen seit Version 0.1.8. Der Build trägt die interne Buildnummer 24
+(Release-Tag `v0.1.9+24`).
+
+## Datenverwaltung, Synchronisierung & Challonge-Import
+
+- **Ladefehler der Daten-Seite behoben:** Die Daten-Verwaltung lädt nun auch ohne
+  aktive Cloud-Sitzung oder bei Verbindungsunterbrechungen zuverlässig.
+- **Supabase-Synchronisierung:** Anmeldung, Snapshot-Abgleich und Synchronisierung
+  von Turnieren, Statistiken, Ranglisten und Spielerkatalog sind nutzergebunden stabilisiert.
+- **Challonge-Import:** Der abschließende Import-Schritt („Ausgewählte Turniere lokal übernehmen“)
+  überträgt Turniere, Partien und Spielerzuordnungen verlässlich in den lokalen Datenbestand;
+  Duplikatschutz und Erfolgsbestätigungen wurden ergänzt.
+- **Startseiten-Navigation:** Die Startseite und Einstellungen sind aus allen
+  Bereichen wieder direkt erreichbar.
+
+## Turnierformfinder
+
+- **Turnierdauer-Berechnung:** Das 24h-Fallback-Problem bei Dezimaleingaben/Kommas
+  wurde durch strukturierte, validierte Stunden- und Minutenfelder behoben.
+- **Formatbezeichnungen:** Verständlichere Bezeichnungen der Spielmodi (z. B.
+  „Rundenformat mit max. 5 Begegnungen pro Spieler“, „Jeder gegen jeden (einmal)“,
+  Differenzierung von Doppel-KO, Triple-KO und Kratzer).
+- **Turnierdauer im Fokus:** Die geschätzte Gesamtdauer wird prominent direkt unter
+  dem Formattitel dargestellt.
+- **Kompakte Darstellung:** Redundante Weiterkommensangaben bei Finalphasen wurden
+  entfernt und die Leg-Spanne pro Match (z. B. „2–3 Legs/Spiel“) übersichtlich ausgewiesen.
+- **Benutzerführung:** Nach Klick auf „Formate berechnen“ scrollt die Ansicht automatisch
+  zu den Ergebnissen; Standardspielmodus ist 501.
+
+## Turnieransicht & Spielorganisation
+
+- **Direkte Ergebniserfassung:** Partien im „Order of Play“ können nun direkt über
+  ein Stift-Symbol erfasst werden, ohne vorheriges Board-Starten.
+- **Intelligente Spielfolge:** Gleichmäßig ausgeruhte Partien werden nach dem
+  Spieler-Rückstand priorisiert, um Bottlenecks im Turnierablauf zu vermeiden.
+- **Rückstands-Warnung:** Ein Banner warnt automatisch, wenn Spieler mehr als 2 Partien
+  Rückstand auf das Feld haben.
+- **Übersichts-Banner:** Die Gesamtübersicht zeigt nächste Empfehlungen und
+  Aktionsbuttons direkt oben an.
+
+## Statistiken & Ranglisten
+
+- **Ranglistenposition:** Spielerprofile zeigen konkrete Platzierungen („Platz X von Y Teilnehmern“)
+  für alle zugewiesenen Elo- und Serienranglisten.
+- **Ranglisten-Einstellungen:** Direkter Einstellungs-Button auf der Ranglistenseite.
+- **Jahresrückblick:** Dropdown-Auswahl und Monatsfilterung korrigiert; Grafikexport
+  für den Jahresrückblick bereitgestellt.
+
+---
+
 # Dart Turnier 0.1.8
 
 Änderungen seit Version 0.1.7. Der Build trägt die interne Buildnummer 23

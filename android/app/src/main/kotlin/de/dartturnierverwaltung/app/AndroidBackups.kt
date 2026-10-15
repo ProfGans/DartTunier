@@ -9,23 +9,31 @@ import io.flutter.plugin.common.MethodChannel
 class AndroidBackups(private val activity: Activity, messenger: BinaryMessenger) {
     private var pending: MethodChannel.Result? = null
     private var bytes: ByteArray? = null
+    private var fileName = "Turniere_${System.currentTimeMillis()}.dartbackup"
+    private var mimeType = "application/octet-stream"
     private val requestCode = 60183
 
     init {
         MethodChannel(messenger, "dartturnier/backups").setMethodCallHandler { call, result ->
             if (call.method != "export") { result.notImplemented(); return@setMethodCallHandler }
-            val data = call.arguments as? ByteArray
+            val arguments = call.arguments
+            val options = arguments as? Map<*, *>
+            val data = (options?.get("bytes") ?: arguments) as? ByteArray
             if (pending != null || data == null || data.size > 128 * 1024 * 1024) {
                 result.error("BACKUP_EXPORT", "Export nicht möglich", null)
                 return@setMethodCallHandler
             }
             pending = result
             bytes = data
+            fileName = (options?.get("fileName") as? String)
+                ?.replace(Regex("[^A-Za-z0-9._-]"), "_")
+                ?: "Turniere_${System.currentTimeMillis()}.dartbackup"
+            mimeType = options?.get("mimeType") as? String ?: "application/octet-stream"
             try {
                 activity.startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "application/octet-stream"
-                    putExtra(Intent.EXTRA_TITLE, "Turniere_${System.currentTimeMillis()}.dartbackup")
+                    type = mimeType
+                    putExtra(Intent.EXTRA_TITLE, fileName)
                 }, requestCode)
             } catch (error: Exception) {
                 pending = null; bytes = null
@@ -46,7 +54,7 @@ class AndroidBackups(private val activity: Activity, messenger: BinaryMessenger)
         }
         Thread {
             try {
-                val output = activity.contentResolver.openOutputStream(uri, "wt")
+                val output = activity.contentResolver.openOutputStream(uri, "w")
                     ?: throw IllegalStateException("Datei konnte nicht geöffnet werden")
                 output.use { it.write(content); it.flush() }
                 activity.runOnUiThread { result?.success(true) }

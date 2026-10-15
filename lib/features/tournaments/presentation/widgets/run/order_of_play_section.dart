@@ -52,46 +52,56 @@ class OrderOfPlaySection extends StatelessWidget {
       away: assignment.entry.match.awayPlayer?.name ?? 'Noch offen',
       origin: assignment.entry.origin,
       board: assignment.board,
-      action: PopupMenuButton<int>(
-        tooltip: 'Starten / vorziehen',
-        enabled:
-            !schedule.running.any(
-              (e) => e.players.any(assignment.entry.players.contains),
-            ) &&
-            occupied.length < tournament.boardCount,
-        itemBuilder: (_) => [
-          for (var board = 1; board <= tournament.boardCount; board++)
-            if (!occupied.contains(board) &&
-                !tournament.blockedBoards.contains(board))
-              PopupMenuItem(
-                value: board,
-                child: SportMenuLabel(
-                  label: 'Auf Board $board starten',
-                  icon: Icons.play_arrow_outlined,
-                ),
-              ),
-        ],
-        onSelected: (board) async {
-          if (controller.start(
-            tournament,
-            activeStage,
-            assignment.entry.match,
-            board,
-          )) {
-            await onChange();
-          }
-        },
-        child: Padding(
-          padding: EdgeInsets.all(12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.play_arrow),
-              SizedBox(width: 8),
-              Flexible(child: Text(next ? 'Starten' : 'Vorziehen')),
-            ],
+      action: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Ergebnis erfassen',
+            icon: const Icon(Icons.edit_note),
+            onPressed: () => onResult(assignment.entry.match),
           ),
-        ),
+          PopupMenuButton<int>(
+            tooltip: 'Starten / vorziehen',
+            enabled:
+                !schedule.running.any(
+                  (e) => e.players.any(assignment.entry.players.contains),
+                ) &&
+                occupied.length < tournament.boardCount,
+            itemBuilder: (_) => [
+              for (var board = 1; board <= tournament.boardCount; board++)
+                if (!occupied.contains(board) &&
+                    !tournament.blockedBoards.contains(board))
+                  PopupMenuItem(
+                    value: board,
+                    child: SportMenuLabel(
+                      label: 'Auf Board $board starten',
+                      icon: Icons.play_arrow_outlined,
+                    ),
+                  ),
+            ],
+            onSelected: (board) async {
+              if (controller.start(
+                tournament,
+                activeStage,
+                assignment.entry.match,
+                board,
+              )) {
+                await onChange();
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.play_arrow),
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(next ? 'Starten' : 'Vorziehen')),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
     final firstBlock = schedule.planned.firstOrNull?.block;
@@ -180,9 +190,61 @@ class OrderOfPlaySection extends StatelessWidget {
                   },
                 ),
               ),
+            Builder(builder: (context) {
+              final openMatchesPerPlayer = <String, int>{};
+              for (final assignment in schedule.planned) {
+                for (final p in assignment.entry.players) {
+                  openMatchesPerPlayer[p] = (openMatchesPerPlayer[p] ?? 0) + 1;
+                }
+              }
+              if (openMatchesPerPlayer.isEmpty) return const SizedBox.shrink();
+              final maxOpen = openMatchesPerPlayer.values
+                  .reduce((a, b) => a > b ? a : b);
+              final minOpen = openMatchesPerPlayer.values
+                  .reduce((a, b) => a < b ? a : b);
+              if (maxOpen >= 3 && maxOpen - minOpen >= 2) {
+                final bottleneckPlayers = openMatchesPerPlayer.entries
+                    .where((e) => e.value == maxOpen)
+                    .map((e) => e.key)
+                    .toList();
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Card(
+                    color: Theme.of(context).colorScheme.tertiaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.priority_high,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onTertiaryContainer,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Empfehlung zur Spielreihenfolge: ${bottleneckPlayers.join(", ")} hat noch $maxOpen offene Spiele '
+                              '(deutlich mehr als der Schnitt mit $minOpen). Bevorzugt aufrufen, um Wartezeiten zu vermeiden.',
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onTertiaryContainer,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
             title('Geplante Reihenfolge'),
             const Text(
-              'Von oben nach unten spielen. Spiele im selben Block sind parallel vorgesehen.',
+              'Unverbindliche Empfehlung zur gleichmäßigen Auslastung. Spiele im selben Block sind parallel vorgesehen. Ergebnisse können jederzeit direkt ohne Startschritt erfasst werden.',
             ),
             const SizedBox(height: 12),
             if (orderedBlocks.isEmpty)

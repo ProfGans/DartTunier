@@ -1,6 +1,11 @@
 import 'dart:io';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../application/ranking_year_review_image_generator.dart';
+import 'package:flutter/services.dart';
 
 import '../../../shared/widgets/adaptive_content.dart';
 import '../domain/local_elo_calculator.dart';
@@ -30,10 +35,11 @@ class RankingYearReviewPage extends StatefulWidget {
 
 class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
   final _database = LocalAppDatabase();
-  late Future<List<LocalRanking>> _rankings = _database.loadLocalRankings();
+  late final Future<List<LocalRanking>> _rankings = _database.loadLocalRankings();
   LocalRanking? _selected;
   int _year = DateTime.now().year;
   Future<RankingYearReview>? _review;
+  bool _exporting = false;
 
   void _select(LocalRanking? ranking) {
     setState(() {
@@ -50,19 +56,65 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
   }
 
   Future<void> _exportReview(LocalRanking ranking, RankingYearReview review) async {
-    final location = await getSaveLocation(suggestedName: 'ranglisten-rueckblick-${review.year}.html', acceptedTypeGroups: [
-      const XTypeGroup(label: 'HTML', extensions: ['html']),
-    ]);
-    if (location == null) return;
-    final max = review.monthlyTournaments.fold<int>(0, (a, b) => a > b ? a : b);
-    final bars = [for (var i = 0; i < 12; i++) '<div class="month"><span>${i + 1}.</span><div class="track"><i style="width:${max == 0 ? 0 : review.monthlyTournaments[i] * 100 ~/ max}%"></i></div><b>${review.monthlyTournaments[i]}</b></div>'].join();
-    final leaders = review.players.entries.toList()..sort((a, b) => b.value.tournamentWins.compareTo(a.value.tournamentWins));
-    final rows = [for (final entry in leaders.take(10)) '<tr><td>${_escape(entry.key)}</td><td>${entry.value.participations}</td><td>${entry.value.tournamentWins}</td><td>${entry.value.legsWon}</td><td>${entry.value.bestPerformances}</td></tr>'].join();
-    final html = '''<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${_escape(ranking.name)} · ${review.year}</title><style>body{font:16px system-ui;margin:32px auto;padding:0 20px;max-width:900px;color:#18212b}h1{color:#146356}.cards{display:flex;gap:12px;flex-wrap:wrap}.card{background:#edf5f3;padding:16px;border-radius:12px;min-width:120px}.month{display:flex;gap:12px;align-items:center;margin:7px 0}.month span{width:32px}.track{height:14px;background:#e7eeec;border-radius:8px;flex:1;overflow:hidden}.track i{display:block;height:100%;background:#17806d}.month b{width:24px}table{width:100%;border-collapse:collapse;margin-top:24px}td,th{text-align:left;padding:9px;border-bottom:1px solid #ddd}@media print{body{margin:0}}</style><body><h1>${_escape(ranking.name)} · Jahresrückblick ${review.year}</h1><div class="cards"><div class="card"><b>${review.tournaments}</b><br>Turniere</div><div class="card"><b>${review.totalLegs}</b><br>gewonnene Legs</div><div class="card"><b>${review.totalBestPerformances}</b><br>Bestleistungen</div><div class="card"><b>${review.total180}</b><br>180+</div><div class="card"><b>${review.total170}</b><br>170+</div><div class="card"><b>${review.totalShortLegs}</b><br>Shortlegs</div><div class="card"><b>${review.totalHighFinishes}</b><br>High Finishes</div></div><h2>Turniere pro Monat</h2>$bars<h2>Spielerübersicht</h2><table><thead><tr><th>Spieler</th><th>Teilnahmen</th><th>Siege</th><th>Legs</th><th>Bestleistungen</th></tr></thead><tbody>$rows</tbody></table></body></html>''';
-    await File(location.path).writeAsString(html, flush: true);
-  }
+    setState(() => _exporting = true);
+    try {
+      const generator = RankingYearReviewImageGenerator();
+      final pngBytes = await generator.generatePng(ranking: ranking, review: review);
+      final cleanName = ranking.name.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+      final fileName = 'ranglisten-rueckblick-$cleanName-${review.year}.png';
 
-  String _escape(String value) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+      if (kIsWeb) {
+        final uri = Uri.dataFromBytes(pngBytes, mimeType: 'image/png');
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+        }
+      } else if (Platform.isAndroid) {
+        try {
+          final saved = await const MethodChannel(
+            'dartturnier/backups',
+          ).invokeMethod<bool>('export', {
+            'bytes': pngBytes,
+            'fileName': fileName,
+            'mimeType': 'image/png',
+          });
+          if (saved == false) return;
+        } catch (_) {
+          final tempDir = await getTemporaryDirectory();
+          final file = File('${tempDir.path}/$fileName');
+          await file.writeAsBytes(pngBytes, flush: true);
+          final uri = Uri.file(file.path);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri);
+          }
+        }
+      } else {
+        final location = await getSaveLocation(
+          suggestedName: fileName,
+          acceptedTypeGroups: [
+            const XTypeGroup(label: 'PNG-Grafik', extensions: ['png']),
+          ],
+        );
+        if (location == null) return;
+        await File(location.path).writeAsBytes(pngBytes, flush: true);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Jahresrückblick erfolgreich als Grafik exportiert.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Grafikexport fehlgeschlagen: $error'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -72,18 +124,20 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final rankings = snapshot.data!;
-        final years = [_year, _year - 1, _year - 2, _year - 3];
+        final currentYear = DateTime.now().year;
+        final years = List<int>.generate(currentYear - 1999, (index) => currentYear - index);
         return AdaptiveContentList(children: [
           Text('Rückblick nach Rangliste', style: Theme.of(context).textTheme.headlineSmall),
           DropdownButtonFormField<LocalRanking>(
-            value: _selected,
+            initialValue: _selected,
             decoration: const InputDecoration(labelText: 'Rangliste'),
             items: [for (final ranking in rankings) DropdownMenuItem(value: ranking, child: Text(ranking.name))],
             onChanged: _select,
           ),
           DropdownButtonFormField<int>(
-            value: _year,
-            decoration: const InputDecoration(labelText: 'Jahr'),
+            initialValue: _year,
+            menuMaxHeight: 320,
+            decoration: const InputDecoration(labelText: 'Jahr', border: OutlineInputBorder()),
             items: [for (final year in years) DropdownMenuItem(value: year, child: Text('$year'))],
             onChanged: (value) { if (value != null) _setYear(value); },
           ),
@@ -97,7 +151,16 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
               return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const SizedBox(height: 20),
                 Text('${review.tournaments} Turniere · ${review.totalLegs} Legs · ${review.totalBestPerformances} Bestleistungen · ${review.total180} × 180+ · ${review.total170} × 170+ · ${review.totalShortLegs} Shortlegs · ${review.totalHighFinishes} High Finishes', style: Theme.of(context).textTheme.titleMedium),
-                Align(alignment: Alignment.centerRight, child: OutlinedButton.icon(onPressed: () => _exportReview(_selected!, review), icon: const Icon(Icons.ios_share), label: const Text('Rückblick als Grafik exportieren'))),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    onPressed: _exporting ? null : () => _exportReview(_selected!, review),
+                    icon: _exporting
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.image_outlined),
+                    label: Text(_exporting ? 'Grafik wird exportiert…' : 'Rückblick als Grafik exportieren'),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Text('Turniere pro Monat', style: Theme.of(context).textTheme.titleLarge),
                 for (var i = 0; i < 12; i++) _MonthBar(month: i + 1, count: review.monthlyTournaments[i], max: review.monthlyTournaments.fold<int>(0, (a, b) => a > b ? a : b)),
@@ -228,7 +291,7 @@ class _RankingsPageState extends State<RankingsPage> {
     floatingActionButton: FloatingActionButton.extended(
       onPressed: _saving ? null : _create,
       icon: const Icon(Icons.add),
-      label: const Text('Rangliste hinzufügen'),
+      label: const Text('Rangliste erstellen'),
     ),
     body: SafeArea(
       child: FutureBuilder<List<LocalRanking>>(
@@ -236,7 +299,7 @@ class _RankingsPageState extends State<RankingsPage> {
         builder: (context, snapshot) => AdaptiveContentList(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
           children: [
-            Text('Vereinsranglisten', style: Theme.of(context).textTheme.headlineSmall),
+            Text('Ranglisten verwalten', style: Theme.of(context).textTheme.headlineSmall),
             const Text('Ranglisten werden lokal geführt und im konto-bezogenen Supabase-Datenstand gesichert.'),
             if (snapshot.connectionState == ConnectionState.waiting)
               const LinearProgressIndicator(),
@@ -254,21 +317,30 @@ class _RankingsPageState extends State<RankingsPage> {
                   subtitle: Text(ranking.type == RankingType.elo
                       ? 'Klassische Elo-Wertung · Start ${ranking.startRating}'
                       : 'Turnierserie · Teilnahme, Sets, Platzierungen und Bestleistungen'),
-                  trailing: PopupMenuButton<String>(
-                    tooltip: 'Ranglistenaktionen',
-                    onSelected: (value) {
-                      if (value == 'players') _assignPlayers(ranking);
-                      if (value == 'tournaments') _assignTournaments(ranking);
-                      if (value == 'settings') _edit(ranking);
-                      if (value == 'table') _openRanking(ranking);
-                      if (value == 'delete') _delete(ranking);
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'players', child: Text('Spieler zuweisen')),
-                      PopupMenuItem(value: 'tournaments', child: Text('Turniere zuweisen')),
-                      PopupMenuItem(value: 'settings', child: Text('Ranglisteneinstellungen')),
-                      PopupMenuItem(value: 'table', child: Text('Ranglistenstand öffnen')),
-                      PopupMenuItem(value: 'delete', child: Text('Rangliste löschen')),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Fix 4.2: Einstellungen direkt zugänglich (statt nur im Menü)
+                      IconButton(
+                        tooltip: 'Einstellungen',
+                        icon: const Icon(Icons.settings_outlined),
+                        onPressed: () => _edit(ranking),
+                      ),
+                      PopupMenuButton<String>(
+                        tooltip: 'Weitere Aktionen',
+                        onSelected: (value) {
+                          if (value == 'players') _assignPlayers(ranking);
+                          if (value == 'tournaments') _assignTournaments(ranking);
+                          if (value == 'table') _openRanking(ranking);
+                          if (value == 'delete') _delete(ranking);
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(value: 'players', child: Text('Spieler zuweisen')),
+                          PopupMenuItem(value: 'tournaments', child: Text('Turniere zuweisen')),
+                          PopupMenuItem(value: 'table', child: Text('Ranglistenstand öffnen')),
+                          PopupMenuItem(value: 'delete', child: Text('Rangliste löschen')),
+                        ],
+                      ),
                     ],
                   ),
                   onTap: () => _openRanking(ranking),
@@ -293,8 +365,9 @@ class _RankingEditorDialogState extends State<_RankingEditorDialog> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   RankingType _type = RankingType.elo;
-  final _fromYear = TextEditingController();
-  final _toYear = TextEditingController();
+  DateTime? _fromDate;
+  DateTime? _toDate;
+  String? _dateError;
   final Map<String, TextEditingController> _numbers = {
     'Startwertung': TextEditingController(text: '1000'),
     'K-Faktor Neu': TextEditingController(text: '25'),
@@ -317,8 +390,8 @@ class _RankingEditorDialogState extends State<_RankingEditorDialog> {
     if (initial == null) return;
     _name.text = initial.name;
     _type = initial.type;
-    _fromYear.text = initial.validFromYear?.toString() ?? '';
-    _toYear.text = initial.validToYear?.toString() ?? '';
+    _fromDate = initial.validFromDate ?? (initial.validFromYear == null ? null : DateTime(initial.validFromYear!, 1, 1));
+    _toDate = initial.validToDate ?? (initial.validToYear == null ? null : DateTime(initial.validToYear!, 12, 31));
     for (final entry in _numbers.entries) {
       final values = <String, int>{
         'Startwertung': initial.startRating, 'K-Faktor Neu': initial.newPlayerK,
@@ -335,8 +408,6 @@ class _RankingEditorDialogState extends State<_RankingEditorDialog> {
   @override
   void dispose() {
     _name.dispose();
-    _fromYear.dispose();
-    _toYear.dispose();
     for (final controller in _numbers.values) {
       controller.dispose();
     }
@@ -345,14 +416,40 @@ class _RankingEditorDialogState extends State<_RankingEditorDialog> {
 
   int _value(String label) => int.tryParse(_numbers[label]!.text.trim()) ?? 0;
 
+  Future<void> _pickDate({required bool start}) async {
+    final current = start ? _fromDate : _toDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? DateTime.now(),
+      firstDate: DateTime(1980),
+      lastDate: DateTime(2100),
+      helpText: start ? 'Gültig ab Datum' : 'Gültig bis Datum',
+    );
+    if (picked == null) return;
+    setState(() {
+      if (start) {
+        _fromDate = picked;
+      } else {
+        _toDate = picked;
+      }
+      if (_fromDate != null && _toDate != null && _toDate!.isBefore(_fromDate!)) {
+        _dateError = 'Das Enddatum darf nicht vor dem Startdatum liegen.';
+      } else {
+        _dateError = null;
+      }
+    });
+  }
+
   void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-    final fromYear = int.tryParse(_fromYear.text.trim());
-    final toYear = int.tryParse(_toYear.text.trim());
-    if (fromYear != null && toYear != null && toYear < fromYear) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Das Endjahr muss nach dem Startjahr liegen.')));
-      return;
-    }
+    setState(() {
+      if (_fromDate != null && _toDate != null && _toDate!.isBefore(_fromDate!)) {
+        _dateError = 'Das Enddatum darf nicht vor dem Startdatum liegen.';
+      } else {
+        _dateError = null;
+      }
+    });
+    if (!_formKey.currentState!.validate() || _dateError != null) return;
+
     Navigator.pop(context, LocalRanking(
       id: widget.initial?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
       name: _name.text.trim(),
@@ -369,8 +466,10 @@ class _RankingEditorDialogState extends State<_RankingEditorDialog> {
       secondPlacePoints: _value('Punkte Platz 2'),
       thirdPlacePoints: _value('Punkte Platz 3'),
       bestPerformancePoints: _value('Punkte je Bestleistung'),
-      validFromYear: fromYear,
-      validToYear: toYear,
+      validFromYear: _fromDate?.year,
+      validToYear: _toDate?.year,
+      validFromDate: _fromDate,
+      validToDate: _toDate,
     ));
   }
 
@@ -379,45 +478,138 @@ class _RankingEditorDialogState extends State<_RankingEditorDialog> {
     title: Text(widget.initial == null ? 'Rangliste erstellen' : 'Rangliste bearbeiten'),
     scrollable: true,
     content: SizedBox(
-      width: 460,
+      width: 480,
       child: Form(
         key: _formKey,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextFormField(
-            controller: _name,
-            autofocus: true,
-            maxLength: 80,
-            decoration: const InputDecoration(labelText: 'Name, z. B. DC Unzenberg 2026'),
-            validator: (value) => (value ?? '').trim().isEmpty ? 'Bitte einen Namen eingeben.' : null,
-          ),
-          TextFormField(controller: _fromYear, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Turniere gültig ab Jahr (optional)'), validator: (value) => (value ?? '').trim().isEmpty || int.tryParse(value!.trim()) != null ? null : 'Jahr als Zahl eingeben.'),
-          TextFormField(controller: _toYear, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Turniere gültig bis Jahr (optional)'), validator: (value) => (value ?? '').trim().isEmpty || int.tryParse(value!.trim()) != null ? null : 'Jahr als Zahl eingeben.'),
-          DropdownButtonFormField<RankingType>(
-            initialValue: _type,
-            decoration: const InputDecoration(labelText: 'Ranglistentyp'),
-            items: const [
-              DropdownMenuItem(value: RankingType.elo, child: Text('Klassische Elo-Rangliste')),
-              DropdownMenuItem(value: RankingType.series, child: Text('Turnierserie mit Punkten')),
-            ],
-            onChanged: (value) => setState(() => _type = value ?? RankingType.elo),
-          ),
-          const SizedBox(height: 12),
-          for (final entry in _numbers.entries)
-            if (_type == RankingType.elo
-                ? entry.key.startsWith('Start') || entry.key.startsWith('K-Faktor') || entry.key.startsWith('Spiele') || entry.key.startsWith('Pro-Spieler')
-                : entry.key.startsWith('Punkte'))
-              TextFormField(
-                controller: entry.value,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: entry.key),
-                validator: (value) => int.tryParse((value ?? '').trim()) == null ? 'Bitte eine ganze Zahl eingeben.' : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_dateError != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _dateError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onErrorContainer,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-        ]),
+            TextFormField(
+              controller: _name,
+              autofocus: widget.initial == null,
+              maxLength: 80,
+              buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
+              decoration: const InputDecoration(
+                labelText: 'Name der Rangliste',
+                hintText: 'z. B. DC Unzenberg 2026',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) => (value ?? '').trim().isEmpty ? 'Bitte einen Namen eingeben.' : null,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Gültigkeitszeitraum (optional)',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Ohne Angabe gelten alle Turniere.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _pickDate(start: true),
+                  icon: const Icon(Icons.calendar_today, size: 18),
+                  label: Text(_fromDate == null
+                      ? 'Startdatum wählen'
+                      : 'Ab ${_fromDate!.day.toString().padLeft(2, '0')}.${_fromDate!.month.toString().padLeft(2, '0')}.${_fromDate!.year}'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _pickDate(start: false),
+                  icon: const Icon(Icons.event, size: 18),
+                  label: Text(_toDate == null
+                      ? 'Enddatum wählen'
+                      : 'Bis ${_toDate!.day.toString().padLeft(2, '0')}.${_toDate!.month.toString().padLeft(2, '0')}.${_toDate!.year}'),
+                ),
+                if (_fromDate != null || _toDate != null)
+                  TextButton.icon(
+                    onPressed: () => setState(() {
+                      _fromDate = null;
+                      _toDate = null;
+                      _dateError = null;
+                    }),
+                    icon: const Icon(Icons.clear, size: 18),
+                    label: const Text('Zurücksetzen'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Wertungsmodus',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<RankingType>(
+              initialValue: _type,
+              decoration: const InputDecoration(
+                labelText: 'Typ',
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: RankingType.elo, child: Text('Klassische Elo-Rangliste')),
+                DropdownMenuItem(value: RankingType.series, child: Text('Turnierserie mit Punkten')),
+              ],
+              onChanged: (value) => setState(() => _type = value ?? RankingType.elo),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              _type == RankingType.elo ? 'Elo-Parameter' : 'Punkte-Parameter',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            for (final entry in _numbers.entries)
+              if (_type == RankingType.elo
+                  ? entry.key.startsWith('Start') || entry.key.startsWith('K-Faktor') || entry.key.startsWith('Spiele') || entry.key.startsWith('Pro-Spieler')
+                  : entry.key.startsWith('Punkte'))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: TextFormField(
+                    controller: entry.value,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: entry.key,
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    validator: (value) => int.tryParse((value ?? '').trim()) == null ? 'Bitte eine ganze Zahl eingeben.' : null,
+                  ),
+                ),
+          ],
+        ),
       ),
     ),
     actions: [
       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
-      FilledButton(onPressed: _submit, child: Text(widget.initial == null ? 'Erstellen' : 'Speichern')),
+      FilledButton(onPressed: _submit, child: Text(widget.initial == null ? 'Rangliste erstellen' : 'Speichern')),
     ],
   );
 }
@@ -431,7 +623,8 @@ class _RankingTournamentsPage extends StatefulWidget {
 
 class _RankingTournamentsPageState extends State<_RankingTournamentsPage> {
   final _storage = TournamentStorage();
-  late Future<List<CreatedTournament>> _future = _storage.loadTournaments();
+  // ignore: prefer_final_fields
+  late final Future<List<CreatedTournament>> _future = _storage.loadTournaments();
   final Set<String> _selected = {};
   bool _ready = false, _saving = false;
 
@@ -485,6 +678,7 @@ class _RankingPlayersPage extends StatefulWidget {
 }
 
 class _RankingPlayersPageState extends State<_RankingPlayersPage> {
+  // ignore: prefer_final_fields
   late Future<(List<PlayerProfile>, List<String>)> _load = _loadData();
   final Set<String> _selected = {};
   bool _initialized = false;

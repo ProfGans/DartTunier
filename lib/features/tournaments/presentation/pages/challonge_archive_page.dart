@@ -62,9 +62,11 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
       await TournamentStorage().saveTournament(updated);
       if (mounted) setState(() => tournament = updated);
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bestleistungen konnten nicht gespeichert werden: $error')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Bestleistungen konnten nicht gespeichert werden: $error')),
+        );
+      }
     } finally {
       if (mounted) setState(() => saving = false);
     }

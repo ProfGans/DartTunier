@@ -15,14 +15,22 @@ class _TournamentFormatPlannerDialogState
   String? _maximumGroupsError;
   final _structureKey = GlobalKey<SportSettingsSectionState>();
   final _minimumMatches = TextEditingController(text: '3');
+  // Duration fields: store as whole minutes to avoid decimal confusion
   final _minHours = TextEditingController(text: '2');
+  final _minMinutes = TextEditingController(text: '0');
   final _maxHours = TextEditingController(text: '4');
+  final _maxMinutes = TextEditingController(text: '0');
   final _targetHours = TextEditingController(text: '3');
+  final _targetMinutes = TextEditingController(text: '0');
   bool _useTargetDuration = false;
   String? _targetError;
+  String? _durationError;
   String _checkoutType = 'double_out';
+  final _scrollController = ScrollController();
+  final _resultsKey = GlobalKey();
 
-  String _x01Selection = 'variable_301_501';
+  String _x01Selection = '501';
+
   List<TournamentFormatSuggestion>? _suggestions;
   bool _calculating = false;
   bool _cancelled = false;
@@ -50,8 +58,11 @@ class _TournamentFormatPlannerDialogState
       _maximumGroups,
       _minimumMatches,
       _minHours,
+      _minMinutes,
       _maxHours,
+      _maxMinutes,
       _targetHours,
+      _targetMinutes,
     ]) {
       controller.addListener(() {
         if (_calculating) _cancel();
@@ -67,9 +78,9 @@ class _TournamentFormatPlannerDialogState
     _boards.text,
     _maximumGroups.text,
     _minimumMatches.text,
-    _minHours.text,
-    _maxHours.text,
-    _targetHours.text,
+    '${_minHours.text}h${_minMinutes.text}m',
+    '${_maxHours.text}h${_maxMinutes.text}m',
+    '${_targetHours.text}h${_targetMinutes.text}m',
     _useTargetDuration,
     _checkoutType,
     _x01Selection,
@@ -84,33 +95,59 @@ class _TournamentFormatPlannerDialogState
   @override
   void dispose() {
     _cancel();
+    _scrollController.dispose();
     _maximumGroups.dispose();
     _players.dispose();
     _boards.dispose();
     _minimumMatches.dispose();
     _minHours.dispose();
+    _minMinutes.dispose();
     _maxHours.dispose();
+    _maxMinutes.dispose();
     _targetHours.dispose();
+    _targetMinutes.dispose();
     super.dispose();
   }
 
   Future<void> _calculate() async {
-    final targetHours = double.tryParse(
-      _targetHours.text.trim().replaceAll(',', '.'),
-    );
+    // Parse target duration (hours + minutes)
+    final th = int.tryParse(_targetHours.text.trim());
+    final tm = int.tryParse(_targetMinutes.text.trim());
+    final targetTotalMinutes =
+        _useTargetDuration ? ((th ?? 0) * 60 + (tm ?? 0)) : null;
     if (_useTargetDuration &&
-        (targetHours == null ||
-            !targetHours.isFinite ||
-            targetHours <= 0 ||
-            targetHours > 8760 ||
-            (targetHours * 60).round() < 1)) {
+        (th == null ||
+            tm == null ||
+            tm < 0 ||
+            tm > 59 ||
+            targetTotalMinutes! < 1 ||
+            targetTotalMinutes > 525600)) {
       setState(() {
-        _targetError = 'Gültige Dauer von 1 Minute bis 8760 Stunden eingeben.';
+        _targetError =
+            'Gültige Dauer eingeben (max. 365 Tage). Minuten: 0–59.';
         _suggestions = null;
       });
       return;
     }
     setState(() => _targetError = null);
+
+    // Parse min/max duration (hours + minutes) – Fix 1.1: was int.tryParse only
+    final minH = int.tryParse(_minHours.text.trim()) ?? 0;
+    final minM = int.tryParse(_minMinutes.text.trim()) ?? 0;
+    final maxH = int.tryParse(_maxHours.text.trim()) ?? 4;
+    final maxM = int.tryParse(_maxMinutes.text.trim()) ?? 0;
+    final minTotal = minH * 60 + minM.clamp(0, 59);
+    final maxTotal = maxH * 60 + maxM.clamp(0, 59);
+
+    if (!_useTargetDuration && maxTotal < 1) {
+      setState(() {
+        _durationError = 'Max. Dauer muss mindestens 1 Minute betragen.';
+        _suggestions = null;
+      });
+      return;
+    }
+    setState(() => _durationError = null);
+
     final groupText = _maximumGroups.text.trim();
     final groupLimit = int.tryParse(groupText);
     if (groupText.isNotEmpty &&
@@ -141,11 +178,9 @@ class _TournamentFormatPlannerDialogState
               enabledModes: Set.unmodifiable(_enabledModes),
 
               minimumMatchesPerPlayer: int.tryParse(_minimumMatches.text) ?? 1,
-              minimumMinutes: (int.tryParse(_minHours.text) ?? 0) * 60,
-              maximumMinutes: (int.tryParse(_maxHours.text) ?? 24) * 60,
-              targetMinutes: _useTargetDuration
-                  ? (targetHours! * 60).round()
-                  : null,
+              minimumMinutes: minTotal,
+              maximumMinutes: maxTotal,
+              targetMinutes: targetTotalMinutes,
               x01Selection: _x01Selection,
               checkoutType: _checkoutType,
               allowSets: _allowSets,
@@ -159,6 +194,16 @@ class _TournamentFormatPlannerDialogState
       setState(() {
         _suggestions = suggestions;
         _suggestionPageSize = parameters.maximumSuggestions;
+      });
+      // Fix 1.7: Scroll to results after calculation
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_resultsKey.currentContext != null) {
+          Scrollable.ensureVisible(
+            _resultsKey.currentContext!,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+          );
+        }
       });
     } catch (_) {
       if (!mounted || _cancelled) return;
@@ -187,6 +232,7 @@ class _TournamentFormatPlannerDialogState
       content: SizedBox(
         width: 760,
         child: SingleChildScrollView(
+          controller: _scrollController,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -219,36 +265,99 @@ class _TournamentFormatPlannerDialogState
                               _useTargetDuration = target;
                               _suggestions = null;
                               _targetError = null;
+                              _durationError = null;
                             }),
                     ),
                 ],
               ),
               const SizedBox(height: 12),
-              if (_useTargetDuration)
-                TextField(
-                  controller: _targetHours,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'Wunschdauer (Stunden)',
-                    helperText:
-                        'Zum Beispiel 2,5 für 2 h 30 min. Vorschläge werden nach Nähe zur Wunschdauer sortiert.',
-                    helperMaxLines: 3,
-                    errorText: _targetError,
-                    border: const OutlineInputBorder(),
-                  ),
-                )
-              else
-                AdaptiveTileLayout(
-                  minTileWidth: 220,
+              if (_useTargetDuration) ...[
+                // Wunschdauer: Stunden + Minuten
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _numberField(_minHours, 'Mind. Dauer (Stunden)'),
-                    _numberField(_maxHours, 'Max. Dauer (Stunden)'),
+                    Expanded(
+                      child: TextField(
+                        controller: _targetHours,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Stunden',
+                          helperText: 'Wunschdauer',
+                          helperMaxLines: 2,
+                          errorText: _targetError,
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _targetMinutes,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Minuten (0–59)',
+                          helperText: 'Vorschläge sortiert nach Nähe.',
+                          helperMaxLines: 2,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              const SizedBox(height: 12),
+              ] else ...[
+                // Zeitfenster: Min-Stunden + Min-Minuten / Max-Stunden + Max-Minuten
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _minHours,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Mind. Stunden',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _minMinutes,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Mind. Minuten',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextField(
+                        controller: _maxHours,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Max. Stunden',
+                          errorText: _durationError,
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _maxMinutes,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Max. Minuten',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
+
               SportSettingsSection(
                 title: 'Turnierformen',
                 summary:
@@ -483,7 +592,7 @@ class _TournamentFormatPlannerDialogState
                   child: const Text('Berechnung abbrechen'),
                 ),
               if (_suggestions != null) ...[
-                const SizedBox(height: 16),
+                SizedBox(key: _resultsKey, height: 16),
                 const Text(
                   'Mehr Boards ändern bei gleichem Turnieraufbau nur die Dauer, nicht die Spielanzahl. Dadurch können andere Gruppenaufteilungen ins Zeitfenster passen und die Vorschläge anders sortiert werden. Bei variabler Punktzahl kann sich auch 301/501 ändern.',
                 ),

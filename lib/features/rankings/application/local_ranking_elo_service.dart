@@ -38,6 +38,8 @@ class LocalRankingEloService {
       proRatingThreshold: ranking.proRatingThreshold,
       validFromYear: ranking.validFromYear,
       validToYear: ranking.validToYear,
+      validFromDate: ranking.validFromDate,
+      validToDate: ranking.validToDate,
     );
   }
 }

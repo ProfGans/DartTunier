@@ -10,11 +10,12 @@ import 'tournament_planning_parameters.dart';
 class TournamentPlanningRequest {
   static const modeLabels = <String, String>{
     'single_knockout': 'Einfaches KO',
-    'double_knockout': 'Doppel-KO',
-    'triple_knockout': 'Triple-KO',
-    'kratzer': 'Kratzer',
-    'groups:round_robin': 'Gruppen: Jeder gegen jeden',
-    'groups:limited_round_robin': 'Gruppen: maximal 5 Spiele pro Spieler',
+    'double_knockout': 'Doppel-KO (Verlierer-Runde)',
+    'triple_knockout': 'Triple-KO (zwei Verlierer-Chancen)',
+    'kratzer': 'Kratzer (Leben-System)',
+    'groups:round_robin': 'Gruppen: Jeder gegen jeden (einmal)',
+    'groups:limited_round_robin':
+        'Gruppen: Rundenformat mit max. 5 Begegnungen pro Spieler',
     'groups:swiss': 'Schweizer System',
     'groups:mini_knockout': 'Gruppen: Mini-KO',
     'groups:double_knockout': 'Gruppen: Mini-Doppel-KO',

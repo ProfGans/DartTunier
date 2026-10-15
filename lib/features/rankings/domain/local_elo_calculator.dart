@@ -75,6 +75,8 @@ class LocalEloCalculator {
     int proRatingThreshold = defaultProRatingThreshold,
     int? validFromYear,
     int? validToYear,
+    DateTime? validFromDate,
+    DateTime? validToDate,
     DateTime? now,
   }) {
     final entries = <String, LocalEloPlayer>{
@@ -95,7 +97,9 @@ class LocalEloCalculator {
             (validToYear == null || _date(tournament).year <= validToYear))
           for (final match in _matches(tournament))
             if (match.hasResult &&
-                match.homePlayer != null && match.awayPlayer != null)
+                match.homePlayer != null && match.awayPlayer != null &&
+                (validFromDate == null || !_dateOnly(_matchDate(tournament, match)).isBefore(_dateOnly(validFromDate))) &&
+                (validToDate == null || !_dateOnly(_matchDate(tournament, match)).isAfter(_dateOnly(validToDate))))
               (tournament: tournament, match: match),
     ];
     pending.sort((a, b) {
@@ -140,11 +144,18 @@ class LocalEloCalculator {
 
   DateTime _date(CreatedTournament t) => t.startedAt ?? t.createdAt;
   DateTime _matchDate(CreatedTournament t, GroupMatch m) => m.finishedAt ?? m.startedAt ?? _date(t);
+  DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
   Iterable<GroupMatch> _matches(CreatedTournament t) sync* {
     for (final stage in t.runStages) {
-      if (stage is KnockoutTournamentRunStage) yield* stage.matches;
-      if (stage is GroupTournamentRunStage) for (final group in stage.groups) {
-        yield* group.matches; yield* group.knockoutRounds.expand((round) => round); yield* group.placementMatches;
+      if (stage is KnockoutTournamentRunStage) {
+        yield* stage.matches;
+      }
+      if (stage is GroupTournamentRunStage) {
+        for (final group in stage.groups) {
+          yield* group.matches;
+          yield* group.knockoutRounds.expand((round) => round);
+          yield* group.placementMatches;
+        }
       }
     }
   }

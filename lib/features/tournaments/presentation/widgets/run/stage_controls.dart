@@ -177,7 +177,7 @@ class StageViewModeSwitch extends StatelessWidget {
         SportSection(
           StageViewMode.playOrder,
           'Spielansicht',
-          Icons.format_list_numbered,
+          Icons.play_circle_outline,
         ),
         if (canLead)
           const SportSection(

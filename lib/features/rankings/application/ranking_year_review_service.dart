@@ -40,7 +40,7 @@ class RankingYearReviewService {
     final tournaments = await (tournamentStorage ?? TournamentStorage()).loadTournaments();
     for (final tournament in tournaments) {
       final date = (tournament.finishedAt ?? tournament.createdAt).toLocal();
-      if (date.year != year || !ranking.includesTournamentYear(date.year) || !tournament.countsForRanking || !tournament.rankingIds.contains(ranking.id)) continue;
+      if (date.year != year || !ranking.includesTournamentDate(date) || !tournament.countsForRanking || !tournament.rankingIds.contains(ranking.id)) continue;
       tournamentCount++;
       monthly[date.month - 1]++;
       final participants = tournament.players.where((p) => p.profileId != null && stats.containsKey(p.profileId)).map((p) => p.profileId!).toSet();
@@ -103,9 +103,16 @@ class RankingYearReviewService {
 
   Iterable<GroupMatch> _matches(CreatedTournament tournament) sync* {
     for (final stage in tournament.runStages) {
-      if (stage is KnockoutTournamentRunStage) { yield* stage.matches; yield* stage.placementMatches; }
-      if (stage is GroupTournamentRunStage) for (final group in stage.groups) {
-        yield* group.matches; yield* group.knockoutRounds.expand((round) => round); yield* group.placementMatches;
+      if (stage is KnockoutTournamentRunStage) {
+        yield* stage.matches;
+        yield* stage.placementMatches;
+      }
+      if (stage is GroupTournamentRunStage) {
+        for (final group in stage.groups) {
+          yield* group.matches;
+          yield* group.knockoutRounds.expand((round) => round);
+          yield* group.placementMatches;
+        }
       }
     }
   }

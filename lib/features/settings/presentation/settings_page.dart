@@ -1,5 +1,4 @@
 import '../../../shared/widgets/sport_settings_section.dart';
-import '../../../shared/widgets/sport_section_navigation.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 import '../../backups/presentation/backup_panel.dart';
 import '../../backups/application/local_app_reset_service.dart';
@@ -22,7 +21,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   int _selected = 0;
-  final _panelsKey = GlobalKey();
 
   static const _sections = [
     'Passende Turnierform',
@@ -38,37 +36,24 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: SportSectionNavigation<int>(
-              label: 'Bereich',
-              selected: _selected,
-              onChanged: (value) => setState(() => _selected = value),
-              sections: [
-                for (var i = 0; i < _sections.length; i++)
-                  SportSection(
-                    i,
-                    _sections[i],
-                    [
-                      Icons.tune,
-                      Icons.backup_outlined,
-                      Icons.system_update_outlined,
-                      Icons.tune,
-                    ][i],
-                  ),
-              ],
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Wrap(spacing: 8, runSpacing: 4, children: [
+              for (var i = 0; i < _sections.length; i++)
+                ChoiceChip(
+                  label: Text(_sections[i]),
+                  avatar: Icon([Icons.tune, Icons.backup_outlined, Icons.system_update_outlined, Icons.settings_outlined][i]),
+                  selected: _selected == i,
+                  onSelected: (_) => setState(() => _selected = i),
+                ),
+            ]),
           ),
           Expanded(
-            child: IndexedStack(
-              key: _panelsKey,
-              index: _selected,
-              children: [
-                _PlanningParametersPanel(),
-                _DataPanel(onReset: () => _resetLocalData(context)),
-                AndroidUpdatesPanel(),
-                _AdministrationPanel(),
-              ],
-            ),
+            child: switch (_selected) {
+              0 => const _PlanningParametersPanel(),
+              1 => _DataPanel(onReset: () => _resetLocalData(context)),
+              2 => const AndroidUpdatesPanel(),
+              _ => const _AdministrationPanel(),
+            },
           ),
         ],
       ),
@@ -81,19 +66,15 @@ class _DataPanel extends StatelessWidget {
   final VoidCallback onReset;
 
   @override
-  Widget build(BuildContext context) => AdaptiveContentList(
-    padding: const EdgeInsets.all(20),
-    children: [
-      const BackupPanel(),
-      Card(
-        child: ListTile(
-          leading: const Icon(Icons.restart_alt),
-          title: const Text('Lokale App-Daten zurücksetzen'),
-          subtitle: const Text('Erstellt zuerst ein Wiederherstellungs-Backup.'),
-          onTap: onReset,
-        ),
+  Widget build(BuildContext context) => BackupPanel(
+    trailing: Card(
+      child: ListTile(
+        leading: const Icon(Icons.restart_alt),
+        title: const Text('Lokale App-Daten zurücksetzen'),
+        subtitle: const Text('Erstellt zuerst ein Wiederherstellungs-Backup.'),
+        onTap: onReset,
       ),
-    ],
+    ),
   );
 }
 

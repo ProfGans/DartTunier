@@ -2660,6 +2660,13 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                         tournament: widget.tournament,
                       )
                     else if (_stageViewMode == StageViewMode.overview) ...[
+                      if (isViewingActiveStage)
+                        _OverviewRecommendationBanner(
+                          tournament: widget.tournament,
+                          activeStage: _activeStageIndex,
+                          onResult: _editResult,
+                          canEditResults: canEditResults,
+                        ),
                       if (activeStage is GroupTournamentRunStage)
                         GroupStageRunSection(
                           stage: activeStage,
@@ -2806,6 +2813,122 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                     onFinishEarly: _finishCurrentStageEarly,
                   ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OverviewRecommendationBanner extends StatelessWidget {
+  const _OverviewRecommendationBanner({
+    required this.tournament,
+    required this.activeStage,
+    required this.onResult,
+    required this.canEditResults,
+  });
+
+  final CreatedTournament tournament;
+  final int activeStage;
+  final Future<void> Function(GroupMatch) onResult;
+  final bool canEditResults;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tournament.completedStageIndexes.contains(activeStage)) {
+      return const SizedBox.shrink();
+    }
+    final schedule = const OrderOfPlayController().plan(tournament, activeStage);
+    if (schedule.planned.isEmpty && schedule.running.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final openMatchesPerPlayer = <String, int>{};
+    for (final assignment in schedule.planned) {
+      for (final p in assignment.entry.players) {
+        openMatchesPerPlayer[p] = (openMatchesPerPlayer[p] ?? 0) + 1;
+      }
+    }
+
+    String? bottleneckMessage;
+    if (openMatchesPerPlayer.isNotEmpty) {
+      final maxOpen =
+          openMatchesPerPlayer.values.reduce((a, b) => a > b ? a : b);
+      final minOpen =
+          openMatchesPerPlayer.values.reduce((a, b) => a < b ? a : b);
+      if (maxOpen >= 3 && maxOpen - minOpen >= 2) {
+        final bottleneckPlayers = openMatchesPerPlayer.entries
+            .where((e) => e.value == maxOpen)
+            .map((e) => e.key)
+            .toList();
+        bottleneckMessage =
+            '${bottleneckPlayers.join(", ")} hat noch $maxOpen offene Spiele '
+            '(Schnitt: $minOpen). Bevorzugt aufrufen, um Verzögerungen zu vermeiden.';
+      }
+    }
+
+    final next = schedule.planned.firstOrNull;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Card(
+        elevation: 0,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.tips_and_updates_outlined,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Spielablauf-Empfehlung',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                  ),
+                ],
+              ),
+              if (bottleneckMessage != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  bottleneckMessage,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ],
+              if (next != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Nächstes Spiel: ${next.entry.match.homePlayer?.name ?? "Offen"} – ${next.entry.match.awayPlayer?.name ?? "Offen"}'
+                        ' (Empfehlung: Board ${next.board})',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    if (canEditResults && next.entry.match.hasPlayers)
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => onResult(next.entry.match),
+                        icon: const Icon(Icons.edit_note, size: 18),
+                        label: const Text('Ergebnis erfassen'),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

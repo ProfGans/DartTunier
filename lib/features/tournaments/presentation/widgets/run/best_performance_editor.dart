@@ -93,7 +93,7 @@ class _BestPerformanceEditorState extends State<BestPerformanceEditor> {
             ),
         if (players.isNotEmpty)
           DropdownButtonFormField<String?>(
-            value: _playerId,
+            initialValue: _playerId,
             decoration: const InputDecoration(labelText: 'Spieler'),
             items: [
               for (final player in players)
@@ -106,7 +106,7 @@ class _BestPerformanceEditorState extends State<BestPerformanceEditor> {
           ),
         const SizedBox(height: 8),
         DropdownButtonFormField<BestPerformanceType>(
-          value: _type,
+          initialValue: _type,
           decoration: const InputDecoration(labelText: 'Bestleistung'),
           items: [
             for (final type in BestPerformanceType.values)

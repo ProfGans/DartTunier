@@ -19,6 +19,8 @@ class LocalRanking {
     this.bestPerformancePoints = 1,
     this.validFromYear,
     this.validToYear,
+    this.validFromDate,
+    this.validToDate,
   });
 
   final String id;
@@ -38,10 +40,19 @@ class LocalRanking {
   final int bestPerformancePoints;
   final int? validFromYear;
   final int? validToYear;
+  final DateTime? validFromDate;
+  final DateTime? validToDate;
 
   bool includesTournamentYear(int year) =>
       (validFromYear == null || year >= validFromYear!) &&
       (validToYear == null || year <= validToYear!);
+
+  bool includesTournamentDate(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    final from = validFromDate ?? (validFromYear == null ? null : DateTime(validFromYear!, 1, 1));
+    final to = validToDate ?? (validToYear == null ? null : DateTime(validToYear!, 12, 31));
+    return (from == null || !day.isBefore(from)) && (to == null || !day.isAfter(to));
+  }
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -61,6 +72,8 @@ class LocalRanking {
     'bestPerformancePoints': bestPerformancePoints,
     'validFromYear': validFromYear,
     'validToYear': validToYear,
+    'validFromDate': validFromDate?.toIso8601String(),
+    'validToDate': validToDate?.toIso8601String(),
   };
 
   factory LocalRanking.fromJson(Map<String, Object?> json) => LocalRanking(
@@ -84,5 +97,7 @@ class LocalRanking {
     bestPerformancePoints: json['bestPerformancePoints'] as int? ?? 1,
     validFromYear: json['validFromYear'] as int?,
     validToYear: json['validToYear'] as int?,
+    validFromDate: DateTime.tryParse(json['validFromDate'] as String? ?? ''),
+    validToDate: DateTime.tryParse(json['validToDate'] as String? ?? ''),
   );
 }

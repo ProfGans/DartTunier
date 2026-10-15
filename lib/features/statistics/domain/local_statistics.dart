@@ -1,5 +1,6 @@
 import '../../rankings/domain/local_ranking.dart';
 import '../../rankings/application/local_ranking_elo_service.dart';
+import '../../rankings/application/local_ranking_series_service.dart';
 import '../../tournaments/data/app_database.dart';
 import '../../tournaments/data/tournament_storage.dart';
 import '../../tournaments/domain/tournament_models.dart';
@@ -145,6 +146,55 @@ class LocalStatisticsService {
     return (database ?? LocalAppDatabase()).loadRankingsForPlayer(playerIds.first);
   }
 
+  /// Returns the position of [playerIds] in each of their rankings.
+  /// Position is 1-based (Platz 1 = Platz 1 von N).
+  Future<List<RankingPosition>> rankingPositionsFor(
+    Set<String> playerIds,
+    List<LocalRanking> rankings,
+  ) async {
+    if (playerIds.isEmpty || rankings.isEmpty) return const [];
+    final db = database ?? LocalAppDatabase();
+    final result = <RankingPosition>[];
+    for (final ranking in rankings) {
+      try {
+        if (ranking.type == RankingType.elo) {
+          final snapshot =
+              await LocalRankingEloService(database: db).calculate(ranking);
+          final sorted = snapshot.entries; // already sorted by rating desc
+          final pos = sorted.indexWhere((e) => playerIds.contains(e.id));
+          if (pos >= 0) {
+            result.add(
+              RankingPosition(
+                ranking: ranking,
+                position: pos + 1,
+                total: sorted.length,
+              ),
+            );
+          }
+        } else {
+          // Series ranking – reuse LocalRankingSeriesService
+          final entries =
+              await LocalRankingSeriesService(database: db).calculate(ranking);
+          final pos = entries.indexWhere(
+            (e) => playerIds.contains(e.player.id),
+          );
+          if (pos >= 0) {
+            result.add(
+              RankingPosition(
+                ranking: ranking,
+                position: pos + 1,
+                total: entries.length,
+              ),
+            );
+          }
+        }
+      } catch (_) {
+        // Skip ranking if calculation fails (e.g. wrong type)
+      }
+    }
+    return result;
+  }
+
   Iterable<GroupMatch> _matches(CreatedTournament tournament) sync* {
     for (final stage in tournament.runStages) {
       if (stage is KnockoutTournamentRunStage) {
@@ -159,4 +209,16 @@ class LocalStatisticsService {
       }
     }
   }
+}
+
+/// A player's position in a specific ranking.
+class RankingPosition {
+  const RankingPosition({
+    required this.ranking,
+    required this.position,
+    required this.total,
+  });
+  final LocalRanking ranking;
+  final int position;
+  final int total;
 }

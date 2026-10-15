@@ -10,7 +10,7 @@ class TournamentCreationPage extends StatefulWidget {
 class _TournamentCreationPageState extends State<TournamentCreationPage> {
   bool _showEntryChoices = true;
   bool _countsForRanking = false;
-  List<String> _localRankingIds = [];
+  final List<String> _localRankingIds = [];
   final _tournamentNameController = TextEditingController();
   final _playerNameController = TextEditingController();
   final _playerCountController = TextEditingController(text: '8');

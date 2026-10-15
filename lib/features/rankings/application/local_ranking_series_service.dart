@@ -51,7 +51,7 @@ class LocalRankingSeriesService {
     for (final tournament in tournaments) {
       if (!tournament.countsForRanking ||
           !tournament.rankingIds.contains(ranking.id) ||
-          !ranking.includesTournamentYear((tournament.finishedAt ?? tournament.createdAt).toLocal().year)) {
+          !ranking.includesTournamentDate((tournament.finishedAt ?? tournament.createdAt).toLocal())) {
         continue;
       }
       final participants = tournament.players
@@ -145,8 +145,8 @@ class LocalRankingSeriesService {
     final finalMatch = _finalMatch(tournament);
     if (finalMatch != null) {
       final result = <String>[
-        if (finalMatch.winner?.profileId case final id?) id,
-        if (finalMatch.loser?.profileId case final id?) id,
+        ?finalMatch.winner?.profileId,
+        ?finalMatch.loser?.profileId,
       ];
       for (final match in _placementMatches(tournament).where((m) => m.placementRank == 3 && m.hasResult)) {
         final id = match.winner?.profileId;
