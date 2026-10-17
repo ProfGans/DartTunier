@@ -1458,7 +1458,7 @@ class _StageList extends StatelessWidget {
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text('Noch keine Etappen hinzugefuegt.'),
+          child: Text('Noch keine Etappen hinzugefügt.'),
         ),
       );
     }

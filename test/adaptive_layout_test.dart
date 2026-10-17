@@ -18,7 +18,7 @@ void main() {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = size;
         addTearDown(tester.view.reset);
-        StageViewMode selected = StageViewMode.overview;
+        StageViewMode selected = StageViewMode.dashboard;
         await tester.pumpWidget(
           MaterialApp(
             builder: (context, child) => MediaQuery(
@@ -70,12 +70,12 @@ void main() {
         if (size.width < 840 * scale) {
           await tester.tap(find.byType(DropdownButtonFormField<StageViewMode>));
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Spielansicht').last);
+          await tester.tap(find.text('Ergebnisse').last);
         } else {
-          await tester.tap(find.text('Spielansicht'));
+          await tester.tap(find.text('Ergebnisse'));
         }
         await tester.pumpAndSettle();
-        expect(selected, StageViewMode.playOrder);
+        expect(selected, StageViewMode.results);
         await tester.scrollUntilVisible(
           find.byType(TextField),
           300,

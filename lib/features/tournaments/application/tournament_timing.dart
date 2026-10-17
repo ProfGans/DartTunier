@@ -119,9 +119,16 @@ class TournamentTiming {
             .map((m) => m.finishedAt!.difference(m.startedAt!).inSeconds)
             .toList()
           ..sort();
-    final elapsed = tournament.startedAt == null
+    int pausedSeconds = tournament.totalPausedSeconds;
+    if (tournament.pausedAt != null && tournament.finishedAt == null) {
+      pausedSeconds += now.difference(tournament.pausedAt!).inSeconds;
+    }
+    final rawElapsed = tournament.startedAt == null
         ? Duration.zero
         : (tournament.finishedAt ?? now).difference(tournament.startedAt!);
+    final elapsed = Duration(
+      seconds: max(0, rawElapsed.inSeconds - pausedSeconds),
+    );
     final completed = games.where((m) => m.hasResult).length;
     DateTime? forecast = tournament.finishedAt;
     int? expectedCompleted;
@@ -178,6 +185,92 @@ class TournamentTiming {
       expectedCompleted,
     );
   }
+
+  static void togglePause(CreatedTournament tournament) {
+    if (tournament.startedAt == null || tournament.finishedAt != null) return;
+    final now = DateTime.now();
+    if (tournament.pausedAt != null) {
+      tournament.totalPausedSeconds +=
+          now.difference(tournament.pausedAt!).inSeconds;
+      tournament.pausedAt = null;
+    } else {
+      tournament.pausedAt = now;
+    }
+  }
+
+  static TournamentDurationSummary? durationSummary(CreatedTournament tournament) {
+    if (tournament.startedAt == null) return null;
+    final games = matches(tournament);
+    final playedGames =
+        games.where((m) => m.hasResult && !m.isAnnulled).toList();
+    final playedCount = playedGames.length;
+
+    DateTime? end = tournament.finishedAt;
+    if (end == null) {
+      final last = tournament.runStages.length - 1;
+      final complete =
+          last >= 0 && tournament.completedStageIndexes.contains(last);
+      if (complete) {
+        final ends =
+            playedGames
+                .map((m) => m.finishedAt)
+                .whereType<DateTime>()
+                .toList()
+              ..sort();
+        end = ends.isNotEmpty ? ends.last : tournament.updatedAt;
+      }
+    }
+    final referenceEnd = end ?? DateTime.now();
+    int pausedSeconds = tournament.totalPausedSeconds;
+    if (tournament.pausedAt != null && end == null) {
+      pausedSeconds +=
+          DateTime.now().difference(tournament.pausedAt!).inSeconds;
+    }
+    final rawSeconds = referenceEnd.difference(tournament.startedAt!).inSeconds;
+    final totalDuration = Duration(seconds: max(0, rawSeconds - pausedSeconds));
+
+    final measured =
+        playedGames
+            .where(
+              (m) =>
+                  m.startedAt != null &&
+                  m.finishedAt != null &&
+                  !m.finishedAt!.isBefore(m.startedAt!),
+            )
+            .toList();
+    Duration? avgDuration;
+    if (measured.isNotEmpty) {
+      final totalMatchSecs = measured.fold<int>(
+        0,
+        (sum, m) => sum + m.finishedAt!.difference(m.startedAt!).inSeconds,
+      );
+      avgDuration = Duration(
+        seconds: (totalMatchSecs / measured.length).round(),
+      );
+    } else if (playedCount > 0 && totalDuration.inSeconds > 0) {
+      avgDuration = Duration(
+        seconds: (totalDuration.inSeconds / playedCount).round(),
+      );
+    }
+
+    return TournamentDurationSummary(
+      totalDuration: totalDuration,
+      playedMatches: playedCount,
+      averageMatchDuration: avgDuration,
+    );
+  }
+}
+
+class TournamentDurationSummary {
+  const TournamentDurationSummary({
+    required this.totalDuration,
+    required this.playedMatches,
+    required this.averageMatchDuration,
+  });
+
+  final Duration totalDuration;
+  final int playedMatches;
+  final Duration? averageMatchDuration;
 }
 
 class TimingSnapshot {

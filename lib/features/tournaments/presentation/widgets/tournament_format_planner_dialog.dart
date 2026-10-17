@@ -46,12 +46,15 @@ class _TournamentFormatPlannerDialogState
   int _maximumStages = 2;
   int _maximumLives = 5;
   int _suggestionPageSize = 3;
+  String? _preferredFinalStage = 'single_knockout';
   final Set<String> _enabledModes = {
+    'single_knockout',
+    'double_knockout',
+    'triple_knockout',
+    'kratzer',
     'groups:round_robin',
+    'groups:double_round_robin',
     'groups:limited_round_robin',
-    'groups:mini_knockout',
-    'groups:double_knockout',
-    'groups:triple_knockout',
   };
 
   static const _modeDescriptions = <String, String>{
@@ -70,6 +73,9 @@ class _TournamentFormatPlannerDialogState
     'groups:round_robin':
         'Gruppenphase: Jeder gegen jeden (einmal):\n\n'
         'Innerhalb jeder Gruppe spielt jeder Teilnehmer genau einmal gegen jeden anderen Gruppengegner. Die Rangfolge ergibt sich aus Siegen, Leg-Differenz und direktem Vergleich.',
+    'groups:double_round_robin':
+        'Gruppenphase: Jeder gegen jeden (zweimal):\n\n'
+        'Innerhalb jeder Gruppe spielt jeder Teilnehmer zweimal gegen jeden anderen Gruppengegner. Die doppelte Spielanzahl gibt eine breitere Bewertungsgrundlage, verlängert aber die Turnierdauer.',
     'groups:limited_round_robin':
         'Gruppenphase: Rundenformat mit max. 5 Spielen:\n\n'
         'Für größere Teilnehmergruppen: Jeder Spieler absolviert maximal 5 festgelegte Runden gegen verschiedene Gegner, um die Turnierdauer verlässlich einzugrenzen, ohne dass alle Kombinationen ausgespielt werden müssen.',
@@ -196,6 +202,7 @@ class _TournamentFormatPlannerDialogState
     _requireGroupPhase,
     _maximumStages,
     _maximumLives,
+    _preferredFinalStage,
     (_enabledModes.toList()..sort()).join(','),
   ].join('|');
 
@@ -292,6 +299,7 @@ class _TournamentFormatPlannerDialogState
               checkoutType: _checkoutType,
               allowSets: _allowSets,
               allowDraws: _allowDraws,
+              preferredFinalStage: _preferredFinalStage,
             ),
             allResults: true,
             onCancel: (cancel) => _cancelCalculation = cancel,
@@ -588,6 +596,52 @@ class _TournamentFormatPlannerDialogState
                         ? null
                         : (n) => setState(() {
                             _maximumStages = n!;
+                            _suggestions = null;
+                          }),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
+                    key: const ValueKey('planner-preferred-final-stage'),
+                    initialValue: _preferredFinalStage,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Gewünschte letzte Etappe',
+                      helperText: 'Legt fest, mit welchem Format das Turnier enden soll.',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'single_knockout',
+                        child: Text('Einfaches KO (Standard)'),
+                      ),
+                      DropdownMenuItem(
+                        value: null,
+                        child: Text('Egal (alle Finalformen zulassen)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'double_knockout',
+                        child: Text('Doppel-KO'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'triple_knockout',
+                        child: Text('Triple-KO'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'kratzer',
+                        child: Text('Kratzer'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'groups:round_robin',
+                        child: Text('Gruppen: Jeder gegen jeden (einmal)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'groups:double_round_robin',
+                        child: Text('Gruppen: Jeder gegen jeden (zweimal)'),
+                      ),
+                    ],
+                    onChanged: _calculating
+                        ? null
+                        : (val) => setState(() {
+                            _preferredFinalStage = val;
                             _suggestions = null;
                           }),
                   ),

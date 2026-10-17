@@ -14,6 +14,7 @@ class TournamentPlanningRequest {
     'triple_knockout': 'Triple-KO (zwei Verlierer-Chancen)',
     'kratzer': 'Kratzer (Leben-System)',
     'groups:round_robin': 'Gruppen: Jeder gegen jeden (einmal)',
+    'groups:double_round_robin': 'Gruppen: Jeder gegen jeden (zweimal)',
     'groups:limited_round_robin':
         'Gruppen: Rundenformat mit max. 5 Begegnungen pro Spieler',
     'groups:swiss': 'Schweizer System',
@@ -38,6 +39,7 @@ class TournamentPlanningRequest {
     this.maximumStages = 3,
     this.maximumLives = 5,
     this.enabledModes,
+    this.preferredFinalStage = 'single_knockout',
   });
 
   final int players;
@@ -50,6 +52,7 @@ class TournamentPlanningRequest {
   final int maximumLives;
   /// Null enables all modes; an empty set deliberately allows no suggestions.
   final Set<String>? enabledModes;
+  final String? preferredFinalStage;
 
   /// Null uses the saved planner setting; a value overrides it for this search.
   final int? maximumGroups;

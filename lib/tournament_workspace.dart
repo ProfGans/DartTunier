@@ -36,6 +36,8 @@ import 'features/tournaments/modes/swiss/swiss_engine.dart';
 import 'features/tournaments/presentation/widgets/creation/configuration_duration_bar.dart';
 import 'features/tournaments/presentation/widgets/creation/creation_entry_choices.dart';
 import 'features/tournaments/presentation/widgets/run/tournament_timing_panel.dart';
+import 'features/tournaments/application/tournament_timing.dart';
+import 'features/tournaments/presentation/widgets/run/tournament_second_screen_view.dart';
 import 'features/statistics/presentation/live_tournament_statistics_section.dart';
 import 'features/statistics/presentation/tournament_match_statistics_page.dart';
 import 'features/tournaments/application/expanded_format_planner.dart';
@@ -44,7 +46,6 @@ import 'features/tournaments/presentation/widgets/creation/team_participant_list
 import 'features/tournaments/domain/engines/group_position_editor.dart';
 import 'features/tournaments/presentation/widgets/run/group_positions_dialog.dart';
 import 'features/tournaments/application/order_of_play/order_of_play_controller.dart';
-import 'features/tournaments/presentation/widgets/run/order_of_play_section.dart';
 import 'features/tournaments/data/app_database.dart';
 import 'features/tournaments/data/tournament_storage.dart';
 import 'features/tournaments/domain/engines/tournament_engine.dart';
@@ -62,7 +63,6 @@ import 'features/tournaments/presentation/widgets/run/group_stage_run_section.da
 import 'features/tournaments/presentation/widgets/run/knockout_run_section.dart';
 import 'features/tournaments/presentation/widgets/run/result_entry.dart';
 import 'features/tournaments/presentation/widgets/run/stage_controls.dart';
-import 'features/tournaments/presentation/widgets/run/stage_play_order_section.dart';
 
 part 'features/home/presentation/home_page.dart';
 part 'features/dev_tools/application/production_tournament_runtime.dart';

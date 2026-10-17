@@ -57,8 +57,22 @@ class _BackupPanelState extends State<BackupPanel> {
   }
 
   Future<void> _export() => _run(() async {
+    final categories = await showDialog<Set<String>>(
+      context: context,
+      builder: (context) => const _SelectiveCategoryDialog(
+        title: 'Backup exportieren',
+        description: 'Wähle die Kategorien aus, die in der Datei gesichert werden sollen:',
+        confirmLabel: 'Exportieren',
+        availableFiles: BackupService.names,
+      ),
+    );
+    if (categories == null || categories.isEmpty) return;
+
     if (Platform.isAndroid) {
-      final saved = await exportAndroidBackup(service: await _service());
+      final saved = await exportAndroidBackup(
+        service: await _service(),
+        categories: categories,
+      );
       if (mounted && saved) {
         setState(
           () => _message = 'Backup am gewählten Speicherort gespeichert.',
@@ -68,7 +82,7 @@ class _BackupPanelState extends State<BackupPanel> {
     }
     final target = await widget.dialogs.savePath();
     if (target == null) return;
-    await (await _service()).exportTo(File(target));
+    await (await _service()).exportTo(File(target), categories: categories);
     if (mounted) setState(() => _message = 'Backup gespeichert:\n$target');
   });
 
@@ -81,38 +95,33 @@ class _BackupPanelState extends State<BackupPanel> {
     final service = await _service();
     final preview = await service.inspect(await selected.readAsBytes());
     if (!mounted) return;
-    final confirmed = await showDialog<bool>(
+
+    final selectedCategories = await showDialog<Set<String>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Backup wiederherstellen?'),
-        content: SingleChildScrollView(
-          child: Text(
+      builder: (context) => _SelectiveCategoryDialog(
+        title: 'Backup wiederherstellen',
+        description:
             'Erstellt: ${preview.createdAt.toLocal()}\n'
-            '${preview.tournaments} Turniere · ${preview.files.length} gespeicherte Datenbereiche\n\n'
-            'Enthalten: ${preview.files.map((name) => _areaNames[name] ?? name).join(', ')}\n\n'
-            'Der lokale Datenbestand wird vollständig ersetzt. Im Backup fehlende Bereiche '
-            'werden zurückgesetzt. Vorher wird dein jetziger Stand automatisch gesichert. '
-            'Nach der Wiederherstellung musst du die App neu starten.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Abbrechen'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Wiederherstellen'),
-          ),
-        ],
+            '${preview.tournaments} Turniere in der Datei gefunden.\n\n'
+            'Wähle die Kategorien aus, die du wiederherstellen möchtest (nicht ausgewählte bleiben unverändert):',
+        confirmLabel: 'Wiederherstellen',
+        availableFiles: preview.files,
+        warning:
+            'Die ausgewählten Kategorien werden durch das Backup überschrieben. '
+            'Vorher wird dein aktueller Stand automatisch gesichert.',
       ),
     );
-    if (confirmed != true) return;
-    final safety = await service.restore(preview);
+    if (selectedCategories == null || selectedCategories.isEmpty) return;
+
+    final safety = await service.restore(
+      preview,
+      selectedCategories: selectedCategories,
+    );
     if (mounted) {
       setState(
         () => _message =
-            'Wiederhergestellt. Sicherung des vorherigen Stands:\n${safety.path}\nBitte App neu starten.',
+            'Wiederhergestellt (${selectedCategories.map((c) => _areaNames[c] ?? c).join(', ')}).\n'
+            'Sicherung des vorherigen Stands:\n${safety.path}\nBitte App neu starten.',
       );
     }
   });
@@ -179,5 +188,89 @@ class _BackupPanelState extends State<BackupPanel> {
         ],
       ],
     ),
+  );
+}
+
+class _SelectiveCategoryDialog extends StatefulWidget {
+  const _SelectiveCategoryDialog({
+    required this.title,
+    required this.description,
+    required this.confirmLabel,
+    required this.availableFiles,
+    this.warning,
+  });
+
+  final String title;
+  final String description;
+  final String confirmLabel;
+  final List<String> availableFiles;
+  final String? warning;
+
+  @override
+  State<_SelectiveCategoryDialog> createState() =>
+      _SelectiveCategoryDialogState();
+}
+
+class _SelectiveCategoryDialogState extends State<_SelectiveCategoryDialog> {
+  static const _labels = {
+    'tournaments.json': 'Turniere und Ergebnisse',
+    'app_database.sqlite': 'Spielerprofile, Ranglisten und Bestleistungen',
+    'planning_settings.json': 'Turnierplanung und Voreinstellungen',
+  };
+
+  late final Set<String> _selected = Set.from(widget.availableFiles);
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.title),
+    content: SizedBox(
+      width: 440,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(widget.description),
+            const SizedBox(height: 16),
+            for (final file in widget.availableFiles)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text(_labels[file] ?? file),
+                value: _selected.contains(file),
+                onChanged: (val) => setState(() {
+                  if (val == true) {
+                    _selected.add(file);
+                  } else {
+                    _selected.remove(file);
+                  }
+                }),
+              ),
+            if (widget.warning != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                widget.warning!,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Abbrechen'),
+      ),
+      FilledButton(
+        onPressed: _selected.isEmpty
+            ? null
+            : () => Navigator.pop(context, Set<String>.from(_selected)),
+        child: Text(widget.confirmLabel),
+      ),
+    ],
   );
 }

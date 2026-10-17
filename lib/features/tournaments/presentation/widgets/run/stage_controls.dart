@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import '../../../domain/tournament_models.dart';
 
 enum StageViewMode {
+  dashboard,
+  results,
+  statistics,
+  settings,
   director,
   overview,
   playOrder,
   orderOfPlay,
-  statistics,
   players,
 }
 
@@ -165,32 +168,26 @@ class StageViewModeSwitch extends StatelessWidget {
       sections: [
         if (canLead)
           const SportSection(
-            StageViewMode.director,
-            'Turnierleitung',
+            StageViewMode.dashboard,
+            'Dashboard',
             Icons.dashboard_outlined,
           ),
-        SportSection(
-          StageViewMode.overview,
-          'Übersicht',
-          Icons.view_agenda_outlined,
+        const SportSection(
+          StageViewMode.results,
+          'Ergebnisse',
+          Icons.sports_score_outlined,
         ),
-        SportSection(
-          StageViewMode.playOrder,
-          'Spielansicht',
-          Icons.play_circle_outline,
+        const SportSection(
+          StageViewMode.statistics,
+          'Statistik',
+          Icons.bar_chart,
         ),
         if (canLead)
           const SportSection(
-            StageViewMode.orderOfPlay,
-            'Order of Play',
-            Icons.view_week_outlined,
+            StageViewMode.settings,
+            'Einstellungen',
+            Icons.tune_outlined,
           ),
-        SportSection(StageViewMode.statistics, 'Statistik', Icons.bar_chart),
-        const SportSection(
-          StageViewMode.players,
-          'Spieler',
-          Icons.groups_outlined,
-        ),
       ],
     ),
   );

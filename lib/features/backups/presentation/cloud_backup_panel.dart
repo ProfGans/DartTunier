@@ -19,17 +19,29 @@ class _CloudBackupPanelState extends State<CloudBackupPanel> {
   bool _error = false;
 
   Future<void> _signIn() async {
-    final credentials = await showDialog<(String, String)>(
+    final result = await showDialog<({String email, String password, bool isRegister})>(
       context: context,
       builder: (_) => const _OperatorSignInDialog(),
     );
-    if (credentials == null) return;
+    if (result == null) return;
     await _run(() async {
-      await Supabase.instance.client.auth.signInWithPassword(
-        email: credentials.$1,
-        password: credentials.$2,
-      );
-      _status = 'Betreiberkonto verbunden.';
+      if (result.isRegister) {
+        final res = await Supabase.instance.client.auth.signUp(
+          email: result.email,
+          password: result.password,
+        );
+        if (res.session == null) {
+          _status = 'Konto erstellt! Bitte bestätige die Bestätigungs-E-Mail und melde dich an.';
+        } else {
+          _status = 'Betreiberkonto registriert und angemeldet.';
+        }
+      } else {
+        await Supabase.instance.client.auth.signInWithPassword(
+          email: result.email,
+          password: result.password,
+        );
+        _status = 'Betreiberkonto verbunden.';
+      }
     });
   }
 
@@ -125,18 +137,207 @@ class _OperatorSignInDialog extends StatefulWidget {
 class _OperatorSignInDialogState extends State<_OperatorSignInDialog> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  bool _isRegisterMode = false;
+  bool _isResetMode = false;
+  bool _busy = false;
+  String? _errorMessage;
+  String? _infoMessage;
+
   @override
-  void dispose() { _email.dispose(); _password.dispose(); super.dispose(); }
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendPasswordReset() async {
+    final email = _email.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _errorMessage = 'Bitte eine gültige E-Mail-Adresse eingeben.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+      _infoMessage = null;
+    });
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(email);
+      setState(() {
+        _infoMessage = 'Ein Link zum Zurücksetzen des Passworts wurde an $email gesendet.';
+      });
+    } catch (e) {
+      setState(() => _errorMessage = 'Fehler beim Senden des Links: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+    });
+    try {
+      await Supabase.instance.client.auth.signInWithOAuth(OAuthProvider.google);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      setState(() => _errorMessage = 'Google-Anmeldung fehlgeschlagen: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _submit() {
+    final email = _email.text.trim();
+    final pass = _password.text;
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _errorMessage = 'Bitte eine gültige E-Mail-Adresse angeben.');
+      return;
+    }
+    if (pass.length < 6) {
+      setState(() => _errorMessage = 'Das Passwort muss mindestens 6 Zeichen lang sein.');
+      return;
+    }
+    if (_isRegisterMode) {
+      if (pass != _confirmPassword.text) {
+        setState(() => _errorMessage = 'Die Passwörter stimmen nicht überein.');
+        return;
+      }
+    }
+    Navigator.pop(context, (email: email, password: pass, isRegister: _isRegisterMode));
+  }
+
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Betreiberkonto'),
-    content: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, children: [
-      TextField(controller: _email, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.username], decoration: const InputDecoration(labelText: 'E-Mail')),
-      TextField(controller: _password, obscureText: true, autofillHints: const [AutofillHints.password], decoration: const InputDecoration(labelText: 'Passwort')),
-    ])),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
-      FilledButton(onPressed: () => Navigator.pop(context, (_email.text.trim(), _password.text)), child: const Text('Anmelden')),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final title = _isResetMode
+        ? 'Passwort zurücksetzen'
+        : _isRegisterMode
+            ? 'Neues Betreiberkonto erstellen'
+            : 'Betreiberkonto anmelden';
+
+    return AlertDialog(
+      title: Text(title),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    _errorMessage!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13),
+                  ),
+                ),
+              if (_infoMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    _infoMessage!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13),
+                  ),
+                ),
+              TextField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.username, AutofillHints.email],
+                decoration: const InputDecoration(labelText: 'E-Mail', border: OutlineInputBorder()),
+              ),
+              if (!_isResetMode) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _password,
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.password],
+                  decoration: const InputDecoration(labelText: 'Passwort', border: OutlineInputBorder()),
+                ),
+                if (_isRegisterMode) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _confirmPassword,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Passwort bestätigen', border: OutlineInputBorder()),
+                  ),
+                ],
+              ],
+              const SizedBox(height: 12),
+              if (!_isResetMode && !_isRegisterMode)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() {
+                              _isResetMode = true;
+                              _errorMessage = null;
+                              _infoMessage = null;
+                            }),
+                    child: const Text('Passwort vergessen?'),
+                  ),
+                ),
+              if (_isResetMode)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() {
+                              _isResetMode = false;
+                              _errorMessage = null;
+                              _infoMessage = null;
+                            }),
+                    child: const Text('Zurück zur Anmeldung'),
+                  ),
+                ),
+              if (!_isResetMode)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() {
+                              _isRegisterMode = !_isRegisterMode;
+                              _errorMessage = null;
+                              _infoMessage = null;
+                            }),
+                    child: Text(
+                      _isRegisterMode
+                          ? 'Bereits ein Konto? Jetzt anmelden'
+                          : 'Noch kein Konto? Jetzt registrieren',
+                    ),
+                  ),
+                ),
+              if (!_isResetMode && !_isRegisterMode) ...[
+                const Divider(height: 24),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _signInWithGoogle,
+                  icon: const Icon(Icons.g_mobiledata, size: 24),
+                  label: const Text('Mit Google anmelden'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: const Text('Abbrechen')),
+        if (_isResetMode)
+          FilledButton(
+            onPressed: _busy ? null : _sendPasswordReset,
+            child: Text(_busy ? 'Wird gesendet…' : 'Reset-Link senden'),
+          )
+        else
+          FilledButton(
+            onPressed: _busy ? null : _submit,
+            child: Text(_isRegisterMode ? 'Registrieren' : 'Anmelden'),
+          ),
+      ],
+    );
+  }
 }

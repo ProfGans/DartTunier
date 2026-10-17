@@ -24,17 +24,21 @@ class SportSectionNavigation<T> extends StatelessWidget {
     builder: (context, constraints) {
       final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
       if (constraints.maxWidth < 840 * scale) {
+        final currentSection = sections
+                .where((section) => section.value == selected)
+                .firstOrNull ??
+            (sections.isNotEmpty ? sections.first : null);
         return DropdownButtonFormField<T>(
           key: ValueKey(selected),
-          initialValue: selected,
+          initialValue: currentSection?.value,
           isExpanded: true,
           isDense: false,
           itemHeight: null,
           decoration: InputDecoration(
             labelText: label,
-            prefixIcon: Icon(
-              sections.firstWhere((section) => section.value == selected).icon,
-            ),
+            prefixIcon: currentSection != null
+                ? Icon(currentSection.icon)
+                : null,
           ),
           items: [
             for (final section in sections)

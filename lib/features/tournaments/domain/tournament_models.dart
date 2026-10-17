@@ -484,6 +484,8 @@ class CreatedTournament {
     Set<int>? blockedBoards,
     this.startedAt,
     this.finishedAt,
+    this.pausedAt,
+    this.totalPausedSeconds = 0,
     this.plannedMinutes,
     this.plannedMatches,
     this.plannedMatchEndSeconds = const [],
@@ -530,6 +532,8 @@ class CreatedTournament {
       ).where((b) => b >= 1 && b <= 64).toSet(),
       startedAt: _dateTimeFromJson(json['startedAt']),
       finishedAt: _dateTimeFromJson(json['finishedAt']),
+      pausedAt: _dateTimeFromJson(json['pausedAt']),
+      totalPausedSeconds: json['totalPausedSeconds'] as int? ?? 0,
       plannedMinutes: json['plannedMinutes'] as int?,
       plannedMatches: json['plannedMatches'] as int?,
       plannedMatchEndSeconds: _intListFromJson(json['plannedMatchEndSeconds']),
@@ -555,7 +559,9 @@ class CreatedTournament {
   int syncRevision;
   final List<PlayerWithdrawal> withdrawals;
   final Set<int> blockedBoards;
-  DateTime? startedAt, finishedAt;
+  DateTime? startedAt, finishedAt, pausedAt;
+  int totalPausedSeconds;
+  bool get isClockPaused => pausedAt != null;
   int? plannedMinutes, plannedMatches;
   List<int> plannedMatchEndSeconds;
   final Set<int> completedStageIndexes;
@@ -582,6 +588,8 @@ class CreatedTournament {
         'blockedBoards': blockedBoards.toList()..sort(),
       'startedAt': startedAt?.toUtc().toIso8601String(),
       'finishedAt': finishedAt?.toUtc().toIso8601String(),
+      if (pausedAt != null) 'pausedAt': pausedAt?.toUtc().toIso8601String(),
+      if (totalPausedSeconds > 0) 'totalPausedSeconds': totalPausedSeconds,
       'plannedMinutes': plannedMinutes,
       'plannedMatches': plannedMatches,
       'plannedMatchEndSeconds': plannedMatchEndSeconds,

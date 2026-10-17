@@ -11,6 +11,7 @@ import '../../data/tournament_storage.dart';
 import '../../../statistics/domain/best_performance.dart';
 import '../widgets/run/best_performance_editor.dart';
 import 'challonge_archive_page.dart';
+import '../../application/tournament_timing.dart';
 import '../widgets/results/tournament_results_statistics.dart';
 import '../widgets/tournament_export_dialog.dart';
 
@@ -44,7 +45,7 @@ class TournamentResultsPage extends StatelessWidget {
               ),
             ),
           IconButton(
-            tooltip: 'Hauptmenue',
+            tooltip: 'Hauptmenü',
             onPressed: () =>
                 Navigator.of(context).popUntil((route) => route.isFirst),
             icon: const Icon(Icons.home_outlined),
@@ -75,6 +76,55 @@ class TournamentResultsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     const Text('Turnier abgeschlossen'),
+                    if (tournament.importedArchive == null) ...[
+                      Builder(
+                        builder: (context) {
+                          final summary = TournamentTiming.durationSummary(
+                            tournament,
+                          );
+                          if (summary == null || summary.playedMatches == 0) {
+                            return const SizedBox.shrink();
+                          }
+                          String formatDur(Duration d) =>
+                              d.inHours > 0
+                                  ? '${d.inHours}h ${d.inMinutes % 60}m'
+                                  : '${d.inMinutes}m';
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surface.withValues(
+                                  alpha: 0.6,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.schedule,
+                                    size: 16,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Dauer: ${formatDur(summary.totalDuration)} · ${summary.playedMatches} ${summary.playedMatches == 1 ? "Match" : "Matches"}${summary.averageMatchDuration != null ? " · Ø ${formatDur(summary.averageMatchDuration!)} / Match" : ""}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                     if (tournament.stages.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(

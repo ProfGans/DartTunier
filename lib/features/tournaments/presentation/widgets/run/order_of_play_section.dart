@@ -52,8 +52,11 @@ class OrderOfPlaySection extends StatelessWidget {
       away: assignment.entry.match.awayPlayer?.name ?? 'Noch offen',
       origin: assignment.entry.origin,
       board: assignment.board,
-      action: Row(
-        mainAxisSize: MainAxisSize.min,
+      action: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           IconButton(
             tooltip: 'Ergebnis erfassen',

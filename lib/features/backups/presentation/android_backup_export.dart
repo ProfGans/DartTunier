@@ -2,9 +2,12 @@ import 'package:flutter/services.dart';
 import '../data/backup_service.dart';
 
 /// Returns false when the Android document picker is cancelled.
-Future<bool> exportAndroidBackup({BackupService? service}) async {
+Future<bool> exportAndroidBackup({
+  BackupService? service,
+  Set<String>? categories,
+}) async {
   final backups = service ?? await BackupService.create();
-  final bytes = await backups.exportBytes();
+  final bytes = await backups.exportBytes(categories: categories);
   return await const MethodChannel(
         'dartturnier/backups',
       ).invokeMethod<bool>('export', bytes) ??

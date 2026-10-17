@@ -55,36 +55,45 @@ class BackupService {
     );
   }
 
-  Future<Uint8List> exportBytes() => StorageAccess.run(() async {
-    final snapshot = await _snapshot(consistentDatabase: true);
-    final bytes = _encode(snapshot);
-    await inspect(bytes);
-    return bytes;
-  });
-
-  Future<void> exportTo(File destination) => StorageAccess.run(() async {
-    // A save dialog must not be able to replace live stores or recovery files.
-    final parent = await destination.parent.resolveSymbolicLinks();
-    for (final store in files.values) {
-      await store.parent.create(recursive: true);
-      final root = await store.parent.resolveSymbolicLinks();
-      if (path.equals(root, parent) || path.isWithin(root, parent)) {
-        throw const FormatException(
-          'Bitte außerhalb des App-Datenordners speichern.',
+  Future<Uint8List> exportBytes({Set<String>? categories}) =>
+      StorageAccess.run(() async {
+        final snapshot = await _snapshot(
+          consistentDatabase: true,
+          categories: categories,
         );
-      }
-    }
-    final bytes = await exportBytes();
-    final temporary = File('${destination.path}.tmp');
-    await temporary.writeAsBytes(bytes, flush: true);
-    await temporary.rename(destination.path);
-  });
+        final bytes = _encode(snapshot);
+        await inspect(bytes);
+        return bytes;
+      });
+
+  Future<void> exportTo(File destination, {Set<String>? categories}) =>
+      StorageAccess.run(() async {
+        // A save dialog must not be able to replace live stores or recovery files.
+        final parent = await destination.parent.resolveSymbolicLinks();
+        for (final store in files.values) {
+          await store.parent.create(recursive: true);
+          final root = await store.parent.resolveSymbolicLinks();
+          if (path.equals(root, parent) || path.isWithin(root, parent)) {
+            throw const FormatException(
+              'Bitte außerhalb des App-Datenordners speichern.',
+            );
+          }
+        }
+        final bytes = await exportBytes(categories: categories);
+        final temporary = File('${destination.path}.tmp');
+        await temporary.writeAsBytes(bytes, flush: true);
+        await temporary.rename(destination.path);
+      });
 
   Future<Map<String, Uint8List?>> _snapshot({
     bool consistentDatabase = false,
+    Set<String>? categories,
   }) async {
     final result = <String, Uint8List?>{};
     for (final entry in files.entries) {
+      if (categories != null && !categories.contains(entry.key)) {
+        continue;
+      }
       if (!await entry.value.exists()) {
         result[entry.key] = null;
       } else if (consistentDatabase && entry.key == 'app_database.sqlite') {
@@ -153,11 +162,10 @@ class BackupService {
     }
     final entries = json['files'] as Map;
     final keys = entries.keys.cast<String>().toSet();
-    final currentFormat =
-        entries.length == names.length && keys.containsAll(names);
-    if (!currentFormat) {
+    final validKeys = keys.isNotEmpty && keys.every((k) => names.contains(k));
+    if (!validKeys) {
       throw const FormatException(
-        'Backup enthält falsche oder fehlende Dateien.',
+        'Backup enthält keine oder unbekannte Dateien.',
       );
     }
     final result = <String, Uint8List?>{};
@@ -242,6 +250,7 @@ class BackupService {
   Future<File> restore(
     BackupPreview preview, {
     bool restartApp = true,
+    Set<String>? selectedCategories,
   }) => StorageAccess.run(() async {
     await inspect(preview._bytes);
     final replacement = _decode(preview._bytes);
@@ -261,7 +270,7 @@ class BackupService {
     await journalTemporary.writeAsBytes(_encode(original), flush: true);
     await journalTemporary.rename(journal.path);
     try {
-      await _install(replacement);
+      await _install(replacement, selectedNames: selectedCategories);
       final committed = File(path.join(_transaction.path, 'committed.tmp'));
       await committed.writeAsString('1', flush: true);
       await committed.rename(path.join(_transaction.path, 'committed'));
@@ -305,8 +314,14 @@ class BackupService {
     await _transaction.delete(recursive: true);
   });
 
-  Future<void> _install(Map<String, Uint8List?> snapshot) async {
+  Future<void> _install(
+    Map<String, Uint8List?> snapshot, {
+    Set<String>? selectedNames,
+  }) async {
     for (final name in names) {
+      if (selectedNames != null && !selectedNames.contains(name)) {
+        continue;
+      }
       final target = files[name]!;
       final data = snapshot[name];
       if (data == null) {

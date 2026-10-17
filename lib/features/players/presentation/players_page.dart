@@ -24,12 +24,20 @@ class PlayersPage extends StatefulWidget {
 class _PlayersPageState extends State<PlayersPage> {
   late final LocalAppDatabase _database;
   late Future<List<PlayerProfile>> _playersFuture;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _database = widget._database ?? LocalAppDatabase();
     _playersFuture = _database.loadPlayerProfiles();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _reloadPlayers() {
@@ -157,26 +165,57 @@ class _PlayersPageState extends State<PlayersPage> {
               children: [
                 SportPageHeading(
                   title: widget.statisticsOnly
-                      ? 'Spielerstatistiken'
+                      ? 'Statistiken'
                       : 'Spieler verwalten',
                   subtitle: widget.statisticsOnly
-                      ? 'Wähle einen Spieler für seine Turnierstatistik.'
+                      ? 'Spieler- und Ranglisten-Statistiken sowie Jahresrückblicke auswerten.'
                       : 'Spielerprofile anlegen und für Turniere vorbereiten.',
                   icon: Icons.groups_outlined,
                 ),
                 const SizedBox(height: 24),
-                if (widget.statisticsOnly)
+                if (widget.statisticsOnly) ...[
                   Card(
                     child: ListTile(
                       leading: const Icon(Icons.calendar_month_outlined),
                       title: const Text('Jahresrückblick'),
-                      subtitle: const Text('Teilnahmen, Turniersiege, Legs und Bestleistungen je Rangliste auswerten.'),
+                      subtitle: const Text('Teilnahmen, Turniersiege, Legs und Bestleistungen je Rangliste oder Spieler auswerten.'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(builder: (_) => const RankingYearReviewPage()),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                ],
+                if (players.isNotEmpty) ...[
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Spieler suchen',
+                      hintText: 'Name, Spitzname oder ID eingeben…',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        _searchQuery = val.trim().toLowerCase();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 if (snapshot.connectionState == ConnectionState.waiting)
                   const Center(child: CircularProgressIndicator())
                 else if (players.isEmpty)
@@ -186,8 +225,25 @@ class _PlayersPageState extends State<PlayersPage> {
                       child: Text('Noch keine Spieler angelegt.'),
                     ),
                   )
+                else if (players.where((p) => _searchQuery.isEmpty ||
+                    p.displayName.toLowerCase().contains(_searchQuery) ||
+                    p.nickname.toLowerCase().contains(_searchQuery) ||
+                    p.autodartsName.toLowerCase().contains(_searchQuery) ||
+                    p.scoliaId.toLowerCase().contains(_searchQuery) ||
+                    p.threeKDartsId.toLowerCase().contains(_searchQuery)).isEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text('Keine Spieler für „$_searchQuery“ gefunden.'),
+                    ),
+                  )
                 else
-                  for (final player in players)
+                  for (final player in players.where((p) => _searchQuery.isEmpty ||
+                      p.displayName.toLowerCase().contains(_searchQuery) ||
+                      p.nickname.toLowerCase().contains(_searchQuery) ||
+                      p.autodartsName.toLowerCase().contains(_searchQuery) ||
+                      p.scoliaId.toLowerCase().contains(_searchQuery) ||
+                      p.threeKDartsId.toLowerCase().contains(_searchQuery)))
                     Card(
                       child: ListTile(
                         leading: CircleAvatar(

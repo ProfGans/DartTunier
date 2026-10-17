@@ -88,7 +88,7 @@ class RankingYearReviewImageGenerator {
     // Subtitle
     final subPainter = TextPainter(
       text: TextSpan(
-        text: 'Jahresrückblick ${review.year} · Statistiken & Ranglistenübersicht',
+        text: 'Jahresrückblick ${review.year ?? "Gesamter Zeitraum"} · Statistiken & Ranglistenübersicht',
         style: const TextStyle(
           color: Color(0xFF70E0BA),
           fontSize: 22,

@@ -46,7 +46,7 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
   _YearReviewMode _mode = _YearReviewMode.ranking;
   LocalRanking? _selectedRanking;
   PlayerProfile? _selectedPlayer;
-  int _year = DateTime.now().year;
+  int? _year = DateTime.now().year;
   Future<RankingYearReview>? _rankingReview;
   Future<LocalPlayerStatistics>? _playerReview;
   bool _exporting = false;
@@ -65,7 +65,7 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
     });
   }
 
-  void _setYear(int year) {
+  void _setYear(int? year) {
     setState(() {
       _year = year;
       if (_selectedRanking != null) {
@@ -83,7 +83,7 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
       const generator = RankingYearReviewImageGenerator();
       final pngBytes = await generator.generatePng(ranking: ranking, review: review);
       final cleanName = ranking.name.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-      final fileName = 'ranglisten-rueckblick-$cleanName-${review.year}.png';
+      final fileName = 'ranglisten-rueckblick-$cleanName-${review.year ?? "gesamt"}.png';
 
       if (kIsWeb) {
         final uri = Uri.dataFromBytes(pngBytes, mimeType: 'image/png');
@@ -193,16 +193,19 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
                   onChanged: _selectRanking,
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
+                DropdownButtonFormField<int?>(
                   initialValue: _year,
                   menuMaxHeight: 320,
                   decoration: const InputDecoration(
-                    labelText: 'Jahr',
+                    labelText: 'Zeitraum',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.calendar_today_outlined),
                   ),
-                  items: [for (final year in years) DropdownMenuItem(value: year, child: Text('$year'))],
-                  onChanged: (value) { if (value != null) _setYear(value); },
+                  items: [
+                    const DropdownMenuItem<int?>(value: null, child: Text('Gesamter Zeitraum')),
+                    for (final year in years) DropdownMenuItem<int?>(value: year, child: Text('$year')),
+                  ],
+                  onChanged: _setYear,
                 ),
                 if (rankings.isEmpty) ...[
                   const SizedBox(height: 16),
@@ -233,24 +236,41 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
                             label: Text(_exporting ? 'Grafik wird exportiert…' : 'Rückblick als Grafik exportieren'),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        Text('Turniere pro Monat', style: Theme.of(context).textTheme.titleLarge),
-                        for (var i = 0; i < 12; i++)
-                          _MonthBar(
-                            month: i + 1,
-                            count: review.monthlyTournaments[i],
-                            max: review.monthlyTournaments.fold<int>(0, (a, b) => a > b ? a : b),
-                          ),
                         const SizedBox(height: 16),
-                        _ReviewLeaders(title: 'Meiste Teilnahmen', rows: rows, metric: (s) => s.participations),
-                        _ReviewLeaders(title: 'Meiste Turniersiege', rows: rows, metric: (s) => s.tournamentWins),
-                        _ReviewLeaders(title: 'Meiste gewonnene Legs', rows: rows, metric: (s) => s.legsWon),
-                        _ReviewLeaders(title: 'Meiste verlorene Legs', rows: rows, metric: (s) => s.legsLost),
-                        _ReviewLeaders(title: 'Meiste Bestleistungen', rows: rows, metric: (s) => s.bestPerformances),
-                        _ReviewLeaders(title: 'Meiste 180+', rows: rows, metric: (s) => s.scores180),
-                        _ReviewLeaders(title: 'Meiste 170+', rows: rows, metric: (s) => s.scores170),
-                        _ReviewLeaders(title: 'Meiste Shortlegs', rows: rows, metric: (s) => s.shortLegs),
-                        _ReviewLeaders(title: 'Meiste High Finishes', rows: rows, metric: (s) => s.highFinishes),
+                        if (_year != null) ...[
+                          Text('Turniere pro Monat', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          for (var i = 0; i < 12; i++)
+                            _MonthBar(
+                              month: i + 1,
+                              count: review.monthlyTournaments[i],
+                              max: review.monthlyTournaments.fold<int>(0, (a, b) => a > b ? a : b),
+                            ),
+                        ] else ...[
+                          Text('Turniere pro Jahr', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          if (review.yearlyTournaments.isEmpty)
+                            const Text('Keine Turniere im gewählten Zeitraum vorhanden.')
+                          else
+                            for (final entry in review.yearlyTournaments.entries.toList()..sort((a, b) => a.key.compareTo(b.key)))
+                              _YearBar(
+                                year: entry.key,
+                                count: entry.value,
+                                max: review.yearlyTournaments.values.fold<int>(0, (a, b) => a > b ? a : b),
+                              ),
+                        ],
+                        const SizedBox(height: 20),
+                        Text('Kategorien & Bestleistungen', style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 8),
+                        _ReviewLeaders(title: 'Meiste Teilnahmen', rows: rows, metric: (s) => s.participations, profileIds: review.profileIds, year: _year),
+                        _ReviewLeaders(title: 'Meiste Turniersiege', rows: rows, metric: (s) => s.tournamentWins, profileIds: review.profileIds, year: _year),
+                        _ReviewLeaders(title: 'Meiste gewonnene Legs', rows: rows, metric: (s) => s.legsWon, profileIds: review.profileIds, year: _year),
+                        _ReviewLeaders(title: 'Meiste verlorene Legs', rows: rows, metric: (s) => s.legsLost, profileIds: review.profileIds, year: _year),
+                        _ReviewLeaders(title: 'Meiste Bestleistungen', rows: rows, metric: (s) => s.bestPerformances, profileIds: review.profileIds, year: _year),
+                        _ReviewLeaders(title: 'Meiste 180+', rows: rows, metric: (s) => s.scores180, profileIds: review.profileIds, year: _year),
+                        _ReviewLeaders(title: 'Meiste 170+', rows: rows, metric: (s) => s.scores170, profileIds: review.profileIds, year: _year),
+                        _ReviewLeaders(title: 'Meiste Shortlegs', rows: rows, metric: (s) => s.shortLegs, profileIds: review.profileIds, year: _year),
+                        _ReviewLeaders(title: 'Meiste High Finishes', rows: rows, metric: (s) => s.highFinishes, profileIds: review.profileIds, year: _year),
                       ]);
                     },
                   ),
@@ -272,16 +292,19 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
                   onChanged: _selectPlayer,
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
+                DropdownButtonFormField<int?>(
                   initialValue: _year,
                   menuMaxHeight: 320,
                   decoration: const InputDecoration(
-                    labelText: 'Jahr',
+                    labelText: 'Zeitraum',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.calendar_today_outlined),
                   ),
-                  items: [for (final year in years) DropdownMenuItem(value: year, child: Text('$year'))],
-                  onChanged: (value) { if (value != null) _setYear(value); },
+                  items: [
+                    const DropdownMenuItem<int?>(value: null, child: Text('Gesamter Zeitraum')),
+                    for (final year in years) DropdownMenuItem<int?>(value: year, child: Text('$year')),
+                  ],
+                  onChanged: _setYear,
                 ),
                 if (players.isEmpty) ...[
                   const SizedBox(height: 16),
@@ -302,31 +325,16 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${p.displayName} · $_year', style: Theme.of(context).textTheme.titleLarge),
-                              OutlinedButton.icon(
-                                icon: const Icon(Icons.open_in_new),
-                                label: const Text('Profil öffnen'),
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => LocalPlayerStatisticsPage(
-                                      name: p.displayName,
-                                      profileIds: {p.id},
-                                      year: _year,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          Text(
+                            '${p.displayName} · ${_year == null ? "Gesamter Zeitraum" : "$_year"}',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 16),
                           Wrap(
                             spacing: 12,
                             runSpacing: 12,
                             children: [
-                              _StatMiniCard(label: 'Turniere in $_year', value: '${stats.tournaments}'),
+                              _StatMiniCard(label: 'Turniere ${_year == null ? "gesamt" : "in $_year"}', value: '${stats.tournaments}'),
                               _StatMiniCard(label: 'Spiele', value: '${stats.matches}'),
                               _StatMiniCard(label: 'Siege / Niederlagen', value: '${stats.wins} / ${stats.losses}'),
                               _StatMiniCard(label: 'Siegquote', value: '${stats.matchWinRate.toStringAsFixed(1)} %'),
@@ -339,7 +347,7 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
                           ),
                           if (stats.bestPerformances.isNotEmpty) ...[
                             const SizedBox(height: 20),
-                            Text('Bestleistungen in $_year (${stats.bestPerformances.length})', style: Theme.of(context).textTheme.titleMedium),
+                            Text('Bestleistungen (${stats.bestPerformances.length})', style: Theme.of(context).textTheme.titleMedium),
                             const SizedBox(height: 8),
                             for (final item in stats.bestPerformances)
                               ListTile(
@@ -354,7 +362,7 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
                             Card(
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
-                                child: Text('Keine Turnierspiele oder Bestleistungen für ${p.displayName} im Jahr $_year erfasst.'),
+                                child: Text('Keine Turnierspiele oder Bestleistungen für ${p.displayName} im gewählten Zeitraum erfasst.'),
                               ),
                             ),
                           ],
@@ -395,16 +403,118 @@ class _StatMiniCard extends StatelessWidget {
 }
 
 class _ReviewLeaders extends StatelessWidget {
-  const _ReviewLeaders({required this.title, required this.rows, required this.metric});
+  const _ReviewLeaders({
+    required this.title,
+    required this.rows,
+    required this.metric,
+    required this.profileIds,
+    this.year,
+  });
   final String title;
   final List<MapEntry<String, RankingYearPlayerStats>> rows;
   final int Function(RankingYearPlayerStats) metric;
+  final Map<String, String> profileIds;
+  final int? year;
+
   @override
   Widget build(BuildContext context) {
-    final ranked = rows.where((r) => metric(r.value) > 0).toList()..sort((a, b) => metric(b.value).compareTo(metric(a.value)));
-    return ExpansionTile(title: Text(title), subtitle: Text(ranked.isEmpty ? 'Keine Daten' : '${ranked.first.key} · ${metric(ranked.first.value)}'), children: [
-      for (final row in ranked.take(5)) ListTile(title: Text(row.key), trailing: Text('${metric(row.value)}')),
-    ]);
+    final theme = Theme.of(context);
+    final ranked = rows.where((r) => metric(r.value) > 0).toList()
+      ..sort((a, b) => metric(b.value).compareTo(metric(a.value)));
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withAlpha(80)),
+      ),
+      child: ExpansionTile(
+        backgroundColor: theme.colorScheme.surfaceContainerHighest.withAlpha(50),
+        collapsedBackgroundColor: theme.colorScheme.surface,
+        title: Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        subtitle: ranked.isEmpty
+            ? Text('Keine Daten', style: TextStyle(color: theme.hintColor))
+            : Row(
+                children: [
+                  Icon(Icons.emoji_events, size: 16, color: theme.colorScheme.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${ranked.first.key} (${metric(ranked.first.value)})',
+                    style: TextStyle(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+        children: [
+          Container(
+            color: theme.colorScheme.surfaceContainerHighest.withAlpha(30),
+            child: Column(
+              children: [
+                const Divider(height: 1),
+                for (var i = 0; i < ranked.take(5).length; i++) ...[
+                  ListTile(
+                    dense: true,
+                    leading: CircleAvatar(
+                      radius: 14,
+                      backgroundColor: i == 0
+                          ? theme.colorScheme.primaryContainer
+                          : theme.colorScheme.surfaceContainerHigh,
+                      child: Text(
+                        '${i + 1}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: i == 0
+                              ? theme.colorScheme.onPrimaryContainer
+                              : theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      ranked[i].key,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${metric(ranked[i].value)}',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.chevron_right, size: 16),
+                      ],
+                    ),
+                    onTap: () {
+                      final pId = profileIds[ranked[i].key];
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => LocalPlayerStatisticsPage(
+                            name: ranked[i].key,
+                            profileIds: pId != null ? {pId} : const <String>{},
+                            year: year,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (i < ranked.take(5).length - 1)
+                    Divider(height: 1, indent: 48, color: theme.colorScheme.outlineVariant.withAlpha(40)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -414,7 +524,44 @@ class _MonthBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(children: [SizedBox(width: 38, child: Text('$month.')), Expanded(child: LinearProgressIndicator(value: max == 0 ? 0 : count / max, minHeight: 12)), const SizedBox(width: 12), SizedBox(width: 28, child: Text('$count'))]),
+    child: Row(
+      children: [
+        SizedBox(width: 38, child: Text('$month.')),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(value: max == 0 ? 0 : count / max, minHeight: 12),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(width: 28, child: Text('$count')),
+      ],
+    ),
+  );
+}
+
+class _YearBar extends StatelessWidget {
+  const _YearBar({required this.year, required this.count, required this.max});
+  final int year, count, max;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      children: [
+        SizedBox(width: 44, child: Text('$year')),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: max == 0 ? 0 : count / max,
+              minHeight: 12,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(width: 32, child: Text('$count', style: const TextStyle(fontWeight: FontWeight.bold))),
+      ],
+    ),
   );
 }
 
@@ -1006,8 +1153,32 @@ class _LocalRankingStandingsPageState extends State<LocalRankingStandingsPage> {
                 child: ListTile(
                   leading: CircleAvatar(child: Text('${i + 1}')),
                   title: Text(entries.entries[i].name),
-                  subtitle: Text('${entries.entries[i].matches} gewertete Matches · ${entries.entries[i].wins} Siege · ${entries.entries[i].losses} Niederlagen'),
-                  trailing: Text('${entries.entries[i].rating} Elo', style: Theme.of(context).textTheme.titleMedium),
+                  subtitle: Text(
+                    '${entries.entries[i].matches} gewertete Matches · ${entries.entries[i].wins} Siege · ${entries.entries[i].losses} Niederlagen',
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${entries.entries[i].rating} Elo',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right, size: 20),
+                    ],
+                  ),
+                  onTap: () {
+                    final player = entries.entries[i];
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PlayerEloHistoryPage(
+                          player: player,
+                          rankingName: widget.ranking.name,
+                          history: entries.history[player.id] ?? const [],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             if (entries.entries.isEmpty)
@@ -1080,4 +1251,275 @@ class _LocalRankingSeriesStandingsPageState
       ),
     ),
   );
+}
+
+class PlayerEloHistoryPage extends StatelessWidget {
+  const PlayerEloHistoryPage({
+    super.key,
+    required this.player,
+    required this.rankingName,
+    required this.history,
+  });
+
+  final LocalEloPlayer player;
+  final String rankingName;
+  final List<LocalEloHistoryItem> history;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final tournamentGroups = <_TournamentEloGroup>[];
+    for (final item in history) {
+      if (tournamentGroups.isNotEmpty &&
+          tournamentGroups.last.tournamentName == item.tournamentName) {
+        tournamentGroups.last.matches.add(item);
+      } else {
+        final group = _TournamentEloGroup(
+          tournamentName: item.tournamentName,
+          playedAt: item.playedAt,
+        );
+        group.matches.add(item);
+        tournamentGroups.add(group);
+      }
+    }
+    final reversedGroups = tournamentGroups.reversed.toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Elo-Verlauf: ${player.name}'),
+      ),
+      body: SafeArea(
+        child: AdaptiveContentList(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Card(
+              color: colorScheme.primaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      player.name,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Rangliste: $rankingName',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        _StatChip(
+                          label: 'Aktuelle Wertung',
+                          value: '${player.rating} Elo',
+                          icon: Icons.trending_up,
+                        ),
+                        _StatChip(
+                          label: 'Matches',
+                          value:
+                              '${player.matches} (${player.wins}S / ${player.losses}N)',
+                          icon: Icons.sports_score,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Turnier- und Spielverlauf',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (reversedGroups.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Noch keine gewerteten Begegnungen in dieser Rangliste.',
+                  ),
+                ),
+              ),
+            for (final group in reversedGroups)
+              Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ExpansionTile(
+                  key: PageStorageKey(
+                    'elo-group-${group.tournamentName}-${group.playedAt.toIso8601String()}',
+                  ),
+                  initiallyExpanded: group == reversedGroups.first,
+                  leading: CircleAvatar(
+                    backgroundColor: group.totalDelta > 0
+                        ? Colors.green.shade100
+                        : group.totalDelta < 0
+                            ? Colors.red.shade100
+                            : colorScheme.surfaceContainerHighest,
+                    child: Icon(
+                      group.totalDelta > 0
+                          ? Icons.arrow_upward
+                          : group.totalDelta < 0
+                              ? Icons.arrow_downward
+                              : Icons.remove,
+                      color: group.totalDelta > 0
+                          ? Colors.green.shade800
+                          : group.totalDelta < 0
+                              ? Colors.red.shade800
+                              : colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    group.tournamentName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    '${group.playedAt.day}.${group.playedAt.month}.${group.playedAt.year} · ${group.wins} Siege · ${group.losses} Niederlagen${group.draws > 0 ? " · ${group.draws} Unentschieden" : ""}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: group.totalDelta > 0
+                          ? Colors.green.shade100
+                          : group.totalDelta < 0
+                              ? Colors.red.shade100
+                              : colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${group.totalDelta >= 0 ? "+" : ""}${group.totalDelta} Elo',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: group.totalDelta > 0
+                            ? Colors.green.shade900
+                            : group.totalDelta < 0
+                                ? Colors.red.shade900
+                                : colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  children: [
+                    const Divider(height: 1),
+                    for (final match in group.matches)
+                      ListTile(
+                        dense: true,
+                        leading: Icon(
+                          match.delta > 0
+                              ? Icons.check_circle_outline
+                              : match.delta < 0
+                                  ? Icons.highlight_off
+                                  : Icons.remove_circle_outline,
+                          color: match.delta > 0
+                              ? Colors.green
+                              : match.delta < 0
+                                  ? Colors.red
+                                  : Colors.grey,
+                          size: 20,
+                        ),
+                        title: Text('vs. ${match.opponentName}'),
+                        subtitle: Text(
+                          'Ergebnis: ${match.score} · Elo danach: ${match.ratingAfter}',
+                        ),
+                        trailing: Text(
+                          '${match.delta >= 0 ? "+" : ""}${match.delta}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: match.delta > 0
+                                ? Colors.green.shade800
+                                : match.delta < 0
+                                    ? Colors.red.shade800
+                                    : Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TournamentEloGroup {
+  _TournamentEloGroup({
+    required this.tournamentName,
+    required this.playedAt,
+  });
+
+  final String tournamentName;
+  final DateTime playedAt;
+  final List<LocalEloHistoryItem> matches = [];
+
+  int get totalDelta => matches.fold<int>(0, (sum, m) => sum + m.delta);
+  int get wins => matches.where((m) => m.delta > 0).length;
+  int get losses => matches.where((m) => m.delta < 0).length;
+  int get draws => matches.where((m) => m.delta == 0).length;
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

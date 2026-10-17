@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../domain/tournament_models.dart';
+import '../../application/tournament_timing.dart';
 
 class TournamentSummaryCard extends StatelessWidget {
   const TournamentSummaryCard({
@@ -63,6 +64,44 @@ class TournamentSummaryCard extends StatelessWidget {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
+              if (tournament.importedArchive == null) ...[
+                Builder(
+                  builder: (context) {
+                    final summary = TournamentTiming.durationSummary(tournament);
+                    if (summary == null || summary.playedMatches == 0) {
+                      return const SizedBox.shrink();
+                    }
+                    String formatDuration(Duration d) {
+                      if (d.inHours > 0) {
+                        return '${d.inHours}h ${d.inMinutes % 60}m';
+                      }
+                      return '${d.inMinutes}m';
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.schedule,
+                            size: 15,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '${formatDuration(summary.totalDuration)} · ${summary.playedMatches} ${summary.playedMatches == 1 ? "Match" : "Matches"}${summary.averageMatchDuration != null ? " · Ø ${formatDuration(summary.averageMatchDuration!)}" : ""}',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
               const SizedBox(height: 8),
               Row(
                 children: [

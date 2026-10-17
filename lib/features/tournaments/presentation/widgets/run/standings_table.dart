@@ -60,12 +60,16 @@ class StandingsTable extends StatelessWidget {
     final possibleColor = const Color(0xFFC8F7DC);
     final bestOfColor = const Color(0xFFFFE8A3);
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowHeight: 36,
-        dataRowMinHeight: 40,
-        dataRowMaxHeight: 44,
+    return Scrollbar(
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          columnSpacing: 16,
+          horizontalMargin: 12,
+          headingRowHeight: 36,
+          dataRowMinHeight: 40,
+          dataRowMaxHeight: 44,
         columns: [
           DataColumn(label: Text('#')),
           DataColumn(label: Text('Spieler')),
@@ -158,7 +162,8 @@ class StandingsTable extends StatelessWidget {
             ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
 

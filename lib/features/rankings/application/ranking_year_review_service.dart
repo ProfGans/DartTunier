@@ -10,10 +10,20 @@ class RankingYearPlayerStats {
 }
 
 class RankingYearReview {
-  RankingYearReview(this.year, this.players, this.monthlyTournaments, this.tournaments);
-  final int year, tournaments;
+  RankingYearReview(
+    this.year,
+    this.players,
+    this.monthlyTournaments,
+    this.tournaments, {
+    this.yearlyTournaments = const {},
+    this.profileIds = const {},
+  });
+  final int? year;
+  final int tournaments;
   final Map<String, RankingYearPlayerStats> players;
   final List<int> monthlyTournaments;
+  final Map<int, int> yearlyTournaments;
+  final Map<String, String> profileIds;
   int get totalLegs => players.values.fold(0, (sum, player) => sum + player.legsWon);
   int get totalBestPerformances => players.values.fold(0, (sum, player) => sum + player.bestPerformances);
   int get total180 => players.values.fold(0, (sum, player) => sum + player.scores180);
@@ -27,7 +37,7 @@ class RankingYearReviewService {
   final LocalAppDatabase? database;
   final TournamentStorage? tournamentStorage;
 
-  Future<RankingYearReview> calculate(LocalRanking ranking, int year) async {
+  Future<RankingYearReview> calculate(LocalRanking ranking, int? year) async {
     final db = database ?? LocalAppDatabase();
     final roster = (await db.loadRankingPlayerIds(ranking.id)).toSet();
     final names = {for (final player in await db.loadPlayerProfiles()) player.id: player.displayName};
@@ -36,13 +46,16 @@ class RankingYearReviewService {
     };
     final stats = {for (final id in roster) id: RankingYearPlayerStats()};
     final monthly = List<int>.filled(12, 0);
+    final yearly = <int, int>{};
     var tournamentCount = 0;
     final tournaments = await (tournamentStorage ?? TournamentStorage()).loadTournaments();
     for (final tournament in tournaments) {
       final date = (tournament.finishedAt ?? tournament.createdAt).toLocal();
-      if (date.year != year || !ranking.includesTournamentDate(date) || !tournament.countsForRanking || !tournament.rankingIds.contains(ranking.id)) continue;
+      if (year != null && date.year != year) continue;
+      if (!ranking.includesTournamentDate(date) || !tournament.countsForRanking || !tournament.rankingIds.contains(ranking.id)) continue;
       tournamentCount++;
       monthly[date.month - 1]++;
+      yearly.update(date.year, (v) => v + 1, ifAbsent: () => 1);
       final participants = tournament.players.where((p) => p.profileId != null && stats.containsKey(p.profileId)).map((p) => p.profileId!).toSet();
       for (final id in participants) { stats[id]!.participations++; }
       for (final match in _matches(tournament).toSet()) {
@@ -98,7 +111,19 @@ class RankingYearReviewService {
       final winnerId = _tournamentWinner(tournament, stats.keys.toSet());
       if (winnerId != null && stats.containsKey(winnerId)) stats[winnerId]!.tournamentWins++;
     }
-    return RankingYearReview(year, {for (final entry in stats.entries) names[entry.key] ?? entry.key: entry.value}, monthly, tournamentCount);
+    final mappedProfileIds = <String, String>{};
+    for (final entry in stats.entries) {
+      final playerName = names[entry.key] ?? entry.key;
+      mappedProfileIds[playerName] = entry.key;
+    }
+    return RankingYearReview(
+      year,
+      {for (final entry in stats.entries) names[entry.key] ?? entry.key: entry.value},
+      monthly,
+      tournamentCount,
+      yearlyTournaments: yearly,
+      profileIds: mappedProfileIds,
+    );
   }
 
   Iterable<GroupMatch> _matches(CreatedTournament tournament) sync* {

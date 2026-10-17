@@ -113,6 +113,15 @@ class _HomePageState extends State<HomePage> {
   );
 }
 
+enum TournamentSortOption {
+  date('Turnierdatum'),
+  lastModified('Letzte Änderung'),
+  alphabetical('Alphabetisch');
+
+  const TournamentSortOption(this.label);
+  final String label;
+}
+
 class TournamentHomePage extends StatefulWidget {
   const TournamentHomePage({super.key, this.storage});
 
@@ -126,6 +135,7 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
   late final TournamentStorage _storage;
   late Future<List<CreatedTournament>> _tournamentsFuture;
   String _tournamentQuery = '';
+  TournamentSortOption _sortOption = TournamentSortOption.date;
   bool _isDeletingTournament = false;
 
   @override
@@ -237,7 +247,29 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
             final tournaments = snapshot.data;
             final visibleTournaments = tournaments
                 ?.where(_matchesTournamentQuery)
-                .toList(growable: false);
+                .toList();
+            if (visibleTournaments != null) {
+              switch (_sortOption) {
+                case TournamentSortOption.date:
+                  visibleTournaments.sort((a, b) {
+                    final aDate = a.startedAt ?? a.finishedAt ?? a.createdAt;
+                    final bDate = b.startedAt ?? b.finishedAt ?? b.createdAt;
+                    return bDate.compareTo(aDate);
+                  });
+                  break;
+                case TournamentSortOption.lastModified:
+                  visibleTournaments.sort(
+                    (a, b) => b.updatedAt.compareTo(a.updatedAt),
+                  );
+                  break;
+                case TournamentSortOption.alphabetical:
+                  visibleTournaments.sort(
+                    (a, b) =>
+                        a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+                  );
+                  break;
+              }
+            }
 
             return AdaptiveContentList(
               padding: const EdgeInsets.all(24),
@@ -270,6 +302,36 @@ class _TournamentHomePageState extends State<TournamentHomePage> {
                     child: const LinearProgressIndicator(),
                   ),
                 const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.sort, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Sortierung:',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    DropdownButton<TournamentSortOption>(
+                      value: _sortOption,
+                      underline: const SizedBox.shrink(),
+                      onChanged: (option) {
+                        if (option != null) {
+                          setState(() => _sortOption = option);
+                        }
+                      },
+                      items: [
+                        for (final opt in TournamentSortOption.values)
+                          DropdownMenuItem(
+                            value: opt,
+                            child: Text(opt.label),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 TextField(
                   onChanged: (value) =>
                       setState(() => _tournamentQuery = value),

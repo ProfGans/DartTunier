@@ -8,9 +8,11 @@ class TournamentTimingPanel extends StatefulWidget {
     super.key,
     required this.tournament,
     required this.onStart,
+    this.onPauseToggle,
   });
   final CreatedTournament tournament;
   final Future<void> Function() onStart;
+  final Future<void> Function()? onPauseToggle;
   @override
   State<TournamentTimingPanel> createState() => _TournamentTimingPanelState();
 }
@@ -21,7 +23,7 @@ class _TournamentTimingPanelState extends State<TournamentTimingPanel> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
   }
@@ -100,6 +102,22 @@ class _TournamentTimingPanelState extends State<TournamentTimingPanel> {
               Text(
                 '${t.finishedAt == null ? 'Laufzeit' : 'Gesamtdauer'} ${duration(stats.elapsed.inSeconds)}',
               ),
+              if (t.isClockPaused && t.finishedAt == null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Pausiert',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                    ),
+                  ),
+                ),
               Text(
                 status,
                 style: TextStyle(
@@ -115,6 +133,37 @@ class _TournamentTimingPanelState extends State<TournamentTimingPanel> {
                 ),
               if (stats.forecast != null && t.finishedAt == null)
                 Text('Voraussichtliches Ende: ${time(stats.forecast!)}'),
+              if (t.finishedAt == null && widget.onPauseToggle != null)
+                TextButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          setState(() => _busy = true);
+                          try {
+                            await widget.onPauseToggle!();
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Uhr-Status konnte nicht gespeichert werden. Bitte erneut versuchen.',
+                                  ),
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (mounted) setState(() => _busy = false);
+                          }
+                        },
+                  icon: Icon(
+                    t.isClockPaused
+                        ? Icons.play_circle_outline
+                        : Icons.pause_circle_outline,
+                  ),
+                  label: Text(
+                    t.isClockPaused ? 'Uhr fortsetzen' : 'Uhr pausieren',
+                  ),
+                ),
             ],
             TextButton.icon(
               onPressed: () => showDialog<void>(

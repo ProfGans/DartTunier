@@ -92,8 +92,72 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
 
   int _activeStageIndex = 0;
   int _viewStageIndex = 0;
-  StageViewMode _stageViewMode = StageViewMode.director;
+  StageViewMode _stageViewMode = StageViewMode.dashboard;
   String? _directorSaveError;
+
+  Future<void> _renamePlayer(TournamentPlayer player) async {
+    final controller = TextEditingController(text: player.name);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Spieler umbenennen'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Neuer Name',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Speichern'),
+          ),
+        ],
+      ),
+    );
+    if (newName != null && newName.isNotEmpty && newName != player.name) {
+      final updatedPlayer = player.copyWith(name: newName);
+      setState(() {
+        final t = widget.tournament;
+        final pIdx = t.players.indexOf(player);
+        if (pIdx != -1) {
+          t.players[pIdx] = updatedPlayer;
+        }
+        for (final stage in t.runStages) {
+          if (stage is GroupTournamentRunStage) {
+            for (final g in stage.groups) {
+              final gIdx = g.players.indexOf(player);
+              if (gIdx != -1) {
+                g.players[gIdx] = updatedPlayer;
+              }
+              for (final m in g.matches) {
+                if (m.homePlayer == player) m.homePlayer = updatedPlayer;
+                if (m.awayPlayer == player) m.awayPlayer = updatedPlayer;
+              }
+            }
+          } else if (stage is KnockoutTournamentRunStage) {
+            for (final round in stage.rounds) {
+              for (final m in round) {
+                if (m.homePlayer == player) m.homePlayer = updatedPlayer;
+                if (m.awayPlayer == player) m.awayPlayer = updatedPlayer;
+              }
+            }
+            for (final m in stage.placementMatches) {
+              if (m.homePlayer == player) m.homePlayer = updatedPlayer;
+              if (m.awayPlayer == player) m.awayPlayer = updatedPlayer;
+            }
+          }
+        }
+      });
+      await _saveTournamentProgress();
+    }
+  }
 
   Future<void> _withdrawPlayer([TournamentPlayer? selectedPlayer]) async {
     final rule = await showDialog<PlayerWithdrawal>(
@@ -261,7 +325,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
   @override
   void initState() {
     super.initState();
-    _stageViewMode = StageViewMode.director;
+    _stageViewMode = StageViewMode.dashboard;
     WidgetsBinding.instance.addObserver(this);
     if (widget.tournament.leagueMatch != null) return;
     _activeStageIndex = widget.tournament.activeStageIndex.clamp(
@@ -272,6 +336,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
     );
     _viewStageIndex = _activeStageIndex;
     _completedStageIndexes.addAll(widget.tournament.completedStageIndexes);
+    widget.tournament.startedAt ??= DateTime.now();
     _advanceKnockoutWinners();
     _ensureGroupDeciders();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -279,6 +344,17 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
       if (!mounted) return;
       await _saveTournamentProgress();
     });
+  }
+
+  Future<void> _toggleClockPause() async {
+    TournamentTiming.togglePause(widget.tournament);
+    try {
+      await _saveTournamentProgress();
+      if (mounted) setState(() {});
+    } catch (_) {
+      TournamentTiming.togglePause(widget.tournament);
+      rethrow;
+    }
   }
 
   Future<void> _saveTournamentProgress({bool propagateError = false}) async {
@@ -2546,7 +2622,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                   onTap: _exportTournament,
                 ),
                 SportMenuAction(
-                  label: 'Hauptmenue',
+                  label: 'Hauptmenü',
                   icon: Icons.home_outlined,
                   onTap: () => _leaveTournament(home: true),
                 ),
@@ -2588,7 +2664,8 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                           'Vorschau: Teilnehmer und Setzung stehen erst nach Abschluss der vorherigen Etappe fest.',
                         ),
                       ),
-                    if (_stageViewMode == StageViewMode.director)
+                    if (_stageViewMode == StageViewMode.dashboard ||
+                        _stageViewMode == StageViewMode.director)
                       TournamentDirectorDashboard(
                         tournament: widget.tournament,
                         activeStage: _activeStageIndex,
@@ -2607,6 +2684,197 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                           setState(() {});
                           await _saveTournamentProgress(propagateError: true);
                         },
+                        onCompleteStage: _completeCurrentStage,
+                        onFinishEarly: _finishCurrentStageEarly,
+                        canCompleteStage: canCompleteStage,
+                        isLastStage: isLastStage,
+                      )
+                    else if (_stageViewMode == StageViewMode.settings)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Turniereinstellungen',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          // 1. Turnieruhr Steuerung
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.timer_outlined),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Turnieruhr',
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    widget.tournament.isClockPaused
+                                        ? 'Status: Pausiert'
+                                        : 'Status: Läuft aktiv',
+                                  ),
+                                  const SizedBox(height: 12),
+                                  if (widget.tournament.finishedAt == null)
+                                    FilledButton.tonalIcon(
+                                      onPressed: _toggleClockPause,
+                                      icon: Icon(
+                                        widget.tournament.isClockPaused
+                                            ? Icons.play_circle_outline
+                                            : Icons.pause_circle_outline,
+                                      ),
+                                      label: Text(
+                                        widget.tournament.isClockPaused
+                                            ? 'Turnieruhr fortsetzen'
+                                            : 'Turnieruhr pausieren',
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // 2. 2-Monitor-Modus
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.tv),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '2. Bildschirm (TV-Anzeige)',
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Für den Vereinsheim-TV oder Beamer: Zeigt Tabellen, Spielansetzungen, '
+                                    'Ergebnisse und Turnieruhr automatisch rotierend im Vollbild an. '
+                                    'So können Ergebnisse am Laptop eingetragen werden, ohne die Anzeige zu stören.',
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FilledButton.icon(
+                                    onPressed: () => showDialog<void>(
+                                      context: context,
+                                      builder: (ctx) => Dialog.fullscreen(
+                                        child: TournamentSecondScreenView(
+                                          tournament: widget.tournament,
+                                          isStandaloneWindow: true,
+                                        ),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.fullscreen),
+                                    label: const Text('TV-Anzeige im Vollbild öffnen'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // 3. Gruppen verwalten
+                          if (activeStage is GroupTournamentRunStage)
+                            Card(
+                              child: ListTile(
+                                leading: const Icon(Icons.grid_view),
+                                title: const Text('Gruppen verwalten'),
+                                subtitle: const Text(
+                                  'Positionen der Spieler in den Gruppen tauschen.',
+                                ),
+                                trailing: OutlinedButton(
+                                  onPressed: isViewingActiveStage &&
+                                          !_isApplyingStartDraw &&
+                                          !_completedStageIndexes.contains(_viewStageIndex) &&
+                                          GroupPositionEditor.canEdit(activeStage)
+                                      ? () => _editGroupPositions(activeStage)
+                                      : null,
+                                  child: const Text('Bearbeiten'),
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 12),
+                          // 4. Spieler verwalten
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.people_alt_outlined),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Spieler (${widget.tournament.players.length})',
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text('Namen anpassen oder Spieler aus dem Turnier entfernen (Aufgabe/Drop):'),
+                                  const SizedBox(height: 12),
+                                  for (final player in widget.tournament.players)
+                                    ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      title: Text(player.name),
+                                      subtitle: PlayerWithdrawalService.policy(
+                                                widget.tournament,
+                                                player,
+                                              ) ==
+                                              null
+                                          ? null
+                                          : const Text(
+                                              'Ausgeschieden / Zurückgezogen',
+                                              style: TextStyle(color: Colors.red),
+                                            ),
+                                      trailing: Wrap(
+                                        spacing: 4,
+                                        children: [
+                                          IconButton(
+                                            tooltip: 'Spieler umbenennen',
+                                            icon: const Icon(Icons.edit_outlined, size: 20),
+                                            onPressed: () => _renamePlayer(player),
+                                          ),
+                                          if (widget.tournament.finishedAt == null &&
+                                              PlayerWithdrawalService.policy(
+                                                    widget.tournament,
+                                                    player,
+                                                  ) ==
+                                                  null)
+                                            IconButton(
+                                              tooltip: 'Spieler entfernen (Drop)',
+                                              icon: const Icon(
+                                                Icons.person_remove_outlined,
+                                                size: 20,
+                                                color: Colors.red,
+                                              ),
+                                              onPressed: () => _withdrawPlayer(player),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       )
                     else if (_stageViewMode == StageViewMode.players)
                       Column(
@@ -2659,7 +2927,45 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                       LiveTournamentStatisticsSection(
                         tournament: widget.tournament,
                       )
-                    else if (_stageViewMode == StageViewMode.overview) ...[
+                    else ...[
+                      // Modus "Ergebnisse" (bisher overview / playOrder / orderOfPlay)
+                      // Oben klein zum Aufklappen: bereits gespielte Partien
+                      Builder(
+                        builder: (context) {
+                          final played = _matchesForStage(activeStage)
+                              .where((m) => m.hasPlayers && m.hasResult)
+                              .toList();
+                          if (played.isEmpty) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Card(
+                              child: ExpansionTile(
+                                leading: const Icon(Icons.check_circle_outline, color: Colors.green),
+                                title: Text('Bereits gespielte Partien (${played.length})'),
+                                subtitle: const Text('Hier tippen zum Auf- oder Zuklappen'),
+                                children: [
+                                  for (final m in played)
+                                    ListTile(
+                                      title: Text(
+                                        '${m.homePlayer?.name ?? "Offen"} ${m.homeScore} : ${m.awayScore} ${m.awayPlayer?.name ?? "Offen"}',
+                                      ),
+                                      subtitle: m.label != null && m.label!.isNotEmpty
+                                          ? Text(m.label!)
+                                          : null,
+                                      trailing: canEditResults
+                                          ? IconButton(
+                                              tooltip: 'Ergebnis korrigieren',
+                                              icon: const Icon(Icons.edit_outlined),
+                                              onPressed: () => _editResult(m),
+                                            )
+                                          : null,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                       if (isViewingActiveStage)
                         _OverviewRecommendationBanner(
                           tournament: widget.tournament,
@@ -2749,23 +3055,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                                 );
                               },
                         ),
-                    ] else if (_stageViewMode == StageViewMode.orderOfPlay)
-                      OrderOfPlaySection(
-                        tournament: widget.tournament,
-                        activeStage: _activeStageIndex,
-                        onResult: _editResult,
-                        onChange: () async {
-                          setState(() {});
-                          await _saveTournamentProgress();
-                        },
-                      )
-                    else
-                      StagePlayOrderSection(
-                        stage: activeStage,
-                        matches: _matchesForStage(activeStage),
-                        onEditResult: _editResult,
-                        canEditResults: canEditResults,
-                      ),
+                    ],
                   ],
                 ),
               ),
@@ -2790,6 +3080,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                             rethrow;
                           }
                         },
+                        onPauseToggle: _toggleClockPause,
                     ),
                     if (_viewStageIndex < widget.tournament.stages.length)
                       Text(

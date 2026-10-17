@@ -230,7 +230,9 @@ class ExpandedFormatPlanner {
             : prefix.last.qualifiedParticipantCount!;
         for (final stage in _stages(count, cap, request.maximumLives)) {
           final mode = stage.type == 'groups'
-              ? 'groups:${stage.groupMaxGamesPerPlayer.any((limit) => limit != null) ? 'limited_round_robin' : stage.groupPlayType}'
+              ? (stage.groupRoundRobinRepeats.isNotEmpty && stage.groupRoundRobinRepeats.first == 2)
+                  ? 'groups:double_round_robin'
+                  : 'groups:${stage.groupMaxGamesPerPlayer.any((limit) => limit != null) ? 'limited_round_robin' : stage.groupPlayType}'
               : stage.type;
           if (request.enabledModes != null &&
               !request.enabledModes!.contains(mode)) {
@@ -243,6 +245,17 @@ class ExpandedFormatPlanner {
               request.requireGroupPhase &&
               !path.any((s) => s.type == 'groups')) {
             continue;
+          }
+          if (terminal && request.preferredFinalStage != null) {
+            final matchesPref = (request.preferredFinalStage == mode) ||
+                (request.preferredFinalStage == 'single_knockout' && stage.type == 'single_knockout') ||
+                (request.preferredFinalStage == 'double_knockout' && stage.type == 'double_knockout') ||
+                (request.preferredFinalStage == 'triple_knockout' && stage.type == 'triple_knockout') ||
+                (request.preferredFinalStage == 'kratzer' && stage.type == 'kratzer') ||
+                (request.preferredFinalStage == 'groups:round_robin' && mode == 'groups:round_robin');
+            if (!matchesPref) {
+              continue;
+            }
           }
           final result = evaluate(path);
           if (result == null) continue;
@@ -324,6 +337,7 @@ class ExpandedFormatPlanner {
       ];
       for (final play in [
         'round_robin',
+        'double_round_robin',
         if (sizes.any((size) => size > 6)) 'limited_round_robin',
         'swiss',
         'mini_knockout',
@@ -336,22 +350,43 @@ class ExpandedFormatPlanner {
         }) {
           final target = groups * perGroup;
           if (target >= n || target < 1) continue;
-          final label = play == 'limited_round_robin' ? 'maximal 5 Spiele pro Spieler' : play == 'swiss' ? 'Schweizer System' : play == 'round_robin'
+          final label = play == 'double_round_robin'
+              ? 'Jeder gegen jeden (zweimal)'
+              : play == 'limited_round_robin'
+              ? 'maximal 5 Spiele pro Spieler'
+              : play == 'swiss'
+              ? 'Schweizer System'
+              : play == 'round_robin'
               ? 'Jeder gegen jeden'
               : play == 'mini_knockout'
               ? 'Mini-KO'
               : play == 'double_knockout'
               ? 'Mini-Doppel-KO'
               : 'Mini-Triple-KO';
+          final sizeDesc = sizes.first == sizes.last
+              ? '${sizes.first}'
+              : '${sizes.last}–${sizes.first}';
+          final groupDesc = groups == 1
+              ? '1 Gruppe à $sizeDesc Spieler'
+              : '$groups Gruppen à $sizeDesc Spieler';
+          final isRoundRobinVariant =
+              play == 'limited_round_robin' || play == 'double_round_robin';
           yield TournamentStage(
-            name: '$groups × $label',
+            name: '$groupDesc ($label)',
             type: 'groups',
             groupCount: groups,
             groupSizes: sizes,
-            groupPlayType: play == 'limited_round_robin' ? 'round_robin' : play,
-            groupPlayTypes: List.filled(groups, play == 'limited_round_robin' ? 'round_robin' : play),
+            groupPlayType: isRoundRobinVariant ? 'round_robin' : play,
+            groupPlayTypes: List.filled(groups, isRoundRobinVariant ? 'round_robin' : play),
             groupMaxGamesPerPlayer: play == 'limited_round_robin' ? List.filled(groups, 5) : const [],
-            groupRoundRobinRepeats: List.filled(groups, play == 'swiss' ? min(sizes.last - 1, (log(sizes.last) / log(2)).ceil()) : 1),
+            groupRoundRobinRepeats: List.filled(
+              groups,
+              play == 'swiss'
+                  ? min(sizes.last - 1, (log(sizes.last) / log(2)).ceil())
+                  : play == 'double_round_robin'
+                  ? 2
+                  : 1,
+            ),
             fixedQualifiersByGroup: List.filled(groups, perGroup),
             qualifiedParticipantCount: target,
             finalEndsTournament: true,

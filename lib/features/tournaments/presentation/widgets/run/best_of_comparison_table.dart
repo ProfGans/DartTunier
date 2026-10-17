@@ -132,12 +132,16 @@ class BestOfComparisonTable extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowHeight: 34,
-              dataRowMinHeight: 38,
-              dataRowMaxHeight: 42,
+          Scrollbar(
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 16,
+                horizontalMargin: 12,
+                headingRowHeight: 34,
+                dataRowMinHeight: 38,
+                dataRowMaxHeight: 42,
               columns: const [
                 DataColumn(label: Text('#')),
                 DataColumn(label: Text('Gruppe')),
@@ -171,6 +175,7 @@ class BestOfComparisonTable extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ],
       ),
     );

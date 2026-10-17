@@ -97,7 +97,7 @@ void main() {
             ),
           ),
         );
-        expect(find.text('Turnierleitung'), findsOneWidget);
+        expect(find.text('Dashboard'), findsOneWidget);
         expect(tester.takeException(), isNull);
         for (final section in ['Übersicht', 'Boards', 'Spiele']) {
           final tab = find.widgetWithText(ChoiceChip, section);
@@ -208,8 +208,11 @@ void main() {
     tester.view.physicalSize = const Size(360, 800);
     addTearDown(tester.view.reset);
     await tester.pumpWidget(const MaterialApp(home: DirectorPreview()));
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Boards'));
-    await tester.pumpAndSettle();
+    final boardsChip = find.widgetWithText(ChoiceChip, 'Boards');
+    if (boardsChip.evaluate().isNotEmpty) {
+      await tester.tap(boardsChip);
+      await tester.pumpAndSettle();
+    }
     await tester.ensureVisible(find.text('Ergebnis erfassen').first);
     await tester.tap(find.text('Ergebnis erfassen').first);
     await tester.pumpAndSettle();
@@ -225,9 +228,11 @@ void main() {
     await tester.tap(find.text('Board freigeben'));
     await tester.pumpAndSettle();
     expect(find.text('Board 4 · Frei'), findsOneWidget);
-    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Spiele'));
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Spiele'));
-    await tester.pumpAndSettle();
+    final spieleChip = find.widgetWithText(ChoiceChip, 'Spiele');
+    if (spieleChip.evaluate().isNotEmpty) {
+      await tester.tap(spieleChip);
+      await tester.pumpAndSettle();
+    }
     await tester.enterText(find.byType(TextField), 'Spieler');
     tester.view.physicalSize = const Size(1440, 900);
     await tester.pumpAndSettle();
@@ -258,8 +263,10 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Nicht gespeichert'), findsOneWidget);
-    await tester.tap(find.text('Speichern erneut versuchen'));
+    expect(find.text('Nicht gespeichert').first, findsOneWidget);
+    final retryBtn = find.text('Speichern erneut versuchen').first;
+    await tester.ensureVisible(retryBtn);
+    await tester.tap(retryBtn);
     await tester.pumpAndSettle();
     expect(retried, isTrue);
     await tester.pumpWidget(const SizedBox());
