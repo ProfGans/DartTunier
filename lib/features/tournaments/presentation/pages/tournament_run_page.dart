@@ -2769,18 +2769,57 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                                     'So können Ergebnisse am Laptop eingetragen werden, ohne die Anzeige zu stören.',
                                   ),
                                   const SizedBox(height: 12),
-                                  FilledButton.icon(
-                                    onPressed: () => showDialog<void>(
-                                      context: context,
-                                      builder: (ctx) => Dialog.fullscreen(
-                                        child: TournamentSecondScreenView(
-                                          tournament: widget.tournament,
-                                          isStandaloneWindow: true,
-                                        ),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      FilledButton.icon(
+                                        onPressed: () async {
+                                          try {
+                                            await Process.start(
+                                              Platform.resolvedExecutable,
+                                              ['--second-screen', widget.tournament.id],
+                                            );
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'TV-Anzeige im separaten Fenster geöffnet. Ziehe das Fenster auf den 2. Monitor und maximiere es.',
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          } catch (_) {
+                                            if (context.mounted) {
+                                              showDialog<void>(
+                                                context: context,
+                                                builder: (ctx) => Dialog.fullscreen(
+                                                  child: TournamentSecondScreenView(
+                                                    tournament: widget.tournament,
+                                                    isStandaloneWindow: true,
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        },
+                                        icon: const Icon(Icons.open_in_new),
+                                        label: const Text('In separatem Fenster öffnen (für 2. Monitor)'),
                                       ),
-                                    ),
-                                    icon: const Icon(Icons.fullscreen),
-                                    label: const Text('TV-Anzeige im Vollbild öffnen'),
+                                      OutlinedButton.icon(
+                                        onPressed: () => showDialog<void>(
+                                          context: context,
+                                          builder: (ctx) => Dialog.fullscreen(
+                                            child: TournamentSecondScreenView(
+                                              tournament: widget.tournament,
+                                              isStandaloneWindow: true,
+                                            ),
+                                          ),
+                                        ),
+                                        icon: const Icon(Icons.fullscreen),
+                                        label: const Text('Hier im Vollbild-Dialog öffnen'),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -2928,142 +2967,52 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                         tournament: widget.tournament,
                       )
                     else ...[
-                      // Modus "Ergebnisse" (bisher overview / playOrder / orderOfPlay)
-                      // Oben klein zum Aufklappen: bereits gespielte Partien
-                      Builder(
-                        builder: (context) {
-                          final played = _matchesForStage(activeStage)
-                              .where((m) => m.hasPlayers && m.hasResult)
-                              .toList();
-                          if (played.isEmpty) return const SizedBox.shrink();
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Card(
-                              child: ExpansionTile(
-                                leading: const Icon(Icons.check_circle_outline, color: Colors.green),
-                                title: Text('Bereits gespielte Partien (${played.length})'),
-                                subtitle: const Text('Hier tippen zum Auf- oder Zuklappen'),
-                                children: [
-                                  for (final m in played)
-                                    ListTile(
-                                      title: Text(
-                                        '${m.homePlayer?.name ?? "Offen"} ${m.homeScore} : ${m.awayScore} ${m.awayPlayer?.name ?? "Offen"}',
-                                      ),
-                                      subtitle: m.label != null && m.label!.isNotEmpty
-                                          ? Text(m.label!)
-                                          : null,
-                                      trailing: canEditResults
-                                          ? IconButton(
-                                              tooltip: 'Ergebnis korrigieren',
-                                              icon: const Icon(Icons.edit_outlined),
-                                              onPressed: () => _editResult(m),
-                                            )
-                                          : null,
-                                    ),
-                                ],
-                              ),
-                            ),
+                      // Modus "Ergebnisse"
+                      StageResultsSplitView(
+                        stage: activeStage,
+                        standingsFor: _standingsFor,
+                        onEditResult: _editResult,
+                        canEditResults: canEditResults,
+                        qualifyingRank: _requiredRankForRunStage(_viewStageIndex),
+                        isBracketEditMode: _isBracketEditMode && canEditResults,
+                        canEditBracket: canEditResults &&
+                            (activeStage is KnockoutTournamentRunStage &&
+                                _canEditKnockoutBracket(activeStage)),
+                        onSwapSlot: (fromSlotIndex, toSlotIndex) {
+                          if (activeStage is KnockoutTournamentRunStage) {
+                            _swapKnockoutRunSlots(activeStage, fromSlotIndex, toSlotIndex);
+                          }
+                        },
+                        bracketBuilder: (
+                          stage,
+                          qualifyingRank,
+                          onEditResult,
+                          canEditResults,
+                          isEditMode,
+                          onSwapSlot,
+                        ) {
+                          return _KnockoutBracketView(
+                            stage: stage,
+                            placementMatches: stage.placementMatches,
+                            qualifyingRank: qualifyingRank,
+                            onEditResult: onEditResult,
+                            canEditResults: canEditResults,
+                            isEditMode: isEditMode,
+                            onSwapSlot: onSwapSlot,
                           );
                         },
                       ),
-                      if (isViewingActiveStage)
-                        _OverviewRecommendationBanner(
-                          tournament: widget.tournament,
-                          activeStage: _activeStageIndex,
-                          onResult: _editResult,
-                          canEditResults: canEditResults,
-                        ),
-                      if (activeStage is GroupTournamentRunStage)
-                        GroupStageRunSection(
-                          stage: activeStage,
-                          onEditPositions:
-                              true &&
-                                  isViewingActiveStage &&
-                                  !_isApplyingStartDraw &&
-                                  !_completedStageIndexes.contains(
-                                    _viewStageIndex,
-                                  ) &&
-                                  GroupPositionEditor.canEdit(activeStage)
-                              ? () => _editGroupPositions(activeStage)
-                              : null,
-                          standingsFor: _standingsFor,
-                          onEditResult: _editResult,
-                          canEditResults: canEditResults,
-                          miniKnockoutBracketBuilder:
-                              (
-                                group,
-                                qualifyingRank,
-                                onEditResult,
-                                canEditResults,
-                              ) {
-                                return _KnockoutBracketView(
-                                  stage: KnockoutTournamentRunStage(
-                                    name: group.name,
-                                    rounds: group.knockoutRounds,
-                                    eliminationLossLimit:
-                                        group.eliminationLossLimit,
-                                  ),
-                                  placementMatches: group.placementMatches,
-                                  qualifyingRank: qualifyingRank,
-                                  onEditResult: onEditResult,
-                                  canEditResults: canEditResults,
-                                );
-                              },
-                        )
-                      else if (activeStage is KnockoutTournamentRunStage)
-                        KnockoutRunSection(
-                          stage: activeStage,
-                          qualifyingRank: _requiredRankForRunStage(
-                            _viewStageIndex,
-                          ),
-                          onEditResult: _editResult,
-                          canEditResults: canEditResults,
-                          isEditMode: _isBracketEditMode && canEditResults,
-                          canEditBracket:
-                              true &&
-                              canEditResults &&
-                              _canEditKnockoutBracket(activeStage),
-                          onEditModeChanged: (enabled) {
-                            setState(() {
-                              _isBracketEditMode = enabled;
-                            });
-                          },
-                          onSwapSlot: (fromSlotIndex, toSlotIndex) {
-                            _swapKnockoutRunSlots(
-                              activeStage,
-                              fromSlotIndex,
-                              toSlotIndex,
-                            );
-                          },
-                          bracketBuilder:
-                              (
-                                stage,
-                                qualifyingRank,
-                                onEditResult,
-                                canEditResults,
-                                isEditMode,
-                                onSwapSlot,
-                              ) {
-                                return _KnockoutBracketView(
-                                  stage: stage,
-                                  placementMatches: stage.placementMatches,
-                                  qualifyingRank: qualifyingRank,
-                                  onEditResult: onEditResult,
-                                  canEditResults: canEditResults,
-                                  isEditMode: isEditMode,
-                                  onSwapSlot: onSwapSlot,
-                                );
-                              },
-                        ),
                     ],
                   ],
                 ),
               ),
-              SliverToBoxAdapter(
-                child: TournamentRunDetails(
-                  tournament: widget.tournament,
-                  children: [
-                    TournamentTimingPanel(
+              if (_stageViewMode == StageViewMode.dashboard ||
+                  _stageViewMode == StageViewMode.director) ...[
+                SliverToBoxAdapter(
+                  child: TournamentRunDetails(
+                    tournament: widget.tournament,
+                    children: [
+                      TournamentTimingPanel(
                         tournament: widget.tournament,
                         onStart: () async {
                           final previous = widget.tournament.startedAt;
@@ -3081,19 +3030,19 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                           }
                         },
                         onPauseToggle: _toggleClockPause,
-                    ),
-                    if (_viewStageIndex < widget.tournament.stages.length)
-                      Text(
-                        widget
-                            .tournament
-                            .stages[_viewStageIndex]
-                            .gameFormat
-                            .label,
                       ),
-                  ],
+                      if (_viewStageIndex < widget.tournament.stages.length)
+                        Text(
+                          widget
+                              .tournament
+                              .stages[_viewStageIndex]
+                              .gameFormat
+                              .label,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: StageFooter(
                     canCompleteStage: canCompleteStage,
                     isLastStage: isLastStage,
@@ -3103,121 +3052,6 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                     onCompleteStage: _completeCurrentStage,
                     onFinishEarly: _finishCurrentStageEarly,
                   ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OverviewRecommendationBanner extends StatelessWidget {
-  const _OverviewRecommendationBanner({
-    required this.tournament,
-    required this.activeStage,
-    required this.onResult,
-    required this.canEditResults,
-  });
-
-  final CreatedTournament tournament;
-  final int activeStage;
-  final Future<void> Function(GroupMatch) onResult;
-  final bool canEditResults;
-
-  @override
-  Widget build(BuildContext context) {
-    if (tournament.completedStageIndexes.contains(activeStage)) {
-      return const SizedBox.shrink();
-    }
-    final schedule = const OrderOfPlayController().plan(tournament, activeStage);
-    if (schedule.planned.isEmpty && schedule.running.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final openMatchesPerPlayer = <String, int>{};
-    for (final assignment in schedule.planned) {
-      for (final p in assignment.entry.players) {
-        openMatchesPerPlayer[p] = (openMatchesPerPlayer[p] ?? 0) + 1;
-      }
-    }
-
-    String? bottleneckMessage;
-    if (openMatchesPerPlayer.isNotEmpty) {
-      final maxOpen =
-          openMatchesPerPlayer.values.reduce((a, b) => a > b ? a : b);
-      final minOpen =
-          openMatchesPerPlayer.values.reduce((a, b) => a < b ? a : b);
-      if (maxOpen >= 3 && maxOpen - minOpen >= 2) {
-        final bottleneckPlayers = openMatchesPerPlayer.entries
-            .where((e) => e.value == maxOpen)
-            .map((e) => e.key)
-            .toList();
-        bottleneckMessage =
-            '${bottleneckPlayers.join(", ")} hat noch $maxOpen offene Spiele '
-            '(Schnitt: $minOpen). Bevorzugt aufrufen, um Verzögerungen zu vermeiden.';
-      }
-    }
-
-    final next = schedule.planned.firstOrNull;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Card(
-        elevation: 0,
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.tips_and_updates_outlined,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Spielablauf-Empfehlung',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                  ),
-                ],
-              ),
-              if (bottleneckMessage != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  bottleneckMessage,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                ),
-              ],
-              if (next != null) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Nächstes Spiel: ${next.entry.match.homePlayer?.name ?? "Offen"} – ${next.entry.match.awayPlayer?.name ?? "Offen"}'
-                        ' (Empfehlung: Board ${next.board})',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ),
-                    if (canEditResults && next.entry.match.hasPlayers)
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: () => onResult(next.entry.match),
-                        icon: const Icon(Icons.edit_note, size: 18),
-                        label: const Text('Ergebnis erfassen'),
-                      ),
-                  ],
                 ),
               ],
             ],
@@ -3227,3 +3061,4 @@ class _OverviewRecommendationBanner extends StatelessWidget {
     );
   }
 }
+

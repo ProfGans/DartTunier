@@ -1,3 +1,42 @@
+# Dart Turnier 0.2.3
+
+Änderungen seit Version 0.2.2. Der Build trägt die interne Buildnummer 28
+(Release-Tag `v0.2.3+28`).
+
+## Ergebnisse & Turnieransicht
+
+- **Neue 2/3 + 1/3 Spaltenansicht:** Spiele links (2/3) und Tabellen rechts (1/3) dauerhaft nebeneinander sichtbar – ohne horizontales Hin- und Herspringen.
+- **Kategorisierte Spiele:** Schneller Wechsel zwischen „Bereits gespielt", „Offene Spiele" und „Alle Spiele". Die offenen Partien sind beim Öffnen standardmäßig aktiv und aufgeklappt.
+- **Rundensystem entfernt:** Alle Begegnungen einer Etappe sind direkt auf einen Blick kompakt ersichtlich.
+- **Aufgeräumte Arbeitsfläche:** Steuerungsfunktionen wie Turnieruhr pausieren, Etappen vorzeitig beenden oder Turnier abschließen wurden aus den Ergebnissen entfernt (zentral im Dashboard und in den Einstellungen verankert).
+- **Dark-Mode Lesbarkeit:** Weiterkommende Plätze in den Tabellen nutzen nun ein kontrastreiches, dezentes Dunkelgrün (`#144D34`) statt greller Überstrahlungen.
+
+## TV-Info-Tafel & 2-Monitor-Modus
+
+- **Eigenständiges Windows-Zweitfenster:** Über „TV-Anzeige in separatem Fenster öffnen" wird ein nativer Zweitbildschirm-Prozess gestartet. Der Hauptbildschirm bleibt für die Turnierleitung frei bedienbar.
+- **Hintergrund-Live-Synchronisation:** Das Zweitfenster synchronisiert sich alle 2 Sekunden automatisch mit den Turnierdaten – ganz ohne manuelles Neuladen.
+- **Informativere Slides:**
+  - **Slide 1 (Tabellen & Zwischenstände):** Integrierte **KO-Prognose** mit automatischer Wahrscheinlichkeitsberechnung basierend auf ELO und Siegesquoten.
+  - **Slide 2 (Aktuelle & nächste Begegnungen):** Anzeige von Spielfluss-Hinweisen (priorisierte Partien) und kompakter Tabelle.
+  - **Slide 3 (Zuletzt beendete Matches):** Direkte ELO-Veränderungen der Ranglisten-Matches live einsehbar.
+  - **Slide 4 (Turnierfortschritt & Bestleistungen):** Prozentuale Fortschrittsbalken getrennt nach Phasen (Gespielt / Offen) sowie aktuelle Bestleistungen.
+
+## Statistik & Spieler
+
+- **Reiner Statistik-Bereich:** Keine störenden Steuerungsknöpfe (Turnierdetails / Etappe beenden) mehr im Statistik-Menü.
+- **Einheitliche Farbpalette:** Große Hero-Kacheln in Statistik und Spielerprofilen nutzen dieselbe elegante Farbpalette wie die Spielzentrale auf dem Dashboard.
+- **Jahresrückblick:** Die erste Rangliste wird nun automatisch ausgewählt, wenn mindestens eine Rangliste vorhanden ist.
+- **Strukturierte Bestleistungen:** 180er, 170er-Finishes, Shortlegs (9–18 Darts) und High Finishes (100–170) werden übersichtlich gruppiert und mit Häufigkeitszählern dargestellt statt als unendliche Einzelliste.
+- **Ranglisten-Tiers:** Wenn das Auf-/Abstiegssystem deaktiviert ist, werden Tier-Chips im Spielerprofil konsequent ausgeblendet.
+- **Ranglisten-Änderungen am Turnierende:** Animierte Übersicht der Top-3-Gewinner, Bottom-3-Verlierer und aller Tier-Auf- und Abstiege unter dem Podium.
+
+## Turnierformfinder & Werkzeuge
+
+- **Spieldistanz fixieren:** Option zum Fixieren des Satz-/Leg-Formats (z. B. Best of 3 beibehalten) verhindert ungewolltes Downgrade auf Best of 1.
+- **Manuelle Anzahl Weiterkommender:** Beliebige Zielgrößen für die KO-Phase (z. B. Top 6 bei 12 Teilnehmern mit Freilosen für Gruppensieger) frei konfigurierbar.
+- **Präzise Zeitberechnung:** Korrektur der Runden- und Dauerberechnung bei doppelter Gruppenphase („2× Jeder gegen jeden").
+- **Werkzeuge-Bereich:** Kachel „Passende Turnierform" im einheitlichen Kachel-Design (Govee/Dev-Tools) wiederhergestellt mit direkter Navigation in den Planer.
+
 # Dart Turnier 0.2.1
 
 Änderungen seit Version 0.2.0. Der Build trägt die interne Buildnummer 26

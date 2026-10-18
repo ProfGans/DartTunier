@@ -4,6 +4,7 @@ import '../../../shared/widgets/adaptive_content.dart';
 import '../../rankings/domain/local_ranking.dart';
 import '../domain/best_performance.dart';
 import '../domain/local_statistics.dart';
+import 'widgets/structured_best_performances_view.dart';
 
 class LocalPlayerStatisticsPage extends StatefulWidget {
   const LocalPlayerStatisticsPage({
@@ -187,14 +188,9 @@ class _LocalPlayerStatisticsPageState
                 ),
               ],
             ),
-            if (stats.bestPerformances.isNotEmpty)
-              for (final item in stats.bestPerformances)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    '${item.label}${item.value == null ? '' : ' ${item.value}'}',
-                  ),
-                ),
+            StructuredBestPerformancesView(
+              bestPerformances: stats.bestPerformances,
+            ),
           ],
         );
       },

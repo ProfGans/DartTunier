@@ -104,12 +104,26 @@ class _AdministrationPanel extends StatelessWidget {
           onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DevToolsPage())),
         ),
       ),
-      const SizedBox(height: 24),
-      // Planning parameters moved from own tab
-      Text('Passende Turnierform', style: Theme.of(context).textTheme.headlineSmall),
-      const SizedBox(height: 8),
-      const _PlanningParametersPanel(),
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.auto_awesome_outlined),
+          title: const Text('Passende Turnierform'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const PlanningParametersPage()),
+          ),
+        ),
+      ),
     ],
+  );
+}
+
+class PlanningParametersPage extends StatelessWidget {
+  const PlanningParametersPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Passende Turnierform')),
+    body: const SafeArea(child: _PlanningParametersPanel()),
   );
 }
 

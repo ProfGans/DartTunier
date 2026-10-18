@@ -3,7 +3,7 @@ import '../../../app/theme_controller.dart';
 import 'package:dart_tournament_manager/shared/widgets/adaptive_content.dart';
 
 class AppearancePanel extends StatelessWidget {
-  const AppearancePanel({Key? key}) : super(key: key);
+  const AppearancePanel({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +17,7 @@ class AppearancePanel extends StatelessWidget {
           valueListenable: controller.themeModeNotifier,
           builder: (context, mode, _) {
             return DropdownButtonFormField<ThemeMode>(
-              value: mode,
+              initialValue: mode,
               decoration: const InputDecoration(labelText: 'Design‑Modus'),
               items: const [
                 DropdownMenuItem(value: ThemeMode.system, child: Text('System')),

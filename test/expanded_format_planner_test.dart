@@ -168,4 +168,67 @@ void main() {
       }
     },
   );
+
+  test(
+    'manualQualifiers configures exact qualifiers and knockout byes (e.g. Top 6 for 12 players)',
+    () async {
+      final results = await const ExpandedFormatPlanner().suggest(
+        const TournamentPlanningRequest(
+          players: 12,
+          boards: 2,
+          minimumMatchesPerPlayer: 1,
+          minimumMinutes: 0,
+          maximumMinutes: 600,
+          x01Selection: '501',
+          checkoutType: 'double_out',
+          maximumGroups: 2,
+          maximumStages: 2,
+          requireGroupPhase: true,
+          preferredFinalStage: 'single_knockout',
+          manualQualifiers: 6,
+          bestOfLegs: 3,
+          lockLegsFormat: true,
+        ),
+      );
+      expect(results, isNotEmpty);
+      final top6Plan = results.firstWhere(
+        (s) => s.configurations.length == 2 && s.configurations.first.type == 'groups',
+      );
+      final groupStage = top6Plan.configurations.first;
+      final koStage = top6Plan.configurations.last;
+
+      expect(groupStage.qualifiedParticipantCount, 6);
+      expect(koStage.knockoutParticipantCount, 6);
+      expect(koStage.knockoutBracketSize, 8);
+      expect(koStage.knockoutByeCount, 2); // 2 group winners get byes into semifinals!
+    },
+  );
+
+  test(
+    'lockLegsFormat prevents downgrading to Best of 1 and enforces requested Best of Legs',
+    () async {
+      final results = await const ExpandedFormatPlanner().suggest(
+        const TournamentPlanningRequest(
+          players: 12,
+          boards: 2,
+          minimumMatchesPerPlayer: 1,
+          minimumMinutes: 0,
+          maximumMinutes: 600,
+          x01Selection: '501',
+          checkoutType: 'double_out',
+          maximumGroups: 2,
+          maximumStages: 2,
+          requireGroupPhase: true,
+          bestOfLegs: 3,
+          lockLegsFormat: true,
+        ),
+      );
+      expect(results, isNotEmpty);
+      for (final result in results) {
+        for (final stage in result.configurations) {
+          expect(stage.gameFormat.bestOfLegs, 3);
+        }
+      }
+    },
+  );
 }

@@ -21,6 +21,7 @@ import '../domain/elo_tier.dart';
 import '../../statistics/domain/best_performance.dart';
 import '../../statistics/domain/local_statistics.dart';
 import '../../statistics/presentation/local_player_statistics_page.dart';
+import '../../statistics/presentation/widgets/structured_best_performances_view.dart';
 
 class RankingsPage extends StatefulWidget {
   const RankingsPage({super.key, LocalAppDatabase? database})
@@ -153,6 +154,15 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final (rankings, players) = snapshot.data!;
+          final currentSelectedRanking = _selectedRanking ?? (rankings.isNotEmpty ? rankings.first : null);
+          if (_selectedRanking == null && rankings.isNotEmpty) {
+            _rankingReview ??= const RankingYearReviewService().calculate(rankings.first, _year);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _selectedRanking == null) {
+                _selectRanking(rankings.first);
+              }
+            });
+          }
 
           return AdaptiveContentList(
             children: [
@@ -181,7 +191,7 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
                 Text('Rückblick nach Rangliste', style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<LocalRanking>(
-                  initialValue: _selectedRanking,
+                  initialValue: currentSelectedRanking,
                   decoration: const InputDecoration(
                     labelText: 'Rangliste auswählen',
                     border: OutlineInputBorder(),
@@ -346,18 +356,9 @@ class _RankingYearReviewPageState extends State<RankingYearReviewPage> {
                               _StatMiniCard(label: 'Shortlegs (≤18)', value: '${performanceCounts[BestPerformanceType.shortLeg]}'),
                             ],
                           ),
-                          if (stats.bestPerformances.isNotEmpty) ...[
-                            const SizedBox(height: 20),
-                            Text('Bestleistungen (${stats.bestPerformances.length})', style: Theme.of(context).textTheme.titleMedium),
-                            const SizedBox(height: 8),
-                            for (final item in stats.bestPerformances)
-                              ListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                leading: const Icon(Icons.star_outline, size: 20),
-                                title: Text('${item.label}${item.value == null ? '' : ' (${item.value})'}'),
-                              ),
-                          ],
+                          StructuredBestPerformancesView(
+                            bestPerformances: stats.bestPerformances,
+                          ),
                           if (stats.tournaments == 0 && stats.matches == 0) ...[
                             const SizedBox(height: 16),
                             Card(
@@ -1200,6 +1201,7 @@ class _LocalRankingStandingsPageState extends State<LocalRankingStandingsPage> {
                           player: player,
                           rankingName: widget.ranking.name,
                           history: entries.history[player.id] ?? const [],
+                          enableTiers: widget.ranking.enableTiers,
                         ),
                       ),
                     );
@@ -1284,11 +1286,13 @@ class PlayerEloHistoryPage extends StatelessWidget {
     required this.player,
     required this.rankingName,
     required this.history,
+    this.enableTiers = false,
   });
 
   final LocalEloPlayer player;
   final String rankingName;
   final List<LocalEloHistoryItem> history;
+  final bool enableTiers;
 
   @override
   Widget build(BuildContext context) {
@@ -1349,11 +1353,12 @@ class PlayerEloHistoryPage extends StatelessWidget {
                           value: '${player.rating} Elo',
                           icon: Icons.trending_up,
                         ),
-                        _StatChip(
-                          label: 'Liga / Tier',
-                          value: EloTier.fromElo(player.rating).name,
-                          icon: EloTier.fromElo(player.rating).icon,
-                        ),
+                        if (enableTiers)
+                          _StatChip(
+                            label: 'Liga / Tier',
+                            value: EloTier.fromElo(player.rating).name,
+                            icon: EloTier.fromElo(player.rating).icon,
+                          ),
                         _StatChip(
                           label: 'Matches',
                           value:

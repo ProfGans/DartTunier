@@ -15,8 +15,12 @@ class SportPageHeading extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(24),
     decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.secondary,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
+      gradient: const LinearGradient(
+        colors: [Color(0xFF142B3A), Color(0xFF175C59)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -27,7 +31,10 @@ class SportPageHeading extends StatelessWidget {
           title,
           style: Theme.of(
             context,
-          ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+          ).textTheme.headlineSmall?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 8),
         Text(

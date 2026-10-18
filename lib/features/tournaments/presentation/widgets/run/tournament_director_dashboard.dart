@@ -80,10 +80,6 @@ class _TournamentDirectorDashboardState
     }
   }
 
-  Widget _title(String text) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    child: Text(text, style: Theme.of(context).textTheme.titleLarge),
-  );
   Widget _box(List<Widget> children) => Card(
     child: Padding(
       padding: const EdgeInsets.all(16),
@@ -396,8 +392,6 @@ class _TournamentDirectorDashboardState
           !(active.isNotEmpty && completed == active.length))
         const Text('Keine akuten Probleme erkannt. Der Turnierbetrieb läuft flüssig.'),
     ]);
-    final boards = const SizedBox.shrink(); // placeholder for removed Boards UI
-final games = const SizedBox.shrink(); // placeholder for removed Games UI
     final search = _box([
       TextField(
         controller: _search,

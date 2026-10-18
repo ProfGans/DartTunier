@@ -192,21 +192,62 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
             color: assigned == total
                 ? Theme.of(context).colorScheme.secondaryContainer
                 : Theme.of(context).colorScheme.tertiaryContainer,
-            child: ListTile(
-              leading: Icon(
-                assigned == total ? Icons.check_circle_outline : Icons.warning_amber_outlined,
-              ),
-              title: Text(
-                assigned == total
-                    ? 'Alle Spieler zugewiesen ($assigned/$total)'
-                    : 'Spieler-Zuweisung unvollständig ($assigned/$total zugewiesen)',
-              ),
-              subtitle: assigned < total
-                  ? const Text('Für die Ranglisten-Wertung müssen alle Spieler zugewiesen sein.')
-                  : null,
-              trailing: FilledButton.tonal(
-                onPressed: saving ? null : _editPlayerAssignments,
-                child: const Text('Zuweisung bearbeiten'),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final narrow = constraints.maxWidth < 450;
+                  final content = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        assigned == total
+                            ? 'Alle Spieler zugewiesen ($assigned/$total)'
+                            : 'Spieler-Zuweisung unvollständig ($assigned/$total zugewiesen)',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      if (assigned < total) ...[
+                        const SizedBox(height: 4),
+                        const Text('Für die Ranglisten-Wertung müssen alle Spieler zugewiesen sein.'),
+                      ],
+                    ],
+                  );
+                  final button = FilledButton.tonal(
+                    onPressed: saving ? null : _editPlayerAssignments,
+                    child: const Text('Zuweisung bearbeiten'),
+                  );
+
+                  if (narrow) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              assigned == total ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(child: content),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        button,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Icon(
+                        assigned == total ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(child: content),
+                      const SizedBox(width: 8),
+                      button,
+                    ],
+                  );
+                },
               ),
             ),
           ),

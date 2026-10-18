@@ -18,6 +18,7 @@ import 'features/tournaments/domain/knockout_round_names.dart';
 import 'features/tournaments/domain/group_size_rules.dart';
 import 'features/tournaments/modes/triple_ko/triple_ko_engine.dart';
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/gestures.dart';
@@ -59,10 +60,9 @@ import 'features/tournaments/presentation/pages/challonge_local_import_page.dart
 import 'features/backups/application/supabase_workspace_sync_service.dart';
 import 'features/tournaments/presentation/widgets/creation/stage_setup_widgets.dart';
 import 'features/tournaments/presentation/widgets/creation/group_game_limit_setup.dart';
-import 'features/tournaments/presentation/widgets/run/group_stage_run_section.dart';
-import 'features/tournaments/presentation/widgets/run/knockout_run_section.dart';
 import 'features/tournaments/presentation/widgets/run/result_entry.dart';
 import 'features/tournaments/presentation/widgets/run/stage_controls.dart';
+import 'features/tournaments/presentation/widgets/run/stage_results_split_view.dart';
 
 part 'features/home/presentation/home_page.dart';
 part 'features/dev_tools/application/production_tournament_runtime.dart';

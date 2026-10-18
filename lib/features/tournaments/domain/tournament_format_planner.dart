@@ -40,11 +40,15 @@ class TournamentPlanningRequest {
     this.maximumLives = 5,
     this.enabledModes,
     this.preferredFinalStage,
+    this.lockLegsFormat = false,
+    this.manualQualifiers,
   });
 
   final int players;
   final int boards;
   final int bestOfLegs;
+  final bool lockLegsFormat;
+  final int? manualQualifiers;
   final bool allowSets;
   final bool allowDraws;
   final bool requireGroupPhase;

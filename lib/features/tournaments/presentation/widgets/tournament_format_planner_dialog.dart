@@ -13,6 +13,10 @@ class _TournamentFormatPlannerDialogState
   final _boards = TextEditingController(text: '2');
   final _maximumGroups = TextEditingController();
   String? _maximumGroupsError;
+  final _manualQualifiers = TextEditingController();
+  String? _manualQualifiersError;
+  int _bestOfLegs = 3;
+  bool _lockLegsFormat = true;
   final _structureKey = GlobalKey<SportSettingsSectionState>();
   final _minimumMatches = TextEditingController(text: '3');
   // Duration fields: store as whole minutes to avoid decimal confusion
@@ -165,6 +169,7 @@ class _TournamentFormatPlannerDialogState
       _players,
       _boards,
       _maximumGroups,
+      _manualQualifiers,
       _minimumMatches,
       _minHours,
       _minMinutes,
@@ -186,6 +191,9 @@ class _TournamentFormatPlannerDialogState
     _players.text,
     _boards.text,
     _maximumGroups.text,
+    _manualQualifiers.text,
+    _bestOfLegs,
+    _lockLegsFormat,
     _minimumMatches.text,
     '${_minHours.text}h${_minMinutes.text}m',
     '${_maxHours.text}h${_maxMinutes.text}m',
@@ -207,6 +215,7 @@ class _TournamentFormatPlannerDialogState
     _cancel();
     _scrollController.dispose();
     _maximumGroups.dispose();
+    _manualQualifiers.dispose();
     _players.dispose();
     _boards.dispose();
     _minimumMatches.dispose();
@@ -270,6 +279,25 @@ class _TournamentFormatPlannerDialogState
       return;
     }
     setState(() => _maximumGroupsError = null);
+
+    final qualifiersText = _manualQualifiers.text.trim();
+    final manualQualifiers = int.tryParse(qualifiersText);
+    final playersCount = int.tryParse(_players.text.trim()) ?? 0;
+    if (qualifiersText.isNotEmpty) {
+      if (manualQualifiers == null ||
+          manualQualifiers < 2 ||
+          manualQualifiers >= playersCount) {
+        _structureKey.currentState?.expand();
+        setState(() {
+          _manualQualifiersError =
+              'Zahl von 2 bis ${max(2, playersCount - 1)} eingeben.';
+          _suggestions = null;
+        });
+        return;
+      }
+    }
+    setState(() => _manualQualifiersError = null);
+
     _cancelled = false;
     setState(() => _calculating = true);
     final inputSignature = _inputSignature;
@@ -279,14 +307,16 @@ class _TournamentFormatPlannerDialogState
       final suggestions = await ExpandedFormatPlanner(parameters: parameters)
           .suggest(
             TournamentPlanningRequest(
-              players: int.tryParse(_players.text) ?? 0,
+              players: playersCount,
               boards: int.tryParse(_boards.text) ?? 0,
               maximumGroups: groupLimit,
               requireGroupPhase: _requireGroupPhase,
               maximumStages: _maximumStages,
               maximumLives: _maximumLives,
               enabledModes: Set.unmodifiable(_enabledModes),
-
+              bestOfLegs: _bestOfLegs,
+              lockLegsFormat: _lockLegsFormat,
+              manualQualifiers: manualQualifiers,
               minimumMatchesPerPlayer: int.tryParse(_minimumMatches.text) ?? 1,
               minimumMinutes: minTotal,
               maximumMinutes: maxTotal,
@@ -561,6 +591,20 @@ class _TournamentFormatPlannerDialogState
                     ),
                   ),
                   const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('planner-manual-qualifiers'),
+                    controller: _manualQualifiers,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Weiterkommende Spieler (Top X / Finalrunde)',
+                      helperText:
+                          'Anzahl Qualifikanten für die Final-/KO-Runde (z. B. 6 für Top 6 mit Freilosen bei 12 Spielern). Leer: automatisch.',
+                      helperMaxLines: 3,
+                      errorText: _manualQualifiersError,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   SwitchListTile(
                     key: const ValueKey('planner-require-groups'),
                     contentPadding: EdgeInsets.zero,
@@ -664,7 +708,7 @@ class _TournamentFormatPlannerDialogState
               SportSettingsSection(
                 title: 'Spielregeln',
                 summary:
-                    '${_x01Selection == 'variable_301_501' ? '301 oder 501' : _x01Selection} · ${_checkoutType == 'double_out'
+                    'Best of $_bestOfLegs Legs${_lockLegsFormat ? ' (fix)' : ''} · ${_x01Selection == 'variable_301_501' ? '301 oder 501' : _x01Selection} · ${_checkoutType == 'double_out'
                         ? 'Double Out'
                         : _checkoutType == 'single_out'
                         ? 'Single Out'
@@ -731,6 +775,46 @@ class _TournamentFormatPlannerDialogState
                     }),
                   ),
                   const SizedBox(height: 16),
+                  DropdownButtonFormField<int>(
+                    key: const ValueKey('planner-best-of-legs'),
+                    initialValue: _bestOfLegs,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Spieldistanz (Best of Legs)',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text('1 Leg (Single Leg)')),
+                      DropdownMenuItem(value: 3, child: Text('Best of 3 Legs (Standard)')),
+                      DropdownMenuItem(value: 5, child: Text('Best of 5 Legs')),
+                      DropdownMenuItem(value: 7, child: Text('Best of 7 Legs')),
+                      DropdownMenuItem(value: 9, child: Text('Best of 9 Legs')),
+                      DropdownMenuItem(value: 11, child: Text('Best of 11 Legs')),
+                    ],
+                    onChanged: _calculating
+                        ? null
+                        : (val) => setState(() {
+                            _bestOfLegs = val!;
+                            _suggestions = null;
+                          }),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    key: const ValueKey('planner-lock-legs-format'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Spieldistanz nicht verkürzen'),
+                    subtitle: const Text(
+                      'Verhindert, dass der Planer kürzere Distanzen (wie Best of 1) vorschlägt, nur um ins Zeitfenster zu passen.',
+                    ),
+                    value: _lockLegsFormat,
+                    onChanged: _calculating
+                        ? null
+                        : (val) => setState(() {
+                            _lockLegsFormat = val;
+                            _suggestions = null;
+                          }),
+                  ),
+                  const SizedBox(height: 12),
                   SwitchListTile(
                     key: const ValueKey('planner-allow-draws'),
                     title: const Text('Unentschieden erlauben'),

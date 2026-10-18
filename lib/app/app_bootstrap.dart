@@ -42,4 +42,11 @@ class AppBootstrap {
     }
     return null;
   }
+
+  static Future<void> initializeSecondScreen({List<String> args = const []}) async {
+    WidgetsFlutterBinding.ensureInitialized();
+    PerformanceDiagnostics.start();
+    await SupabaseAccountBootstrap.initialize();
+  }
 }
+

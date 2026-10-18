@@ -89,6 +89,22 @@ class PlanningSuggestionCard extends StatelessWidget {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            suggestion.configurations.isNotEmpty
+                                ? suggestion.configurations.first.gameFormat.label
+                                : suggestion.format.label,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),

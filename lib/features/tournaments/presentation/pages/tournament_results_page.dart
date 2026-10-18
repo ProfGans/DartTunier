@@ -13,6 +13,7 @@ import '../widgets/run/best_performance_editor.dart';
 import 'challonge_archive_page.dart';
 import '../../application/tournament_timing.dart';
 import '../widgets/results/tournament_results_statistics.dart';
+import '../widgets/results/tournament_ranking_changes_section.dart';
 import '../widgets/tournament_export_dialog.dart';
 
 class TournamentResultsPage extends StatelessWidget {
@@ -178,11 +179,13 @@ class TournamentResultsPage extends StatelessWidget {
                   child: Text('Es liegen noch keine Ergebnisse vor.'),
                 ),
               )
-            else
+            else ...[
               _Podium(
                 ranking: podium,
                 onPlayerTap: (stats) => _openPlayer(context, stats.player),
               ),
+              TournamentRankingChangesSection(tournament: tournament),
+            ],
             const SizedBox(height: 24),
             Text(
               'Turnierstatistik',

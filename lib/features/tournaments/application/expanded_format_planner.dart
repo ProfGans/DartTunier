@@ -62,7 +62,9 @@ class ExpandedFormatPlanner {
             if (request.allowDraws && sets == 1)
               ...TournamentGameFormat.supportedDrawLegs,
           ])
-            if (sets == 1 || legs >= 3)
+            if ((sets == 1 || legs >= 3) &&
+                (!request.lockLegsFormat || legs == request.bestOfLegs) &&
+                (request.lockLegsFormat || request.bestOfLegs <= 1 || legs >= (request.bestOfLegs >= 3 ? 3 : 1)))
               TournamentGameFormat(
                 x01Score: score,
                 bestOfLegs: legs,
@@ -106,6 +108,7 @@ class ExpandedFormatPlanner {
       // Equal distances, one longer final stage, or one step per stage.
       for (final base in options) {
         for (var progression = 0; progression < 5; progression++) {
+          if (request.lockLegsFormat && progression > 0) continue;
           if (progression == 3 &&
               (!request.allowSets ||
                   base.bestOfSets >= 5 ||
@@ -228,7 +231,12 @@ class ExpandedFormatPlanner {
         final count = prefix.isEmpty
             ? request.players
             : prefix.last.qualifiedParticipantCount!;
-        for (final stage in _stages(count, cap, request.maximumLives)) {
+        for (final stage in _stages(
+          count,
+          cap,
+          request.maximumLives,
+          prefix.isEmpty ? request.manualQualifiers : null,
+        )) {
           final mode = stage.type == 'groups'
               ? (stage.groupRoundRobinRepeats.isNotEmpty && stage.groupRoundRobinRepeats.first == 2)
                   ? 'groups:double_round_robin'
@@ -290,12 +298,23 @@ class ExpandedFormatPlanner {
         : ranked.take(parameters.maximumSuggestions).toList();
   }
 
-  Iterable<TournamentStage> _stages(int n, int maxGroups, int maxLives) sync* {
+  Iterable<TournamentStage> _stages(
+    int n,
+    int maxGroups,
+    int maxLives, [
+    int? manualQualifiers,
+  ]) sync* {
     var bracket = 1;
     while (bracket < n) {
       bracket *= 2;
     }
-    final targets = {1, if (n >= 4) n ~/ 2};
+    final targets = {
+      1,
+      if (manualQualifiers != null && manualQualifiers < n && manualQualifiers >= 1)
+        manualQualifiers
+      else if (n >= 4)
+        n ~/ 2,
+    };
     for (final type in [
       'single_knockout',
       'double_knockout',
@@ -346,16 +365,37 @@ class ExpandedFormatPlanner {
         'double_knockout',
         'triple_knockout',
       ]) {
-        final qualifierOptions = <int>{
-          if (groups == 1) 1,
-          min(parameters.qualifiersPerGroup, sizes.last - 1),
-          if (groups > 1 && sizes.last >= 4)
-            min(sizes.last ~/ 2, sizes.last - 1),
-        };
-        for (final perGroup in qualifierOptions) {
-          if (perGroup >= sizes.last) continue;
-          final target = groups * perGroup;
-          if (target >= n || target < 1) continue;
+        final List<(int, List<int>)> qualifierPlans;
+        if (manualQualifiers != null) {
+          if (manualQualifiers >= n || manualQualifiers < 1) {
+            qualifierPlans = const [];
+          } else {
+            final fixed = List.generate(
+              groups,
+              (i) => manualQualifiers ~/ groups + (i < manualQualifiers % groups ? 1 : 0),
+            );
+            if (fixed.first < sizes.last && fixed.last >= 1) {
+              qualifierPlans = [(manualQualifiers, fixed)];
+            } else {
+              qualifierPlans = const [];
+            }
+          }
+        } else {
+          final qualifierOptions = <int>{
+            if (groups == 1) 1,
+            min(parameters.qualifiersPerGroup, sizes.last - 1),
+            if (groups > 1 && sizes.last >= 4)
+              min(sizes.last ~/ 2, sizes.last - 1),
+          };
+          qualifierPlans = [
+            for (final perGroup in qualifierOptions)
+              if (perGroup < sizes.last && groups * perGroup < n && groups * perGroup >= 1)
+                (groups * perGroup, List.filled(groups, perGroup)),
+          ];
+        }
+        for (final plan in qualifierPlans) {
+          final target = plan.$1;
+          final fixedQualifiers = plan.$2;
           final label = play == 'double_round_robin'
               ? 'Jeder gegen jeden (zweimal)'
               : play == 'limited_round_robin'
@@ -393,7 +433,7 @@ class ExpandedFormatPlanner {
                   ? 2
                   : 1,
             ),
-            fixedQualifiersByGroup: List.filled(groups, perGroup),
+            fixedQualifiersByGroup: fixedQualifiers,
             qualifiedParticipantCount: target,
             finalEndsTournament: true,
             gameFormat: const TournamentGameFormat(bestOfLegs: 1),
