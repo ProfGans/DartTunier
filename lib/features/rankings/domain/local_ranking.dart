@@ -21,6 +21,7 @@ class LocalRanking {
     this.validToYear,
     this.validFromDate,
     this.validToDate,
+    this.enableTiers = false,
   });
 
   final String id;
@@ -42,6 +43,7 @@ class LocalRanking {
   final int? validToYear;
   final DateTime? validFromDate;
   final DateTime? validToDate;
+  final bool enableTiers;
 
   bool includesTournamentYear(int year) =>
       (validFromYear == null || year >= validFromYear!) &&
@@ -74,6 +76,7 @@ class LocalRanking {
     'validToYear': validToYear,
     'validFromDate': validFromDate?.toIso8601String(),
     'validToDate': validToDate?.toIso8601String(),
+    'enableTiers': enableTiers,
   };
 
   factory LocalRanking.fromJson(Map<String, Object?> json) => LocalRanking(
@@ -99,5 +102,50 @@ class LocalRanking {
     validToYear: json['validToYear'] as int?,
     validFromDate: DateTime.tryParse(json['validFromDate'] as String? ?? ''),
     validToDate: DateTime.tryParse(json['validToDate'] as String? ?? ''),
+    enableTiers: json['enableTiers'] as bool? ?? false,
+  );
+
+  LocalRanking copyWith({
+    String? id,
+    String? name,
+    RankingType? type,
+    int? startRating,
+    int? newPlayerK,
+    int? normalPlayerK,
+    int? proPlayerK,
+    int? matchesBeforeNormal,
+    int? proRatingThreshold,
+    int? participationPoints,
+    int? setWinPoints,
+    int? firstPlacePoints,
+    int? secondPlacePoints,
+    int? thirdPlacePoints,
+    int? bestPerformancePoints,
+    int? validFromYear,
+    int? validToYear,
+    DateTime? validFromDate,
+    DateTime? validToDate,
+    bool? enableTiers,
+  }) => LocalRanking(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    type: type ?? this.type,
+    startRating: startRating ?? this.startRating,
+    newPlayerK: newPlayerK ?? this.newPlayerK,
+    normalPlayerK: normalPlayerK ?? this.normalPlayerK,
+    proPlayerK: proPlayerK ?? this.proPlayerK,
+    matchesBeforeNormal: matchesBeforeNormal ?? this.matchesBeforeNormal,
+    proRatingThreshold: proRatingThreshold ?? this.proRatingThreshold,
+    participationPoints: participationPoints ?? this.participationPoints,
+    setWinPoints: setWinPoints ?? this.setWinPoints,
+    firstPlacePoints: firstPlacePoints ?? this.firstPlacePoints,
+    secondPlacePoints: secondPlacePoints ?? this.secondPlacePoints,
+    thirdPlacePoints: thirdPlacePoints ?? this.thirdPlacePoints,
+    bestPerformancePoints: bestPerformancePoints ?? this.bestPerformancePoints,
+    validFromYear: validFromYear ?? this.validFromYear,
+    validToYear: validToYear ?? this.validToYear,
+    validFromDate: validFromDate ?? this.validFromDate,
+    validToDate: validToDate ?? this.validToDate,
+    enableTiers: enableTiers ?? this.enableTiers,
   );
 }

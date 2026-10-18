@@ -16,6 +16,7 @@ import '../application/local_ranking_elo_service.dart';
 import '../application/local_ranking_series_service.dart';
 import '../application/ranking_year_review_service.dart';
 import '../domain/local_ranking.dart';
+import '../domain/elo_tier.dart';
 
 import '../../statistics/domain/best_performance.dart';
 import '../../statistics/domain/local_statistics.dart';
@@ -740,6 +741,7 @@ class _RankingEditorDialogState extends State<_RankingEditorDialog> {
     'Punkte Platz 3': TextEditingController(text: '3'),
     'Punkte je Bestleistung': TextEditingController(text: '1'),
   };
+  bool _enableTiers = false;
 
   @override
   void initState() {
@@ -748,6 +750,7 @@ class _RankingEditorDialogState extends State<_RankingEditorDialog> {
     if (initial == null) return;
     _name.text = initial.name;
     _type = initial.type;
+    _enableTiers = initial.enableTiers;
     _fromDate = initial.validFromDate ?? (initial.validFromYear == null ? null : DateTime(initial.validFromYear!, 1, 1));
     _toDate = initial.validToDate ?? (initial.validToYear == null ? null : DateTime(initial.validToYear!, 12, 31));
     for (final entry in _numbers.entries) {
@@ -828,6 +831,7 @@ class _RankingEditorDialogState extends State<_RankingEditorDialog> {
       validToYear: _toDate?.year,
       validFromDate: _fromDate,
       validToDate: _toDate,
+      enableTiers: _enableTiers,
     ));
   }
 
@@ -961,6 +965,19 @@ class _RankingEditorDialogState extends State<_RankingEditorDialog> {
                     validator: (value) => int.tryParse((value ?? '').trim()) == null ? 'Bitte eine ganze Zahl eingeben.' : null,
                   ),
                 ),
+            if (_type == RankingType.elo) ...[
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Auf- & Abstiegssystem (Elo-Tiers)'),
+                subtitle: const Text(
+                  'Spieler nach Elo in Ligen/Tiers einordnen:\n'
+                  '💎 Diamant (≥1200) · 🎖️ Platin (≥1100) · 🏆 Gold (≥1000) · 🛡️ Silber (≥900) · 🥉 Bronze (<900)',
+                ),
+                value: _enableTiers,
+                onChanged: (val) => setState(() => _enableTiers = val),
+              ),
+            ],
           ],
         ),
       ),
@@ -1152,7 +1169,15 @@ class _LocalRankingStandingsPageState extends State<LocalRankingStandingsPage> {
               Card(
                 child: ListTile(
                   leading: CircleAvatar(child: Text('${i + 1}')),
-                  title: Text(entries.entries[i].name),
+                  title: Row(
+                    children: [
+                      Flexible(child: Text(entries.entries[i].name)),
+                      if (widget.ranking.enableTiers) ...[
+                        const SizedBox(width: 8),
+                        _TierBadge(tier: EloTier.fromElo(entries.entries[i].rating)),
+                      ],
+                    ],
+                  ),
                   subtitle: Text(
                     '${entries.entries[i].matches} gewertete Matches · ${entries.entries[i].wins} Siege · ${entries.entries[i].losses} Niederlagen',
                   ),
@@ -1323,6 +1348,11 @@ class PlayerEloHistoryPage extends StatelessWidget {
                           label: 'Aktuelle Wertung',
                           value: '${player.rating} Elo',
                           icon: Icons.trending_up,
+                        ),
+                        _StatChip(
+                          label: 'Liga / Tier',
+                          value: EloTier.fromElo(player.rating).name,
+                          icon: EloTier.fromElo(player.rating).icon,
                         ),
                         _StatChip(
                           label: 'Matches',
@@ -1517,6 +1547,38 @@ class _StatChip extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TierBadge extends StatelessWidget {
+  const _TierBadge({required this.tier});
+  final EloTier tier;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: tier.color.withValues(alpha: 0.15),
+        border: Border.all(color: tier.color, width: 1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(tier.icon, size: 13, color: tier.color),
+          const SizedBox(width: 4),
+          Text(
+            tier.name,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: tier.color,
+            ),
           ),
         ],
       ),

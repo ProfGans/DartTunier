@@ -1,24 +1,52 @@
 import 'package:flutter/material.dart';
 
-/// Shared visual language for every feature, including overlays and forms.
-ThemeData buildDartTournamentTheme() {
-  const ink = Color(0xFF142B3A);
-  const green = Color(0xFF087F68);
-  final scheme = ColorScheme.fromSeed(seedColor: green).copyWith(
-    primary: green,
-    onPrimary: Colors.white,
-    primaryContainer: const Color(0xFFD9F0E8),
-    onPrimaryContainer: ink,
-    secondary: ink,
-    onSecondary: Colors.white,
-    secondaryContainer: const Color(0xFFE3EBF0),
-    surface: const Color(0xFFFCFDFD),
-    onSurface: ink,
-    onSurfaceVariant: const Color(0xFF526570),
-    outline: const Color(0xFF71848B),
-    outlineVariant: const Color(0xFFDCE5E8),
+/// Club-inspired color palette for DC Unzenberg/Heinzenbach.
+ThemeData buildDartTournamentTheme() => _buildTheme(isDark: false);
+
+ThemeData buildDartTournamentDarkTheme() => _buildTheme(isDark: true);
+
+ThemeData _buildTheme({required bool isDark}) {
+  final ink = isDark ? const Color(0xFFF5F3ED) : const Color(0xFF191B20);
+  final gold = isDark ? const Color(0xFFD49B44) : const Color(0xFFB5811E);
+  final bg = isDark ? const Color(0xFF121316) : const Color(0xFFF7F5F0);
+  final surface = isDark ? const Color(0xFF1B1D24) : const Color(0xFFFFFFFF);
+  final surfaceSecondary =
+      isDark ? const Color(0xFF242731) : const Color(0xFFF1EFEA);
+
+  final scheme =
+      (isDark
+              ? ColorScheme.fromSeed(
+                  seedColor: gold,
+                  brightness: Brightness.dark,
+                )
+              : ColorScheme.fromSeed(
+                  seedColor: gold,
+                  brightness: Brightness.light,
+                ))
+          .copyWith(
+            primary: gold,
+            onPrimary: isDark ? const Color(0xFF121316) : Colors.white,
+            primaryContainer:
+                isDark ? const Color(0xFF382B14) : const Color(0xFFFCEECF),
+            onPrimaryContainer:
+                isDark ? const Color(0xFFFDE8B5) : const Color(0xFF281C03),
+            secondary: isDark ? const Color(0xFFB0B4C0) : const Color(0xFF2D323E),
+            onSecondary: isDark ? const Color(0xFF121316) : Colors.white,
+            secondaryContainer: surfaceSecondary,
+            surface: surface,
+            onSurface: ink,
+            onSurfaceVariant:
+                isDark ? const Color(0xFFA5AAB7) : const Color(0xFF5B606D),
+            outline: isDark ? const Color(0xFF3E4351) : const Color(0xFF757065),
+            outlineVariant:
+                isDark ? const Color(0xFF2A2E38) : const Color(0xFFE2DDD2),
+          );
+
+  final base = ThemeData(
+    useMaterial3: true,
+    colorScheme: scheme,
+    brightness: isDark ? Brightness.dark : Brightness.light,
   );
-  final base = ThemeData(useMaterial3: true, colorScheme: scheme);
   final rounded = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(16),
   );
@@ -26,8 +54,9 @@ ThemeData buildDartTournamentTheme() {
     borderRadius: BorderRadius.circular(12),
     borderSide: BorderSide(color: scheme.outlineVariant),
   );
+
   return base.copyWith(
-    scaffoldBackgroundColor: const Color(0xFFF1F5F6),
+    scaffoldBackgroundColor: bg,
     textTheme: base.textTheme
         .apply(bodyColor: ink, displayColor: ink)
         .copyWith(
@@ -75,7 +104,7 @@ ThemeData buildDartTournamentTheme() {
       border: border,
       enabledBorder: border,
       focusedBorder: border.copyWith(
-        borderSide: const BorderSide(color: green, width: 2),
+        borderSide: BorderSide(color: gold, width: 2),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -106,7 +135,7 @@ ThemeData buildDartTournamentTheme() {
     ),
     listTileTheme: ListTileThemeData(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      iconColor: green,
+      iconColor: gold,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
     chipTheme: base.chipTheme.copyWith(
@@ -129,7 +158,7 @@ ThemeData buildDartTournamentTheme() {
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: ink,
+      backgroundColor: isDark ? const Color(0xFF282C36) : const Color(0xFF191B20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
     dividerTheme: DividerThemeData(color: scheme.outlineVariant, space: 24),
@@ -144,7 +173,7 @@ ThemeData buildDartTournamentTheme() {
       columnSpacing: 28,
     ),
     tabBarTheme: TabBarThemeData(
-      labelColor: green,
+      labelColor: gold,
       unselectedLabelColor: scheme.onSurfaceVariant,
       indicatorSize: TabBarIndicatorSize.label,
       dividerColor: scheme.outlineVariant,
@@ -162,14 +191,14 @@ ThemeData buildDartTournamentTheme() {
     expansionTileTheme: ExpansionTileThemeData(
       shape: const Border(),
       collapsedShape: const Border(),
-      iconColor: green,
+      iconColor: gold,
       collapsedIconColor: scheme.onSurfaceVariant,
       tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(color: green),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: gold),
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
-        color: ink,
+        color: isDark ? const Color(0xFF282C36) : const Color(0xFF191B20),
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(12),

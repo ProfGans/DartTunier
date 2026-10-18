@@ -39,7 +39,7 @@ class TournamentPlanningRequest {
     this.maximumStages = 3,
     this.maximumLives = 5,
     this.enabledModes,
-    this.preferredFinalStage = 'single_knockout',
+    this.preferredFinalStage,
   });
 
   final int players;
@@ -247,9 +247,19 @@ class TournamentFormatPlanner {
                       duration.totalMinutes <= request.maximumMinutes));
           candidates.add(
             TournamentFormatSuggestion(
-              title: groups == 1
-                  ? 'Jeder gegen jeden'
-                  : '$groups Gruppen mit K.-o.-Finale',
+              title: (() {
+                // Build descriptive title with group size range and mode label
+                final sizeDesc = sizes.first == sizes.last
+                    ? '${sizes.first}'
+                    : '${sizes.last}–${sizes.first}';
+                final groupDesc = groups == 1
+                    ? '1 Gruppe à $sizeDesc Spieler'
+                    : '$groups Gruppen à $sizeDesc Spieler';
+                // Determine mode key for lookup (double round robin or regular)
+                final modeKey = 'groups:round_robin';
+                final modeLabel = TournamentPlanningRequest.modeLabels[modeKey] ?? '';
+                return '$groupDesc ($modeLabel)';
+              })(),
               stages: [
                 PlannedStage(
                   type: 'groups',

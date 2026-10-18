@@ -11,6 +11,7 @@ import '../../dev_tools/presentation/dev_tools_page.dart';
 import '../../govee/presentation/govee_hub_page.dart';
 
 import '../../tournaments/domain/tournament_planning_parameters.dart';
+import 'appearance_panel.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -23,9 +24,9 @@ class _SettingsPageState extends State<SettingsPage> {
   int _selected = 0;
 
   static const _sections = [
-    'Passende Turnierform',
     'Daten',
     'Updates',
+    'Darstellung',
     'Werkzeuge & Verwaltung',
   ];
 
@@ -41,7 +42,7 @@ class _SettingsPageState extends State<SettingsPage> {
               for (var i = 0; i < _sections.length; i++)
                 ChoiceChip(
                   label: Text(_sections[i]),
-                  avatar: Icon([Icons.tune, Icons.backup_outlined, Icons.system_update_outlined, Icons.settings_outlined][i]),
+                  avatar: Icon([Icons.storage, Icons.system_update_outlined, Icons.palette, Icons.settings_outlined][i]),
                   selected: _selected == i,
                   onSelected: (_) => setState(() => _selected = i),
                 ),
@@ -49,9 +50,9 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           Expanded(
             child: switch (_selected) {
-              0 => const _PlanningParametersPanel(),
-              1 => _DataPanel(onReset: () => _resetLocalData(context)),
-              2 => const AndroidUpdatesPanel(),
+              0 => _DataPanel(onReset: () => _resetLocalData(context)),
+              1 => const AndroidUpdatesPanel(),
+              2 => const AppearancePanel(),
               _ => const _AdministrationPanel(),
             },
           ),
@@ -85,10 +86,7 @@ class _AdministrationPanel extends StatelessWidget {
   Widget build(BuildContext context) => AdaptiveContentList(
     padding: const EdgeInsets.all(20),
     children: [
-      Text(
-        'Werkzeuge & Verwaltung',
-        style: Theme.of(context).textTheme.headlineSmall,
-      ),
+      Text('Werkzeuge & Verwaltung', style: Theme.of(context).textTheme.headlineSmall),
       const SizedBox(height: 16),
       const PushSenderMenu(),
       const PushDeviceMenu(),
@@ -96,20 +94,21 @@ class _AdministrationPanel extends StatelessWidget {
         child: ListTile(
           leading: const Icon(Icons.lightbulb_outline),
           title: const Text('Govee Licht-Hub'),
-          onTap: () => Navigator.of(
-            context,
-          ).push(MaterialPageRoute<void>(builder: (_) => const GoveeHubPage())),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const GoveeHubPage())),
         ),
       ),
       Card(
         child: ListTile(
           leading: const Icon(Icons.science_outlined),
           title: const Text('Dev Tools'),
-          onTap: () => Navigator.of(
-            context,
-          ).push(MaterialPageRoute<void>(builder: (_) => const DevToolsPage())),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DevToolsPage())),
         ),
       ),
+      const SizedBox(height: 24),
+      // Planning parameters moved from own tab
+      Text('Passende Turnierform', style: Theme.of(context).textTheme.headlineSmall),
+      const SizedBox(height: 8),
+      const _PlanningParametersPanel(),
     ],
   );
 }

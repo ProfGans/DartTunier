@@ -396,91 +396,8 @@ class _TournamentDirectorDashboardState
           !(active.isNotEmpty && completed == active.length))
         const Text('Keine akuten Probleme erkannt. Der Turnierbetrieb läuft flüssig.'),
     ]);
-    final boards = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _title('Boards'),
-        for (var b = 1; b <= t.boardCount; b++)
-          _box([
-            Text(
-              'Board $b · ${state.runningOn(b) != null
-                  ? 'Belegt'
-                  : t.blockedBoards.contains(b)
-                  ? 'Gesperrt'
-                  : 'Frei'}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const Text('Manuelle Ergebniseingabe'),
-            if (state.runningOn(b) case final e?) ...[
-              const SizedBox(height: 8),
-              Text(_pair(e)),
-              Text(
-                'Spieldauer: ${_duration(now.difference(e.match.startedAt!))}',
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _button(
-                    'Ergebnis erfassen',
-                    operational
-                        ? () => _act(() => widget.onResult(e.match))
-                        : null,
-                    icon: Icons.edit_outlined,
-                  ),
-                ],
-              ),
-            ] else ...[
-              if (!t.blockedBoards.contains(b))
-                if (state.schedule.planned
-                        .where((a) => a.board == b)
-                        .firstOrNull
-                    case final next?) ...[
-                  Text('Nächstes Spiel: ${_pair(next.entry)}'),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: start(next.entry, board: b),
-                  ),
-                ],
-              _button(
-                t.blockedBoards.contains(b)
-                    ? 'Board freigeben'
-                    : 'Board sperren',
-                () => _act(() => widget.onBlock(b)),
-                icon: t.blockedBoards.contains(b)
-                    ? Icons.lock_open
-                    : Icons.block,
-              ),
-            ],
-          ]),
-      ],
-    );
-    final games = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _title('Nächste Spiele'),
-        const Text(
-          'Reihenfolge der aktiven Etappe. Vorziehen ist nur bei freien Spielern und Boards möglich.',
-        ),
-        if (state.ready.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text('Keine weiteren spielbereiten Paarungen.'),
-          ),
-        PagedEntries<PlayEntry>(
-          entries: state.schedule.planned.isEmpty
-              ? state.ready
-              : state.schedule.planned.map((a) => a.entry).toList(),
-          builder: (e) => match(
-            e,
-            suggestedBoard: state.schedule.planned
-                .where((a) => identical(a.entry.match, e.match))
-                .firstOrNull
-                ?.board,
-          ),
-        ),
-      ],
-    );
+    final boards = const SizedBox.shrink(); // placeholder for removed Boards UI
+final games = const SizedBox.shrink(); // placeholder for removed Games UI
     final search = _box([
       TextField(
         controller: _search,
@@ -546,26 +463,19 @@ class _TournamentDirectorDashboardState
             ],
             heroBoard,
             const SizedBox(height: 12),
-            status,
-            const SizedBox(height: 12),
             notices,
+            const SizedBox(height: 12),
+            status,
             const SizedBox(height: 12),
             search,
             const SizedBox(height: 16),
             if (wide)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: boards),
-                  const SizedBox(width: 20),
-                  Expanded(child: games),
-                ],
-              )
-            else ...[
-              boards,
-              const SizedBox(height: 16),
-              games,
-            ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [], // Boards and games UI removed for refactor
+          )
+        else
+          const SizedBox.shrink(),
           ],
         );
       },

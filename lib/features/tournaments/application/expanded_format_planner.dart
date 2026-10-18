@@ -74,7 +74,7 @@ class ExpandedFormatPlanner {
               ),
     ];
     ConfigurationEstimate? estimate(TournamentStage stage) => cache.putIfAbsent(
-      '${stage.type}:${stage.knockoutParticipantCount}:${stage.groupSizes}:${stage.groupPlayType}:${stage.groupMaxGamesPerPlayer}:${stage.qualifiedParticipantCount}:${stage.knockoutLives}',
+      '${stage.type}:${stage.knockoutParticipantCount}:${stage.groupSizes}:${stage.groupPlayType}:${stage.groupMaxGamesPerPlayer}:${stage.qualifiedParticipantCount}:${stage.knockoutLives}:${stage.groupRoundRobinRepeats}:${stage.fixedQualifiersByGroup}',
       () => const ConfigurationDurationEstimator().preview(
         [stage],
         request.boards,
@@ -234,28 +234,30 @@ class ExpandedFormatPlanner {
                   ? 'groups:double_round_robin'
                   : 'groups:${stage.groupMaxGamesPerPlayer.any((limit) => limit != null) ? 'limited_round_robin' : stage.groupPlayType}'
               : stage.type;
+          final terminal = stage.qualifiedParticipantCount == 1;
+          final isPreferredFinal = terminal &&
+              request.preferredFinalStage != null &&
+              ((request.preferredFinalStage == mode) ||
+                  (request.preferredFinalStage == 'single_knockout' && stage.type == 'single_knockout') ||
+                  (request.preferredFinalStage == 'double_knockout' && stage.type == 'double_knockout') ||
+                  (request.preferredFinalStage == 'triple_knockout' && stage.type == 'triple_knockout') ||
+                  (request.preferredFinalStage == 'kratzer' && stage.type == 'kratzer') ||
+                  (request.preferredFinalStage == 'groups:round_robin' && mode == 'groups:round_robin') ||
+                  (request.preferredFinalStage == 'groups:double_round_robin' && mode == 'groups:double_round_robin'));
           if (request.enabledModes != null &&
-              !request.enabledModes!.contains(mode)) {
+              !request.enabledModes!.contains(mode) &&
+              !isPreferredFinal) {
             continue;
           }
           final path = [...prefix, stage];
-          final terminal = stage.qualifiedParticipantCount == 1;
           if (!terminal && depth == request.maximumStages - 1) continue;
           if (terminal &&
               request.requireGroupPhase &&
               !path.any((s) => s.type == 'groups')) {
             continue;
           }
-          if (terminal && request.preferredFinalStage != null) {
-            final matchesPref = (request.preferredFinalStage == mode) ||
-                (request.preferredFinalStage == 'single_knockout' && stage.type == 'single_knockout') ||
-                (request.preferredFinalStage == 'double_knockout' && stage.type == 'double_knockout') ||
-                (request.preferredFinalStage == 'triple_knockout' && stage.type == 'triple_knockout') ||
-                (request.preferredFinalStage == 'kratzer' && stage.type == 'kratzer') ||
-                (request.preferredFinalStage == 'groups:round_robin' && mode == 'groups:round_robin');
-            if (!matchesPref) {
-              continue;
-            }
+          if (terminal && request.preferredFinalStage != null && !isPreferredFinal) {
+            continue;
           }
           final result = evaluate(path);
           if (result == null) continue;
@@ -344,10 +346,14 @@ class ExpandedFormatPlanner {
         'double_knockout',
         'triple_knockout',
       ]) {
-        for (final perGroup in {
+        final qualifierOptions = <int>{
           if (groups == 1) 1,
           min(parameters.qualifiersPerGroup, sizes.last - 1),
-        }) {
+          if (groups > 1 && sizes.last >= 4)
+            min(sizes.last ~/ 2, sizes.last - 1),
+        };
+        for (final perGroup in qualifierOptions) {
+          if (perGroup >= sizes.last) continue;
           final target = groups * perGroup;
           if (target >= n || target < 1) continue;
           final label = play == 'double_round_robin'

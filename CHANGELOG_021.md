@@ -1,0 +1,108 @@
+# Dart Turnier 0.2.1
+
+Änderungen seit Version 0.2.0. Der Build trägt die interne Buildnummer 26
+(Release-Tag `v0.2.1+26`).
+
+## Turnierbetrieb – Dashboard-Umbau
+
+- **Neue Dashboard-Ansicht:** Boards, Spiele und Statusübersicht sind direkt
+  sichtbar – keine separaten Tabs mehr nötig.
+- **Spielfluss-Hinweise:** Das Dashboard warnt automatisch, wenn ein Spieler
+  deutlich mehr offene Partien hat als andere, damit priorisiert werden kann.
+- **Fehler-Banner:** Speicherfehler werden als roter Banner oben angezeigt
+  mit einem „Speichern erneut versuchen"-Button.
+- **Aufgeräumte Navigation:** Menüpunkte „Boards & Spiele" und die veralteten
+  Ansichten `overview`/`playOrder` wurden entfernt.
+
+## 2-Monitor-Modus (TV-Info-Tafel)
+
+- **Neue eigenständige `TournamentSecondScreenView`:** Turnieruhr, Tabellen,
+  Gruppen-Spiele und Spielfluss-Hinweise auf einem separaten TV-Bildschirm.
+- **Dynamische Slideshow:** Final-Vorschau, Gruppenübersicht und neueste
+  Ergebnisse mit ELO-Auswirkung wechseln automatisch durch.
+- **Vollständig responsiv:** Kein Overflow bei 200 % Schrift oder kleinen
+  Displays – alle Titel und Badges sind Flex-sicher.
+- In der mobilen Ansicht deaktivierbar; alle Infos bleiben im Dashboard sichtbar.
+
+## Turnieruhr
+
+- Die Uhr startet automatisch beim Turnierstart.
+- **Pause/Resume-Button** im laufenden Betrieb direkt im Timing-Panel.
+- Pausiert-Status visuell erkennbar (orange).
+- Timer-Aktualisierung jede Sekunde (statt alle 15 Sekunden).
+- Turnierdauer in der Turnierübersicht einsehbar für nachträgliche Auswertung
+  (Dauer pro Match, Anzahl der Matches).
+
+## Spieler-Umbenennen
+
+- Spieler umbenennen aktualisiert jetzt korrekt alle Etappen, Gruppen und
+  Matches (statt zuvor nur das Player-Objekt).
+
+## Tabellen
+
+- Gruppen- und Beste-N-Tabellen zeigen eine sichtbare horizontale Scrollbar.
+- Kompaktere Spaltenabstände (`columnSpacing: 16`, `horizontalMargin: 12`)
+  für mobile Nutzung.
+
+## Spielreihenfolge
+
+- Aktionsbuttons umbrechen jetzt korrekt auf kleinen Displays (Wrap statt Row).
+- Die Ansicht wandert in den Bereich „Ergebnisse" (kein eigener Menüpunkt mehr).
+
+## Betreiberkonto / Cloud-Backup
+
+- **Registrieren-Funktion** im Anmeldedialog ergänzt (Toggle Login ↔ Registrieren).
+- **Passwort vergessen:** E-Mail-Feld und Reset-Link-Versand direkt im Dialog.
+- Rückmeldungen: „Konto erstellt. Bitte E-Mail-Bestätigung prüfen." /
+  „Betreiberkonto verbunden."
+
+## Backup-Export
+
+- Ranglisten, Statistiken, Spieler und Turniere sind jetzt einzeln oder
+  gesamt sicherbar und importierbar.
+
+## Ranglisten & Jahresrückblick
+
+- Alle Spieler in den Leaderboard-Karten sind anklickbar und öffnen das Spielerprofil.
+- „Profil öffnen"-Button im Jahresrückblick entfernt (war redundant).
+- Kategorien im Jahresrückblick sind visuell besser von Spielerlisten abgesetzt.
+- Neuer Auswahlpunkt „Gesamter Zeitraum" zeigt Jahre statt Monate.
+- Rangliste: Spieler anklickbar mit aufklappbarem Turnierverlauf
+  (Turnier → ±Wertung → einzelne Spiele und deren Einfluss).
+
+## Spielerliste
+
+- Suchfeld in der Spielerliste ergänzt.
+
+## Turnierübersicht
+
+- **Sortierung einstellbar:** Turnierdatum (Standard), letzte Änderung, alphabetisch.
+- Sortierung bleibt nach Ergebniseintrag erhalten (kein ungewolltes Hochrutschen).
+
+## Turnierform-Planer
+
+- **Neue Turnierform:** „Gruppen: Jeder gegen jeden (zweimal)"
+  (`groups:double_round_robin`).
+- Standard-aktivierte Modi überarbeitet: Round Robin, Doppel-RR und Limited RR
+  sind aktiv; Mini-KO-Varianten wurden aus den Defaults entfernt.
+- **Neue Einstellung „Gewünschte letzte Etappe":** Standard ist Einfaches KO,
+  wählbar sind: Egal, Einfaches KO, Doppel-KO, Triple-KO, Kratzer, Jeder gegen jeden.
+- Der Algorithmus berücksichtigt die gewünschte letzte Etappe.
+- Vorschlagstitel zeigen jetzt Gruppengrößen:
+  z.B. „2 Gruppen à 4 Spieler (Jeder gegen jeden)" statt „2 × Jeder gegen jeden".
+
+## Text-Korrekturen
+
+- „menue" → „Menü", „hinzugefuegt" → „hinzugefügt".
+- „Spielerstatistik" klar von „Ranglisten-Statistik" abgegrenzt.
+
+## Technische Qualität
+
+- Veraltete Enum-Werte (`overview`, `playOrder`, `orderOfPlay`) aus
+  `StageViewMode` entfernt.
+- `SportSectionNavigation`: sicheres `firstOrNull`-Lookup (kein Bad-state-Crash).
+- Unused imports und Felder entfernt.
+- `flutter analyze`: 0 Fehler, 0 Warnungen.
+- Alle verbindlichen Tests grün: Matrix-Simulation, Adaptive Layout,
+  Responsive Pages, Director, Views Overhaul.
+

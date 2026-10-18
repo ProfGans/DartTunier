@@ -48,10 +48,6 @@ class _TournamentFormatPlannerDialogState
   int _suggestionPageSize = 3;
   String? _preferredFinalStage = 'single_knockout';
   final Set<String> _enabledModes = {
-    'single_knockout',
-    'double_knockout',
-    'triple_knockout',
-    'kratzer',
     'groups:round_robin',
     'groups:double_round_robin',
     'groups:limited_round_robin',
@@ -794,9 +790,9 @@ class _TournamentFormatPlannerDialogState
                 const SizedBox(height: 12),
                 if (_suggestions!.isEmpty)
                   Text(
-                    _requireGroupPhase
+                    _requireGroupPhase && (int.tryParse(_players.text.trim()) ?? 0) < 3
                         ? 'Keine Gruppenaufteilung möglich: Jede Gruppe benötigt mindestens 3 Spieler.'
-                        : 'Keine Turnierform für diese Eingaben gefunden.',
+                        : 'Keine passende Turnierform im gewählten Zeitfenster gefunden. Bitte Dauer anpassen oder weitere Spielarten zulassen.',
                   ),
                 PlanningSuggestionList(
                   suggestions: _suggestions!,

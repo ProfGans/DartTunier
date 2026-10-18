@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../tournament_workspace.dart';
 import 'app_theme.dart';
+import 'theme_controller.dart';
 import '../features/backups/application/supabase_workspace_sync_service.dart';
 
 class DartTournamentApp extends StatefulWidget {
@@ -21,6 +22,7 @@ class _DartTournamentAppState extends State<DartTournamentApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _workspaceSync.start();
+    AppThemeController.instance.load();
   }
 
   @override
@@ -37,11 +39,16 @@ class _DartTournamentAppState extends State<DartTournamentApp>
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Dart Turnierverwaltung',
-    scrollBehavior: const DartTournamentScrollBehavior(),
-    theme: buildDartTournamentTheme(),
-    home: const HomePage(),
+  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
+    valueListenable: AppThemeController.instance.themeModeNotifier,
+    builder: (context, themeMode, _) => MaterialApp(
+      title: 'Dart Turnierverwaltung',
+      scrollBehavior: const DartTournamentScrollBehavior(),
+      themeMode: themeMode,
+      theme: buildDartTournamentTheme(),
+      darkTheme: buildDartTournamentDarkTheme(),
+      home: const HomePage(),
+    ),
   );
 }
 
