@@ -2,9 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../application/tournament_director_snapshot.dart';
 import '../../../application/tournament_timing.dart';
-import '../../../application/order_of_play/order_of_play_controller.dart';
 import '../../../domain/tournament_models.dart';
-import '../../../../../shared/widgets/paged_entries.dart';
 import 'tournament_second_screen_view.dart';
 
 /// Embedded tournament controls for match scheduling and result entry.
@@ -42,7 +40,6 @@ class TournamentDirectorDashboard extends StatefulWidget {
 class _TournamentDirectorDashboardState
     extends State<TournamentDirectorDashboard> {
   Timer? _timer;
-  final _search = TextEditingController();
   bool _busy = false;
   String? _actionError;
   @override
@@ -56,7 +53,6 @@ class _TournamentDirectorDashboardState
   @override
   void dispose() {
     _timer?.cancel();
-    _search.dispose();
     super.dispose();
   }
 
@@ -99,12 +95,12 @@ class _TournamentDirectorDashboardState
     icon: Icon(icon),
     label: Text(label),
   );
-  String _pair(PlayEntry e) =>
-      '${e.match.homePlayer?.name ?? 'Noch offen'} – ${e.match.awayPlayer?.name ?? 'Noch offen'}';
   String _duration(Duration d) =>
       '${d.inHours} h ${d.inMinutes.remainder(60)} min';
   String _clock(DateTime t) =>
       '${t.toLocal().hour.toString().padLeft(2, '0')}:${t.toLocal().minute.toString().padLeft(2, '0')}';
+  String _timeOfDay(DateTime t) =>
+      '${t.toLocal().hour.toString().padLeft(2, '0')}:${t.toLocal().minute.toString().padLeft(2, '0')} Uhr';
 
   @override
   Widget build(BuildContext context) => _build(context);
@@ -121,91 +117,40 @@ class _TournamentDirectorDashboardState
     final waiting = state.schedule.waiting
         .where((e) => e.stageIndex == widget.activeStage && !e.match.isResolved)
         .length;
-    final operational =
-        widget.canOperate &&
-        !_busy &&
-        !t.completedStageIndexes.contains(widget.activeStage);
-    Widget start(PlayEntry entry, {int? board}) => PopupMenuButton<int>(
-      tooltip: 'Spiel starten oder vorziehen',
-      enabled:
-          operational &&
-          state.canStart(entry) &&
-          (board == null || state.freeBoards.contains(board)),
-      itemBuilder: (_) => [
-        for (final b in state.freeBoards)
-          if (board == null || b == board)
-            PopupMenuItem(value: b, child: Text('Auf Board $b starten')),
-      ],
-      onSelected: (b) => _act(() async {
-        if (!const OrderOfPlayController().start(
-          t,
-          widget.activeStage,
-          entry.match,
-          b,
-        )) {
-          throw StateError('Board oder Spieler inzwischen belegt');
-        }
-        await widget.onChange();
-      }),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 48),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.play_arrow,
-              color: operational && state.canStart(entry)
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).disabledColor,
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                'Starten / Vorziehen',
-                style: TextStyle(
-                  color: operational && state.canStart(entry)
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).disabledColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    Widget match(PlayEntry e, {int? suggestedBoard}) => _box([
-      Text(_pair(e), style: Theme.of(context).textTheme.titleMedium),
-      Text(e.origin),
-      if (suggestedBoard != null) Text('Boardvorschlag: $suggestedBoard'),
-      if (state.schedule.running.any((r) => identical(r.match, e.match)))
-        Text('Läuft auf Board ${e.match.boardNumber}')
-      else ...[
-        if (!state.canStart(e))
-          const Text('Wartet auf ein freies Board oder laufende Spieler.'),
-        Align(alignment: Alignment.centerLeft, child: start(e)),
-      ],
-    ]);
-
     // Prüfe auf Ungleichgewicht der absolvierten Spiele pro Spieler in Gruppen
     final List<String> flowNotices = [];
     if (t.runStages[widget.activeStage] is GroupTournamentRunStage) {
-      final groupStage = t.runStages[widget.activeStage] as GroupTournamentRunStage;
+      final groupStage =
+          t.runStages[widget.activeStage] as GroupTournamentRunStage;
+      final groupProgress = [
+        for (final group in groupStage.groups)
+          if (group.matches.any((match) => match.hasPlayers))
+            group.matches.where((match) => match.hasResult).length /
+                group.matches.where((match) => match.hasPlayers).length,
+      ];
+      if (groupProgress.length > 1) {
+        final spread =
+            (groupProgress.reduce((a, b) => a > b ? a : b) -
+                groupProgress.reduce((a, b) => a < b ? a : b)) *
+            100;
+        if (spread >= 25) {
+          flowNotices.add(
+            'Die Gruppen liegen beim Spielfortschritt ${spread.round()} Prozentpunkte auseinander. '
+            'Offene Partien der zurückliegenden Gruppen sollten bevorzugt angesetzt werden.',
+          );
+        }
+      }
       for (final group in groupStage.groups) {
         if (group.players.length >= 3) {
           final playedMap = <TournamentPlayer, int>{};
           for (final p in group.players) {
             playedMap[p] = group.matches
-                .where((m) =>
-                    m.hasPlayers &&
-                    m.hasResult &&
-                    (m.homePlayer == p || m.awayPlayer == p))
+                .where(
+                  (m) =>
+                      m.hasPlayers &&
+                      m.hasResult &&
+                      (m.homePlayer == p || m.awayPlayer == p),
+                )
                 .length;
           }
           final sortedPlayers = group.players.toList()
@@ -227,7 +172,9 @@ class _TournamentDirectorDashboardState
     }
 
     final totalGames = active.length;
-    final progressPct = totalGames > 0 ? ((completed / totalGames) * 100).round() : 0;
+    final progressPct = totalGames > 0
+        ? ((completed / totalGames) * 100).round()
+        : 0;
 
     final heroBoard = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -269,7 +216,10 @@ class _TournamentDirectorDashboardState
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Dashboard', style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                'Dashboard',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               Text('Aktive Etappe: ${t.runStages[widget.activeStage].name}'),
             ],
           ),
@@ -280,20 +230,26 @@ class _TournamentDirectorDashboardState
               children: [
                 if (widget.onFinishEarly != null)
                   OutlinedButton.icon(
-                    onPressed: !widget.canCompleteStage ? widget.onFinishEarly : null,
+                    onPressed: !widget.canCompleteStage
+                        ? widget.onFinishEarly
+                        : null,
                     icon: const Icon(Icons.block_outlined),
                     label: const Text('Vorzeitig beenden'),
                   ),
                 if (widget.onCompleteStage != null)
                   FilledButton.icon(
-                    onPressed: widget.canCompleteStage ? widget.onCompleteStage : null,
+                    onPressed: widget.canCompleteStage
+                        ? widget.onCompleteStage
+                        : null,
                     icon: Icon(
                       widget.isLastStage
                           ? Icons.check_circle_outline
                           : Icons.arrow_forward,
                     ),
                     label: Text(
-                      widget.isLastStage ? 'Turnier abschließen' : 'Etappe abschließen',
+                      widget.isLastStage
+                          ? 'Turnier abschließen'
+                          : 'Etappe abschließen',
                     ),
                   ),
               ],
@@ -304,7 +260,9 @@ class _TournamentDirectorDashboardState
       ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: LinearProgressIndicator(
-          value: totalGames > 0 ? (completed / totalGames).clamp(0.0, 1.0) : 0.0,
+          value: totalGames > 0
+              ? (completed / totalGames).clamp(0.0, 1.0)
+              : 0.0,
           minHeight: 8,
         ),
       ),
@@ -323,8 +281,9 @@ class _TournamentDirectorDashboardState
           Text(
             t.startedAt == null
                 ? 'Turnieruhr nicht gestartet'
-                : 'Laufzeit: ${_duration(timing.elapsed)}',
+                : 'Laufzeit: ${_duration(timing.elapsed)} · Start ${_timeOfDay(t.startedAt!)}',
           ),
+          Text('Uhrzeit: ${_timeOfDay(now)}'),
           if (timing.forecast != null)
             Text('Prognose Ende: ${_clock(timing.forecast!)}'),
         ],
@@ -366,7 +325,10 @@ class _TournamentDirectorDashboardState
               Expanded(
                 child: Text(
                   notice,
-                  style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: Colors.amber.shade900,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -390,36 +352,9 @@ class _TournamentDirectorDashboardState
           flowNotices.isEmpty &&
           !(state.freeBoards.isEmpty && state.ready.isNotEmpty) &&
           !(active.isNotEmpty && completed == active.length))
-        const Text('Keine akuten Probleme erkannt. Der Turnierbetrieb läuft flüssig.'),
-    ]);
-    final search = _box([
-      TextField(
-        controller: _search,
-        onChanged: (_) => setState(() {}),
-        decoration: InputDecoration(
-          labelText: 'Spieler suchen',
-          hintText: 'Name oder Teammitglied',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _search.text.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: 'Suche löschen',
-                  icon: const Icon(Icons.clear),
-                  onPressed: () => setState(_search.clear),
-                ),
-          border: const OutlineInputBorder(),
+        const Text(
+          'Keine akuten Probleme erkannt. Der Turnierbetrieb läuft flüssig.',
         ),
-      ),
-      if (_search.text.trim().isNotEmpty) ...[
-        const SizedBox(height: 8),
-        if (state.search(_search.text).isEmpty)
-          const Text('Kein offenes Spiel in der aktiven Etappe gefunden.'),
-        PagedEntries<PlayEntry>(
-          key: ValueKey(_search.text),
-          entries: state.search(_search.text),
-          builder: (e) => match(e),
-        ),
-      ],
     ]);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -436,12 +371,20 @@ class _TournamentDirectorDashboardState
                   padding: const EdgeInsets.all(12),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline, color: Theme.of(context).colorScheme.onErrorContainer),
+                      Icon(
+                        Icons.error_outline,
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           widget.saveError!,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onErrorContainer,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       TextButton.icon(
@@ -460,16 +403,13 @@ class _TournamentDirectorDashboardState
             notices,
             const SizedBox(height: 12),
             status,
-            const SizedBox(height: 12),
-            search,
-            const SizedBox(height: 16),
             if (wide)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [], // Boards and games UI removed for refactor
-          )
-        else
-          const SizedBox.shrink(),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [], // Boards and games UI removed for refactor
+              )
+            else
+              const SizedBox.shrink(),
           ],
         );
       },

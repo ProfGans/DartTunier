@@ -7,11 +7,7 @@ import 'knockout_run_section.dart';
 import 'result_entry.dart';
 import 'standings_table.dart';
 
-enum MatchCategoryFilter {
-  open,
-  finished,
-  all,
-}
+enum MatchCategoryFilter { open, finished, all }
 
 class StageResultsSplitView extends StatefulWidget {
   const StageResultsSplitView({
@@ -20,6 +16,7 @@ class StageResultsSplitView extends StatefulWidget {
     required this.standingsFor,
     required this.onEditResult,
     required this.canEditResults,
+    this.tournament,
     this.bracketBuilder,
     this.qualifyingRank = 1,
     this.isBracketEditMode = false,
@@ -31,9 +28,11 @@ class StageResultsSplitView extends StatefulWidget {
   final List<PlayerStanding> Function(
     TournamentGroup group,
     List<String> tieBreakers,
-  ) standingsFor;
+  )
+  standingsFor;
   final void Function(GroupMatch match) onEditResult;
   final bool canEditResults;
+  final CreatedTournament? tournament;
   final KnockoutBracketBuilder? bracketBuilder;
   final int qualifyingRank;
   final bool isBracketEditMode;
@@ -111,16 +110,10 @@ class _StageResultsSplitViewState extends State<StageResultsSplitView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 2/3 column on the left for matches (unfolded, direct access)
-              Expanded(
-                flex: 2,
-                child: matchesSection,
-              ),
+              Expanded(flex: 2, child: matchesSection),
               const SizedBox(width: 16),
               // 1/3 column on the right for standings / tables
-              Expanded(
-                flex: 1,
-                child: standingsSection,
-              ),
+              Expanded(flex: 1, child: standingsSection),
             ],
           );
         }
@@ -240,7 +233,10 @@ class _StageResultsSplitViewState extends State<StageResultsSplitView> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
@@ -272,8 +268,8 @@ class _StageResultsSplitViewState extends State<StageResultsSplitView> {
                   _filter == MatchCategoryFilter.open
                       ? 'Alle Spiele in ${group.name} sind abgeschlossen.'
                       : _filter == MatchCategoryFilter.finished
-                          ? 'Noch keine gespielten Partien in ${group.name}.'
-                          : 'Keine Spiele vorhanden.',
+                      ? 'Noch keine gespielten Partien in ${group.name}.'
+                      : 'Keine Spiele vorhanden.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -286,11 +282,14 @@ class _StageResultsSplitViewState extends State<StageResultsSplitView> {
             MatchResultTile(
               key: ValueKey(match),
               match: match,
+              tournament: widget.tournament,
               onEditResult: widget.onEditResult,
               canEditResult: widget.canEditResults,
               leadingLabel: match.isDecider
                   ? match.label
-                  : (showGroupHeader ? '${group.name} · R${match.round}' : 'Runde ${match.round}'),
+                  : (showGroupHeader
+                        ? '${group.name} · R${match.round}'
+                        : 'Runde ${match.round}'),
             ),
       ],
     );
@@ -330,7 +329,10 @@ class _StageResultsSplitViewState extends State<StageResultsSplitView> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     color: theme.colorScheme.surfaceContainerHigh,
                     child: Text(
                       stage.groups[index].name,
@@ -441,9 +443,8 @@ class _StageResultsSplitViewState extends State<StageResultsSplitView> {
                           const SizedBox(width: 8),
                           Text(
                             'Turnierbaum',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -466,15 +467,9 @@ class _StageResultsSplitViewState extends State<StageResultsSplitView> {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                flex: 2,
-                child: matchesSection,
-              ),
+              Expanded(flex: 2, child: matchesSection),
               const SizedBox(width: 16),
-              Expanded(
-                flex: 1,
-                child: bracketSection,
-              ),
+              Expanded(flex: 1, child: bracketSection),
             ],
           );
         }
@@ -540,8 +535,8 @@ class _StageResultsSplitViewState extends State<StageResultsSplitView> {
               _filter == MatchCategoryFilter.open
                   ? 'Keine offenen K.-o.-Spiele.'
                   : _filter == MatchCategoryFilter.finished
-                      ? 'Noch keine K.-o.-Spiele beendet.'
-                      : 'Keine K.-o.-Spiele vorhanden.',
+                  ? 'Noch keine K.-o.-Spiele beendet.'
+                  : 'Keine K.-o.-Spiele vorhanden.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -570,6 +565,7 @@ class _StageResultsSplitViewState extends State<StageResultsSplitView> {
             MatchResultTile(
               key: ValueKey(match),
               match: match,
+              tournament: widget.tournament,
               onEditResult: widget.onEditResult,
               canEditResult: widget.canEditResults,
               leadingLabel: match.label,
@@ -590,6 +586,7 @@ class _StageResultsSplitViewState extends State<StageResultsSplitView> {
             MatchResultTile(
               key: ValueKey(match),
               match: match,
+              tournament: widget.tournament,
               onEditResult: widget.onEditResult,
               canEditResult: widget.canEditResults,
               leadingLabel: match.label,

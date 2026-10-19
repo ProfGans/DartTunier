@@ -13,6 +13,7 @@ class MatchResultTile extends StatelessWidget {
     required this.match,
     required this.onEditResult,
     required this.canEditResult,
+    this.tournament,
     this.originLabel,
     this.leadingLabel,
   });
@@ -20,6 +21,7 @@ class MatchResultTile extends StatelessWidget {
   final GroupMatch match;
   final void Function(GroupMatch match) onEditResult;
   final bool canEditResult;
+  final CreatedTournament? tournament;
   final String? originLabel;
   final String? leadingLabel;
 
@@ -35,6 +37,7 @@ class MatchResultTile extends StatelessWidget {
 
     return MatchStatisticsTapTarget(
       match: match,
+      tournament: tournament,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -83,6 +86,7 @@ class MatchResultTile extends StatelessWidget {
                               ? () => MatchStatisticsTapTarget.open(
                                   context,
                                   match,
+                                  tournament: tournament,
                                 )
                               : canEdit
                               ? () => onEditResult(match)
@@ -119,7 +123,11 @@ class MatchResultTile extends StatelessWidget {
                 _ScoreBadge(
                   match: match,
                   onTap: match.hasResult
-                      ? () => MatchStatisticsTapTarget.open(context, match)
+                      ? () => MatchStatisticsTapTarget.open(
+                          context,
+                          match,
+                          tournament: tournament,
+                        )
                       : canEdit
                       ? () => onEditResult(match)
                       : null,
@@ -214,11 +222,15 @@ class _ResultDialogState extends State<ResultDialog> {
       return;
     }
 
-    Navigator.of(context).pop(MatchResult(
-      homeLegs: homeLegs,
-      awayLegs: awayLegs,
-      bestPerformances: _recordBestPerformances ? _bestPerformances : const [],
-    ));
+    Navigator.of(context).pop(
+      MatchResult(
+        homeLegs: homeLegs,
+        awayLegs: awayLegs,
+        bestPerformances: _recordBestPerformances
+            ? _bestPerformances
+            : const [],
+      ),
+    );
   }
 
   void _annul() {
@@ -240,64 +252,64 @@ class _ResultDialogState extends State<ResultDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-          if (_error != null)
+            if (_error != null)
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            if (widget.format.allowsDraws)
+              Text(
+                widget.match.isDecider
+                    ? 'Entscheidungsspiel: bei Gleichstand ein zusätzliches Leg spielen.'
+                    : 'Unentschieden: 1 Punkt je Spieler',
+              ),
             Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              '${widget.match.homePlayer?.name ?? 'offen'} vs '
+              '${widget.match.awayPlayer?.name ?? 'offen'}',
             ),
-          if (widget.format.allowsDraws)
-            Text(
-              widget.match.isDecider
-                  ? 'Entscheidungsspiel: bei Gleichstand ein zusätzliches Leg spielen.'
-                  : 'Unentschieden: 1 Punkt je Spieler',
-            ),
-          Text(
-            '${widget.match.homePlayer?.name ?? 'offen'} vs '
-            '${widget.match.awayPlayer?.name ?? 'offen'}',
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  key: const ValueKey('home-legs-field'),
-                  controller: _homeLegsController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    labelText: widget.match.homePlayer?.name ?? 'offen',
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('home-legs-field'),
+                    controller: _homeLegsController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      labelText: widget.match.homePlayer?.name ?? 'offen',
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  key: const ValueKey('away-legs-field'),
-                  controller: _awayLegsController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    labelText: widget.match.awayPlayer?.name ?? 'offen',
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('away-legs-field'),
+                    controller: _awayLegsController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      labelText: widget.match.awayPlayer?.name ?? 'offen',
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _recordBestPerformances,
-            title: const Text('Bestleistung erfassen'),
-            onChanged: (value) => setState(() {
-              _recordBestPerformances = value ?? false;
-              if (!_recordBestPerformances) _bestPerformances = [];
-            }),
-          ),
-          if (_recordBestPerformances)
-            BestPerformanceEditor(
-              match: widget.match,
-              initial: _bestPerformances,
-              onChanged: (items) => _bestPerformances = items,
+              ],
             ),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _recordBestPerformances,
+              title: const Text('Bestleistung erfassen'),
+              onChanged: (value) => setState(() {
+                _recordBestPerformances = value ?? false;
+                if (!_recordBestPerformances) _bestPerformances = [];
+              }),
+            ),
+            if (_recordBestPerformances)
+              BestPerformanceEditor(
+                match: widget.match,
+                initial: _bestPerformances,
+                onChanged: (items) => _bestPerformances = items,
+              ),
           ],
         ),
       ),

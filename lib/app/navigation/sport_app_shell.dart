@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../shared/widgets/app_brand_mark.dart';
 
 class SportDestination {
   const SportDestination(this.label, this.icon, this.onTap);
@@ -43,11 +44,7 @@ class SportAppShell extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.sports_score,
-                              color: Color(0xFF70E0BA),
-                              size: 36,
-                            ),
+                            AppBrandMark(size: 36),
                             SizedBox(height: 14),
                             Text(
                               'DART',
@@ -116,10 +113,7 @@ class SportAppShell extends StatelessWidget {
                         ),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.sports_score,
-                              color: Color(0xFF70E0BA),
-                            ),
+                            const AppBrandMark(size: 24),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(

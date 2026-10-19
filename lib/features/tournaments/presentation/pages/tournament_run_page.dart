@@ -1,10 +1,7 @@
 part of '../../../../tournament_workspace.dart';
 
 class TournamentRunPage extends StatelessWidget {
-  const TournamentRunPage({
-    super.key,
-    required this.tournament,
-  });
+  const TournamentRunPage({super.key, required this.tournament});
 
   final CreatedTournament tournament;
 
@@ -13,15 +10,11 @@ class TournamentRunPage extends StatelessWidget {
       tournament.importedArchive != null &&
           !tournament.importedArchive!.usesNativeLogic
       ? ChallongeArchivePage(tournament: tournament)
-      : _LiveTournamentRunPage(
-          tournament: tournament,
-        );
+      : _LiveTournamentRunPage(tournament: tournament);
 }
 
 class _LiveTournamentRunPage extends StatefulWidget {
-  const _LiveTournamentRunPage({
-    required this.tournament,
-  });
+  const _LiveTournamentRunPage({required this.tournament});
   final CreatedTournament tournament;
   @override
   State<_LiveTournamentRunPage> createState() => _TournamentRunPageState();
@@ -315,10 +308,14 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
   bool _isApplyingStartDraw = false;
   final Set<int> _completedStageIndexes = {};
   final _runController = const TournamentRunController();
+  final _tournamentNameController = TextEditingController();
+  late final Future<List<LocalRanking>> _localRankings = LocalAppDatabase()
+      .loadLocalRankings();
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _tournamentNameController.dispose();
     super.dispose();
   }
 
@@ -326,6 +323,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
   void initState() {
     super.initState();
     _stageViewMode = StageViewMode.dashboard;
+    _tournamentNameController.text = widget.tournament.name;
     WidgetsBinding.instance.addObserver(this);
     if (widget.tournament.leagueMatch != null) return;
     _activeStageIndex = widget.tournament.activeStageIndex.clamp(
@@ -384,6 +382,72 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
         ),
       );
       if (propagateError) rethrow;
+    }
+  }
+
+  String _tournamentTypeLabel() {
+    final tournament = widget.tournament;
+    if (tournament.leagueMatch != null) {
+      return tournament.leagueMatch!.variant == LeagueMatchVariant.adjusted
+          ? 'Angepasstes Liga-/Freundschaftsspiel'
+          : 'Traditionelles Ligaspiel';
+    }
+    if (tournament.importedArchive != null) return 'Challonge-Turnier';
+    if (tournament.countsForRanking && tournament.rankingIds.isNotEmpty) {
+      return 'Ranglistenturnier';
+    }
+    return 'Normales Turnier';
+  }
+
+  Future<void> _saveTournamentName() async {
+    final name = _tournamentNameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Der Turniername darf nicht leer sein.')),
+      );
+      return;
+    }
+    final previousName = widget.tournament.name;
+    widget.tournament.name = name;
+    try {
+      await _saveTournamentProgress(propagateError: true);
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Turniername gespeichert.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {
+      widget.tournament.name = previousName;
+      _tournamentNameController.text = previousName;
+    }
+  }
+
+  Future<void> _saveRankingSelection({
+    required bool countsForRanking,
+    required List<String> rankingIds,
+  }) async {
+    final previousCounts = widget.tournament.countsForRanking;
+    final previousIds = List<String>.from(widget.tournament.rankingIds);
+    setState(() {
+      widget.tournament.countsForRanking = countsForRanking;
+      widget.tournament.rankingIds
+        ..clear()
+        ..addAll(countsForRanking ? rankingIds : const []);
+    });
+    try {
+      await _saveTournamentProgress(propagateError: true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        widget.tournament.countsForRanking = previousCounts;
+        widget.tournament.rankingIds
+          ..clear()
+          ..addAll(previousIds);
+      });
     }
   }
 
@@ -474,7 +538,20 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
       _ensureGroupDeciders();
       const OrderOfPlayController().resultRecorded(match);
     });
-    await _saveTournamentProgress();
+    try {
+      await _saveTournamentProgress(propagateError: true);
+    } catch (_) {
+      return;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Ergebnis gespeichert · Partie ist gespielt.'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+        ),
+      );
+    }
   }
 
   bool _canEditKnockoutBracket(KnockoutTournamentRunStage stage) {
@@ -2583,9 +2660,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
 
   Widget _buildAuthorized(BuildContext context) {
     if (widget.tournament.leagueMatch != null) {
-      return LeagueMatchPage(
-        tournament: widget.tournament,
-      );
+      return LeagueMatchPage(tournament: widget.tournament);
     }
     final activeStage = _stageForView(_viewStageIndex);
     final isViewingActiveStage =
@@ -2605,7 +2680,7 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.tournament.name),
+          title: Text('${widget.tournament.name} (${_tournamentTypeLabel()})'),
           actions: [
             SportActionsMenu(
               label: 'Turnier',
@@ -2698,6 +2773,103 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           const SizedBox(height: 12),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  TextField(
+                                    controller: _tournamentNameController,
+                                    maxLength: 100,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Turniername',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    onSubmitted: (_) => _saveTournamentName(),
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: FilledButton.icon(
+                                      onPressed: _saveTournamentName,
+                                      icon: const Icon(Icons.save_outlined),
+                                      label: const Text('Namen speichern'),
+                                    ),
+                                  ),
+                                  const Divider(height: 28),
+                                  if (widget.tournament.leagueMatch == null)
+                                    SwitchListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      title: const Text(
+                                        'Für Rangliste/n berücksichtigen',
+                                      ),
+                                      subtitle: const Text(
+                                        'Nur ausgewählte Ranglisten erhalten Ergebnisse dieses Turniers.',
+                                      ),
+                                      value: widget.tournament.countsForRanking,
+                                      onChanged: (value) =>
+                                          _saveRankingSelection(
+                                            countsForRanking: value,
+                                            rankingIds: value
+                                                ? widget.tournament.rankingIds
+                                                : const [],
+                                          ),
+                                    ),
+                                  if (widget.tournament.countsForRanking &&
+                                      widget.tournament.leagueMatch == null)
+                                    FutureBuilder<List<LocalRanking>>(
+                                      future: _localRankings,
+                                      builder: (context, snapshot) {
+                                        if (snapshot.hasError) {
+                                          return Text(
+                                            'Ranglisten konnten nicht geladen werden: ${snapshot.error}',
+                                          );
+                                        }
+                                        if (!snapshot.hasData) {
+                                          return const LinearProgressIndicator();
+                                        }
+                                        final rankings = snapshot.data!;
+                                        if (rankings.isEmpty) {
+                                          return const Text(
+                                            'Lege zuerst eine Rangliste im Hauptmenü an.',
+                                          );
+                                        }
+                                        return Column(
+                                          children: [
+                                            for (final ranking in rankings)
+                                              CheckboxListTile(
+                                                contentPadding: EdgeInsets.zero,
+                                                title: Text(ranking.name),
+                                                value: widget
+                                                    .tournament
+                                                    .rankingIds
+                                                    .contains(ranking.id),
+                                                onChanged: (selected) {
+                                                  final ids = List<String>.from(
+                                                    widget
+                                                        .tournament
+                                                        .rankingIds,
+                                                  );
+                                                  if (selected == true) {
+                                                    ids.add(ranking.id);
+                                                  } else {
+                                                    ids.remove(ranking.id);
+                                                  }
+                                                  _saveRankingSelection(
+                                                    countsForRanking: true,
+                                                    rankingIds: ids,
+                                                  );
+                                                },
+                                              ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           // 1. Turnieruhr Steuerung
                           Card(
                             child: Padding(
@@ -2711,9 +2883,12 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                                       const SizedBox(width: 8),
                                       Text(
                                         'Turnieruhr',
-                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -2756,9 +2931,12 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                                       const SizedBox(width: 8),
                                       Text(
                                         '2. Bildschirm (TV-Anzeige)',
-                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -2778,10 +2956,15 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                                           try {
                                             await Process.start(
                                               Platform.resolvedExecutable,
-                                              ['--second-screen', widget.tournament.id],
+                                              [
+                                                '--second-screen',
+                                                widget.tournament.id,
+                                              ],
                                             );
                                             if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
                                                 const SnackBar(
                                                   content: Text(
                                                     'TV-Anzeige im separaten Fenster geöffnet. Ziehe das Fenster auf den 2. Monitor und maximiere es.',
@@ -2794,17 +2977,22 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                                               showDialog<void>(
                                                 context: context,
                                                 builder: (ctx) => Dialog.fullscreen(
-                                                  child: TournamentSecondScreenView(
-                                                    tournament: widget.tournament,
-                                                    isStandaloneWindow: true,
-                                                  ),
+                                                  child:
+                                                      TournamentSecondScreenView(
+                                                        tournament:
+                                                            widget.tournament,
+                                                        isStandaloneWindow:
+                                                            true,
+                                                      ),
                                                 ),
                                               );
                                             }
                                           }
                                         },
                                         icon: const Icon(Icons.open_in_new),
-                                        label: const Text('In separatem Fenster öffnen (für 2. Monitor)'),
+                                        label: const Text(
+                                          'In separatem Fenster öffnen (für 2. Monitor)',
+                                        ),
                                       ),
                                       OutlinedButton.icon(
                                         onPressed: () => showDialog<void>(
@@ -2817,7 +3005,9 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                                           ),
                                         ),
                                         icon: const Icon(Icons.fullscreen),
-                                        label: const Text('Hier im Vollbild-Dialog öffnen'),
+                                        label: const Text(
+                                          'Hier im Vollbild-Dialog öffnen',
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -2836,10 +3026,15 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                                   'Positionen der Spieler in den Gruppen tauschen.',
                                 ),
                                 trailing: OutlinedButton(
-                                  onPressed: isViewingActiveStage &&
+                                  onPressed:
+                                      isViewingActiveStage &&
                                           !_isApplyingStartDraw &&
-                                          !_completedStageIndexes.contains(_viewStageIndex) &&
-                                          GroupPositionEditor.canEdit(activeStage)
+                                          !_completedStageIndexes.contains(
+                                            _viewStageIndex,
+                                          ) &&
+                                          GroupPositionEditor.canEdit(
+                                            activeStage,
+                                          )
                                       ? () => _editGroupPositions(activeStage)
                                       : null,
                                   child: const Text('Bearbeiten'),
@@ -2849,68 +3044,66 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                           const SizedBox(height: 12),
                           // 4. Spieler verwalten
                           Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.people_alt_outlined),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Spieler (${widget.tournament.players.length})',
-                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text('Namen anpassen oder Spieler aus dem Turnier entfernen (Aufgabe/Drop):'),
-                                  const SizedBox(height: 12),
-                                  for (final player in widget.tournament.players)
-                                    ListTile(
-                                      contentPadding: EdgeInsets.zero,
-                                      title: Text(player.name),
-                                      subtitle: PlayerWithdrawalService.policy(
-                                                widget.tournament,
-                                                player,
-                                              ) ==
-                                              null
-                                          ? null
-                                          : const Text(
-                                              'Ausgeschieden / Zurückgezogen',
-                                              style: TextStyle(color: Colors.red),
-                                            ),
-                                      trailing: Wrap(
-                                        spacing: 4,
-                                        children: [
-                                          IconButton(
-                                            tooltip: 'Spieler umbenennen',
-                                            icon: const Icon(Icons.edit_outlined, size: 20),
-                                            onPressed: () => _renamePlayer(player),
-                                          ),
-                                          if (widget.tournament.finishedAt == null &&
-                                              PlayerWithdrawalService.policy(
-                                                    widget.tournament,
-                                                    player,
-                                                  ) ==
-                                                  null)
-                                            IconButton(
-                                              tooltip: 'Spieler entfernen (Drop)',
-                                              icon: const Icon(
-                                                Icons.person_remove_outlined,
-                                                size: 20,
-                                                color: Colors.red,
-                                              ),
-                                              onPressed: () => _withdrawPlayer(player),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
+                            child: ExpansionTile(
+                              leading: const Icon(Icons.people_alt_outlined),
+                              title: Text(
+                                'Spieler (${widget.tournament.players.length})',
                               ),
+                              subtitle: const Text(
+                                'Namen anpassen oder Spieler aus dem Turnier entfernen.',
+                              ),
+                              childrenPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              children: [
+                                for (final player in widget.tournament.players)
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(player.name),
+                                    subtitle:
+                                        PlayerWithdrawalService.policy(
+                                              widget.tournament,
+                                              player,
+                                            ) ==
+                                            null
+                                        ? null
+                                        : const Text(
+                                            'Ausgeschieden / Zurückgezogen',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                    trailing: Wrap(
+                                      spacing: 4,
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Spieler umbenennen',
+                                          icon: const Icon(
+                                            Icons.edit_outlined,
+                                            size: 20,
+                                          ),
+                                          onPressed: () =>
+                                              _renamePlayer(player),
+                                        ),
+                                        if (widget.tournament.finishedAt ==
+                                                null &&
+                                            PlayerWithdrawalService.policy(
+                                                  widget.tournament,
+                                                  player,
+                                                ) ==
+                                                null)
+                                          IconButton(
+                                            tooltip: 'Spieler entfernen (Drop)',
+                                            icon: const Icon(
+                                              Icons.person_remove_outlined,
+                                              size: 20,
+                                              color: Colors.red,
+                                            ),
+                                            onPressed: () =>
+                                                _withdrawPlayer(player),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
@@ -2970,37 +3163,46 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
                       // Modus "Ergebnisse"
                       StageResultsSplitView(
                         stage: activeStage,
+                        tournament: widget.tournament,
                         standingsFor: _standingsFor,
                         onEditResult: _editResult,
                         canEditResults: canEditResults,
-                        qualifyingRank: _requiredRankForRunStage(_viewStageIndex),
+                        qualifyingRank: _requiredRankForRunStage(
+                          _viewStageIndex,
+                        ),
                         isBracketEditMode: _isBracketEditMode && canEditResults,
-                        canEditBracket: canEditResults &&
+                        canEditBracket:
+                            canEditResults &&
                             (activeStage is KnockoutTournamentRunStage &&
                                 _canEditKnockoutBracket(activeStage)),
                         onSwapSlot: (fromSlotIndex, toSlotIndex) {
                           if (activeStage is KnockoutTournamentRunStage) {
-                            _swapKnockoutRunSlots(activeStage, fromSlotIndex, toSlotIndex);
+                            _swapKnockoutRunSlots(
+                              activeStage,
+                              fromSlotIndex,
+                              toSlotIndex,
+                            );
                           }
                         },
-                        bracketBuilder: (
-                          stage,
-                          qualifyingRank,
-                          onEditResult,
-                          canEditResults,
-                          isEditMode,
-                          onSwapSlot,
-                        ) {
-                          return _KnockoutBracketView(
-                            stage: stage,
-                            placementMatches: stage.placementMatches,
-                            qualifyingRank: qualifyingRank,
-                            onEditResult: onEditResult,
-                            canEditResults: canEditResults,
-                            isEditMode: isEditMode,
-                            onSwapSlot: onSwapSlot,
-                          );
-                        },
+                        bracketBuilder:
+                            (
+                              stage,
+                              qualifyingRank,
+                              onEditResult,
+                              canEditResults,
+                              isEditMode,
+                              onSwapSlot,
+                            ) {
+                              return _KnockoutBracketView(
+                                stage: stage,
+                                placementMatches: stage.placementMatches,
+                                qualifyingRank: qualifyingRank,
+                                onEditResult: onEditResult,
+                                canEditResults: canEditResults,
+                                isEditMode: isEditMode,
+                                onSwapSlot: onSwapSlot,
+                              );
+                            },
                       ),
                     ],
                   ],
@@ -3008,40 +3210,6 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
               ),
               if (_stageViewMode == StageViewMode.dashboard ||
                   _stageViewMode == StageViewMode.director) ...[
-                SliverToBoxAdapter(
-                  child: TournamentRunDetails(
-                    tournament: widget.tournament,
-                    children: [
-                      TournamentTimingPanel(
-                        tournament: widget.tournament,
-                        onStart: () async {
-                          final previous = widget.tournament.startedAt;
-                          widget.tournament.startedAt ??= DateTime.now();
-                          try {
-                            await _runController.saveProgress(
-                              tournament: widget.tournament,
-                              activeStageIndex: _activeStageIndex,
-                              completedStageIndexes: _completedStageIndexes,
-                            );
-                            if (mounted) setState(() {});
-                          } catch (_) {
-                            widget.tournament.startedAt = previous;
-                            rethrow;
-                          }
-                        },
-                        onPauseToggle: _toggleClockPause,
-                      ),
-                      if (_viewStageIndex < widget.tournament.stages.length)
-                        Text(
-                          widget
-                              .tournament
-                              .stages[_viewStageIndex]
-                              .gameFormat
-                              .label,
-                        ),
-                    ],
-                  ),
-                ),
                 SliverToBoxAdapter(
                   child: StageFooter(
                     canCompleteStage: canCompleteStage,
@@ -3061,4 +3229,3 @@ class _TournamentRunPageState extends State<_LiveTournamentRunPage>
     );
   }
 }
-
