@@ -52,7 +52,9 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
     }
     final performances = (source['bestPerformances'] as List? ?? const [])
         .whereType<Map>()
-        .map((item) => BestPerformance.fromJson(Map<String, dynamic>.from(item)))
+        .map(
+          (item) => BestPerformance.fromJson(Map<String, dynamic>.from(item)),
+        )
         .toList();
     final match = GroupMatch(
       homePlayer: playerById['${source['player1_id']}'],
@@ -62,19 +64,25 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
     );
     final result = await showDialog<List<BestPerformance>>(
       context: context,
-      builder: (_) => _ArchivePerformanceDialog(match: match, initial: performances),
+      builder: (_) =>
+          _ArchivePerformanceDialog(match: match, initial: performances),
     );
     if (result == null || !mounted) return;
     final updatedMatches = [
       for (final item in archive.matches)
         if (identical(item, source) ||
             (source['id'] != null && item['id'] == source['id']))
-          {...item, 'bestPerformances': result.map((entry) => entry.toJson()).toList()}
+          {
+            ...item,
+            'bestPerformances': result.map((entry) => entry.toJson()).toList(),
+          }
         else
           Map<String, dynamic>.from(item),
     ];
     final updatedJson = tournament.toJson();
-    updatedJson['importedArchive'] = archive.copyWithMatches(updatedMatches).toJson();
+    updatedJson['importedArchive'] = archive
+        .copyWithMatches(updatedMatches)
+        .toJson();
     await _save(CreatedTournament.fromJson(updatedJson));
   }
 
@@ -105,15 +113,13 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
     // Build updated participants list
     final updatedParticipants = [
       for (final p in archive.participants)
-        {
-          ...Map<String, dynamic>.from(p),
-          'profileId': result['${p['id']}'],
-        },
+        {...Map<String, dynamic>.from(p), 'profileId': result['${p['id']}']},
     ];
 
     final updatedJson = tournament.toJson();
-    updatedJson['importedArchive'] =
-        archive.copyWithParticipants(updatedParticipants).toJson();
+    updatedJson['importedArchive'] = archive
+        .copyWithParticipants(updatedParticipants)
+        .toJson();
 
     // Also update the players list on the tournament itself
     final updatedTournamentJson = Map<String, dynamic>.from(updatedJson);
@@ -156,12 +162,14 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
       );
 
     // Determine assignment quality
-    final assigned = archive.participants.where((p) => p['profileId'] != null).length;
+    final assigned = archive.participants
+        .where((p) => p['profileId'] != null)
+        .length;
     final total = archive.participants.length;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(tournament.name),
+        title: Text('${tournament.name} (Challonge-Turnier)'),
         actions: [
           IconButton(
             tooltip: 'Spieler-Zuweisung bearbeiten',
@@ -204,11 +212,15 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
                         assigned == total
                             ? 'Alle Spieler zugewiesen ($assigned/$total)'
                             : 'Spieler-Zuweisung unvollständig ($assigned/$total zugewiesen)',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       if (assigned < total) ...[
                         const SizedBox(height: 4),
-                        const Text('Für die Ranglisten-Wertung müssen alle Spieler zugewiesen sein.'),
+                        const Text(
+                          'Für die Ranglisten-Wertung müssen alle Spieler zugewiesen sein.',
+                        ),
                       ],
                     ],
                   );
@@ -224,7 +236,9 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
                         Row(
                           children: [
                             Icon(
-                              assigned == total ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+                              assigned == total
+                                  ? Icons.check_circle_outline
+                                  : Icons.warning_amber_outlined,
                             ),
                             const SizedBox(width: 8),
                             Expanded(child: content),
@@ -239,7 +253,9 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
                   return Row(
                     children: [
                       Icon(
-                        assigned == total ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+                        assigned == total
+                            ? Icons.check_circle_outline
+                            : Icons.warning_amber_outlined,
                       ),
                       const SizedBox(width: 12),
                       Expanded(child: content),
@@ -309,7 +325,8 @@ class _ChallongeArchivePageState extends State<ChallongeArchivePage> {
                 tooltip: 'Bestleistungen erfassen oder bearbeiten',
                 onPressed: saving ? null : () => editBestPerformances(m),
                 icon: Badge(
-                  isLabelVisible: (m['bestPerformances'] as List?)?.isNotEmpty ?? false,
+                  isLabelVisible:
+                      (m['bestPerformances'] as List?)?.isNotEmpty ?? false,
                   child: const Icon(Icons.military_tech_outlined),
                 ),
               ),
@@ -346,7 +363,8 @@ class _PlayerAssignmentDialog extends StatefulWidget {
   final Map<String, String?> initial;
 
   @override
-  State<_PlayerAssignmentDialog> createState() => _PlayerAssignmentDialogState();
+  State<_PlayerAssignmentDialog> createState() =>
+      _PlayerAssignmentDialogState();
 }
 
 class _PlayerAssignmentDialogState extends State<_PlayerAssignmentDialog> {
@@ -379,12 +397,18 @@ class _PlayerAssignmentDialogState extends State<_PlayerAssignmentDialog> {
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                   items: [
                     const DropdownMenuItem(
                       value: null,
-                      child: Text('— Kein Profil —', style: TextStyle(fontStyle: FontStyle.italic)),
+                      child: Text(
+                        '— Kein Profil —',
+                        style: TextStyle(fontStyle: FontStyle.italic),
+                      ),
                     ),
                     for (final profile in widget.allProfiles)
                       DropdownMenuItem(
@@ -392,7 +416,8 @@ class _PlayerAssignmentDialogState extends State<_PlayerAssignmentDialog> {
                         child: Text(profile.displayName),
                       ),
                   ],
-                  onChanged: (value) => setState(() => _assignments['${p['id']}'] = value),
+                  onChanged: (value) =>
+                      setState(() => _assignments['${p['id']}'] = value),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -421,7 +446,8 @@ class _ArchivePerformanceDialog extends StatefulWidget {
   final GroupMatch match;
   final List<BestPerformance> initial;
   @override
-  State<_ArchivePerformanceDialog> createState() => _ArchivePerformanceDialogState();
+  State<_ArchivePerformanceDialog> createState() =>
+      _ArchivePerformanceDialogState();
 }
 
 class _ArchivePerformanceDialogState extends State<_ArchivePerformanceDialog> {
@@ -440,8 +466,14 @@ class _ArchivePerformanceDialogState extends State<_ArchivePerformanceDialog> {
       ),
     ),
     actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
-      FilledButton(onPressed: () => Navigator.pop(context, items), child: const Text('Speichern')),
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Abbrechen'),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, items),
+        child: const Text('Speichern'),
+      ),
     ],
   );
 }

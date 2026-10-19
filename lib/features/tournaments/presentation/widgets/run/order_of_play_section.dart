@@ -33,6 +33,7 @@ class OrderOfPlaySection extends StatelessWidget {
     Widget row(PlayEntry entry, String detail, {Widget? action}) =>
         MatchStatisticsTapTarget(
           match: entry.match,
+          tournament: tournament,
           child: BoardMatchCard(
             home: entry.stageIndex > activeStage
                 ? 'Qualifikation noch offen'
@@ -193,58 +194,65 @@ class OrderOfPlaySection extends StatelessWidget {
                   },
                 ),
               ),
-            Builder(builder: (context) {
-              final openMatchesPerPlayer = <String, int>{};
-              for (final assignment in schedule.planned) {
-                for (final p in assignment.entry.players) {
-                  openMatchesPerPlayer[p] = (openMatchesPerPlayer[p] ?? 0) + 1;
+            Builder(
+              builder: (context) {
+                final openMatchesPerPlayer = <String, int>{};
+                for (final assignment in schedule.planned) {
+                  for (final p in assignment.entry.players) {
+                    openMatchesPerPlayer[p] =
+                        (openMatchesPerPlayer[p] ?? 0) + 1;
+                  }
                 }
-              }
-              if (openMatchesPerPlayer.isEmpty) return const SizedBox.shrink();
-              final maxOpen = openMatchesPerPlayer.values
-                  .reduce((a, b) => a > b ? a : b);
-              final minOpen = openMatchesPerPlayer.values
-                  .reduce((a, b) => a < b ? a : b);
-              if (maxOpen >= 3 && maxOpen - minOpen >= 2) {
-                final bottleneckPlayers = openMatchesPerPlayer.entries
-                    .where((e) => e.value == maxOpen)
-                    .map((e) => e.key)
-                    .toList();
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Card(
-                    color: Theme.of(context).colorScheme.tertiaryContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.priority_high,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onTertiaryContainer,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Empfehlung zur Spielreihenfolge: ${bottleneckPlayers.join(", ")} hat noch $maxOpen offene Spiele '
-                              '(deutlich mehr als der Schnitt mit $minOpen). Bevorzugt aufrufen, um Wartezeiten zu vermeiden.',
-                              style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onTertiaryContainer,
-                                fontWeight: FontWeight.w500,
+                if (openMatchesPerPlayer.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                final maxOpen = openMatchesPerPlayer.values.reduce(
+                  (a, b) => a > b ? a : b,
+                );
+                final minOpen = openMatchesPerPlayer.values.reduce(
+                  (a, b) => a < b ? a : b,
+                );
+                if (maxOpen >= 3 && maxOpen - minOpen >= 2) {
+                  final bottleneckPlayers = openMatchesPerPlayer.entries
+                      .where((e) => e.value == maxOpen)
+                      .map((e) => e.key)
+                      .toList();
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Card(
+                      color: Theme.of(context).colorScheme.tertiaryContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.priority_high,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onTertiaryContainer,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Empfehlung zur Spielreihenfolge: ${bottleneckPlayers.join(", ")} hat noch $maxOpen offene Spiele '
+                                '(deutlich mehr als der Schnitt mit $minOpen). Bevorzugt aufrufen, um Wartezeiten zu vermeiden.',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onTertiaryContainer,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            }),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             title('Geplante Reihenfolge'),
             const Text(
               'Unverbindliche Empfehlung zur gleichmäßigen Auslastung. Spiele im selben Block sind parallel vorgesehen. Ergebnisse können jederzeit direkt ohne Startschritt erfasst werden.',

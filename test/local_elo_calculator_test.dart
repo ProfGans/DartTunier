@@ -11,8 +11,16 @@ CreatedTournament tournament(
 }) {
   final match = GroupMatch(
     round: 1,
-    homePlayer: TournamentPlayer(profileId: home, name: home, isGenerated: false),
-    awayPlayer: TournamentPlayer(profileId: away, name: away, isGenerated: false),
+    homePlayer: TournamentPlayer(
+      profileId: home,
+      name: home,
+      isGenerated: false,
+    ),
+    awayPlayer: TournamentPlayer(
+      profileId: away,
+      name: away,
+      isGenerated: false,
+    ),
     homeLegs: 2,
     awayLegs: 0,
   );
@@ -23,7 +31,14 @@ CreatedTournament tournament(
     startedAt: date,
     players: [match.homePlayer!, match.awayPlayer!],
     stages: [],
-    runStages: [KnockoutTournamentRunStage(name: 'Finale', rounds: [[match]])],
+    runStages: [
+      KnockoutTournamentRunStage(
+        name: 'Finale',
+        rounds: [
+          [match],
+        ],
+      ),
+    ],
     rankingIds: assigned ? const ['season'] : const [],
   );
 }
@@ -46,6 +61,48 @@ void main() {
     expect(snapshot.entries.every((player) => player.matches == 1), isTrue);
     expect(snapshot.history['a'], hasLength(1));
     expect(snapshot.history['a']!.single.opponentName, 'Ben');
+  });
+
+  test(
+    'exposes exact ranked deltas for the corresponding tournament match',
+    () {
+      final ranked = tournament(
+        'ranked-match',
+        DateTime.utc(2026, 2),
+        'a',
+        'b',
+      );
+      final match = (ranked.runStages.single as KnockoutTournamentRunStage)
+          .rounds
+          .single
+          .single;
+      final snapshot = calculator.calculate(
+        players: const {'a': 'Anna', 'b': 'Ben'},
+        tournaments: [ranked],
+        rankingId: 'season',
+      );
+
+      final delta = snapshot.matchDeltas[calculator.matchKey(ranked, match)];
+      expect(delta?.home, 13);
+      expect(delta?.away, -13);
+    },
+  );
+
+  test('does not expose deltas for an unassigned ranking tournament', () {
+    final unassigned = tournament(
+      'guest-match',
+      DateTime.utc(2026, 2),
+      'a',
+      'b',
+      assigned: false,
+    );
+    final snapshot = calculator.calculate(
+      players: const {'a': 'Anna', 'b': 'Ben'},
+      tournaments: [unassigned],
+      rankingId: 'season',
+    );
+
+    expect(snapshot.matchDeltas, isEmpty);
   });
 
   test('applies ranking assignment and date range before replay', () {

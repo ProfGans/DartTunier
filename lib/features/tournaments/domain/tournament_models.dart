@@ -544,7 +544,7 @@ class CreatedTournament {
   }
 
   final String id;
-  final String name;
+  String name;
   final DateTime createdAt;
   DateTime updatedAt;
   final List<TournamentPlayer> players;
@@ -552,7 +552,7 @@ class CreatedTournament {
   final List<TournamentRunStage> runStages;
   final LeagueMatch? leagueMatch;
   final ImportedTournamentArchive? importedArchive;
-  final bool countsForRanking;
+  bool countsForRanking;
   final List<String> rankingIds;
   int activeStageIndex;
   int boardCount;
@@ -783,7 +783,9 @@ class GroupMatch {
       withdrawalHadResult: json['withdrawalHadResult'] == true,
       bestPerformances: (json['bestPerformances'] as List? ?? const [])
           .whereType<Map>()
-          .map((item) => BestPerformance.fromJson(Map<String, dynamic>.from(item)))
+          .map(
+            (item) => BestPerformance.fromJson(Map<String, dynamic>.from(item)),
+          )
           .toList(),
     );
   }
@@ -871,7 +873,9 @@ class GroupMatch {
       'startedAt': startedAt?.toUtc().toIso8601String(),
       'finishedAt': finishedAt?.toUtc().toIso8601String(),
       'startedPlayers': startedPlayers,
-      'bestPerformances': bestPerformances.map((item) => item.toJson()).toList(),
+      'bestPerformances': bestPerformances
+          .map((item) => item.toJson())
+          .toList(),
     };
   }
 }

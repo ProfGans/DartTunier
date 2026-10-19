@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_theme.dart';
 import '../features/tournaments/data/tournament_storage.dart';
@@ -67,9 +69,8 @@ class _SecondScreenStandalonePageState
             .firstOrNull;
       }
 
-      matched ??= tournaments
-          .where((t) => t.finishedAt == null)
-          .lastOrNull ??
+      matched ??=
+          tournaments.where((t) => t.finishedAt == null).lastOrNull ??
           tournaments.lastOrNull;
 
       if (!mounted) return;
@@ -140,6 +141,7 @@ class _SecondScreenStandalonePageState
         child: TournamentSecondScreenView(
           tournament: _tournament!,
           isStandaloneWindow: true,
+          onClose: SystemNavigator.pop,
         ),
       ),
     );

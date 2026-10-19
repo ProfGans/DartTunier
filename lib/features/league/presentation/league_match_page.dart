@@ -94,9 +94,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     final newSlot = slot == _rosters[team].length;
     if (newSlot) setState(() => _rosters[team].add(TextEditingController()));
     await _selectPlayer(team, slot);
-    if (mounted &&
-        newSlot &&
-        !_profiles.containsKey('$team:$slot')) {
+    if (mounted && newSlot && !_profiles.containsKey('$team:$slot')) {
       setState(() => _rosters[team].removeLast().dispose());
     }
   }
@@ -105,9 +103,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     final key = '$team:$slot';
     final choice = await showDialog<LeaguePlayerChoice>(
       context: context,
-      builder: (_) => LeaguePlayerPicker(
-        database: widget.database,
-      ),
+      builder: (_) => LeaguePlayerPicker(database: widget.database),
     );
     if (!mounted || choice == null) return;
     if (_profiles.entries.any(
@@ -388,9 +384,9 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
             child: const Text('Abbrechen'),
           ),
           TextButton(
-              onPressed: () => Navigator.pop(context, (null, null)),
-              child: const Text('Ergebnis entfernen'),
-            ),
+            onPressed: () => Navigator.pop(context, (null, null)),
+            child: const Text('Ergebnis entfernen'),
+          ),
         ],
       ),
     );
@@ -430,7 +426,8 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     child: Scaffold(
       appBar: AppBar(
         title: Text(
-          _tournament == null ? 'Neues Ligaspiel' : _tournament!.name,
+          '${_tournament == null ? 'Neues Ligaspiel' : _tournament!.name} '
+          '(${(_tournament?.leagueMatch?.variant ?? _variant) == LeagueMatchVariant.adjusted ? 'Angepasstes Ligaspiel/Freundschaftsspiel' : 'Traditionelles Ligaspiel'})',
         ),
       ),
       body: AdaptiveContentList(
@@ -523,11 +520,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                   labelText: 'Doppel je Mannschaft',
                 ),
                 items: [
-                  for (
-                    var count = 0;
-                    count <= _rosters[0].length ~/ 2;
-                    count++
-                  )
+                  for (var count = 0; count <= _rosters[0].length ~/ 2; count++)
                     DropdownMenuItem(value: count, child: Text('$count')),
                 ],
                 onChanged: (value) {
@@ -539,8 +532,7 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
               Builder(
                 builder: (context) {
                   final duration = _estimatedAdjustedMinutes();
-                  final teamsMatch =
-                      _rosters[0].length == _rosters[1].length;
+                  final teamsMatch = _rosters[0].length == _rosters[1].length;
                   final matches =
                       _rosters[0].length * _singlesPerPlayer + _doublesCount;
                   return Card(
@@ -606,14 +598,15 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                       padding: const EdgeInsets.only(top: 12),
                       child: TextFormField(
                         controller: _rosters[team][i],
-                        onChanged: (_) => setState(
-                          () => _profiles.remove('$team:$i'),
-                        ),
+                        onChanged: (_) =>
+                            setState(() => _profiles.remove('$team:$i')),
                         validator: _required,
                         decoration: InputDecoration(
                           suffixIcon: IconButton(
                             tooltip: 'Spieler aus dem Katalog auswählen',
-                            onPressed: _busy ? null : () => _selectPlayer(team, i),
+                            onPressed: _busy
+                                ? null
+                                : () => _selectPlayer(team, i),
                             icon: const Icon(Icons.person_add_alt),
                           ),
                           labelText: _variant == LeagueMatchVariant.traditional
@@ -717,13 +710,13 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
     final league = _tournament!.leagueMatch!;
     return [
       TournamentTimingPanel(
-          tournament: _tournament!,
-          onStart: () async {
-            final next = CreatedTournament.fromJson(_tournament!.toJson());
-            next.startedAt ??= DateTime.now();
-            await _save(next, rethrowError: true);
-          },
-        ),
+        tournament: _tournament!,
+        onStart: () async {
+          final next = CreatedTournament.fromJson(_tournament!.toJson());
+          next.startedAt ??= DateTime.now();
+          await _save(next, rethrowError: true);
+        },
+      ),
       LeagueOverview(league: league),
       Align(
         alignment: Alignment.centerLeft,
@@ -764,10 +757,10 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                 label: const Text('Starten'),
               ),
             OutlinedButton(
-                key: ValueKey('league-result-$i'),
-                onPressed: _busy ? null : () => _result(i),
-                child: const Text('Ergebnis'),
-              ),
+              key: ValueKey('league-result-$i'),
+              onPressed: _busy ? null : () => _result(i),
+              child: const Text('Ergebnis'),
+            ),
             if (league.variant == LeagueMatchVariant.traditional &&
                 !league.games[i].complete &&
                 league.games[i].runtime?['startedAt'] == null)
@@ -776,8 +769,8 @@ class _LeagueMatchPageState extends State<LeagueMatchPage> {
                 child: const Text('Aufstellung'),
               ),
             if (league.games.every(
-                  (g) => !g.complete && g.runtime?['startedAt'] == null,
-                )) ...[
+              (g) => !g.complete && g.runtime?['startedAt'] == null,
+            )) ...[
               IconButton(
                 tooltip: 'Spiel nach oben',
                 onPressed: _busy || i == 0 ? null : () => _move(i, -1),

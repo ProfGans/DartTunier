@@ -1,30 +1,31 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../domain/knockout_round_names.dart';
 import '../../../domain/tournament_models.dart';
 import '../../../domain/engines/qualification_certainty.dart';
 import '../../../application/tournament_timing.dart';
 import '../../../application/order_of_play/order_of_play_controller.dart';
-import '../../../../rankings/domain/local_elo_calculator.dart';
 import '../../../../statistics/domain/best_performance.dart';
+import '../../../../rankings/application/tournament_match_elo_service.dart';
+import '../../../../rankings/domain/local_elo_calculator.dart';
 
-/// Dynamische Info-Tafel für den Vereinsheim-TV (2. Bildschirm).
-/// Wechselt automatisch zwischen 4 inhaltsreichen Slides:
-/// 1. Tabellen & Zwischenstände + KO-Prognose (Turnierbaum-Vorschau)
-/// 2. Aktuelle & nächste Begegnungen + Priorisierte Partien + Tabellen
-/// 3. Zuletzt beendete Matches + Live-Elo-Änderungen + Tabellen
-/// 4. Etappen-Fortschritt (%) + Tabellen + Bestleistungen
+/// Feste, responsive Info-Tafel für den Vereinsheim-TV (2. Bildschirm).
 class TournamentSecondScreenView extends StatefulWidget {
   const TournamentSecondScreenView({
     super.key,
     required this.tournament,
     this.isStandaloneWindow = false,
+    this.onClose,
   });
 
   final CreatedTournament tournament;
   final bool isStandaloneWindow;
+  final VoidCallback? onClose;
 
   @override
   State<TournamentSecondScreenView> createState() =>
@@ -33,32 +34,52 @@ class TournamentSecondScreenView extends StatefulWidget {
 
 class _TournamentSecondScreenViewState
     extends State<TournamentSecondScreenView> {
-  int _currentSlide = 0;
-  Timer? _rotationTimer;
+  bool _showNextStagePreview = false;
   Timer? _clockTimer;
-
-  static const int _slideCount = 4;
+  late Future<Map<String, List<TournamentMatchEloChange>>> _eloChanges;
+  late String _eloInputFingerprint;
 
   @override
   void initState() {
     super.initState();
-    _rotationTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (mounted) {
-        setState(() {
-          _currentSlide = (_currentSlide + 1) % _slideCount;
-        });
-      }
-    });
+    _refreshEloChanges();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
   }
 
   @override
+  void didUpdateWidget(covariant TournamentSecondScreenView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final fingerprint = jsonEncode(widget.tournament.toJson());
+    if (fingerprint != _eloInputFingerprint) {
+      _refreshEloChanges(fingerprint: fingerprint);
+    }
+  }
+
+  void _refreshEloChanges({String? fingerprint}) {
+    _eloInputFingerprint =
+        fingerprint ?? jsonEncode(widget.tournament.toJson());
+    _eloChanges = TournamentMatchEloService().calculate(widget.tournament);
+  }
+
+  @override
   void dispose() {
-    _rotationTimer?.cancel();
     _clockTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _closeStandaloneWindow() async {
+    if (widget.onClose != null) {
+      widget.onClose!();
+      return;
+    }
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    await SystemNavigator.pop();
   }
 
   String _formatDuration(Duration d) {
@@ -73,10 +94,7 @@ class _TournamentSecondScreenViewState
     if (stage is GroupTournamentRunStage) {
       return stage.groups.expand((g) => g.matches).toList();
     } else if (stage is KnockoutTournamentRunStage) {
-      return [
-        ...stage.rounds.expand((r) => r),
-        ...stage.placementMatches,
-      ];
+      return [...stage.rounds.expand((r) => r), ...stage.placementMatches];
     }
     return [];
   }
@@ -91,8 +109,9 @@ class _TournamentSecondScreenViewState
       0,
       t.runStages.isEmpty ? 0 : t.runStages.length - 1,
     );
-    final activeStage =
-        t.runStages.isNotEmpty ? t.runStages[activeIndex] : null;
+    final activeStage = t.runStages.isNotEmpty
+        ? t.runStages[activeIndex]
+        : null;
 
     final allMatches = TournamentTiming.matches(t);
     final playedMatches = allMatches.where((m) => m.hasResult).toList();
@@ -112,7 +131,6 @@ class _TournamentSecondScreenViewState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header Bar
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -137,21 +155,22 @@ class _TournamentSecondScreenViewState
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.tv, size: 16, color: Color(0xFF70E0BA)),
+                        const Icon(
+                          Icons.tv,
+                          size: 16,
+                          color: Color(0xFF70E0BA),
+                        ),
                         const SizedBox(width: 6),
                         Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              widget.isStandaloneWindow
-                                  ? 'TV-LIVE-ÜBERSICHT'
-                                  : 'LIVE-TICKER',
-                              style: const TextStyle(
-                                color: Color(0xFF70E0BA),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                letterSpacing: 1.1,
-                              ),
+                          child: Text(
+                            widget.isStandaloneWindow
+                                ? 'TV-LIVE-ÜBERSICHT'
+                                : 'LIVE-TICKER',
+                            style: const TextStyle(
+                              color: Color(0xFF70E0BA),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              letterSpacing: 1.1,
                             ),
                           ),
                         ),
@@ -168,74 +187,45 @@ class _TournamentSecondScreenViewState
                   ),
                 ],
               ),
-              // Slide Indicators
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < _slideCount; i++)
-                    InkWell(
-                      onTap: () => setState(() => _currentSlide = i),
-                      child: Container(
-                        width: i == _currentSlide ? 28 : 8,
-                        height: 8,
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        decoration: BoxDecoration(
-                          color: i == _currentSlide
-                              ? const Color(0xFF70E0BA)
-                              : Colors.white30,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 8),
-                  if (widget.isStandaloneWindow)
-                    IconButton(
-                      tooltip: 'Schließen',
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      onPressed: () => Navigator.maybePop(context),
-                    ),
-                ],
-              ),
+              if (widget.isStandaloneWindow)
+                IconButton(
+                  tooltip: 'Schließen',
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                  icon: const Icon(Icons.close, color: Colors.white70),
+                  onPressed: () => _closeStandaloneWindow(),
+                ),
             ],
           ),
           const SizedBox(height: 12),
-
-          // Slide Content with Smooth Transition
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              child: KeyedSubtree(
-                key: ValueKey(_currentSlide),
-                child: _buildSlideContent(
-                  context,
-                  slide: _currentSlide,
-                  t: t,
-                  activeIndex: activeIndex,
-                  activeStage: activeStage,
-                  timing: timing,
-                  progressPercent: pct,
-                  playedMatches: playedMatches,
-                  totalMatches: totalMatches,
-                ),
-              ),
-            ),
+            child: _showNextStagePreview
+                ? _buildNextStagePreview(context, t, activeIndex, activeStage)
+                : _buildOverview(
+                    context,
+                    t: t,
+                    activeIndex: activeIndex,
+                    activeStage: activeStage,
+                    timing: timing,
+                    progressPercent: pct,
+                    playedMatches: playedMatches,
+                    totalMatches: totalMatches,
+                  ),
           ),
         ],
       ),
     );
 
     if (!widget.isStandaloneWindow) {
-      return SizedBox(
-        height: 520,
-        child: viewWidget,
-      );
+      return SizedBox(height: 520, child: viewWidget);
     }
     return viewWidget;
   }
 
-  Widget _buildSlideContent(
+  Widget _buildOverview(
     BuildContext context, {
-    required int slide,
     required CreatedTournament t,
     required int activeIndex,
     required TournamentRunStage? activeStage,
@@ -244,211 +234,506 @@ class _TournamentSecondScreenViewState
     required List<GroupMatch> playedMatches,
     required int totalMatches,
   }) {
-    switch (slide) {
-      case 0:
-        return _buildSlide1(context, t, activeIndex, activeStage);
-      case 1:
-        return _buildSlide2(context, t, activeIndex, activeStage);
-      case 2:
-        return _buildSlide3(context, t, activeStage, playedMatches);
-      case 3:
-      default:
-        return _buildSlide4(
-          context,
-          t: t,
-          activeStage: activeStage,
-          timing: timing,
-          progressPercent: progressPercent,
-          playedMatches: playedMatches,
-          totalMatches: totalMatches,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide =
+            constraints.maxWidth >= 1000 && constraints.maxHeight >= 620;
+        if (!wide) {
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildBoardsAndPriorityPanel(
+                  context,
+                  t,
+                  activeIndex,
+                  activeStage,
+                  expand: false,
+                ),
+                const SizedBox(height: 16),
+                _buildRecentMatchesAndEloPanel(
+                  context,
+                  t,
+                  playedMatches,
+                  expand: false,
+                ),
+                const SizedBox(height: 16),
+                _buildProgressAndBestPerformancesPanel(
+                  context: context,
+                  t: t,
+                  timing: timing,
+                  progressPercent: progressPercent,
+                  playedMatches: playedMatches,
+                  totalMatches: totalMatches,
+                  expand: false,
+                ),
+                const SizedBox(height: 16),
+                _buildStandingsAndPreviewControl(
+                  context,
+                  t,
+                  activeIndex,
+                  activeStage,
+                  expand: false,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 6,
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: _buildBoardsAndPriorityPanel(
+                      context,
+                      t,
+                      activeIndex,
+                      activeStage,
+                      expand: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    flex: 4,
+                    child: _buildRecentMatchesAndEloPanel(
+                      context,
+                      t,
+                      playedMatches,
+                      expand: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    flex: 5,
+                    child: _buildProgressAndBestPerformancesPanel(
+                      context: context,
+                      t: t,
+                      timing: timing,
+                      progressPercent: progressPercent,
+                      playedMatches: playedMatches,
+                      totalMatches: totalMatches,
+                      expand: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 5,
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: _buildStandingsAndPreviewControl(
+                      context,
+                      t,
+                      activeIndex,
+                      activeStage,
+                      expand: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    flex: 5,
+                    child: SingleChildScrollView(
+                      child: _buildKoPrognosisPanel(
+                        context,
+                        t,
+                        activeIndex,
+                        activeStage,
+                        expand: false,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         );
-    }
+      },
+    );
   }
 
-  // ==========================================
-  // SLIDE 1: Tabellen & Zwischenstände + KO-Prognose
-  // ==========================================
-  Widget _buildSlide1(
+  Widget _buildStandingsAndPreviewControl(
     BuildContext context,
     CreatedTournament t,
     int activeIndex,
-    TournamentRunStage? stage,
-  ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900;
-
-        if (wide) {
-          final standingsWidget = _buildStandingsPanel(context, t, stage, full: true, expand: true);
-          final prognosisWidget = _buildKoPrognosisPanel(context, t, activeIndex, stage, expand: true);
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 5, child: standingsWidget),
-              const SizedBox(width: 16),
-              Expanded(flex: 5, child: prognosisWidget),
-            ],
-          );
-        }
-
-        final standingsWidget = _buildStandingsPanel(context, t, stage, full: true, expand: false);
-        final prognosisWidget = _buildKoPrognosisPanel(context, t, activeIndex, stage, expand: false);
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              standingsWidget,
-              const SizedBox(height: 16),
-              prognosisWidget,
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ==========================================
-  // SLIDE 2: Aktuelle & nächste Begegnungen + Priorisierte Partien + Tabellen
-  // ==========================================
-  Widget _buildSlide2(
-    BuildContext context,
-    CreatedTournament t,
-    int activeIndex,
-    TournamentRunStage? stage,
-  ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900;
-
-        if (wide) {
-          final matchesWidget = _buildBoardsAndPriorityPanel(context, t, activeIndex, stage, expand: true);
-          final compactStandings = _buildCompactStandings(context, t, stage, expand: true);
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 6, child: matchesWidget),
-              const SizedBox(width: 16),
-              Expanded(flex: 4, child: compactStandings),
-            ],
-          );
-        }
-
-        final matchesWidget = _buildBoardsAndPriorityPanel(context, t, activeIndex, stage, expand: false);
-        final compactStandings = _buildCompactStandings(context, t, stage, expand: false);
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              matchesWidget,
-              const SizedBox(height: 16),
-              compactStandings,
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ==========================================
-  // SLIDE 3: Zuletzt beendete Matches + Live-Elo-Änderungen + Tabellen
-  // ==========================================
-  Widget _buildSlide3(
-    BuildContext context,
-    CreatedTournament t,
-    TournamentRunStage? stage,
-    List<GroupMatch> playedMatches,
-  ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900;
-
-        if (wide) {
-          final recentAndEloWidget = _buildRecentMatchesAndEloPanel(context, t, playedMatches, expand: true);
-          final compactStandings = _buildCompactStandings(context, t, stage, expand: true);
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 6, child: recentAndEloWidget),
-              const SizedBox(width: 16),
-              Expanded(flex: 4, child: compactStandings),
-            ],
-          );
-        }
-
-        final recentAndEloWidget = _buildRecentMatchesAndEloPanel(context, t, playedMatches, expand: false);
-        final compactStandings = _buildCompactStandings(context, t, stage, expand: false);
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              recentAndEloWidget,
-              const SizedBox(height: 16),
-              compactStandings,
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ==========================================
-  // SLIDE 4: Etappen-Fortschritt (%) + Bestleistungen + Tabellen
-  // ==========================================
-  Widget _buildSlide4(
-    BuildContext context, {
-    required CreatedTournament t,
-    required TournamentRunStage? activeStage,
-    required TimingSnapshot timing,
-    required int progressPercent,
-    required List<GroupMatch> playedMatches,
-    required int totalMatches,
+    TournamentRunStage? stage, {
+    bool expand = true,
   }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900;
-
-        if (wide) {
-          final progressAndBestWidget = _buildProgressAndBestPerformancesPanel(
-            context: context,
-            t: t,
-            timing: timing,
-            progressPercent: progressPercent,
-            playedMatches: playedMatches,
-            totalMatches: totalMatches,
-            expand: true,
-          );
-          final compactStandings = _buildCompactStandings(context, t, activeStage, expand: true);
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 6, child: progressAndBestWidget),
-              const SizedBox(width: 16),
-              Expanded(flex: 4, child: compactStandings),
-            ],
-          );
-        }
-
-        final progressAndBestWidget = _buildProgressAndBestPerformancesPanel(
-          context: context,
-          t: t,
-          timing: timing,
-          progressPercent: progressPercent,
-          playedMatches: playedMatches,
-          totalMatches: totalMatches,
-          expand: false,
-        );
-        final compactStandings = _buildCompactStandings(context, t, activeStage, expand: false);
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              progressAndBestWidget,
-              const SizedBox(height: 16),
-              compactStandings,
-            ],
+    final hasNextKnockout = _nextKnockoutStage(t, activeIndex, stage) != null;
+    final standings = _buildStandingsPanel(
+      context,
+      t,
+      stage,
+      full: true,
+      expand: false,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (expand)
+          Expanded(child: SingleChildScrollView(child: standings))
+        else
+          standings,
+        if (hasNextKnockout) ...[
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: () => setState(() => _showNextStagePreview = true),
+            icon: const Icon(Icons.account_tree_outlined),
+            label: const Text('Vorschau für die nächste Etappe'),
           ),
+        ],
+      ],
+    );
+  }
+
+  KnockoutTournamentRunStage? _nextKnockoutStage(
+    CreatedTournament t,
+    int activeIndex,
+    TournamentRunStage? activeStage,
+  ) {
+    if (activeStage is KnockoutTournamentRunStage) return null;
+    for (var index = activeIndex + 1; index < t.runStages.length; index++) {
+      final stage = t.runStages[index];
+      if (stage is KnockoutTournamentRunStage) return stage;
+    }
+    return null;
+  }
+
+  int? _nextKnockoutStageIndex(
+    CreatedTournament t,
+    int activeIndex,
+    TournamentRunStage? activeStage,
+  ) {
+    if (activeStage is KnockoutTournamentRunStage) return null;
+    for (var index = activeIndex + 1; index < t.runStages.length; index++) {
+      if (t.runStages[index] is KnockoutTournamentRunStage) return index;
+    }
+    return null;
+  }
+
+  Widget _buildNextStagePreview(
+    BuildContext context,
+    CreatedTournament t,
+    int activeIndex,
+    TournamentRunStage? activeStage,
+  ) {
+    final stage = _nextKnockoutStage(t, activeIndex, activeStage);
+    final stageIndex = _nextKnockoutStageIndex(t, activeIndex, activeStage);
+    if (stage == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Expanded(
+            child: Center(
+              child: Text(
+                'Keine K.-o.-Etappe als Nächstes geplant.',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: () => setState(() => _showNextStagePreview = false),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Zur Übersichtsansicht zurückkehren'),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: _buildBracketPreview(t, stage, stageIndex)),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: () => setState(() => _showNextStagePreview = false),
+          icon: const Icon(Icons.arrow_back),
+          label: const Text('Zur Übersichtsansicht zurückkehren'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBracketPreview(
+    CreatedTournament t,
+    KnockoutTournamentRunStage stage,
+    int? stageIndex,
+  ) {
+    final groupStage =
+        stageIndex != null &&
+            stageIndex > 0 &&
+            t.runStages[stageIndex - 1] is GroupTournamentRunStage
+        ? t.runStages[stageIndex - 1] as GroupTournamentRunStage
+        : null;
+    final certainQualifiers = groupStage == null
+        ? const <int, TournamentPlayer>{}
+        : _certainQualifierByInputIndex(groupStage);
+    final config = stageIndex != null && stageIndex < t.stages.length
+        ? t.stages[stageIndex]
+        : null;
+    final canShowSeedPositions =
+        config == null ||
+        !config.knockoutDrawOnStart ||
+        config.knockoutSlotOrder.isNotEmpty;
+
+    String playerLabel(TournamentPlayer? player, int roundIndex) {
+      if (roundIndex > 0) {
+        return player?.name ?? 'Sieger der vorherigen Runde';
+      }
+      if (player != null && canShowSeedPositions) {
+        final playerIndex = t.players.indexWhere(
+          (candidate) =>
+              candidate == player ||
+              (candidate.profileId != null &&
+                  candidate.profileId == player.profileId),
         );
-      },
+        final guaranteed = playerIndex < 0
+            ? null
+            : certainQualifiers[playerIndex];
+        if (guaranteed != null) {
+          return '${guaranteed.name}\nGesetzt · Setzplatz vorläufig';
+        }
+      }
+      return 'Qualifikant offen';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '${stage.name} · Turnierbaum-Vorschau',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        if (certainQualifiers.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+              'Sicher qualifizierte Spieler sind markiert. Ihre Setzposition bleibt bis zum Abschluss der Etappe vorläufig.',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+        if (certainQualifiers.isNotEmpty && !canShowSeedPositions)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final player in certainQualifiers.values)
+                  Chip(
+                    avatar: const Icon(
+                      Icons.check_circle,
+                      color: Color(0xFF86EFAC),
+                      size: 18,
+                    ),
+                    label: Text('${player.name} · sicher weiter'),
+                  ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: stage.rounds.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Für diese Etappe ist noch kein Turnierbaum vorhanden.',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                )
+              : SingleChildScrollView(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (
+                          var roundIndex = 0;
+                          roundIndex < stage.rounds.length;
+                          roundIndex++
+                        )
+                          Container(
+                            width: 280,
+                            margin: const EdgeInsets.only(right: 18),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Text(
+                                    knockoutRoundName(
+                                      roundIndex,
+                                      stage.rounds.length,
+                                    ),
+                                    style: const TextStyle(
+                                      color: Color(0xFF70E0BA),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                                for (
+                                  var matchIndex = 0;
+                                  matchIndex < stage.rounds[roundIndex].length;
+                                  matchIndex++
+                                )
+                                  _buildBracketMatchPreview(
+                                    stage.rounds[roundIndex][matchIndex],
+                                    homeLabel: playerLabel(
+                                      stage
+                                          .rounds[roundIndex][matchIndex]
+                                          .homePlayer,
+                                      roundIndex,
+                                    ),
+                                    awayLabel: playerLabel(
+                                      stage
+                                          .rounds[roundIndex][matchIndex]
+                                          .awayPlayer,
+                                      roundIndex,
+                                    ),
+                                    matchNumber: matchIndex + 1,
+                                  ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Map<int, TournamentPlayer> _certainQualifierByInputIndex(
+    GroupTournamentRunStage stage,
+  ) {
+    final plan = stage.qualificationPlan;
+    if (plan == null) return const {};
+
+    final certainPlayers = <int, TournamentPlayer>{};
+    var inputIndex = 0;
+    for (var groupIndex = 0; groupIndex < stage.groups.length; groupIndex++) {
+      final group = stage.groups[groupIndex];
+      final standings = _calculateGroupStandings(group, stage.tieBreakers);
+      final fixedPlaces = groupIndex < plan.fixedByGroup.length
+          ? plan.fixedByGroup[groupIndex]
+          : plan.fixedPerGroup;
+      if (group.playType == 'swiss' ||
+          group.matches.any((match) => match.isDecider)) {
+        inputIndex += fixedPlaces;
+        continue;
+      }
+      final unsupportedTieBreaker = stage.tieBreakers.indexWhere(
+        (rule) => !const {'points', 'legDifference', 'legsFor'}.contains(rule),
+      );
+      for (var rank = 0; rank < min(fixedPlaces, standings.length); rank++) {
+        final standing = standings[rank];
+        if (unsupportedTieBreaker >= 0 &&
+            standings.any(
+              (other) =>
+                  other.player != standing.player &&
+                  _tiesOnTieBreakerPrefix(
+                    standing,
+                    other,
+                    stage.tieBreakers.take(unsupportedTieBreaker),
+                  ),
+            )) {
+          continue;
+        }
+        if (const QualificationCertainty().isCertain(
+          standing: standing,
+          place: rank + 1,
+          fixedPlaces: fixedPlaces,
+          standings: standings,
+          matches: group.matches,
+          tieBreakers: stage.tieBreakers,
+        )) {
+          certainPlayers[inputIndex + rank] = standing.player;
+        }
+      }
+      inputIndex += fixedPlaces;
+    }
+    return certainPlayers;
+  }
+
+  bool _tiesOnTieBreakerPrefix(
+    PlayerStanding first,
+    PlayerStanding second,
+    Iterable<String> tieBreakers,
+  ) {
+    for (final rule in tieBreakers) {
+      final comparison = switch (rule) {
+        'points' => first.points.compareTo(second.points),
+        'legDifference' => first.legDifference.compareTo(second.legDifference),
+        'legsFor' => first.legsFor.compareTo(second.legsFor),
+        _ => 0,
+      };
+      if (comparison != 0) return false;
+    }
+    return true;
+  }
+
+  Widget _buildBracketMatchPreview(
+    GroupMatch match, {
+    required String homeLabel,
+    required String awayLabel,
+    required int matchNumber,
+  }) {
+    final homeIsCertain = homeLabel.contains('Gesetzt');
+    final awayIsCertain = awayLabel.contains('Gesetzt');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14202B),
+        border: Border.all(color: const Color(0xFF263D52)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            match.label ?? 'Spiel $matchNumber',
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          const SizedBox(height: 6),
+          _buildBracketParticipant(homeLabel, isCertain: homeIsCertain),
+          const Divider(color: Color(0xFF263D52), height: 12),
+          _buildBracketParticipant(awayLabel, isCertain: awayIsCertain),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBracketParticipant(String label, {required bool isCertain}) {
+    return Row(
+      children: [
+        if (isCertain) ...[
+          const Icon(Icons.check_circle, color: Color(0xFF86EFAC), size: 18),
+          const SizedBox(width: 6),
+        ],
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isCertain ? const Color(0xFF86EFAC) : Colors.white70,
+              fontWeight: isCertain ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -463,7 +748,12 @@ class _TournamentSecondScreenViewState
     bool expand = true,
   }) {
     if (stage == null) {
-      return const Center(child: Text('Keine aktive Etappe vorhanden', style: TextStyle(color: Colors.white70)));
+      return const Center(
+        child: Text(
+          'Keine aktive Etappe vorhanden',
+          style: TextStyle(color: Colors.white70),
+        ),
+      );
     }
 
     if (stage is GroupTournamentRunStage) {
@@ -504,11 +794,7 @@ class _TournamentSecondScreenViewState
           ),
           const SizedBox(height: 10),
           if (expand)
-            Expanded(
-              child: SingleChildScrollView(
-                child: wrapContent,
-              ),
-            )
+            Expanded(child: SingleChildScrollView(child: wrapContent))
           else
             wrapContent,
         ],
@@ -552,7 +838,10 @@ class _TournamentSecondScreenViewState
     final fixedPlaces = qualificationPlan?.fixedPerGroup ?? 2;
 
     return Container(
-      constraints: BoxConstraints(minWidth: full ? 280 : 220, maxWidth: full ? 420 : 340),
+      constraints: BoxConstraints(
+        minWidth: full ? 280 : 220,
+        maxWidth: full ? 420 : 340,
+      ),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFF14202B),
@@ -599,14 +888,17 @@ class _TournamentSecondScreenViewState
                 );
 
                 return Container(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 6,
+                  ),
                   margin: const EdgeInsets.symmetric(vertical: 1),
                   decoration: BoxDecoration(
                     color: isCertain
                         ? const Color(0xFF144D34)
                         : isQualified
-                            ? const Color(0xFF163828)
-                            : Colors.transparent,
+                        ? const Color(0xFF163828)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
@@ -615,7 +907,9 @@ class _TournamentSecondScreenViewState
                         '$place.',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: isQualified ? const Color(0xFF86EFAC) : Colors.white70,
+                          color: isQualified
+                              ? const Color(0xFF86EFAC)
+                              : Colors.white70,
                           fontSize: 13,
                         ),
                       ),
@@ -624,7 +918,9 @@ class _TournamentSecondScreenViewState
                         child: Text(
                           standing.player.name,
                           style: TextStyle(
-                            fontWeight: isQualified ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isQualified
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                             color: Colors.white,
                             fontSize: 13,
                           ),
@@ -634,7 +930,10 @@ class _TournamentSecondScreenViewState
                       const SizedBox(width: 6),
                       Text(
                         '${standing.legsFor}:${standing.legsAgainst}',
-                        style: const TextStyle(fontSize: 12, color: Colors.white60),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white60,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -654,18 +953,6 @@ class _TournamentSecondScreenViewState
         ],
       ),
     );
-  }
-
-  // ------------------------------------------
-  // HELPER: Compact Standings (Side Column)
-  // ------------------------------------------
-  Widget _buildCompactStandings(
-    BuildContext context,
-    CreatedTournament t,
-    TournamentRunStage? stage, {
-    bool expand = true,
-  }) {
-    return _buildStandingsPanel(context, t, stage, full: false, expand: expand);
   }
 
   // ------------------------------------------
@@ -691,17 +978,18 @@ class _TournamentSecondScreenViewState
       }
     }
 
-    final hasPrognosis = currentStage is GroupTournamentRunStage && koStage != null;
+    final hasPrognosis =
+        currentStage is GroupTournamentRunStage && koStage != null;
     final prognosisContent = hasPrognosis
         ? _buildContenderPrognosisList(context, currentStage, koStage)
         : (koStage != null
-            ? _buildKnockoutRoundsPreview(context, koStage)
-            : const Center(
-                child: Text(
-                  'Keine K.-o.-Phase im aktuellen Turnier geplant.',
-                  style: TextStyle(color: Colors.white54),
-                ),
-              ));
+              ? _buildKnockoutRoundsPreview(context, koStage)
+              : const Center(
+                  child: Text(
+                    'Keine K.-o.-Phase im aktuellen Turnier geplant.',
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                ));
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -715,11 +1003,17 @@ class _TournamentSecondScreenViewState
         children: [
           Row(
             children: [
-              const Icon(Icons.account_tree_outlined, size: 20, color: Color(0xFF70E0BA)),
+              const Icon(
+                Icons.account_tree_outlined,
+                size: 20,
+                color: Color(0xFF70E0BA),
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  hasPrognosis ? 'KO-Prognose & Weiterkommen' : 'Turnierbaum Vorschau',
+                  hasPrognosis
+                      ? 'KO-Prognose & Weiterkommen'
+                      : 'Turnierbaum Vorschau',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -738,11 +1032,7 @@ class _TournamentSecondScreenViewState
           ),
           const SizedBox(height: 12),
           if (expand)
-            Expanded(
-              child: SingleChildScrollView(
-                child: prognosisContent,
-              ),
-            )
+            Expanded(child: SingleChildScrollView(child: prognosisContent))
           else
             prognosisContent,
         ],
@@ -762,8 +1052,21 @@ class _TournamentSecondScreenViewState
           Builder(
             builder: (context) {
               final group = groupStage.groups[i];
-              final standings = _calculateGroupStandings(group, groupStage.tieBreakers);
-              final fixedPlaces = groupStage.qualificationPlan?.fixedPerGroup ?? 2;
+              final standings = _calculateGroupStandings(
+                group,
+                groupStage.tieBreakers,
+              );
+              final fixedPlaces =
+                  groupStage.qualificationPlan?.fixedPerGroup ?? 2;
+              final evidence = standings.map((standing) {
+                if (standing.played == 0) return 1.0;
+                return (standing.wins + standing.draws * 0.5 + 0.5) /
+                    (standing.played + 1);
+              }).toList();
+              final totalEvidence = evidence.fold<double>(
+                0,
+                (sum, value) => sum + value,
+              );
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -776,7 +1079,7 @@ class _TournamentSecondScreenViewState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${group.name} Qualifikations-Chancen',
+                      '${group.name} · KO-Siegchance nach Ergebnissen',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF70E0BA),
@@ -784,37 +1087,24 @@ class _TournamentSecondScreenViewState
                       ),
                     ),
                     const SizedBox(height: 6),
-                    for (var r = 0; r < min(standings.length, fixedPlaces + 2); r++)
+                    for (var r = 0; r < standings.length; r++)
                       Builder(
                         builder: (context) {
                           final standing = standings[r];
                           final place = r + 1;
-                          final isCertain = const QualificationCertainty().isCertain(
-                            standing: standing,
-                            place: place,
-                            fixedPlaces: fixedPlaces,
-                            standings: standings,
-                            matches: group.matches,
-                            tieBreakers: groupStage.tieBreakers,
-                          );
+                          final isCertain = const QualificationCertainty()
+                              .isCertain(
+                                standing: standing,
+                                place: place,
+                                fixedPlaces: fixedPlaces,
+                                standings: standings,
+                                matches: group.matches,
+                                tieBreakers: groupStage.tieBreakers,
+                              );
 
-                          // Estimate probability based on played ratio and current rank
-                          final remaining = group.matches
-                              .where((m) =>
-                                  !m.isResolved &&
-                                  (m.homePlayer?.name == standing.player.name ||
-                                      m.awayPlayer?.name == standing.player.name))
-                              .length;
-                          final played = standing.played;
-                          final winRate = played > 0 ? (standing.wins / played) : 0.5;
-                          int probability = 100;
-                          if (!isCertain) {
-                            if (place <= fixedPlaces) {
-                              probability = (70 + (winRate * 25) - (remaining * 3)).clamp(35, 95).round();
-                            } else {
-                              probability = (winRate * 50 - ((place - fixedPlaces) * 15)).clamp(5, 45).round();
-                            }
-                          }
+                          final probability = totalEvidence == 0
+                              ? 0.0
+                              : evidence[r] / totalEvidence * 100;
 
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 2),
@@ -822,33 +1112,46 @@ class _TournamentSecondScreenViewState
                               children: [
                                 Text(
                                   'Platz $place: ',
-                                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white70,
+                                  ),
                                 ),
                                 Expanded(
                                   child: Text(
                                     standing.player.name,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: isCertain
                                         ? const Color(0xFF144D34)
-                                        : (probability >= 70
-                                            ? const Color(0xFF1D4E3A)
-                                            : const Color(0xFF4A3B18)),
+                                        : (probability >= 50
+                                              ? const Color(0xFF1D4E3A)
+                                              : const Color(0xFF4A3B18)),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    isCertain ? 'Fest im KO' : '$probability% Chance',
+                                    isCertain
+                                        ? 'Fest im KO'
+                                        : '${probability.toStringAsFixed(1)}% Siegchance',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                       color: isCertain
                                           ? const Color(0xFF86EFAC)
-                                          : (probability >= 70 ? Colors.white : Colors.amber.shade200),
+                                          : (probability >= 50
+                                                ? Colors.white
+                                                : Colors.amber.shade200),
                                     ),
                                   ),
                                 ),
@@ -876,7 +1179,10 @@ class _TournamentSecondScreenViewState
         for (var i = 0; i < koStage.rounds.length; i++) ...[
           Text(
             knockoutRoundName(i, koStage.rounds.length),
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF70E0BA)),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF70E0BA),
+            ),
           ),
           const SizedBox(height: 4),
           for (final m in koStage.rounds[i])
@@ -898,7 +1204,10 @@ class _TournamentSecondScreenViewState
                   if (m.hasResult)
                     Text(
                       '${m.homeScore} : ${m.awayScore}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF70E0BA)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF70E0BA),
+                      ),
                     ),
                 ],
               ),
@@ -919,27 +1228,33 @@ class _TournamentSecondScreenViewState
     TournamentRunStage? stage, {
     bool expand = true,
   }) {
-    final matches = _matchesOf(stage).where((m) => m.hasPlayers && !m.isResolved).toList();
+    final matches = _matchesOf(
+      stage,
+    ).where((m) => m.hasPlayers && !m.isResolved).toList();
 
-    // Calculate priority bottleneck match using OrderOfPlay
+    final schedule = const OrderOfPlayController().plan(t, activeIndex);
+    final openCounts = <String, int>{};
+    for (final assignment in schedule.planned) {
+      for (final player in assignment.entry.players) {
+        openCounts[player] = (openCounts[player] ?? 0) + 1;
+      }
+    }
+
+    final preferredPlayers = <String>{};
     String? priorityNotice;
-    try {
-      final schedule = const OrderOfPlayController().plan(t, activeIndex);
-      final openCounts = <String, int>{};
-      for (final assignment in schedule.planned) {
-        for (final p in assignment.entry.players) {
-          openCounts[p] = (openCounts[p] ?? 0) + 1;
-        }
+    if (openCounts.isNotEmpty) {
+      final maxOpen = openCounts.values.reduce(max);
+      final minOpen = openCounts.values.reduce(min);
+      if (maxOpen >= 2 && maxOpen - minOpen >= 1) {
+        preferredPlayers.addAll(
+          openCounts.entries
+              .where((entry) => entry.value == maxOpen)
+              .map((entry) => entry.key),
+        );
+        priorityNotice =
+            'Priorität: ${preferredPlayers.join(', ')} hat noch $maxOpen offene Partien (Schnitt: $minOpen). Bevorzugt aufrufen!';
       }
-      if (openCounts.isNotEmpty) {
-        final maxOpen = openCounts.values.reduce(max);
-        final minOpen = openCounts.values.reduce(min);
-        if (maxOpen >= 2 && maxOpen - minOpen >= 1) {
-          final pNames = openCounts.entries.where((e) => e.value == maxOpen).map((e) => e.key).join(', ');
-          priorityNotice = 'Priorität: $pNames hat noch $maxOpen offene Partien (Schnitt: $minOpen). Bevorzugt aufrufen!';
-        }
-      }
-    } catch (_) {}
+    }
 
     final matchesContent = matches.isEmpty
         ? const Center(
@@ -953,7 +1268,13 @@ class _TournamentSecondScreenViewState
             runSpacing: 10,
             children: [
               for (var i = 0; i < matches.take(8).length; i++)
-                _buildMatchTile(context, matches[i]),
+                _buildMatchTile(
+                  context,
+                  matches[i],
+                  isPreferred:
+                      preferredPlayers.contains(matches[i].homePlayer?.name) ||
+                      preferredPlayers.contains(matches[i].awayPlayer?.name),
+                ),
             ],
           );
 
@@ -962,12 +1283,20 @@ class _TournamentSecondScreenViewState
       children: [
         Row(
           children: [
-            const Icon(Icons.sports_esports, size: 20, color: Color(0xFF70E0BA)),
+            const Icon(
+              Icons.sports_esports,
+              size: 20,
+              color: Color(0xFF70E0BA),
+            ),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
                 'Aktuelle & nächste Begegnungen (${t.boardCount} Boards)',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -1001,18 +1330,18 @@ class _TournamentSecondScreenViewState
           const SizedBox(height: 10),
         ],
         if (expand)
-          Expanded(
-            child: SingleChildScrollView(
-              child: matchesContent,
-            ),
-          )
+          Expanded(child: SingleChildScrollView(child: matchesContent))
         else
           matchesContent,
       ],
     );
   }
 
-  Widget _buildMatchTile(BuildContext context, GroupMatch match) {
+  Widget _buildMatchTile(
+    BuildContext context,
+    GroupMatch match, {
+    required bool isPreferred,
+  }) {
     final isRunning = match.boardNumber != null;
 
     return Container(
@@ -1021,16 +1350,23 @@ class _TournamentSecondScreenViewState
       decoration: BoxDecoration(
         color: const Color(0xFF14202B),
         border: Border.all(
-          color: isRunning ? const Color(0xFF70E0BA) : const Color(0xFF263D52),
-          width: isRunning ? 1.5 : 1,
+          color: isPreferred
+              ? Colors.amber
+              : isRunning
+              ? const Color(0xFF70E0BA)
+              : const Color(0xFF263D52),
+          width: isPreferred || isRunning ? 1.5 : 1,
         ),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1039,7 +1375,9 @@ class _TournamentSecondScreenViewState
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  isRunning ? 'Board ${match.boardNumber} (Läuft)' : 'Nächste Partie',
+                  isRunning
+                      ? 'Board ${match.boardNumber} (Läuft)'
+                      : 'Nächste Partie',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -1048,13 +1386,35 @@ class _TournamentSecondScreenViewState
                 ),
               ),
               if (match.label != null && match.label!.isNotEmpty)
-                Text(match.label!, style: const TextStyle(fontSize: 11, color: Colors.white54)),
+                Text(
+                  match.label!,
+                  style: const TextStyle(fontSize: 11, color: Colors.white54),
+                ),
+              if (isPreferred)
+                const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.priority_high, color: Colors.amber, size: 18),
+                    SizedBox(width: 2),
+                    Text(
+                      'Bevorzugt',
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
             '${match.homePlayer?.name ?? "Offen"} vs. ${match.awayPlayer?.name ?? "Offen"}',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -1073,23 +1433,6 @@ class _TournamentSecondScreenViewState
   }) {
     final recent = playedMatches.reversed.take(6).toList();
 
-    final recentContent = recent.isEmpty
-        ? const Center(
-            child: Text(
-              'Noch keine beendeten Partien vorhanden.',
-              style: TextStyle(color: Colors.white70),
-            ),
-          )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final m in recent) ...[
-                _buildRecentMatchWithEloRow(context, m),
-                const SizedBox(height: 8),
-              ],
-            ],
-          );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1099,30 +1442,85 @@ class _TournamentSecondScreenViewState
             const SizedBox(width: 8),
             const Flexible(
               child: Text(
-                'Zuletzt beendete Matches & Live-Elo',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                'Zuletzt beendete Matches',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        if (expand)
-          Expanded(
-            child: SingleChildScrollView(
-              child: recentContent,
-            ),
-          )
-        else
-          recentContent,
+        Builder(
+          builder: (context) {
+            final recentList =
+                FutureBuilder<Map<String, List<TournamentMatchEloChange>>>(
+                  future: _eloChanges,
+                  builder: (context, snapshot) {
+                    final recentContent = recent.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Noch keine beendeten Partien vorhanden.',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final match in recent) ...[
+                                _buildRecentMatchRow(
+                                  context,
+                                  match,
+                                  _changesForMatch(t, match, snapshot.data),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                            ],
+                          );
+                    return SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (snapshot.hasError)
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                'Ranglistenänderungen konnten nicht geladen werden.',
+                                style: TextStyle(color: Colors.amber),
+                              ),
+                            ),
+                          recentContent,
+                        ],
+                      ),
+                    );
+                  },
+                );
+            return expand ? Expanded(child: recentList) : recentList;
+          },
+        ),
       ],
     );
   }
 
-  Widget _buildRecentMatchWithEloRow(BuildContext context, GroupMatch m) {
-    final homeWon = (m.homeScore ?? 0) > (m.awayScore ?? 0);
-    final draw = m.homeScore == m.awayScore;
-    final delta = eloDelta(1000, 1000, homeWon ? 1.0 : (draw ? 0.5 : 0.0), kFactor: 16);
+  List<TournamentMatchEloChange> _changesForMatch(
+    CreatedTournament tournament,
+    GroupMatch match,
+    Map<String, List<TournamentMatchEloChange>>? changes,
+  ) {
+    if (!tournament.countsForRanking || tournament.rankingIds.isEmpty) {
+      return const [];
+    }
+    final key = const LocalEloCalculator().matchKey(tournament, match);
+    return key == null ? const [] : changes?[key] ?? const [];
+  }
 
+  Widget _buildRecentMatchRow(
+    BuildContext context,
+    GroupMatch m,
+    List<TournamentMatchEloChange> eloChanges,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -1130,42 +1528,65 @@ class _TournamentSecondScreenViewState
         border: Border.all(color: const Color(0xFF263D52)),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Text(
-              '${m.homePlayer?.name ?? "?"} – ${m.awayPlayer?.name ?? "?"}',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
-              overflow: TextOverflow.ellipsis,
+          Text(
+            '${m.homePlayer?.name ?? "?"} – ${m.awayPlayer?.name ?? "?"}',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontSize: 14,
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E3A2E),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              '${m.homeScore ?? 0} : ${m.awayScore ?? 0}',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF86EFAC), fontSize: 13),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFF10263E),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'Elo: ${delta > 0 ? "+$delta" : "$delta"}',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF70E0BA)),
-            ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E3A2E),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${m.homeScore ?? 0} : ${m.awayScore ?? 0}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF86EFAC),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              for (final change in eloChanges)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF14202B),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF263D52)),
+                  ),
+                  child: Text(
+                    '${change.rankingName}: ${change.homeDelta == null ? '–' : _signedDelta(change.homeDelta!)} / ${change.awayDelta == null ? '–' : _signedDelta(change.awayDelta!)} Elo',
+                    style: const TextStyle(
+                      color: Color(0xFF70E0BA),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
+
+  String _signedDelta(int delta) => delta > 0 ? '+$delta' : '$delta';
 
   // ------------------------------------------
   // SLIDE 4 HELPER: Etappenfortschritt & Bestleistungen
@@ -1187,23 +1608,38 @@ class _TournamentSecondScreenViewState
       }
     }
 
-    final oneEighties = allPerformances.where((p) => p.type == BestPerformanceType.score180).toList();
-    final highFinishes = allPerformances.where((p) => p.type == BestPerformanceType.highFinish).toList();
-    final shortLegs = allPerformances.where((p) => p.type == BestPerformanceType.shortLeg).toList();
+    final oneEighties = allPerformances
+        .where((p) => p.type == BestPerformanceType.score180)
+        .toList();
+    final oneSeventies = allPerformances
+        .where((p) => p.type == BestPerformanceType.score170)
+        .toList();
+    final highFinishes = allPerformances
+        .where((p) => p.type == BestPerformanceType.highFinish)
+        .toList();
+    final shortLegs = allPerformances
+        .where((p) => p.type == BestPerformanceType.shortLeg)
+        .toList();
 
     final breakdownContent = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
           'Fortschritt nach Etappen:',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white70),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: Colors.white70,
+          ),
         ),
         const SizedBox(height: 6),
         for (var i = 0; i < t.runStages.length; i++)
           Builder(
             builder: (context) {
               final stage = t.runStages[i];
-              final sMatches = _matchesOf(stage).where((m) => m.hasPlayers).toList();
+              final sMatches = _matchesOf(
+                stage,
+              ).where((m) => m.hasPlayers).toList();
               final sPlayed = sMatches.where((m) => m.hasResult).length;
               final sTotal = sMatches.length;
               final sPct = sTotal > 0 ? ((sPlayed / sTotal) * 100).round() : 0;
@@ -1218,16 +1654,26 @@ class _TournamentSecondScreenViewState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
                         Text(
                           '${i + 1}. ${stage.name}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
                         ),
                         Text(
                           '$sPlayed von $sTotal Spielen ($sPct%)',
-                          style: const TextStyle(color: Color(0xFF70E0BA), fontWeight: FontWeight.bold, fontSize: 12),
+                          style: const TextStyle(
+                            color: Color(0xFF70E0BA),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -1235,10 +1681,14 @@ class _TournamentSecondScreenViewState
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
-                        value: sTotal > 0 ? (sPlayed / sTotal).clamp(0.0, 1.0) : 0.0,
+                        value: sTotal > 0
+                            ? (sPlayed / sTotal).clamp(0.0, 1.0)
+                            : 0.0,
                         minHeight: 6,
                         backgroundColor: Colors.white12,
-                        valueColor: const AlwaysStoppedAnimation(Color(0xFF70E0BA)),
+                        valueColor: const AlwaysStoppedAnimation(
+                          Color(0xFF70E0BA),
+                        ),
                       ),
                     ),
                   ],
@@ -1251,7 +1701,11 @@ class _TournamentSecondScreenViewState
         // Best Performances section
         const Text(
           'Bestleistungen & Highlights:',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white70),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: Colors.white70,
+          ),
         ),
         const SizedBox(height: 6),
         Container(
@@ -1263,10 +1717,19 @@ class _TournamentSecondScreenViewState
           ),
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+              Wrap(
+                alignment: WrapAlignment.spaceAround,
+                spacing: 16,
+                runSpacing: 12,
                 children: [
-                  _buildHighlightItem('180er', '${oneEighties.length}x geworfen'),
+                  _buildHighlightItem(
+                    '170+',
+                    '${oneSeventies.length}x geworfen',
+                  ),
+                  _buildHighlightItem(
+                    '180er',
+                    '${oneEighties.length}x geworfen',
+                  ),
                   _buildHighlightItem(
                     'High Finish',
                     highFinishes.isNotEmpty
@@ -1291,22 +1754,33 @@ class _TournamentSecondScreenViewState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Overall timing
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 12,
+          runSpacing: 8,
           children: [
-            Row(
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
               children: [
                 const Icon(Icons.timer, size: 20, color: Color(0xFF70E0BA)),
-                const SizedBox(width: 8),
                 Text(
                   'Turnieruhr: ${_formatDuration(timing.elapsed)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.white,
+                  ),
                 ),
               ],
             ),
             Text(
               '$progressPercent% Gesamt',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF70E0BA)),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Color(0xFF70E0BA),
+              ),
             ),
           ],
         ),
@@ -1314,11 +1788,7 @@ class _TournamentSecondScreenViewState
 
         // Stages breakdown
         if (expand)
-          Expanded(
-            child: SingleChildScrollView(
-              child: breakdownContent,
-            ),
-          )
+          Expanded(child: SingleChildScrollView(child: breakdownContent))
         else
           breakdownContent,
       ],
@@ -1328,22 +1798,34 @@ class _TournamentSecondScreenViewState
   Widget _buildHighlightItem(String label, String value) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.white54)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.white54),
+        ),
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF70E0BA)),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF70E0BA),
+          ),
         ),
       ],
     );
   }
 
-  List<PlayerStanding> _calculateGroupStandings(TournamentGroup group, List<String> tieBreakers) {
+  List<PlayerStanding> _calculateGroupStandings(
+    TournamentGroup group,
+    List<String> tieBreakers,
+  ) {
     final standings = {
       for (final player in group.players) player.name: PlayerStanding(player),
     };
 
-    for (final match in group.matches.where((m) => m.hasResult && !m.isDecider)) {
+    for (final match in group.matches.where(
+      (m) => m.hasResult && !m.isDecider,
+    )) {
       final homePlayer = match.homePlayer;
       final awayPlayer = match.awayPlayer;
       if (homePlayer == null || awayPlayer == null) continue;
